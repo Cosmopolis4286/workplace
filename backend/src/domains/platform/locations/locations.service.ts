@@ -89,9 +89,7 @@ export class LocationsService {
       }
     } else {
       if (!dto.parentId) {
-        throw new BadRequestException(
-          `parentId es requerido para ${dto.type}`
-        );
+        throw new BadRequestException(`parentId es requerido para ${dto.type}`);
       }
       const expectedParentType =
         dto.type === VeLocationType.CIUDAD

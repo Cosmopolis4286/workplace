@@ -25,11 +25,19 @@ export function setAuthCookies(
   const base = cookieBaseOptions(config);
   const accessMaxAgeMs = parseDurationToMs(config.get('JWT_EXPIRES_IN', '15m'));
 
-  res.cookie(ACCESS_TOKEN_COOKIE, accessToken, { ...base, maxAge: accessMaxAgeMs });
+  res.cookie(ACCESS_TOKEN_COOKIE, accessToken, {
+    ...base,
+    maxAge: accessMaxAgeMs,
+  });
 
   if (rememberMe) {
-    const refreshMaxAgeMs = parseDurationToMs(config.get('JWT_REFRESH_EXPIRES_IN', '7d'));
-    res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, { ...base, maxAge: refreshMaxAgeMs });
+    const refreshMaxAgeMs = parseDurationToMs(
+      config.get('JWT_REFRESH_EXPIRES_IN', '7d')
+    );
+    res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
+      ...base,
+      maxAge: refreshMaxAgeMs,
+    });
   } else {
     // "Mantener sesión iniciada" no marcado: cookie de sesión del navegador
     // (sin maxAge) — se borra al cerrar el navegador, aunque el refresh

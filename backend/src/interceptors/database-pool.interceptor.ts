@@ -1,4 +1,9 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+} from '@nestjs/common';
 import { Observable, from, throwError } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
 
@@ -10,18 +15,25 @@ export class DatabasePoolInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     // Verificar límite de conexiones
     if (this.activeConnections >= this.maxConnections) {
-      console.warn(`🚫 Pool de DB saturado: ${this.activeConnections}/${this.maxConnections}`);
-      return throwError(() => 
-        new Error('Database pool temporarily unavailable - too many connections')
+      console.warn(
+        `🚫 Pool de DB saturado: ${this.activeConnections}/${this.maxConnections}`
+      );
+      return throwError(
+        () =>
+          new Error(
+            'Database pool temporarily unavailable - too many connections'
+          )
       );
     }
 
     // Incrementar contador de conexiones activas
     this.activeConnections++;
-    console.log(`🔗 DB Connection: ${this.activeConnections}/${this.maxConnections}`);
+    console.log(
+      `🔗 DB Connection: ${this.activeConnections}/${this.maxConnections}`
+    );
 
     const now = Date.now();
-    
+
     return next.handle().pipe(
       tap(() => {
         // Log éxito y tiempo de respuesta
@@ -37,8 +49,10 @@ export class DatabasePoolInterceptor implements NestInterceptor {
       tap({
         finalize: () => {
           this.activeConnections--;
-          console.log(`🔌 DB Connection released: ${this.activeConnections}/${this.maxConnections}`);
-        }
+          console.log(
+            `🔌 DB Connection released: ${this.activeConnections}/${this.maxConnections}`
+          );
+        },
       })
     );
   }

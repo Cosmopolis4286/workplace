@@ -28,7 +28,8 @@ export class CustomersService {
     const customer = await this.prisma.customer.findUnique({
       where: { id: customerId },
     });
-    if (!customer) throw new NotFoundException(this.i18n.t('customers.not_found'));
+    if (!customer)
+      throw new NotFoundException(this.i18n.t('customers.not_found'));
     if (customer.commerceId !== commerceId)
       throw new ForbiddenException(this.i18n.t('common.errors.access_denied'));
     return customer;

@@ -1,10 +1,11 @@
-// Copia los archivos de traduccion (src/i18n) a dist/i18n tras el build de tsc,
-// que no copia assets que no sean .ts por defecto.
+// Copia los archivos de traduccion (src/i18n) a dist/src/i18n tras el build de
+// tsc, que no copia assets que no sean .ts por defecto. dist/src porque
+// tsconfig usa rootDir "." y app.module los busca en join(__dirname, 'i18n').
 const fs = require('fs');
 const path = require('path');
 
 const src = path.join(__dirname, '..', 'src', 'i18n');
-const dest = path.join(__dirname, '..', 'dist', 'i18n');
+const dest = path.join(__dirname, '..', 'dist', 'src', 'i18n');
 
 function copyDir(srcDir, destDir) {
   fs.mkdirSync(destDir, { recursive: true });

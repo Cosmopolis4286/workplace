@@ -18,7 +18,14 @@ import { SessionCleanupScheduler } from '../../../common/schedulers/session-clea
     UsersModule,
     MailModule,
   ],
-  providers: [AuthService, TwoFactorService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy, SessionCleanupScheduler],
+  providers: [
+    AuthService,
+    TwoFactorService,
+    JwtStrategy,
+    JwtRefreshStrategy,
+    GoogleStrategy,
+    SessionCleanupScheduler,
+  ],
   controllers: [AuthController],
 })
 export class AuthModule {}

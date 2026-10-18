@@ -25,7 +25,7 @@ pnpm type-check && pnpm lint:ci && pnpm format:check && pnpm deps:check && pnpm 
 
 # Frontend
 cd frontend
-node scripts/typecheck-ratchet.mjs
+pnpm type-check:ratchet
 ```
 
 - **Trinquete del typecheck del frontend**: la cantidad de errores por archivo solo puede bajar. Si corregiste errores, corré `node scripts/typecheck-ratchet.mjs --update` y commiteá `typecheck-baseline.json`.

@@ -51,7 +51,8 @@ export class CashService {
     const existing = await this.prisma.cashSession.findFirst({
       where: { commerceId, status: 'OPEN' },
     });
-    if (existing) throw new ConflictException(this.i18n.t('cash.session.already_open'));
+    if (existing)
+      throw new ConflictException(this.i18n.t('cash.session.already_open'));
 
     // El chequeo de arriba deja una ventana de carrera (dos requests
     // concurrentes pueden pasarlo antes de que cualquiera haga el create).
@@ -91,7 +92,10 @@ export class CashService {
       const session = await tx.cashSession.findFirst({
         where: { commerceId, status: 'OPEN' },
       });
-      if (!session) throw new NotFoundException(this.i18n.t('cash.session.no_open_session'));
+      if (!session)
+        throw new NotFoundException(
+          this.i18n.t('cash.session.no_open_session')
+        );
 
       const { expectedAmount } = await this.getSummary(commerceId, session, tx);
       const difference = dto.countedAmount - expectedAmount;
@@ -117,7 +121,8 @@ export class CashService {
     const session = await this.prisma.cashSession.findFirst({
       where: { commerceId, status: 'OPEN' },
     });
-    if (!session) throw new NotFoundException(this.i18n.t('cash.session.no_open_session'));
+    if (!session)
+      throw new NotFoundException(this.i18n.t('cash.session.no_open_session'));
 
     return this.prisma.cashMovement.create({
       data: {
@@ -161,7 +166,8 @@ export class CashService {
       where: { id, commerceId },
       include: { movements: { orderBy: { createdAt: 'desc' } } },
     });
-    if (!session) throw new NotFoundException(this.i18n.t('cash.session.not_found'));
+    if (!session)
+      throw new NotFoundException(this.i18n.t('cash.session.not_found'));
     return session;
   }
 

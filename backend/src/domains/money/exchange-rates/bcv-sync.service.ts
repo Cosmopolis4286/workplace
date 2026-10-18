@@ -51,7 +51,9 @@ export class BcvSyncService {
    * entirely if that also had a hiccup). Disabling verification for this one
    * known host restores the primary source; nothing else uses this agent.
    */
-  private readonly bcvHttpsAgent = new https.Agent({ rejectUnauthorized: false });
+  private readonly bcvHttpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+  });
 
   // Venezuela timezone
   private readonly VENEZUELA_TZ = 'America/Caracas';
@@ -71,7 +73,7 @@ export class BcvSyncService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly config: ConfigService,
+    private readonly config: ConfigService
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -91,20 +93,22 @@ export class BcvSyncService {
     const scrapingResult = await this.withRetries(
       () => this.fetchFromBCVScraping(),
       'BCV scraping',
-      attemptErrors,
+      attemptErrors
     );
     if (scrapingResult) {
       await this.updateCurrencyRate(currencyCode, scrapingResult);
       await this.cacheResult(cacheKey, scrapingResult);
       await this.resetSyncAttempts(currencyCode);
-      this.logger.log(`BCV scraping successful: ${scrapingResult.rate} VES/USD`);
+      this.logger.log(
+        `BCV scraping successful: ${scrapingResult.rate} VES/USD`
+      );
       return scrapingResult;
     }
 
     const apiResult = await this.withRetries(
       () => this.fetchFromExternalAPI(),
       'API fallback',
-      attemptErrors,
+      attemptErrors
     );
     if (apiResult) {
       await this.updateCurrencyRate(currencyCode, apiResult);
@@ -123,7 +127,7 @@ export class BcvSyncService {
     await this.incrementSyncAttempts(currencyCode, summary);
     this.logger.error(`Sync failed for ${currencyCode}: ${summary}`);
     throw new Error(
-      `No se pudo sincronizar ${currencyCode}: el BCV y las fuentes de respaldo no respondieron. Intenta de nuevo en unos minutos.`,
+      `No se pudo sincronizar ${currencyCode}: el BCV y las fuentes de respaldo no respondieron. Intenta de nuevo en unos minutos.`
     );
   }
 
@@ -135,7 +139,7 @@ export class BcvSyncService {
   private async withRetries(
     fn: () => Promise<BCVRateResult | null>,
     label: string,
-    errors: string[],
+    errors: string[]
   ): Promise<BCVRateResult | null> {
     for (let attempt = 1; attempt <= this.MAX_RETRIES_PER_SOURCE; attempt++) {
       try {
@@ -144,7 +148,9 @@ export class BcvSyncService {
         errors.push(`${label}: no data (attempt ${attempt})`);
       } catch (error) {
         errors.push(`${label}: ${error.message} (attempt ${attempt})`);
-        this.logger.warn(`${label} attempt ${attempt} failed: ${error.message}`);
+        this.logger.warn(
+          `${label} attempt ${attempt} failed: ${error.message}`
+        );
       }
 
       if (attempt < this.MAX_RETRIES_PER_SOURCE) {
@@ -155,13 +161,15 @@ export class BcvSyncService {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
    * Get cached rate or fetch new one
    */
-  async getCurrentRate(currencyCode: string = 'VES'): Promise<BCVRateResult | null> {
+  async getCurrentRate(
+    currencyCode: string = 'VES'
+  ): Promise<BCVRateResult | null> {
     const cacheKey = `bcv_rate:${currencyCode}`;
 
     // Try cache first
@@ -183,7 +191,9 @@ export class BcvSyncService {
   /**
    * Get sync status for a currency
    */
-  async getSyncStatus(currencyCode: string = 'VES'): Promise<SyncStatus | null> {
+  async getSyncStatus(
+    currencyCode: string = 'VES'
+  ): Promise<SyncStatus | null> {
     const currency = await this.prisma.exchangeRate.findUnique({
       where: { code: currencyCode.toUpperCase() },
     });
@@ -231,16 +241,21 @@ export class BcvSyncService {
       // — la fila todavía no existe), así que se llama directo a las fuentes.
       let initialRate = 0;
       let source = 'MANUAL';
-      let syncError: string | null = 'Creada automáticamente sin datos reales aún — pendiente de la primera sincronización.';
+      let syncError: string | null =
+        'Creada automáticamente sin datos reales aún — pendiente de la primera sincronización.';
       try {
-        const result = await this.fetchFromBCVScraping().catch(() => this.fetchFromExternalAPI());
+        const result = await this.fetchFromBCVScraping().catch(() =>
+          this.fetchFromExternalAPI()
+        );
         if (result) {
           initialRate = result.rate;
           source = result.source;
           syncError = null;
         }
       } catch (error) {
-        this.logger.warn(`Could not fetch initial VES rate on creation: ${error.message}`);
+        this.logger.warn(
+          `Could not fetch initial VES rate on creation: ${error.message}`
+        );
       }
 
       rate = await this.prisma.exchangeRate.create({
@@ -264,26 +279,48 @@ export class BcvSyncService {
       });
 
       if (initialRate > 0) {
-        await this.cacheResult(`bcv_rate:${code}`, { rate: initialRate, date: this.getEffectiveDateForVenezuela(), source: source as BCVRateResult['source'], confidence: 'high' });
+        await this.cacheResult(`bcv_rate:${code}`, {
+          rate: initialRate,
+          date: this.getEffectiveDateForVenezuela(),
+          source: source as BCVRateResult['source'],
+          confidence: 'high',
+        });
       }
     } else if (!rate.isActive) {
       // Existía pero estaba desactivada (ej. un admin la desactivó por error,
       // o quedó de una limpieza manual) — reactivarla es parte de "garantizar
       // que exista y funcione", no solo "garantizar la fila en DB".
-      this.logger.warn('VES exchange rate exists but is inactive — reactivating it');
-      rate = await this.prisma.exchangeRate.update({ where: { code }, data: { isActive: true } });
+      this.logger.warn(
+        'VES exchange rate exists but is inactive — reactivating it'
+      );
+      rate = await this.prisma.exchangeRate.update({
+        where: { code },
+        data: { isActive: true },
+      });
     }
 
     if (!rate.autoSync) {
-      await this.prisma.exchangeRate.update({ where: { code }, data: { autoSync: true } });
+      await this.prisma.exchangeRate.update({
+        where: { code },
+        data: { autoSync: true },
+      });
     }
 
-    const anyDefault = await this.prisma.exchangeRate.findFirst({ where: { isDefault: true } });
+    const anyDefault = await this.prisma.exchangeRate.findFirst({
+      where: { isDefault: true },
+    });
     if (!anyDefault) {
-      this.logger.log('No default currency set — setting VES as the app default');
-      await this.prisma.exchangeRate.update({ where: { code }, data: { isDefault: true } });
+      this.logger.log(
+        'No default currency set — setting VES as the app default'
+      );
+      await this.prisma.exchangeRate.update({
+        where: { code },
+        data: { isDefault: true },
+      });
     } else if (anyDefault.code !== code) {
-      this.logger.debug(`Default currency is already ${anyDefault.code} — leaving it as-is`);
+      this.logger.debug(
+        `Default currency is already ${anyDefault.code} — leaving it as-is`
+      );
     }
   }
 
@@ -295,7 +332,9 @@ export class BcvSyncService {
       where: { code: currencyCode.toUpperCase() },
       data: { autoSync: enabled },
     });
-    this.logger.log(`Auto-sync ${enabled ? 'enabled' : 'disabled'} for ${currencyCode}`);
+    this.logger.log(
+      `Auto-sync ${enabled ? 'enabled' : 'disabled'} for ${currencyCode}`
+    );
   }
 
   /**
@@ -330,14 +369,18 @@ export class BcvSyncService {
 
     if (!currency || !currency.autoSync || !currency.isActive) return false;
 
-    const isStale = currency.lastSyncAt ? this.isRateStale(currency.lastSyncAt) : true;
+    const isStale = currency.lastSyncAt
+      ? this.isRateStale(currency.lastSyncAt)
+      : true;
     if (!isStale) return false;
 
     try {
       await this.syncCurrency(currency.code);
       return true;
     } catch (error) {
-      this.logger.warn(`ensureFreshRate: sync failed for ${currency.code}: ${error.message}`);
+      this.logger.warn(
+        `ensureFreshRate: sync failed for ${currency.code}: ${error.message}`
+      );
       return false;
     }
   }
@@ -351,7 +394,7 @@ export class BcvSyncService {
       orderBy: { code: 'asc' },
     });
 
-    return currencies.map(currency => ({
+    return currencies.map((currency) => ({
       currencyCode: currency.code,
       lastSyncAt: currency.lastSyncAt,
       syncSource: currency.syncSource,
@@ -359,7 +402,9 @@ export class BcvSyncService {
       syncAttempts: currency.syncAttempts,
       autoSync: currency.autoSync,
       currentRate: currency.rateToUsd,
-      isStale: currency.lastSyncAt ? this.isRateStale(currency.lastSyncAt) : true,
+      isStale: currency.lastSyncAt
+        ? this.isRateStale(currency.lastSyncAt)
+        : true,
     }));
   }
 
@@ -377,8 +422,10 @@ export class BcvSyncService {
       timeout: 10000,
       httpsAgent: this.bcvHttpsAgent,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'es-VE,es;q=0.9',
       },
     });
@@ -407,7 +454,9 @@ export class BcvSyncService {
     // audite un valor sospechoso después.
     const [minRate, maxRate] = extracted.fromSelector ? [1, 1000] : [20, 500];
     if (rate < minRate || rate > maxRate) {
-      throw new Error(`Rate ${rate} seems unreasonable (source: ${extracted.fromSelector ? 'selector' : 'generic fallback'})`);
+      throw new Error(
+        `Rate ${rate} seems unreasonable (source: ${extracted.fromSelector ? 'selector' : 'generic fallback'})`
+      );
     }
 
     return {
@@ -415,19 +464,25 @@ export class BcvSyncService {
       date,
       source: 'BCV_SCRAPING',
       confidence: extracted.fromSelector ? 'high' : 'low',
-      rawData: { url: this.BCV_URL, extractedText: extracted.text, fromSelector: extracted.fromSelector },
+      rawData: {
+        url: this.BCV_URL,
+        extractedText: extracted.text,
+        fromSelector: extracted.fromSelector,
+      },
     };
   }
 
-  private extractRateFromHTML($: cheerio.CheerioAPI): { text: string; fromSelector: boolean } | null {
+  private extractRateFromHTML(
+    $: cheerio.CheerioAPI
+  ): { text: string; fromSelector: boolean } | null {
     // BCV website selectors based on actual HTML structure
     // Reference: <div id="dolar"><div class="centrado"><strong>487,11920000</strong></div></div>
     const selectors = [
-      '#dolar .centrado strong',              // Current BCV format (screenshot confirmed)
-      '#dolar strong',                        // Simplified selector
-      '#dolar .col-sm-6.centrado strong',     // With bootstrap grid class
-      '#euro .centrado strong',               // Euro rate (same structure)
-      '#dolar .recuadro .centrado strong',    // Legacy BCV format
+      '#dolar .centrado strong', // Current BCV format (screenshot confirmed)
+      '#dolar strong', // Simplified selector
+      '#dolar .col-sm-6.centrado strong', // With bootstrap grid class
+      '#euro .centrado strong', // Euro rate (same structure)
+      '#dolar .recuadro .centrado strong', // Legacy BCV format
       '.tipo-cambio .valor',
       '[data-currency="USD"] .rate',
       'table.tipo-cambio td:contains("USD")',
@@ -475,7 +530,7 @@ export class BcvSyncService {
         const response = await axios.get(apiUrl, {
           timeout: 8000,
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
           },
         });
 
@@ -508,8 +563,10 @@ export class BcvSyncService {
    */
   private extractRateFromApiResponse(data: any): number | null {
     if (data?.rates?.VES) return parseFloat(data.rates.VES);
-    if (data?.rates?.USD && data?.base === 'VES') return 1 / parseFloat(data.rates.USD);
-    if (data?.conversion_rates?.VES) return parseFloat(data.conversion_rates.VES);
+    if (data?.rates?.USD && data?.base === 'VES')
+      return 1 / parseFloat(data.rates.USD);
+    if (data?.conversion_rates?.VES)
+      return parseFloat(data.conversion_rates.VES);
     return null;
   }
 
@@ -528,7 +585,7 @@ export class BcvSyncService {
   // primera haga commit antes de leer, así que ve el rateToUsd ya actualizado.
   private async updateCurrencyRate(
     currencyCode: string,
-    result: BCVRateResult,
+    result: BCVRateResult
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<{ id: string; rateToUsd: number }[]>`
@@ -563,7 +620,10 @@ export class BcvSyncService {
     });
   }
 
-  private async incrementSyncAttempts(currencyCode: string, error: string): Promise<void> {
+  private async incrementSyncAttempts(
+    currencyCode: string,
+    error: string
+  ): Promise<void> {
     await this.prisma.exchangeRate.update({
       where: { code: currencyCode.toUpperCase() },
       data: {
@@ -587,11 +647,16 @@ export class BcvSyncService {
   // CACHE OPERATIONS
   // ─────────────────────────────────────────────────────────────────────────────
 
-  private async cacheResult(cacheKey: string, result: BCVRateResult): Promise<void> {
+  private async cacheResult(
+    cacheKey: string,
+    result: BCVRateResult
+  ): Promise<void> {
     await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(result));
   }
 
-  private async getCachedResult(cacheKey: string): Promise<BCVRateResult | null> {
+  private async getCachedResult(
+    cacheKey: string
+  ): Promise<BCVRateResult | null> {
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       try {
@@ -631,7 +696,8 @@ export class BcvSyncService {
     const venezuelaTime = this.toVenezuelaTime(now);
 
     // BCV typically updates after 4:30 PM Venezuela time
-    const isAfterUpdateTime = venezuelaTime.getHours() >= 16 && venezuelaTime.getMinutes() >= 30;
+    const isAfterUpdateTime =
+      venezuelaTime.getHours() >= 16 && venezuelaTime.getMinutes() >= 30;
 
     const effectiveDate = new Date(venezuelaTime);
 
@@ -652,14 +718,17 @@ export class BcvSyncService {
    * Convert UTC date to Venezuela timezone
    */
   private toVenezuelaTime(date: Date): Date {
-    return new Date(date.toLocaleString('en-US', { timeZone: this.VENEZUELA_TZ }));
+    return new Date(
+      date.toLocaleString('en-US', { timeZone: this.VENEZUELA_TZ })
+    );
   }
 
   /**
    * Check if a rate is stale (older than STALE_THRESHOLD_HOURS)
    */
   private isRateStale(lastSyncAt: Date): boolean {
-    const hoursSinceSync = (Date.now() - lastSyncAt.getTime()) / (1000 * 60 * 60);
+    const hoursSinceSync =
+      (Date.now() - lastSyncAt.getTime()) / (1000 * 60 * 60);
     return hoursSinceSync > this.STALE_THRESHOLD_HOURS;
   }
 }

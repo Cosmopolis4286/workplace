@@ -2,16 +2,49 @@ import { Role } from '@prisma/client';
 import type { Capability } from '../../../common/capabilities/capabilities.service';
 
 export type NavIconKey =
-  | 'dashboard' | 'menu' | 'inventory' | 'services' | 'requests' | 'rides'
-  | 'wallet' | 'sales' | 'analytics' | 'reports' | 'ventas_group' | 'ops_group'
-  | 'empresa_group' | 'orders' | 'appointments' | 'customers' | 'profile'
-  | 'home' | 'delivery' | 'employees' | 'jobs' | 'branches' | 'modules' | 'cash'
-  | 'opportunities' | 'ai_assistant'
+  | 'dashboard'
+  | 'menu'
+  | 'inventory'
+  | 'services'
+  | 'requests'
+  | 'rides'
+  | 'wallet'
+  | 'sales'
+  | 'analytics'
+  | 'reports'
+  | 'ventas_group'
+  | 'ops_group'
+  | 'empresa_group'
+  | 'orders'
+  | 'appointments'
+  | 'customers'
+  | 'profile'
+  | 'home'
+  | 'delivery'
+  | 'employees'
+  | 'jobs'
+  | 'branches'
+  | 'modules'
+  | 'cash'
+  | 'opportunities'
+  | 'ai_assistant'
   // Íconos únicos por concepto (evitan compartir glifo entre conceptos no
   // relacionados — ver auditoría de sidebar que motivó esta separación)
-  | 'users_admin' | 'kyc' | 'plan' | 'commissions' | 'categories' | 'pricing'
-  | 'search_tabs' | 'permissions' | 'report_issue' | 'locations' | 'audit' | 'logs'
-  | 'purchases' | 'suppliers' | 'accounts';
+  | 'users_admin'
+  | 'kyc'
+  | 'plan'
+  | 'commissions'
+  | 'categories'
+  | 'pricing'
+  | 'search_tabs'
+  | 'permissions'
+  | 'report_issue'
+  | 'locations'
+  | 'audit'
+  | 'logs'
+  | 'purchases'
+  | 'suppliers'
+  | 'accounts';
 
 export interface NavNodeCondition {
   /** Permission key requerida (formato "modulo:accion"); null = sin requisito */
@@ -54,10 +87,18 @@ export interface NavItemDef {
 }
 
 export type NavSectionId =
-  | 'top' | 'catalog' | 'activity' | 'sales' | 'operations' | 'company'
-  | 'administration-people' | 'administration-catalog'
-  | 'administration-money' | 'administration-system'
-  | 'my-account' | 'business';
+  | 'top'
+  | 'catalog'
+  | 'activity'
+  | 'sales'
+  | 'operations'
+  | 'company'
+  | 'administration-people'
+  | 'administration-catalog'
+  | 'administration-money'
+  | 'administration-system'
+  | 'my-account'
+  | 'business';
 
 export interface NavSectionDef {
   id: NavSectionId;

@@ -5,7 +5,9 @@ const SQL_IDENTIFIER_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 function assertSafeIdentifier(value: string, label: string): void {
   if (!SQL_IDENTIFIER_PATTERN.test(value)) {
-    throw new BadRequestException(`${label} contiene caracteres no permitidos: ${value}`);
+    throw new BadRequestException(
+      `${label} contiene caracteres no permitidos: ${value}`
+    );
   }
 }
 
@@ -68,12 +70,14 @@ export class MigrationStrategyService {
     assertSafeIdentifier(tableName, 'tableName');
     assertSafeIdentifier(oldColumnName, 'oldColumnName');
     assertSafeIdentifier(newColumnName, 'newColumnName');
-    this.logger.log(`🏷️ Renombrando columna ${oldColumnName} → ${newColumnName} en ${tableName}`);
+    this.logger.log(
+      `🏷️ Renombrando columna ${oldColumnName} → ${newColumnName} en ${tableName}`
+    );
 
     try {
       // Fase 1: Agregar nueva columna
       await this.addColumnSafely(tableName, newColumnName, 'TEXT');
-      
+
       // Fase 2: Copiar datos de columna vieja a nueva
       await this.prisma.$executeRawUnsafe(
         `UPDATE "${tableName}" SET "${newColumnName}_new" = "${oldColumnName}"`
@@ -81,10 +85,11 @@ export class MigrationStrategyService {
 
       // Fase 3: Deploy backend que usa nueva columna
       this.logger.log(`⏳ Esperando deploy que use nueva columna...`);
-      
+
       // Fase 4: Eliminar columna vieja (en siguiente deploy)
-      this.logger.log(`📝 Lista para eliminar columna vieja en siguiente deploy`);
-      
+      this.logger.log(
+        `📝 Lista para eliminar columna vieja en siguiente deploy`
+      );
     } catch (error) {
       this.logger.error(`❌ Error renombrando columna: ${error.message}`);
       throw error;
@@ -101,7 +106,9 @@ export class MigrationStrategyService {
   ): Promise<void> {
     assertSafeIdentifier(tableName, 'tableName');
     assertSafeIdentifier(columnName, 'columnName');
-    this.logger.log(`🔄 Cambiando tipo de columna ${columnName} en ${tableName} a ${newType}`);
+    this.logger.log(
+      `🔄 Cambiando tipo de columna ${columnName} en ${tableName} a ${newType}`
+    );
 
     try {
       // 1. Agregar nueva columna con nuevo tipo
@@ -117,10 +124,9 @@ export class MigrationStrategyService {
 
       // 3. Deploy backend que usa nueva columna
       this.logger.log(`⏳ Esperando deploy que use nueva columna tipada...`);
-      
+
       // 4. Eliminar columna vieja y renombrar nueva (en siguiente deploy)
       this.logger.log(`📝 Lista para reemplazar columna en siguiente deploy`);
-      
     } catch (error) {
       this.logger.error(`❌ Error cambiando tipo de columna: ${error.message}`);
       throw error;
@@ -143,12 +149,15 @@ export class MigrationStrategyService {
 
       // 2. Deploy backend que ya no usa la tabla
       this.logger.log(`⏳ Esperando deploy que no use tabla ${tableName}...`);
-      
+
       // 3. Eliminar tabla completamente (en siguiente deploy)
-      this.logger.log(`📝 Lista para eliminar tabla completamente en siguiente deploy`);
-      
+      this.logger.log(
+        `📝 Lista para eliminar tabla completamente en siguiente deploy`
+      );
     } catch (error) {
-      this.logger.error(`❌ Error preparando eliminación de tabla: ${error.message}`);
+      this.logger.error(
+        `❌ Error preparando eliminación de tabla: ${error.message}`
+      );
       throw error;
     }
   }
@@ -164,13 +173,13 @@ export class MigrationStrategyService {
   ): Promise<void> {
     assertSafeIdentifier(tableName, 'tableName');
     assertSafeIdentifier(indexName, 'indexName');
-    columns.forEach(col => assertSafeIdentifier(col, 'column'));
+    columns.forEach((col) => assertSafeIdentifier(col, 'column'));
     this.logger.log(`📊 Agregando índice ${indexName} a ${tableName}`);
 
     try {
       const uniqueClause = unique ? 'UNIQUE' : '';
-      const columnsStr = columns.map(col => `"${col}"`).join(', ');
-      
+      const columnsStr = columns.map((col) => `"${col}"`).join(', ');
+
       await this.prisma.$executeRawUnsafe(
         `CREATE ${uniqueClause} INDEX CONCURRENTLY "${indexName}" ON "${tableName}" (${columnsStr})`
       );
@@ -191,7 +200,9 @@ export class MigrationStrategyService {
     batchSize = 1000
   ): Promise<void> {
     assertSafeIdentifier(tableName, 'tableName');
-    this.logger.log(`🔄 Migrando datos en ${tableName} (batch size: ${batchSize})`);
+    this.logger.log(
+      `🔄 Migrando datos en ${tableName} (batch size: ${batchSize})`
+    );
 
     try {
       // 1. Contar registros a migrar
@@ -199,7 +210,7 @@ export class MigrationStrategyService {
         `SELECT COUNT(*) as total FROM "${tableName}"`
       );
       const totalRecords = Number(countResult[0]?.total || 0);
-      
+
       if (totalRecords === 0) {
         this.logger.log(`✅ No hay registros para migrar en ${tableName}`);
         return;
@@ -213,21 +224,28 @@ export class MigrationStrategyService {
 
       while (offset < totalRecords) {
         await this.prisma.$executeRawUnsafe(
-          migrationSQL.replace('LIMIT_CLAUSE', `LIMIT ${batchSize} OFFSET ${offset}`)
+          migrationSQL.replace(
+            'LIMIT_CLAUSE',
+            `LIMIT ${batchSize} OFFSET ${offset}`
+          )
         );
 
         processed += Math.min(batchSize, totalRecords - offset);
         offset += batchSize;
 
-        this.logger.log(`📈 Progreso: ${processed}/${totalRecords} (${Math.round(processed/totalRecords*100)}%)`);
+        this.logger.log(
+          `📈 Progreso: ${processed}/${totalRecords} (${Math.round((processed / totalRecords) * 100)}%)`
+        );
 
         // Pequeña pausa para no sobrecargar la DB
         if (processed % (batchSize * 10) === 0) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
 
-      this.logger.log(`✅ Migración de datos completada: ${processed} registros`);
+      this.logger.log(
+        `✅ Migración de datos completada: ${processed} registros`
+      );
     } catch (error) {
       this.logger.error(`❌ Error en migración de datos: ${error.message}`);
       throw error;
@@ -237,7 +255,10 @@ export class MigrationStrategyService {
   /**
    * Valida que una migración sea backward compatible
    */
-  validateBackwardCompatibility(migrationSQL: string): { safe: boolean; reason?: string } {
+  validateBackwardCompatibility(migrationSQL: string): {
+    safe: boolean;
+    reason?: string;
+  } {
     const dangerousPatterns = [
       /DROP\s+TABLE/i,
       /DROP\s+COLUMN/i,
@@ -258,19 +279,21 @@ export class MigrationStrategyService {
     // Verificar patrones peligrosos
     for (const pattern of dangerousPatterns) {
       if (pattern.test(migrationSQL)) {
-        return { 
-          safe: false, 
-          reason: `Contiene operación potencialmente destructiva: ${pattern.source}` 
+        return {
+          safe: false,
+          reason: `Contiene operación potencialmente destructiva: ${pattern.source}`,
         };
       }
     }
 
     // Verificar que tenga patrones seguros
-    const hasSafePattern = safePatterns.some(pattern => pattern.test(migrationSQL));
+    const hasSafePattern = safePatterns.some((pattern) =>
+      pattern.test(migrationSQL)
+    );
     if (!hasSafePattern && migrationSQL.trim()) {
-      return { 
-        safe: false, 
-        reason: 'No se reconoce como operación segura' 
+      return {
+        safe: false,
+        reason: 'No se reconoce como operación segura',
       };
     }
 

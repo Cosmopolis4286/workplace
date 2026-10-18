@@ -46,7 +46,7 @@ cd /app/backend
 
 # Correr migraciones (idempotente - seguro en prod y test)
 echo "🗄️  Aplicando migraciones de base de datos..."
-node_modules/.bin/prisma migrate deploy
+PRISMA=node_modules/.bin/prisma sh scripts/migrate-deploy.sh
 
 # Iniciar aplicación
 echo "🚀 Iniciando aplicación backend..."

@@ -24,18 +24,26 @@ import { RolesGuard } from '../../../common/guards/roles.guard';
 import { EmailVerifiedGuard } from '../../../common/guards/email-verified.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
-import { RateLimitGuard, RateLimit } from '../../../common/guards/rate-limit.guard';
+import {
+  RateLimitGuard,
+  RateLimit,
+} from '../../../common/guards/rate-limit.guard';
 import { WalletDepositRequestsService } from './wallet-deposit-requests.service';
 import { CreateDepositRequestDto } from './dto/create-deposit-request.dto';
 import { ReviewDepositRequestDto } from './dto/review-deposit-request.dto';
 
 // Fuera de "uploads/" (público) por la misma razón que KYC — el comprobante
 // puede tener datos bancarios/personales, solo se sirve autenticado.
-const DEPOSIT_PROOF_DIR = join(process.cwd(), 'private-uploads', 'wallet-deposit-proofs');
+const DEPOSIT_PROOF_DIR = join(
+  process.cwd(),
+  'private-uploads',
+  'wallet-deposit-proofs'
+);
 
 const proofStorage = diskStorage({
   destination: (_req, _file, cb) => {
-    if (!existsSync(DEPOSIT_PROOF_DIR)) mkdirSync(DEPOSIT_PROOF_DIR, { recursive: true });
+    if (!existsSync(DEPOSIT_PROOF_DIR))
+      mkdirSync(DEPOSIT_PROOF_DIR, { recursive: true });
     cb(null, DEPOSIT_PROOF_DIR);
   },
   filename: (_req, file, cb) => {
@@ -46,7 +54,10 @@ const proofStorage = diskStorage({
 
 const proofFileFilter = (_req: any, file: Express.Multer.File, cb: any) => {
   if (!file.mimetype.match(/^image\/(jpeg|png|webp)$/)) {
-    return cb(new BadRequestException('Solo se permiten imágenes (jpeg, png, webp)'), false);
+    return cb(
+      new BadRequestException('Solo se permiten imágenes (jpeg, png, webp)'),
+      false
+    );
   }
   cb(null, true);
 };
@@ -63,23 +74,44 @@ export class WalletDepositRequestsController {
 
   @Post()
   @UseGuards(EmailVerifiedGuard)
-  @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `deposit-req:create:${(req as any).user?.id}` })
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 10,
+    keyGenerator: (req) => `deposit-req:create:${(req as any).user?.id}`,
+  })
   @UseInterceptors(
-    FileInterceptor('proofImage', { storage: proofStorage, fileFilter: proofFileFilter, limits: { fileSize: 8 * 1024 * 1024 } }),
+    FileInterceptor('proofImage', {
+      storage: proofStorage,
+      fileFilter: proofFileFilter,
+      limits: { fileSize: 8 * 1024 * 1024 },
+    })
   )
   create(
     @CurrentUser() user: any,
     @Body() dto: CreateDepositRequestDto,
-    @UploadedFile() proofImage: Express.Multer.File,
+    @UploadedFile() proofImage: Express.Multer.File
   ) {
-    if (!proofImage) throw new BadRequestException('Falta la imagen del comprobante');
-    return this.service.create(user.id, dto, `private-wallet-deposit-proofs/${proofImage.filename}`);
+    if (!proofImage)
+      throw new BadRequestException('Falta la imagen del comprobante');
+    return this.service.create(
+      user.id,
+      dto,
+      `private-wallet-deposit-proofs/${proofImage.filename}`
+    );
   }
 
   // Comprobante — dueño o admin, autenticado (misma razón que KYC).
   @Get(':id/proof-image')
-  async getProofImage(@Param('id') id: string, @CurrentUser() user: any, @Res() res: Response) {
-    const filename = await this.service.resolveImageFilename(id, user.id, user.role);
+  async getProofImage(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Res() res: Response
+  ) {
+    const filename = await this.service.resolveImageFilename(
+      id,
+      user.id,
+      user.role
+    );
     return res.sendFile(filename, { root: DEPOSIT_PROOF_DIR });
   }
 
@@ -93,8 +125,16 @@ export class WalletDepositRequestsController {
 
   @Patch('admin/:id/review')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  @RateLimit({ windowMs: 60_000, maxRequests: 30, keyGenerator: (req) => `deposit-req:review:${(req as any).user?.id}` })
-  review(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: ReviewDepositRequestDto) {
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 30,
+    keyGenerator: (req) => `deposit-req:review:${(req as any).user?.id}`,
+  })
+  review(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: ReviewDepositRequestDto
+  ) {
     return this.service.review(id, user.id, dto);
   }
 }

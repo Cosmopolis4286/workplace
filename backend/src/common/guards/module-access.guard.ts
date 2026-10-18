@@ -1,7 +1,16 @@
-import { Inject, Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { MODULE_KEY } from '../decorators/require-module.decorator';
-import { PLAN_LIMITS_FACADE, PlanLimitsFacade } from '../../domains/money/plans/plan-limits.facade';
+import {
+  PLAN_LIMITS_FACADE,
+  PlanLimitsFacade,
+} from '../../domains/money/plans/plan-limits.facade';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { isCommerceBoundModule } from '../capabilities/module-requirements';
 
@@ -10,7 +19,7 @@ export class ModuleAccessGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     @Inject(PLAN_LIMITS_FACADE) private planLimits: PlanLimitsFacade,
-    private capabilities: CapabilitiesService,
+    private capabilities: CapabilitiesService
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -27,7 +36,12 @@ export class ModuleAccessGuard implements CanActivate {
 
     // SUPERADMIN/ADMIN/NORMAL: sin restricción de plan/categoría — mismo
     // bypass que ya aplica PlanLimitsService.getPlanLimits() internamente.
-    if (user.role === 'SUPERADMIN' || user.role === 'ADMIN' || user.role === 'NORMAL') return true;
+    if (
+      user.role === 'SUPERADMIN' ||
+      user.role === 'ADMIN' ||
+      user.role === 'NORMAL'
+    )
+      return true;
 
     // Lanza ForbiddenException con el motivo real (plan vs categoría) si
     // effectiveModules (plan ∩ categoría) no incluye el módulo — mismo
@@ -38,8 +52,13 @@ export class ModuleAccessGuard implements CanActivate {
     // Módulos cuyos datos tienen FK a Commerce: sin Commerce no hay sobre qué
     // operar. Antes el service caía a `userId` como commerceId (listas
     // vacías, 400 por FK al escribir) — ver module-requirements.ts.
-    if (isCommerceBoundModule(module) && !(await this.capabilities.has(user.id, 'HAS_COMMERCE'))) {
-      throw new ForbiddenException('Esta función requiere un comercio activo en tu cuenta');
+    if (
+      isCommerceBoundModule(module) &&
+      !(await this.capabilities.has(user.id, 'HAS_COMMERCE'))
+    ) {
+      throw new ForbiddenException(
+        'Esta función requiere un comercio activo en tu cuenta'
+      );
     }
     return true;
   }

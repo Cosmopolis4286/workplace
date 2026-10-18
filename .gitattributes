@@ -1,0 +1,3 @@
+# Los scripts de shell corren dentro de contenedores Linux (algunos desde
+# volúmenes montados desde Windows): siempre LF, o sh falla con $'\r'.
+*.sh text eol=lf

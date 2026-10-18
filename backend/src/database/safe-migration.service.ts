@@ -11,7 +11,7 @@ export class SafeMigrationService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject('RedisService') private readonly redisService?: any,
+    @Inject('RedisService') private readonly redisService?: any
   ) {}
 
   /**
@@ -42,17 +42,22 @@ export class SafeMigrationService {
 
       this.logger.log('✅ Migración segura completada exitosamente');
       return { success: true, message: 'Migración completada exitosamente' };
-
     } catch (error) {
       this.logger.error('❌ Error en migración segura:', error.stack);
-      
+
       // Intentar rollback si es posible
       try {
         await this.attemptRollback();
-        return { success: false, message: `Error: ${error.message}. Rollback intentado.` };
+        return {
+          success: false,
+          message: `Error: ${error.message}. Rollback intentado.`,
+        };
       } catch (rollbackError) {
         this.logger.error('❌ Rollback falló:', rollbackError.stack);
-        return { success: false, message: `Error crítico: ${error.message}. Rollback falló.` };
+        return {
+          success: false,
+          message: `Error crítico: ${error.message}. Rollback falló.`,
+        };
       }
     }
   }
@@ -65,7 +70,9 @@ export class SafeMigrationService {
       await this.prisma.$queryRaw`SELECT 1`;
       this.logger.log('✅ Conexión a base de datos validada');
     } catch (error) {
-      throw new Error(`No se puede conectar a la base de datos: ${error.message}`);
+      throw new Error(
+        `No se puede conectar a la base de datos: ${error.message}`
+      );
     }
   }
 
@@ -75,7 +82,7 @@ export class SafeMigrationService {
   private async createBackup(): Promise<string> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = `/tmp/workplace_db_backup_${timestamp}.sql`;
-    
+
     const dbUrl = process.env.DATABASE_URL;
     if (!dbUrl) {
       throw new Error('DATABASE_URL no está definida');
@@ -93,7 +100,7 @@ export class SafeMigrationService {
       // Crear backup con pg_dump
       const command = `PGPASSWORD="${password}" pg_dump -h ${host} -p ${port} -U ${username} -d ${database} > ${backupPath}`;
       await execAsync(command);
-      
+
       this.logger.log(`✅ Backup creado en: ${backupPath}`);
       return backupPath;
     } catch (error) {
@@ -114,9 +121,11 @@ export class SafeMigrationService {
       `;
 
       if (Array.isArray(result) && result.length > 0) {
-        const pendingMigrations = result.map((m: any) => m.migration_name).join(', ');
+        const pendingMigrations = result
+          .map((m: any) => m.migration_name)
+          .join(', ');
         this.logger.warn(`⚠️ Migraciones pendientes: ${pendingMigrations}`);
-        
+
         // Validar reglas de compatibilidad
         for (const migration of result as any[]) {
           await this.validateSingleMigration(migration.migration_name);
@@ -144,14 +153,14 @@ export class SafeMigrationService {
   private async executeMigrations(): Promise<void> {
     try {
       this.logger.log('🔄 Ejecutando migraciones Prisma...');
-      
+
       // Ejecutar prisma migrate deploy
       const { stdout, stderr } = await execAsync('pnpm prisma migrate deploy');
-      
+
       if (stderr && !stderr.includes('Already in sync')) {
         this.logger.warn(`⚠️ Advertencia en migración: ${stderr}`);
       }
-      
+
       this.logger.log(`✅ Migraciones ejecutadas: ${stdout}`);
     } catch (error) {
       throw new Error(`Error ejecutando migraciones: ${error.message}`);
@@ -165,14 +174,16 @@ export class SafeMigrationService {
     try {
       // Verificar que las tablas críticas existan
       const criticalTables = ['users', 'User', 'accounts', 'Account']; // Ajustar según tu schema
-      
+
       for (const table of criticalTables) {
         try {
           await this.prisma.$queryRaw`SELECT COUNT(*) FROM ${table}`;
           this.logger.log(`✅ Tabla ${table} accesible`);
         } catch (error) {
           // Si la tabla no existe, puede ser normal (fue renombrada/eliminada)
-          this.logger.warn(`⚠️ Tabla ${table} no encontrada (puede ser normal)`);
+          this.logger.warn(
+            `⚠️ Tabla ${table} no encontrada (puede ser normal)`
+          );
         }
       }
 
@@ -199,7 +210,9 @@ export class SafeMigrationService {
         }
         this.logger.log('✅ Conexión a Redis validada');
       } else {
-        this.logger.warn('⚠️ RedisService no disponible - saltando validación Redis');
+        this.logger.warn(
+          '⚠️ RedisService no disponible - saltando validación Redis'
+        );
       }
     } catch (error) {
       throw new Error(`Error validando Redis: ${error.message}`);
@@ -212,11 +225,11 @@ export class SafeMigrationService {
   private async attemptRollback(): Promise<void> {
     try {
       this.logger.log('🔄 Intentando rollback...');
-      
+
       // Para rollback, necesitarías tener migraciones de rollback
       // Por ahora, solo restauramos el backup más reciente
       const latestBackup = await this.getLatestBackup();
-      
+
       if (latestBackup) {
         await this.restoreBackup(latestBackup);
         this.logger.log('✅ Rollback completado desde backup');
@@ -233,7 +246,9 @@ export class SafeMigrationService {
    */
   private async getLatestBackup(): Promise<string | null> {
     try {
-      const { stdout } = await execAsync('ls -t /tmp/workplace_db_backup_*.sql 2>/dev/null | head -n 1');
+      const { stdout } = await execAsync(
+        'ls -t /tmp/workplace_db_backup_*.sql 2>/dev/null | head -n 1'
+      );
       return stdout.trim() || null;
     } catch (error) {
       return null;
@@ -269,9 +284,11 @@ export class SafeMigrationService {
    */
   private async cleanupOldBackups(): Promise<void> {
     try {
-      const { stdout } = await execAsync('ls -t /tmp/workplace_db_backup_*.sql 2>/dev/null | tail -n +6');
+      const { stdout } = await execAsync(
+        'ls -t /tmp/workplace_db_backup_*.sql 2>/dev/null | tail -n +6'
+      );
       const oldBackups = stdout.trim().split('\n').filter(Boolean);
-      
+
       for (const backup of oldBackups) {
         await execAsync(`rm ${backup}`);
         this.logger.log(`🗑️ Backup antiguo eliminado: ${backup}`);

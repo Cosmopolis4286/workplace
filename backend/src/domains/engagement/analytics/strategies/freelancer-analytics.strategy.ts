@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { QueryAnalyticsDto } from '../dto/query-analytics.dto';
 import { ServiceRequestStatus } from '@prisma/client';
-import { AnalyticsAccountStrategy, AnalyticsDashboardTrends } from './analytics-overview.strategy.interface';
+import {
+  AnalyticsAccountStrategy,
+  AnalyticsDashboardTrends,
+} from './analytics-overview.strategy.interface';
 import {
   startOfDay,
   endOfDay,
@@ -43,11 +46,22 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
       performance,
     ] = await Promise.all([
       this.getFreelancerKpis(providerId, current.from, current.to),
-      previous ? this.getFreelancerKpis(providerId, previous.from, previous.to) : null,
-      this.getFreelancerRevenueTrend(providerId, current.from, current.to, period),
+      previous
+        ? this.getFreelancerKpis(providerId, previous.from, previous.to)
+        : null,
+      this.getFreelancerRevenueTrend(
+        providerId,
+        current.from,
+        current.to,
+        period
+      ),
       this.getFreelancerRequestsByHour(providerId, current.from, current.to),
       this.getFreelancerTopServices(providerId, current.from, current.to),
-      this.getFreelancerPerformanceMetrics(providerId, current.from, current.to),
+      this.getFreelancerPerformanceMetrics(
+        providerId,
+        current.from,
+        current.to
+      ),
     ]);
 
     return {
@@ -62,9 +76,15 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
         : null,
       kpis: {
         totalRevenue: kpis.totalRevenue,
-        totalRevenueChange: pct(kpis.totalRevenue, prevKpis?.totalRevenue ?? null),
+        totalRevenueChange: pct(
+          kpis.totalRevenue,
+          prevKpis?.totalRevenue ?? null
+        ),
         totalOrders: kpis.totalRequests,
-        totalOrdersChange: pct(kpis.totalRequests, prevKpis?.totalRequests ?? null),
+        totalOrdersChange: pct(
+          kpis.totalRequests,
+          prevKpis?.totalRequests ?? null
+        ),
         avgTicket: kpis.avgTicket,
         avgTicketChange: pct(kpis.avgTicket, prevKpis?.avgTicket ?? null),
         newCustomers: kpis.newClients,
@@ -103,34 +123,52 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
       }),
     ]);
 
-    const totalRevenue = closedInPeriod.reduce((sum, r) => sum + (r.price ?? 0), 0);
-    const avgTicket = closedInPeriod.length > 0
-      ? Math.round((totalRevenue / closedInPeriod.length) * 100) / 100
-      : 0;
+    const totalRevenue = closedInPeriod.reduce(
+      (sum, r) => sum + (r.price ?? 0),
+      0
+    );
+    const avgTicket =
+      closedInPeriod.length > 0
+        ? Math.round((totalRevenue / closedInPeriod.length) * 100) / 100
+        : 0;
     // Clientes nuevos: identificados por usuario si autenticó, o por teléfono si fue anónimo.
     // (no se usa `distinct` de Prisma porque trata todos los requesterId=null
     // como un solo grupo, subcontando clientes anónimos distintos)
-    const newClients = new Set(requesterIds.map((r) => r.requesterId ?? r.clientPhone)).size;
+    const newClients = new Set(
+      requesterIds.map((r) => r.requesterId ?? r.clientPhone)
+    ).size;
 
     return { totalRevenue, totalRequests, avgTicket, newClients };
   }
 
-  private async getFreelancerRevenueTrend(providerId: string, from: Date, to: Date, period: string) {
+  private async getFreelancerRevenueTrend(
+    providerId: string,
+    from: Date,
+    to: Date,
+    period: string
+  ) {
     const closed = await this.prisma.serviceRequest.findMany({
-      where: { providerId, status: CLOSED, statusUpdatedAt: { gte: from, lte: to } },
+      where: {
+        providerId,
+        status: CLOSED,
+        statusUpdatedAt: { gte: from, lte: to },
+      },
       select: { price: true, statusUpdatedAt: true },
     });
 
-    const days = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const days =
+      Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const labels: string[] = [];
     const values: number[] = [];
 
     const fmt =
       period === '1y'
-        ? (d: Date) => d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' })
+        ? (d: Date) =>
+            d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' })
         : period === 'today'
           ? (d: Date) => `${d.getHours()}:00`
-          : (d: Date) => d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+          : (d: Date) =>
+              d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
 
     if (period === 'today') {
       const hourly: number[] = Array(24).fill(0);
@@ -174,16 +212,24 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
       closed.forEach((r) => {
         if (!r.statusUpdatedAt) return;
         const d = new Date(r.statusUpdatedAt);
-        const idx = Math.floor((startOfDay(d).getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+        const idx = Math.floor(
+          (startOfDay(d).getTime() - from.getTime()) / (1000 * 60 * 60 * 24)
+        );
         if (idx >= 0 && idx < values.length) values[idx] += r.price ?? 0;
       });
-      values.forEach((_, i) => { values[i] = Math.round(values[i] * 100) / 100; });
+      values.forEach((_, i) => {
+        values[i] = Math.round(values[i] * 100) / 100;
+      });
     }
 
     return { labels, values };
   }
 
-  private async getFreelancerRequestsByHour(providerId: string, from: Date, to: Date) {
+  private async getFreelancerRequestsByHour(
+    providerId: string,
+    from: Date,
+    to: Date
+  ) {
     const requests = await this.prisma.serviceRequest.findMany({
       where: { providerId, createdAt: { gte: from, lte: to } },
       select: { createdAt: true },
@@ -201,9 +247,17 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
     return { labels, values };
   }
 
-  private async getFreelancerTopServices(providerId: string, from: Date, to: Date) {
+  private async getFreelancerTopServices(
+    providerId: string,
+    from: Date,
+    to: Date
+  ) {
     const closed = await this.prisma.serviceRequest.findMany({
-      where: { providerId, status: CLOSED, statusUpdatedAt: { gte: from, lte: to } },
+      where: {
+        providerId,
+        status: CLOSED,
+        statusUpdatedAt: { gte: from, lte: to },
+      },
       select: { serviceName: true, price: true },
     });
 
@@ -227,7 +281,11 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
     };
   }
 
-  private async getFreelancerPerformanceMetrics(providerId: string, from: Date, to: Date) {
+  private async getFreelancerPerformanceMetrics(
+    providerId: string,
+    from: Date,
+    to: Date
+  ) {
     const [statusCounts, allRequests, avgResponseData] = await Promise.all([
       this.prisma.serviceRequest.groupBy({
         by: ['status'],
@@ -236,7 +294,12 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
       }),
       this.prisma.serviceRequest.findMany({
         where: { providerId },
-        select: { requesterId: true, clientPhone: true, status: true, price: true },
+        select: {
+          requesterId: true,
+          clientPhone: true,
+          status: true,
+          price: true,
+        },
       }),
       // Tiempo promedio de respuesta: de creación a primer cambio de estado (proxy: statusUpdatedAt)
       this.prisma.serviceRequest.findMany({
@@ -250,32 +313,57 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
     ]);
 
     const totalInPeriod = statusCounts.reduce((sum, s) => sum + s._count.id, 0);
-    const cancelled = statusCounts.find((s) => s.status === 'CANCELLED')?._count.id ?? 0;
-    const cancellationRate = totalInPeriod > 0 ? Math.round((cancelled / totalInPeriod) * 1000) / 10 : 0;
+    const cancelled =
+      statusCounts.find((s) => s.status === 'CANCELLED')?._count.id ?? 0;
+    const cancellationRate =
+      totalInPeriod > 0
+        ? Math.round((cancelled / totalInPeriod) * 1000) / 10
+        : 0;
 
-    const avgResponseHours = avgResponseData.length > 0
-      ? avgResponseData.reduce((sum, r) => {
-          const hours = (new Date(r.statusUpdatedAt!).getTime() - new Date(r.createdAt).getTime()) / (1000 * 60 * 60);
-          return sum + Math.max(0, hours);
-        }, 0) / avgResponseData.length
-      : 0;
+    const avgResponseHours =
+      avgResponseData.length > 0
+        ? avgResponseData.reduce((sum, r) => {
+            const hours =
+              (new Date(r.statusUpdatedAt!).getTime() -
+                new Date(r.createdAt).getTime()) /
+              (1000 * 60 * 60);
+            return sum + Math.max(0, hours);
+          }, 0) / avgResponseData.length
+        : 0;
 
     // Identificador de cliente único: usuario autenticado o teléfono si fue anónimo.
-    const clientKey = (r: { requesterId: string | null; clientPhone: string }) => r.requesterId ?? r.clientPhone;
+    const clientKey = (r: {
+      requesterId: string | null;
+      clientPhone: string;
+    }) => r.requesterId ?? r.clientPhone;
     const totalClients = new Set(allRequests.map(clientKey)).size;
     const closedRequests = allRequests.filter((r) => r.status === CLOSED);
-    const totalRevenue = closedRequests.reduce((sum, r) => sum + (r.price ?? 0), 0);
+    const totalRevenue = closedRequests.reduce(
+      (sum, r) => sum + (r.price ?? 0),
+      0
+    );
     const totalOrders = closedRequests.length;
-    const avgTicket = totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0;
+    const avgTicket =
+      totalOrders > 0
+        ? Math.round((totalRevenue / totalOrders) * 100) / 100
+        : 0;
 
     const requestsByClient = new Map<string, number>();
     for (const r of allRequests) {
       const key = clientKey(r);
       requestsByClient.set(key, (requestsByClient.get(key) ?? 0) + 1);
     }
-    const returningClients = Array.from(requestsByClient.values()).filter((c) => c > 1).length;
-    const retentionRate = totalClients > 0 ? Math.round((returningClients / totalClients) * 1000) / 10 : 0;
-    const avgOrderFrequency = totalClients > 0 ? Math.round((allRequests.length / totalClients) * 10) / 10 : 0;
+    const returningClients = Array.from(requestsByClient.values()).filter(
+      (c) => c > 1
+    ).length;
+    const retentionRate =
+      totalClients > 0
+        ? Math.round((returningClients / totalClients) * 1000) / 10
+        : 0;
+    const avgOrderFrequency =
+      totalClients > 0
+        ? Math.round((allRequests.length / totalClients) * 10) / 10
+        : 0;
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -298,7 +386,10 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
       growth: {
         newCustomers: newInLast30,
         retentionRate,
-        clv: totalClients > 0 ? Math.round((totalRevenue / totalClients) * 100) / 100 : 0,
+        clv:
+          totalClients > 0
+            ? Math.round((totalRevenue / totalClients) * 100) / 100
+            : 0,
         orderFrequency: avgOrderFrequency,
         totalCustomers: totalClients,
       },
@@ -316,7 +407,9 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
   // solicitudes cerradas, solicitudes nuevas recibidas, clientes nuevos.
   // No hay stock de productos, así que ese widget queda en null (el
   // frontend ya distingue null de 0 real).
-  async getDashboardTrends(providerId: string): Promise<AnalyticsDashboardTrends> {
+  async getDashboardTrends(
+    providerId: string
+  ): Promise<AnalyticsDashboardTrends> {
     const days = 7;
     const today = startOfDay(new Date());
     const from = new Date(today);
@@ -326,12 +419,18 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
     for (let i = 0; i < days; i++) {
       const d = new Date(from);
       d.setDate(d.getDate() + i);
-      labels.push(d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }));
+      labels.push(
+        d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+      );
     }
 
     const [closedRequests, newRequests] = await Promise.all([
       this.prisma.serviceRequest.findMany({
-        where: { providerId, status: CLOSED, statusUpdatedAt: { gte: from, lte: endOfDay(today) } },
+        where: {
+          providerId,
+          status: CLOSED,
+          statusUpdatedAt: { gte: from, lte: endOfDay(today) },
+        },
         select: { statusUpdatedAt: true, price: true },
       }),
       this.prisma.serviceRequest.findMany({
@@ -341,7 +440,10 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
     ]);
 
     const dayIndex = (date: Date) =>
-      Math.floor((startOfDay(new Date(date)).getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+      Math.floor(
+        (startOfDay(new Date(date)).getTime() - from.getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
 
     const salesValues = Array(days).fill(0);
     closedRequests.forEach((r) => {
@@ -362,7 +464,10 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
     const seenClients = new Set<string>();
     const newClientsValues = Array(days).fill(0);
     [...newRequests]
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      )
       .forEach((r) => {
         const key = r.requesterId ?? r.clientPhone;
         if (seenClients.has(key)) return;

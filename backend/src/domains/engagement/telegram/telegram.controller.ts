@@ -17,7 +17,10 @@ import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { RateLimitGuard, RateLimit } from '../../../common/guards/rate-limit.guard';
+import {
+  RateLimitGuard,
+  RateLimit,
+} from '../../../common/guards/rate-limit.guard';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 
 @Controller('telegram')
@@ -25,7 +28,7 @@ export class TelegramController {
   constructor(
     private readonly telegram: TelegramService,
     private readonly prisma: PrismaService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   // ─── Generate link for a customer (commerce use) ─────────────────────────────
@@ -36,7 +39,7 @@ export class TelegramController {
   @Get('link/:customerId')
   async getLink(
     @Param('customerId') customerId: string,
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: { id: string }
   ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
 
@@ -74,7 +77,7 @@ export class TelegramController {
   @HttpCode(200)
   async webhook(
     @Body() body: any,
-    @Headers('x-telegram-bot-api-secret-token') secretToken: string | undefined,
+    @Headers('x-telegram-bot-api-secret-token') secretToken: string | undefined
   ) {
     if (!this.telegram.verifyWebhookSecret(secretToken)) {
       throw new UnauthorizedException();
@@ -93,7 +96,7 @@ export class TelegramController {
     } else if (text === '/start') {
       await this.telegram.sendMessage(
         chatId,
-        '👋 Hola. Para vincular tu cuenta, usa el enlace que te proporcionó el negocio.',
+        '👋 Hola. Para vincular tu cuenta, usa el enlace que te proporcionó el negocio.'
       );
     }
 

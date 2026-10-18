@@ -1,10 +1,22 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
-import { RateLimitGuard, RateLimit } from '../../../common/guards/rate-limit.guard';
+import {
+  RateLimitGuard,
+  RateLimit,
+} from '../../../common/guards/rate-limit.guard';
 import { ProfileActivationsService } from './profile-activations.service';
 import { CreateProfileActivationDto } from './dto/create-profile-activation.dto';
 import { ReviewProfileActivationDto } from './dto/review-profile-activation.dto';
@@ -21,7 +33,11 @@ export class ProfileActivationsController {
   }
 
   @Post()
-  @RateLimit({ windowMs: 60_000 * 60, maxRequests: 5, keyGenerator: (req) => `profile-activation:create:${(req as any).user?.id}` })
+  @RateLimit({
+    windowMs: 60_000 * 60,
+    maxRequests: 5,
+    keyGenerator: (req) => `profile-activation:create:${(req as any).user?.id}`,
+  })
   create(@CurrentUser() user: any, @Body() dto: CreateProfileActivationDto) {
     return this.service.create(user.id, dto);
   }
@@ -34,13 +50,23 @@ export class ProfileActivationsController {
   }
 
   @Patch(':id/deactivate')
-  @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `profile-activation:deactivate:${(req as any).user?.id}` })
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 10,
+    keyGenerator: (req) =>
+      `profile-activation:deactivate:${(req as any).user?.id}`,
+  })
   deactivate(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.deactivate(user.id, id);
   }
 
   @Patch(':id/reactivate')
-  @RateLimit({ windowMs: 60_000, maxRequests: 10, keyGenerator: (req) => `profile-activation:reactivate:${(req as any).user?.id}` })
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 10,
+    keyGenerator: (req) =>
+      `profile-activation:reactivate:${(req as any).user?.id}`,
+  })
   reactivate(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.reactivate(user.id, id);
   }
@@ -55,8 +81,16 @@ export class ProfileActivationsController {
 
   @Patch('admin/:id/review')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  @RateLimit({ windowMs: 60_000, maxRequests: 30, keyGenerator: (req) => `profile-activation:review:${(req as any).user?.id}` })
-  review(@Param('id') id: string, @CurrentUser() user: any, @Body() dto: ReviewProfileActivationDto) {
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 30,
+    keyGenerator: (req) => `profile-activation:review:${(req as any).user?.id}`,
+  })
+  review(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: ReviewProfileActivationDto
+  ) {
     return this.service.review(id, user.id, dto);
   }
 }

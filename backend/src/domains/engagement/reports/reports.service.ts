@@ -1,7 +1,15 @@
-import { Injectable, Inject, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
+import {
+  ReputationFacade,
+  REPUTATION_FACADE,
+} from '../../reputation/reputation.facade';
 import { CreateReportDto } from './dto/create-report.dto';
 import { ModerateReportDto } from './dto/moderate-report.dto';
 
@@ -10,13 +18,13 @@ export class ReportsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-    @Inject(REPUTATION_FACADE) private reputation: ReputationFacade,
+    @Inject(REPUTATION_FACADE) private reputation: ReputationFacade
   ) {}
 
   async create(reporterId: string, dto: CreateReportDto) {
     if (dto.entityType !== 'GENERAL' && !dto.entityId) {
       throw new ForbiddenException(
-        'entityId es requerido para reportar un pedido o solicitud específica',
+        'entityId es requerido para reportar un pedido o solicitud específica'
       );
     }
     if (dto.entityId) {
@@ -55,7 +63,13 @@ export class ReportsService {
       orderBy: { createdAt: 'desc' },
       include: {
         reporter: {
-          select: { id: true, username: true, firstName: true, lastName: true, email: true },
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
         },
       },
     });
@@ -80,7 +94,10 @@ export class ReportsService {
     // RESOLVED de la entidad — cualquier cambio de status (incluido
     // DISMISSED, que sale de ese conjunto) puede mover el score.
     if (report.entityId) {
-      await this.recalculateReputationForReport(report.entityType, report.entityId);
+      await this.recalculateReputationForReport(
+        report.entityType,
+        report.entityId
+      );
     }
 
     return updated;
@@ -88,14 +105,17 @@ export class ReportsService {
 
   private async recalculateReputationForReport(
     entityType: string,
-    entityId: string,
+    entityId: string
   ): Promise<void> {
     if (entityType === 'ORDER') {
       const order = await this.prisma.order.findUnique({
         where: { id: entityId },
         select: { commerceId: true },
       });
-      if (order) this.reputation.recalculate('COMMERCE', order.commerceId).catch(() => {});
+      if (order)
+        this.reputation
+          .recalculate('COMMERCE', order.commerceId)
+          .catch(() => {});
       return;
     }
     if (entityType === 'SERVICE_REQUEST') {
@@ -103,7 +123,10 @@ export class ReportsService {
         where: { id: entityId },
         select: { providerId: true },
       });
-      if (req) this.reputation.recalculate('PROFESSIONAL', req.providerId).catch(() => {});
+      if (req)
+        this.reputation
+          .recalculate('PROFESSIONAL', req.providerId)
+          .catch(() => {});
     }
   }
 
@@ -113,7 +136,7 @@ export class ReportsService {
   private async assertInvolved(
     userId: string,
     entityType: string,
-    entityId: string,
+    entityId: string
   ) {
     if (entityType === 'CATALOG_ORDER') {
       const order = await this.prisma.catalogOrder.findUnique({
@@ -125,7 +148,9 @@ export class ReportsService {
         select: { userId: true },
       });
       if (order.requesterId !== userId && commerce?.userId !== userId) {
-        throw new ForbiddenException('No tienes permiso para reportar este pedido');
+        throw new ForbiddenException(
+          'No tienes permiso para reportar este pedido'
+        );
       }
       return;
     }
@@ -135,7 +160,9 @@ export class ReportsService {
       // público en el catálogo — cualquier usuario autenticado puede
       // reportarlo (ej. sospecha de fraude) sin haberlo contratado antes.
       // Solo se verifica que exista.
-      const service = await this.prisma.service.findUnique({ where: { id: entityId } });
+      const service = await this.prisma.service.findUnique({
+        where: { id: entityId },
+      });
       if (!service) throw new NotFoundException('Servicio no encontrado');
       return;
     }
@@ -146,7 +173,9 @@ export class ReportsService {
       });
       if (!req) throw new NotFoundException('Solicitud no encontrada');
       if (req.requesterId !== userId && req.providerId !== userId) {
-        throw new ForbiddenException('No tienes permiso para reportar esta solicitud');
+        throw new ForbiddenException(
+          'No tienes permiso para reportar esta solicitud'
+        );
       }
       return;
     }
@@ -170,7 +199,9 @@ export class ReportsService {
         order.customerEmail.toLowerCase() === user.email.toLowerCase();
 
       if (!isCustomer && order.commerce.userId !== userId) {
-        throw new ForbiddenException('No tienes permiso para reportar este pedido');
+        throw new ForbiddenException(
+          'No tienes permiso para reportar este pedido'
+        );
       }
       return;
     }

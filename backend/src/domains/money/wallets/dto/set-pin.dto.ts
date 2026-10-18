@@ -15,6 +15,8 @@ export class ChangePinDto {
 
   @IsString()
   @Length(6, 6)
-  @Matches(/^\d{6}$/, { message: 'El nuevo PIN debe ser de 6 dígitos numéricos' })
+  @Matches(/^\d{6}$/, {
+    message: 'El nuevo PIN debe ser de 6 dígitos numéricos',
+  })
   newPin: string;
 }

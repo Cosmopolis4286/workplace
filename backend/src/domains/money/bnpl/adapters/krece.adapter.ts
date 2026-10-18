@@ -31,7 +31,10 @@ export class KreceAdapter implements BnplProviderAdapter {
     return this.fallback.checkStatus(creds, externalReference);
   }
 
-  async cancel(creds: BnplProviderCredentials, externalReference: string): Promise<void> {
+  async cancel(
+    creds: BnplProviderCredentials,
+    externalReference: string
+  ): Promise<void> {
     return this.fallback.cancel(creds, externalReference);
   }
 }

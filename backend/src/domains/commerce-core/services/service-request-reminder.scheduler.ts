@@ -16,7 +16,7 @@ export class ServiceRequestReminderScheduler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
-    private readonly mail: MailService,
+    private readonly mail: MailService
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -38,22 +38,37 @@ export class ServiceRequestReminderScheduler {
         reminderSentAt: null,
         requesterId: { not: null },
       },
-      include: { requester: { select: { id: true, email: true, firstName: true } } },
+      include: {
+        requester: { select: { id: true, email: true, firstName: true } },
+      },
     });
 
     for (const req of stale) {
       if (!req.requester) continue;
 
       this.notifications
-        .notifyServiceRequestNoResponse(req.requester.id, req.providerName, req.serviceName)
+        .notifyServiceRequestNoResponse(
+          req.requester.id,
+          req.providerName,
+          req.serviceName
+        )
         .catch(() => {});
 
       this.mail
-        .sendServiceRequestReminder(req.requester.email, req.requester.firstName, req.providerName, req.serviceName)
+        .sendServiceRequestReminder(
+          req.requester.email,
+          req.requester.firstName,
+          req.providerName,
+          req.serviceName
+        )
         .catch(() => {});
 
       this.notifications
-        .notifyServiceRequestAtRisk(req.providerId, req.clientName, req.serviceName)
+        .notifyServiceRequestAtRisk(
+          req.providerId,
+          req.clientName,
+          req.serviceName
+        )
         .catch(() => {});
 
       await this.prisma.serviceRequest.update({

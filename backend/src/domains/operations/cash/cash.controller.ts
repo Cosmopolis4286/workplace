@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CashService } from './cash.service';
 import { OpenSessionDto } from './dto/open-session.dto';
 import { CloseSessionDto } from './dto/close-session.dto';
@@ -28,7 +36,8 @@ export class CashController {
   @RequirePermission('cash:manage')
   async open(@CurrentUser() user: any, @Body() dto: OpenSessionDto) {
     const commerceId = await this.cashService.getCommerceId(user.id);
-    const openedBy = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
+    const openedBy =
+      `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
     return this.cashService.open(commerceId, openedBy, dto);
   }
 
@@ -36,7 +45,8 @@ export class CashController {
   @RequirePermission('cash:manage')
   async close(@CurrentUser() user: any, @Body() dto: CloseSessionDto) {
     const commerceId = await this.cashService.getCommerceId(user.id);
-    const closedBy = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
+    const closedBy =
+      `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
     return this.cashService.close(commerceId, closedBy, dto);
   }
 

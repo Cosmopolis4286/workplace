@@ -20,6 +20,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 COPY backend/src ./backend/src
 COPY backend/prisma ./backend/prisma
 COPY backend/tsconfig*.json ./backend/
+COPY backend/scripts ./backend/scripts
 COPY scripts ./scripts
 
 WORKDIR /app/backend
@@ -55,9 +56,10 @@ WORKDIR /app
 
 # Copiar solo lo esencial desde build
 COPY --from=build /app/backend/dist ./backend/dist
-COPY --from=build /app/backend/src/mail/templates ./backend/dist/src/mail/templates
+COPY --from=build /app/backend/src/domains/engagement/mail/templates ./backend/dist/src/domains/engagement/mail/templates
 COPY --from=build /app/scripts/deployment/init-backend-prod.sh ./scripts/deployment/init-backend-prod.sh
 COPY --from=build /app/backend/prisma ./backend/prisma
+COPY --from=build /app/backend/scripts/migrate-deploy.sh ./backend/scripts/migrate-deploy.sh
 COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml

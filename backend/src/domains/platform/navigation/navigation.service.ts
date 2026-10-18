@@ -1,20 +1,37 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { PermissionsFacade, PERMISSIONS_FACADE } from '../../identity-access/permissions/permissions.facade';
-import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
-import { CapabilitiesService, Capability } from '../../../common/capabilities/capabilities.service';
-import { EXTRA_PROTECTED_ROUTES, NAVIGATION_TREE } from './navigation-tree.data';
+import {
+  PermissionsFacade,
+  PERMISSIONS_FACADE,
+} from '../../identity-access/permissions/permissions.facade';
+import {
+  PlanLimitsFacade,
+  PLAN_LIMITS_FACADE,
+} from '../../money/plans/plan-limits.facade';
+import {
+  CapabilitiesService,
+  Capability,
+} from '../../../common/capabilities/capabilities.service';
+import {
+  EXTRA_PROTECTED_ROUTES,
+  NAVIGATION_TREE,
+} from './navigation-tree.data';
 import { NavItemDef, NavigationResponse } from './navigation.types';
 
 @Injectable()
 export class NavigationService {
   constructor(
-    @Inject(PERMISSIONS_FACADE) private readonly permissionsService: PermissionsFacade,
-    @Inject(PLAN_LIMITS_FACADE) private readonly planLimitsService: PlanLimitsFacade,
-    private readonly capabilitiesService: CapabilitiesService,
+    @Inject(PERMISSIONS_FACADE)
+    private readonly permissionsService: PermissionsFacade,
+    @Inject(PLAN_LIMITS_FACADE)
+    private readonly planLimitsService: PlanLimitsFacade,
+    private readonly capabilitiesService: CapabilitiesService
   ) {}
 
-  async buildNavigationForUser(user: { id: string; role: Role }): Promise<NavigationResponse> {
+  async buildNavigationForUser(user: {
+    id: string;
+    role: Role;
+  }): Promise<NavigationResponse> {
     const { role } = user;
     const isSuperAdmin = role === Role.SUPERADMIN;
     // Cada ítem se evalúa con las MISMAS capas que el controller real, en el
@@ -24,13 +41,14 @@ export class NavigationService {
     // que el rol PROFESIONAL concede solo la base común, `can()` ya distingue
     // comercio de profesional y no hacen falta listas de accountType.
     // Capacidades leídas de la DB (no del JWT, que puede tener hasta 15min).
-    const [rolePermKeys, profilePermKeys, overrides, limits, capabilities] = await Promise.all([
-      this.permissionsService.getRolePermissions(role),
-      this.permissionsService.getActiveProfilePermissions(user.id),
-      this.permissionsService.getUserOverrides(user.id),
-      this.planLimitsService.getPlanLimits(user.id),
-      this.capabilitiesService.resolve(user.id),
-    ]);
+    const [rolePermKeys, profilePermKeys, overrides, limits, capabilities] =
+      await Promise.all([
+        this.permissionsService.getRolePermissions(role),
+        this.permissionsService.getActiveProfilePermissions(user.id),
+        this.permissionsService.getUserOverrides(user.id),
+        this.planLimitsService.getPlanLimits(user.id),
+        this.capabilitiesService.resolve(user.id),
+      ]);
     const has = (c: Capability) => capabilities[c];
 
     const can = (key: string | null): boolean => {
@@ -47,41 +65,50 @@ export class NavigationService {
       if (c.rolesOnly && !c.rolesOnly.includes(role)) return false;
       if (c.excludeRoles && c.excludeRoles.includes(role)) return false;
       if (c.requiresCapability && !has(c.requiresCapability)) return false;
-      if (c.requiresAnyCapability && !c.requiresAnyCapability.some(has)) return false;
-      if (c.excludeAnyCapability && c.excludeAnyCapability.some(has)) return false;
+      if (c.requiresAnyCapability && !c.requiresAnyCapability.some(has))
+        return false;
+      if (c.excludeAnyCapability && c.excludeAnyCapability.some(has))
+        return false;
       if (!can(c.permission)) return false;
-      if (c.requiresModule && c.permission && !hasModule(c.permission)) return false;
+      if (c.requiresModule && c.permission && !hasModule(c.permission))
+        return false;
       // El módulo cuenta solo si además el papel puede verlo (`${m}:view`):
       // effectiveModules es plan ∩ categoría y ya no filtra por papel, así
       // que un profesional de "Comida" tiene 'employees' por su categoría
       // aunque su perfil no conceda employees:view — y /jobs ("gestiona
       // personal") no debe aparecerle por eso.
-      if (c.requiresAnyModule && !c.requiresAnyModule.some((m) => limits.effectiveModules.includes(m) && can(`${m}:view`))) return false;
+      if (
+        c.requiresAnyModule &&
+        !c.requiresAnyModule.some(
+          (m) => limits.effectiveModules.includes(m) && can(`${m}:view`)
+        )
+      )
+        return false;
       return true;
     };
 
-    const sections = NAVIGATION_TREE
-      .map((section) => ({
-        id: section.id,
-        label: section.label,
-        flat: section.flat,
-        order: section.order,
-        items: section.items
-          .filter(visible)
-          .sort((a, b) => a.order - b.order)
-          .map((item) => ({
-            id: item.id,
-            to: item.to,
-            label: item.label,
-            icon: item.icon,
-            permission: item.condition.permission,
-          })),
-      }))
+    const sections = NAVIGATION_TREE.map((section) => ({
+      id: section.id,
+      label: section.label,
+      flat: section.flat,
+      order: section.order,
+      items: section.items
+        .filter(visible)
+        .sort((a, b) => a.order - b.order)
+        .map((item) => ({
+          id: item.id,
+          to: item.to,
+          label: item.label,
+          icon: item.icon,
+          permission: item.condition.permission,
+        })),
+    }))
       .filter((section) => section.items.length > 0)
       .sort((a, b) => a.order - b.order)
       .map(({ order: _order, ...section }) => section);
 
-    const { routePermissions, routeModules, routeCapabilities } = this.getRouteMaps();
+    const { routePermissions, routeModules, routeCapabilities } =
+      this.getRouteMaps();
 
     return {
       sections,

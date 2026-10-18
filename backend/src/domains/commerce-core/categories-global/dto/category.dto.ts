@@ -1,60 +1,60 @@
-import { IsString, IsOptional, IsBoolean, IsNumber } from 'class-validator'
+import { IsString, IsOptional, IsBoolean, IsNumber } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
-  name: string
+  name: string;
 
   @IsString()
   @IsOptional()
-  description?: string
+  description?: string;
 
   @IsString()
   @IsOptional()
-  icon?: string
+  icon?: string;
 
   @IsString()
   @IsOptional()
-  color?: string
+  color?: string;
 
   @IsNumber()
   @IsOptional()
-  sortOrder?: number
+  sortOrder?: number;
 
   @IsBoolean()
   @IsOptional()
-  isGlobal?: boolean
+  isGlobal?: boolean;
 
   @IsString()
   @IsOptional()
-  commerceId?: string
+  commerceId?: string;
 }
 
 export class UpdateCategoryDto {
   @IsString()
   @IsOptional()
-  name?: string
+  name?: string;
 
   @IsString()
   @IsOptional()
-  description?: string
+  description?: string;
 
   @IsString()
   @IsOptional()
-  icon?: string
+  icon?: string;
 
   @IsString()
   @IsOptional()
-  color?: string
+  color?: string;
 
   @IsNumber()
   @IsOptional()
-  sortOrder?: number
+  sortOrder?: number;
 
   @IsBoolean()
   @IsOptional()
-  isGlobal?: boolean
+  isGlobal?: boolean;
 
   @IsString()
   @IsOptional()
-  commerceId?: string
+  commerceId?: string;
 }

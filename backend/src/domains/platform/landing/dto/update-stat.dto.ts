@@ -1,20 +1,20 @@
-import { IsString, IsOptional, IsBoolean, IsInt, Min } from 'class-validator'
+import { IsString, IsOptional, IsBoolean, IsInt, Min } from 'class-validator';
 
 export class UpdateStatDto {
   @IsString()
   @IsOptional()
-  label?: string
+  label?: string;
 
   @IsString()
   @IsOptional()
-  value?: string
+  value?: string;
 
   @IsBoolean()
   @IsOptional()
-  isDynamic?: boolean
+  isDynamic?: boolean;
 
   @IsInt()
   @Min(0)
   @IsOptional()
-  sortOrder?: number
+  sortOrder?: number;
 }

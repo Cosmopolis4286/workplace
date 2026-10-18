@@ -10,8 +10,9 @@ export class ReputationController {
 
   @Get(':entityType/:entityId')
   async getScore(
-    @Param('entityType', new ParseEnumPipe(ReputationEntityType)) entityType: ReputationEntityType,
-    @Param('entityId') entityId: string,
+    @Param('entityType', new ParseEnumPipe(ReputationEntityType))
+    entityType: ReputationEntityType,
+    @Param('entityId') entityId: string
   ) {
     const score = await this.reputation.getScore(entityType, entityId);
     // null (sin historial todavía) es una respuesta válida, no un 404 — el

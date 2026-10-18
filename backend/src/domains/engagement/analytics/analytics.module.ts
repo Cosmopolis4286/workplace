@@ -9,6 +9,11 @@ import { PlatformAnalyticsStrategy } from './strategies/platform-analytics.strat
 @Module({
   imports: [PrismaModule],
   controllers: [AnalyticsController],
-  providers: [AnalyticsService, CommerceAnalyticsStrategy, FreelancerAnalyticsStrategy, PlatformAnalyticsStrategy],
+  providers: [
+    AnalyticsService,
+    CommerceAnalyticsStrategy,
+    FreelancerAnalyticsStrategy,
+    PlatformAnalyticsStrategy,
+  ],
 })
 export class AnalyticsModule {}

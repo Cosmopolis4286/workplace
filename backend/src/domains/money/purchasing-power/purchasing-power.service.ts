@@ -25,16 +25,31 @@ export class PurchasingPowerService {
   // efecto de precio del efecto de "compré más o menos cantidad".
   async getPurchasingPower(commerceId: string) {
     const now = new Date();
-    const currentWindowStart = new Date(now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
-    const previousWindowStart = new Date(currentWindowStart.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    const currentWindowStart = new Date(
+      now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000
+    );
+    const previousWindowStart = new Date(
+      currentWindowStart.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000
+    );
 
     const [currentPurchases, previousPurchases] = await Promise.all([
       this.prisma.purchase.findMany({
-        where: { commerceId, purchasedAt: { gte: currentWindowStart, lte: now } },
-        select: { productId: true, quantity: true, unitCostUsd: true, product: { select: { name: true } } },
+        where: {
+          commerceId,
+          purchasedAt: { gte: currentWindowStart, lte: now },
+        },
+        select: {
+          productId: true,
+          quantity: true,
+          unitCostUsd: true,
+          product: { select: { name: true } },
+        },
       }),
       this.prisma.purchase.findMany({
-        where: { commerceId, purchasedAt: { gte: previousWindowStart, lt: currentWindowStart } },
+        where: {
+          commerceId,
+          purchasedAt: { gte: previousWindowStart, lt: currentWindowStart },
+        },
         select: { productId: true, quantity: true, unitCostUsd: true },
       }),
     ]);
@@ -82,12 +97,22 @@ export class PurchasingPowerService {
 
     // Valor de la MISMA cesta (cantidades de la ventana actual) a precios de
     // cada ventana — así la variación % refleja solo el cambio de precio.
-    const valueAtPreviousPrices = basket.reduce((sum, item) => sum + item.quantity * item.previousUnitCostUsd, 0);
-    const valueAtCurrentPrices = basket.reduce((sum, item) => sum + item.quantity * item.currentUnitCostUsd, 0);
+    const valueAtPreviousPrices = basket.reduce(
+      (sum, item) => sum + item.quantity * item.previousUnitCostUsd,
+      0
+    );
+    const valueAtCurrentPrices = basket.reduce(
+      (sum, item) => sum + item.quantity * item.currentUnitCostUsd,
+      0
+    );
 
     const purchasingPowerChangePct =
       valueAtPreviousPrices > 0
-        ? Math.round(((valueAtCurrentPrices - valueAtPreviousPrices) / valueAtPreviousPrices) * 1000) / 10
+        ? Math.round(
+            ((valueAtCurrentPrices - valueAtPreviousPrices) /
+              valueAtPreviousPrices) *
+              1000
+          ) / 10
         : null;
 
     return {
@@ -103,27 +128,51 @@ export class PurchasingPowerService {
           ...item,
           changePct:
             item.previousUnitCostUsd > 0
-              ? Math.round(((item.currentUnitCostUsd - item.previousUnitCostUsd) / item.previousUnitCostUsd) * 1000) / 10
+              ? Math.round(
+                  ((item.currentUnitCostUsd - item.previousUnitCostUsd) /
+                    item.previousUnitCostUsd) *
+                    1000
+                ) / 10
               : null,
         }))
-        .sort((a, b) => (b.changePct ?? -Infinity) - (a.changePct ?? -Infinity)),
+        .sort(
+          (a, b) => (b.changePct ?? -Infinity) - (a.changePct ?? -Infinity)
+        ),
     };
   }
 
   private weightedAverageByProduct(
-    purchases: Array<{ productId: string; quantity: number; unitCostUsd: number; product?: { name: string } }>,
-  ): Map<string, { avgCostUsd: number; quantity: number; productName: string }> {
-    const totals = new Map<string, { totalCost: number; totalQuantity: number; productName: string }>();
+    purchases: Array<{
+      productId: string;
+      quantity: number;
+      unitCostUsd: number;
+      product?: { name: string };
+    }>
+  ): Map<
+    string,
+    { avgCostUsd: number; quantity: number; productName: string }
+  > {
+    const totals = new Map<
+      string,
+      { totalCost: number; totalQuantity: number; productName: string }
+    >();
 
     for (const p of purchases) {
-      const existing = totals.get(p.productId) ?? { totalCost: 0, totalQuantity: 0, productName: p.product?.name ?? '' };
+      const existing = totals.get(p.productId) ?? {
+        totalCost: 0,
+        totalQuantity: 0,
+        productName: p.product?.name ?? '',
+      };
       existing.totalCost += p.unitCostUsd * p.quantity;
       existing.totalQuantity += p.quantity;
       if (p.product?.name) existing.productName = p.product.name;
       totals.set(p.productId, existing);
     }
 
-    const result = new Map<string, { avgCostUsd: number; quantity: number; productName: string }>();
+    const result = new Map<
+      string,
+      { avgCostUsd: number; quantity: number; productName: string }
+    >();
     for (const [productId, t] of totals) {
       result.set(productId, {
         avgCostUsd: t.totalCost / t.totalQuantity,

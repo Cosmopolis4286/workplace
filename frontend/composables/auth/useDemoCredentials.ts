@@ -99,7 +99,10 @@ export const useDemoCredentials = () => {
         const errorMessage = getApiErrorMessage(err, '')
 
         // 🔍 Detectar si el error es porque faltan usuarios demo (seed no ejecutado)
-        if (errorMessage.includes('Demo users not found') || errorMessage.includes('Run: pnpm seed')) {
+        // El backend responde 403 con auth.demo.no_users (traducido: "No se
+        // encontraron usuarios demo. Ejecuta: npx prisma db seed" / "No demo
+        // users found. Run: npx prisma db seed"): "db seed" está en ambos idiomas.
+        if (errorMessage.includes('db seed')) {
           needsSeed.value = true
           error.value = 'Usuarios demo no encontrados. Ejecuta: pnpm seed'
 

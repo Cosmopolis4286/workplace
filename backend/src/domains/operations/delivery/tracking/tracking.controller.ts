@@ -28,7 +28,10 @@ export class TrackingController {
 
   // Fetch inicial (posición actual + ruta + ETA) antes de conectar el WS.
   @Get(':id/tracking')
-  async getSnapshot(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+  async getSnapshot(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string
+  ) {
     await this.trackingService.assertCanView(id, user.id);
     return this.trackingService.getSnapshot(id);
   }
@@ -41,7 +44,11 @@ export class TrackingController {
     @Param('id') id: string,
     @Body() dto: UpdateLocationDto
   ) {
-    const { accepted, snapshot } = await this.trackingService.publishLocation(id, user.id, dto);
+    const { accepted, snapshot } = await this.trackingService.publishLocation(
+      id,
+      user.id,
+      dto
+    );
     if (accepted) {
       this.trackingGateway.emitLocationUpdate(id, snapshot);
     }

@@ -26,11 +26,9 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 - Navegación y módulos se invalidan y recargan tras login, OAuth y cambio de perfil.
 - Usuario demo `costura@demo.com` y categoría "Reparación y Oficios Técnicos"; `comidarapida@demo.com` pasa a `SERVICE_PROVIDER`.
 
-### Changed — Repositorio y CI (2026-10-18)
+### Changed — Documentación y GitHub (2026-10-18)
 
 - README reescrito según la arquitectura actual; nuevos `SECURITY.md`, `CONTRIBUTING.md`, plantillas de PR e issues, `CODEOWNERS` y `dependabot.yml`.
-- El typecheck del frontend en `pr-validation.yml` pasa a ser **bloqueante** mediante el trinquete (`frontend/scripts/typecheck-ratchet.mjs`, línea base 114 errores).
-- `pnpm-lock.yaml` resincronizado con `frontend/package.json` (CI instala con `--frozen-lockfile`).
 
 ### Added — Fase 3 (Network): Sistema de disputas para Pago Protegido (2026-09-28)
 

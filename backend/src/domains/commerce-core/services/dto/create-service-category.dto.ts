@@ -1,4 +1,10 @@
-import { IsString, IsOptional, MaxLength, IsArray, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  MaxLength,
+  IsArray,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateServiceCategoryDto {
   @IsString()

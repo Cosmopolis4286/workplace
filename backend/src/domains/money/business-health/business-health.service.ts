@@ -24,15 +24,24 @@ export class BusinessHealthService {
   // se excluye del promedio (no se asume un valor) y la confianza general
   // baja en proporción, en vez de aparentar precisión que no existe.
   async getScore(commerceId: string) {
-    const [marginComponent, priceGuardComponent, receivablesComponent, payablesComponent] =
-      await Promise.all([
-        this.calculateMarginComponent(commerceId),
-        this.calculatePriceGuardComponent(commerceId),
-        this.calculateReceivablesComponent(commerceId),
-        this.calculatePayablesComponent(commerceId),
-      ]);
+    const [
+      marginComponent,
+      priceGuardComponent,
+      receivablesComponent,
+      payablesComponent,
+    ] = await Promise.all([
+      this.calculateMarginComponent(commerceId),
+      this.calculatePriceGuardComponent(commerceId),
+      this.calculateReceivablesComponent(commerceId),
+      this.calculatePayablesComponent(commerceId),
+    ]);
 
-    const components = [marginComponent, priceGuardComponent, receivablesComponent, payablesComponent];
+    const components = [
+      marginComponent,
+      priceGuardComponent,
+      receivablesComponent,
+      payablesComponent,
+    ];
     const withData = components.filter((c) => c.score !== null);
 
     const overallScore =
@@ -40,7 +49,7 @@ export class BusinessHealthService {
         ? null
         : Math.round(
             withData.reduce((sum, c) => sum + c.score! * c.weight, 0) /
-              withData.reduce((sum, c) => sum + c.weight, 0),
+              withData.reduce((sum, c) => sum + c.weight, 0)
           );
 
     // Confianza: cuántos de los 4 componentes tienen datos reales. Con 1/4
@@ -84,9 +93,7 @@ export class BusinessHealthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const scores = await Promise.all(
-      commerces.map((c) => this.getScore(c.id)),
-    );
+    const scores = await Promise.all(commerces.map((c) => this.getScore(c.id)));
 
     const counts: Record<string, number> = {
       SALUDABLE: 0,
@@ -95,12 +102,22 @@ export class BusinessHealthService {
       CRITICO: 0,
       SIN_DATOS: 0,
     };
-    const atRisk: { commerceId: string; name: string; score: number | null; rating: string }[] = [];
+    const atRisk: {
+      commerceId: string;
+      name: string;
+      score: number | null;
+      rating: string;
+    }[] = [];
 
     scores.forEach((s, i) => {
       counts[s.rating] = (counts[s.rating] ?? 0) + 1;
       if (s.rating === 'CRITICO' || s.rating === 'EN_RIESGO') {
-        atRisk.push({ commerceId: commerces[i].id, name: commerces[i].name, score: s.score, rating: s.rating });
+        atRisk.push({
+          commerceId: commerces[i].id,
+          name: commerces[i].name,
+          score: s.score,
+          rating: s.rating,
+        });
       }
     });
 
@@ -121,7 +138,9 @@ export class BusinessHealthService {
   // costo de reposición (promedio de las últimas compras) contra su precio
   // actual. 100 = margen de reposición saludable en todos los productos con
   // datos; 0 = vendiendo a pérdida sobre costo de reposición en promedio.
-  private async calculateMarginComponent(commerceId: string): Promise<ScoreComponent> {
+  private async calculateMarginComponent(
+    commerceId: string
+  ): Promise<ScoreComponent> {
     const products = await this.prisma.product.findMany({
       where: { commerceId, purchases: { some: {} } },
       select: { id: true, price: true },
@@ -133,7 +152,10 @@ export class BusinessHealthService {
         label: 'Margen de reposición',
         score: null,
         weight: 1,
-        detail: { reason: 'Sin compras registradas todavía', productsWithData: 0 },
+        detail: {
+          reason: 'Sin compras registradas todavía',
+          productsWithData: 0,
+        },
       };
     }
 
@@ -148,7 +170,8 @@ export class BusinessHealthService {
       if (recentPurchases.length === 0 || product.price <= 0) continue;
 
       const avgCost =
-        recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) / recentPurchases.length;
+        recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) /
+        recentPurchases.length;
       const marginPct = ((product.price - avgCost) / product.price) * 100;
       margins.push(marginPct);
     }
@@ -159,29 +182,41 @@ export class BusinessHealthService {
         label: 'Margen de reposición',
         score: null,
         weight: 1,
-        detail: { reason: 'Sin compras registradas todavía', productsWithData: 0 },
+        detail: {
+          reason: 'Sin compras registradas todavía',
+          productsWithData: 0,
+        },
       };
     }
 
-    const avgMarginPct = margins.reduce((sum, m) => sum + m, 0) / margins.length;
+    const avgMarginPct =
+      margins.reduce((sum, m) => sum + m, 0) / margins.length;
     // Normalización: 0% de margen = score 0, 40%+ de margen = score 100.
     // 40% como techo es un umbral razonable para negocios pequeños, no un
     // estándar contable — documentado así para no aparentar más precisión.
-    const score = Math.max(0, Math.min(100, Math.round((avgMarginPct / 40) * 100)));
+    const score = Math.max(
+      0,
+      Math.min(100, Math.round((avgMarginPct / 40) * 100))
+    );
 
     return {
       key: 'replacement_margin',
       label: 'Margen de reposición',
       score,
       weight: 1,
-      detail: { averageMarginPct: Math.round(avgMarginPct * 10) / 10, productsWithData: margins.length },
+      detail: {
+        averageMarginPct: Math.round(avgMarginPct * 10) / 10,
+        productsWithData: margins.length,
+      },
     };
   }
 
   // ── Cumplimiento de Price Guard ──────────────────────────────────────────────
   // % de productos con compras registradas cuyo precio actual está en o por
   // encima del mínimo recomendado (costo de reposición / (1 - margen mínimo)).
-  private async calculatePriceGuardComponent(commerceId: string): Promise<ScoreComponent> {
+  private async calculatePriceGuardComponent(
+    commerceId: string
+  ): Promise<ScoreComponent> {
     const settings = await this.prisma.commerceSettings.findUnique({
       where: { commerceId },
       select: { minMarginPct: true },
@@ -199,7 +234,10 @@ export class BusinessHealthService {
         label: 'Cumplimiento de Price Guard',
         score: null,
         weight: 1,
-        detail: { reason: 'Sin compras registradas todavía', productsEvaluated: 0 },
+        detail: {
+          reason: 'Sin compras registradas todavía',
+          productsEvaluated: 0,
+        },
       };
     }
 
@@ -215,10 +253,12 @@ export class BusinessHealthService {
       if (recentPurchases.length === 0) continue;
 
       const avgCost =
-        recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) / recentPurchases.length;
+        recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) /
+        recentPurchases.length;
       const minMarginPct = product.minMarginPct ?? defaultMinMarginPct;
       const marginFraction = minMarginPct / 100;
-      const minPrice = marginFraction >= 1 ? Infinity : avgCost / (1 - marginFraction);
+      const minPrice =
+        marginFraction >= 1 ? Infinity : avgCost / (1 - marginFraction);
 
       evaluated++;
       if (product.price >= minPrice) compliant++;
@@ -230,7 +270,10 @@ export class BusinessHealthService {
         label: 'Cumplimiento de Price Guard',
         score: null,
         weight: 1,
-        detail: { reason: 'Sin compras registradas todavía', productsEvaluated: 0 },
+        detail: {
+          reason: 'Sin compras registradas todavía',
+          productsEvaluated: 0,
+        },
       };
     }
 
@@ -247,24 +290,28 @@ export class BusinessHealthService {
 
   // ── Salud de cuentas por cobrar ──────────────────────────────────────────────
   // % de cuentas por cobrar PENDING que NO están vencidas (dueDate < hoy).
-  private async calculateReceivablesComponent(commerceId: string): Promise<ScoreComponent> {
+  private async calculateReceivablesComponent(
+    commerceId: string
+  ): Promise<ScoreComponent> {
     return this.calculateAccountHealthComponent(
       'receivables_health',
       'Salud de cuentas por cobrar',
       this.prisma.accountReceivable,
-      commerceId,
+      commerceId
     );
   }
 
   // ── Salud de cuentas por pagar ───────────────────────────────────────────────
   // % de cuentas por pagar PENDING que NO están vencidas — pagar tarde
   // erosiona la relación con proveedores aunque libere caja en el corto plazo.
-  private async calculatePayablesComponent(commerceId: string): Promise<ScoreComponent> {
+  private async calculatePayablesComponent(
+    commerceId: string
+  ): Promise<ScoreComponent> {
     return this.calculateAccountHealthComponent(
       'payables_health',
       'Salud de cuentas por pagar',
       this.prisma.accountPayable,
-      commerceId,
+      commerceId
     );
   }
 
@@ -272,7 +319,7 @@ export class BusinessHealthService {
     key: string,
     label: string,
     model: { findMany: (args: any) => Promise<any[]> },
-    commerceId: string,
+    commerceId: string
   ): Promise<ScoreComponent> {
     const pending = await model.findMany({
       where: { commerceId, status: AccountStatus.PENDING },
@@ -285,13 +332,18 @@ export class BusinessHealthService {
         label,
         score: null,
         weight: 1,
-        detail: { reason: 'Sin cuentas pendientes registradas', pendingCount: 0 },
+        detail: {
+          reason: 'Sin cuentas pendientes registradas',
+          pendingCount: 0,
+        },
       };
     }
 
     const now = new Date();
     const overdue = pending.filter((p) => p.dueDate && p.dueDate < now).length;
-    const score = Math.round(((pending.length - overdue) / pending.length) * 100);
+    const score = Math.round(
+      ((pending.length - overdue) / pending.length) * 100
+    );
 
     return {
       key,

@@ -1,4 +1,8 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { VehicleType } from '@prisma/client';
@@ -58,7 +62,9 @@ export class OsrmProvider implements RoutingProvider {
       };
     } catch (err) {
       this.logger.warn(`OSRM request failed: ${(err as Error).message}`);
-      throw new ServiceUnavailableException('No se pudo calcular la ruta (OSRM)');
+      throw new ServiceUnavailableException(
+        'No se pudo calcular la ruta (OSRM)'
+      );
     }
   }
 }

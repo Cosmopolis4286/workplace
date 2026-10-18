@@ -227,9 +227,9 @@ Antes de tocar código, falta cobertura para los escenarios de la sección 30 de
 ## Criterio de éxito (sección 31 del brief) — checklist
 
 - [x] `User.role` responde solo "¿qué nivel de acceso tiene?" — ya logrado.
-- [x] `UserProfile` responde "¿qué papel desempeña?" — ya logrado, con un flanco a cerrar (dual-write con `FreelancerApplication`).
+- [x] `UserProfile` responde "¿qué papel desempeña?" — ya logrado; el dual-write con `FreelancerApplication` se cerró al deprecarlo (alta → 410, ver nota de estado).
 - [x] `UserCategory/Subcategory` responde "¿en qué área trabaja/vende?" — ya logrado.
-- [ ] `Capability` responde "¿qué puede hacer?" — no existe todavía, propuesto como servicio derivado en §3, no urgente.
+- [x] `Capability` responde "¿qué puede hacer?" — implementado como servicio derivado (`common/capabilities/`, `CapabilityGuard`), sin tabla, tal como propone §3.
 - [x] `KycStatus` responde "¿está habilitado para operaciones que requieren verificación?" — ya logrado.
 
-Este documento queda a la espera de aprobación antes de ejecutar cualquiera de los pasos de la sección 10.
+Los pasos 1-7 de la sección 10 están implementados, y el paso 8 en buena parte (`FreelancerApplication` deprecado, gating del frontend por capacidades): ver la nota de estado al inicio. Lo listado como "no incluido en esta ronda" sigue pendiente de una necesidad de negocio concreta.

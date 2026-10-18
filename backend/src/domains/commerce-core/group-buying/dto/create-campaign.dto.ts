@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsDateString, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsArray,
+  ValidateNested,
+  ArrayMinSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { PriceTierDto } from './price-tier.dto';
 

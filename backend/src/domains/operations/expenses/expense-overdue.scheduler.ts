@@ -16,7 +16,9 @@ export class ExpenseOverdueScheduler {
     this.logger.log('Starting daily expense overdue check...');
     try {
       const result = await this.markOverdue();
-      this.logger.log(`Daily expense overdue check completed: ${result.count} expense(s) marked OVERDUE`);
+      this.logger.log(
+        `Daily expense overdue check completed: ${result.count} expense(s) marked OVERDUE`
+      );
     } catch (error) {
       this.logger.error('Daily expense overdue check failed:', error);
     }

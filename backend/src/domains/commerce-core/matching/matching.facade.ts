@@ -40,7 +40,10 @@ export interface RankCandidatesOptions {
  * ReputationFacade/PlatformFeesFacade (Symbol token de DI).
  */
 export interface MatchingFacade {
-  rankCandidates(candidates: MatchCandidateInput[], options?: RankCandidatesOptions): Promise<MatchResult[]>;
+  rankCandidates(
+    candidates: MatchCandidateInput[],
+    options?: RankCandidatesOptions
+  ): Promise<MatchResult[]>;
 }
 
 export const MATCHING_FACADE = Symbol('MATCHING_FACADE');

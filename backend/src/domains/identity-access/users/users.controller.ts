@@ -21,14 +21,17 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
-import { canAssignRole, assignableRolesFor } from '../../../common/utils/role-hierarchy.util';
+import {
+  canAssignRole,
+  assignableRolesFor,
+} from '../../../common/utils/role-hierarchy.util';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
-    private readonly i18n: I18nService,
+    private readonly i18n: I18nService
   ) {}
 
   @Get()
@@ -39,7 +42,8 @@ export class UsersController {
     @Query('categoryId') categoryId?: string,
     @Query('subcategoryId') subcategoryId?: string,
     @Query('search') search?: string,
-    @Query('profileKind') profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER',
+    @Query('profileKind')
+    profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER',
     @Query('page') page = '1',
     @Query('limit') limit = '20'
   ) {
@@ -67,7 +71,8 @@ export class UsersController {
     @Query('categoryId') categoryId?: string,
     @Query('subcategoryId') subcategoryId?: string,
     @Query('search') search?: string,
-    @Query('profileKind') profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER'
+    @Query('profileKind')
+    profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER'
   ) {
     const allowedRoles = assignableRolesFor(caller.role);
 
@@ -170,7 +175,9 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role }
   ) {
     if (!canAssignRole(caller.role, dto.role)) {
-      throw new ForbiddenException(this.i18n.t('users.permissions.create_role'));
+      throw new ForbiddenException(
+        this.i18n.t('users.permissions.create_role')
+      );
     }
     return this.usersService.createUser(dto);
   }
@@ -184,13 +191,17 @@ export class UsersController {
   ) {
     const target = await this.usersService.findById(id);
     if (caller.id === id && dto.role && dto.role !== target.role) {
-      throw new ForbiddenException(this.i18n.t('users.permissions.self_role_change'));
+      throw new ForbiddenException(
+        this.i18n.t('users.permissions.self_role_change')
+      );
     }
     if (!canAssignRole(caller.role, target.role as Role)) {
       throw new ForbiddenException(this.i18n.t('users.permissions.edit_user'));
     }
     if (dto.role && !canAssignRole(caller.role, dto.role)) {
-      throw new ForbiddenException(this.i18n.t('users.permissions.assign_role'));
+      throw new ForbiddenException(
+        this.i18n.t('users.permissions.assign_role')
+      );
     }
     return this.usersService.updateUser(id, dto);
   }
@@ -203,7 +214,9 @@ export class UsersController {
     @CurrentUser() caller: { id: string; role: Role }
   ) {
     if (caller.id !== id) {
-      throw new ForbiddenException(this.i18n.t('users.permissions.edit_own_profile_only'));
+      throw new ForbiddenException(
+        this.i18n.t('users.permissions.edit_own_profile_only')
+      );
     }
     return this.usersService.updateOwnProfile(id, dto);
   }
@@ -216,7 +229,9 @@ export class UsersController {
   ) {
     const target = await this.usersService.findById(id);
     if (!canAssignRole(caller.role, target.role as Role)) {
-      throw new ForbiddenException(this.i18n.t('users.permissions.modify_user'));
+      throw new ForbiddenException(
+        this.i18n.t('users.permissions.modify_user')
+      );
     }
     return this.usersService.toggleUserStatus(id);
   }
@@ -229,7 +244,9 @@ export class UsersController {
   ) {
     const target = await this.usersService.findById(id);
     if (!canAssignRole(caller.role, target.role as Role)) {
-      throw new ForbiddenException(this.i18n.t('users.permissions.delete_user'));
+      throw new ForbiddenException(
+        this.i18n.t('users.permissions.delete_user')
+      );
     }
     return this.usersService.deleteUser(id);
   }

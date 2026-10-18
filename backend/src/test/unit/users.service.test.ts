@@ -1,18 +1,18 @@
-import { Test, TestingModule } from '@nestjs/testing'
-import { UsersService } from '../../domains/identity-access/users/users.service'
-import { PrismaService } from '../../prisma/prisma.service'
-import { RedisService } from '../../redis/redis.service'
-import { MailService } from '../../domains/engagement/mail/mail.service'
-import { CommerceProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/commerce-profile-completion.strategy'
-import { FreelancerProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/freelancer-profile-completion.strategy'
-import { AccountTypeResolver } from '../../common/account-type/account-type.resolver'
-import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service'
-import { Role } from '@prisma/client'
-import { I18nService } from 'nestjs-i18n'
+import { Test, TestingModule } from '@nestjs/testing';
+import { UsersService } from '../../domains/identity-access/users/users.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { RedisService } from '../../redis/redis.service';
+import { MailService } from '../../domains/engagement/mail/mail.service';
+import { CommerceProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/commerce-profile-completion.strategy';
+import { FreelancerProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/freelancer-profile-completion.strategy';
+import { AccountTypeResolver } from '../../common/account-type/account-type.resolver';
+import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service';
+import { Role } from '@prisma/client';
+import { I18nService } from 'nestjs-i18n';
 
 describe('UsersService', () => {
-  let service: UsersService
-  let prismaService: PrismaService
+  let service: UsersService;
+  let prismaService: PrismaService;
 
   const mockPrismaService: any = {
     user: {
@@ -28,37 +28,49 @@ describe('UsersService', () => {
     },
     // Transacción interactiva: el callback recibe el mismo mock como `tx`.
     $transaction: jest.fn((fn: any) => fn(mockPrismaService)),
-  }
+  };
 
-  const redisStore = new Map<string, string>()
+  const redisStore = new Map<string, string>();
   const mockRedisService = {
     get: jest.fn((key: string) => Promise.resolve(redisStore.get(key) ?? null)),
-    setex: jest.fn((key: string, _ttl: number, value: string) => { redisStore.set(key, value); return Promise.resolve() }),
-    del: jest.fn((key: string) => { redisStore.delete(key); return Promise.resolve() }),
-  }
+    setex: jest.fn((key: string, _ttl: number, value: string) => {
+      redisStore.set(key, value);
+      return Promise.resolve();
+    }),
+    del: jest.fn((key: string) => {
+      redisStore.delete(key);
+      return Promise.resolve();
+    }),
+  };
 
   const mockMailService = {
     sendSecurityAlert: jest.fn().mockResolvedValue(undefined),
-  }
+  };
 
   const I18N_MESSAGES: Record<string, string> = {
     'users.not_found': 'Usuario no encontrado',
     'users.deleted': 'Usuario eliminado correctamente',
-  }
+  };
   const mockI18nService = {
     t: jest.fn((key: string) => I18N_MESSAGES[key] ?? key),
-  }
+  };
 
   const mockAccountTypeResolver = {
     resolve: jest.fn().mockResolvedValue(null),
-    isFreelancer: jest.fn((accountType: string | null) => accountType === 'FREELANCER'),
-    isCommerce: jest.fn((accountType: string | null) => accountType === 'COMMERCE'),
-  }
+    isFreelancer: jest.fn(
+      (accountType: string | null) => accountType === 'FREELANCER'
+    ),
+    isCommerce: jest.fn(
+      (accountType: string | null) => accountType === 'COMMERCE'
+    ),
+  };
 
-  const mockCommerceResolver = { ensureForUser: jest.fn().mockResolvedValue(null) }
+  const mockCommerceResolver = {
+    ensureForUser: jest.fn().mockResolvedValue(null),
+  };
 
   beforeEach(async () => {
-    redisStore.clear()
+    redisStore.clear();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -90,94 +102,96 @@ describe('UsersService', () => {
           useValue: mockCommerceResolver,
         },
       ],
-    }).compile()
+    }).compile();
 
-    service = module.get<UsersService>(UsersService)
-    prismaService = module.get<PrismaService>(PrismaService)
-  })
+    service = module.get<UsersService>(UsersService);
+    prismaService = module.get<PrismaService>(PrismaService);
+  });
 
   it('should be defined', () => {
-    expect(service).toBeDefined()
-  })
+    expect(service).toBeDefined();
+  });
 
   describe('findAll', () => {
     it('should return paginated users', async () => {
       const users = [
         { id: 1, email: 'user1@example.com', name: 'User 1' },
         { id: 2, email: 'user2@example.com', name: 'User 2' },
-      ]
+      ];
 
-      mockPrismaService.user.findMany.mockResolvedValue(users)
-      mockPrismaService.user.count.mockResolvedValue(2)
+      mockPrismaService.user.findMany.mockResolvedValue(users);
+      mockPrismaService.user.count.mockResolvedValue(2);
 
-      const result = await service.findAllUsers({ page: 1, limit: 10 })
+      const result = await service.findAllUsers({ page: 1, limit: 10 });
 
       expect(result).toEqual({
         data: users,
         total: 2,
         page: 1,
         limit: 10,
-      })
+      });
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
         skip: 0,
         take: 10,
         orderBy: { createdAt: 'desc' },
         select: expect.any(Object),
         where: expect.any(Object),
-      })
-    })
+      });
+    });
 
     it('should handle pagination correctly', async () => {
-      const users = [{ id: 3, email: 'user3@example.com', name: 'User 3' }]
+      const users = [{ id: 3, email: 'user3@example.com', name: 'User 3' }];
 
-      mockPrismaService.user.findMany.mockResolvedValue(users)
-      mockPrismaService.user.count.mockResolvedValue(25)
+      mockPrismaService.user.findMany.mockResolvedValue(users);
+      mockPrismaService.user.count.mockResolvedValue(25);
 
-      const result = await service.findAllUsers({ page: 2, limit: 10 })
+      const result = await service.findAllUsers({ page: 2, limit: 10 });
 
       expect(result).toEqual({
         data: users,
         total: 25,
         page: 2,
         limit: 10,
-      })
+      });
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
         skip: 10,
         take: 10,
         orderBy: { createdAt: 'desc' },
         select: expect.any(Object),
         where: expect.any(Object),
-      })
-    })
-  })
+      });
+    });
+  });
 
   describe('findById', () => {
     it('should return user if found', async () => {
-      const user = { id: 1, email: 'test@example.com', name: 'Test User' }
+      const user = { id: 1, email: 'test@example.com', name: 'Test User' };
 
-      mockPrismaService.user.findUnique.mockResolvedValue(user)
+      mockPrismaService.user.findUnique.mockResolvedValue(user);
 
-      const result = await service.findById('1')
+      const result = await service.findById('1');
 
-      expect(result).toEqual(user)
+      expect(result).toEqual(user);
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
         include: { commerce: true, category: true, profileSettings: true },
-      })
-    })
+      });
+    });
 
     it('should throw NotFoundException if user not found', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue(null)
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.findById('999')).rejects.toThrow('Usuario no encontrado')
-    })
-  })
+      await expect(service.findById('999')).rejects.toThrow(
+        'Usuario no encontrado'
+      );
+    });
+  });
 
   describe('create', () => {
     beforeEach(() => {
-      mockPrismaService.user.findUnique.mockReset().mockResolvedValue(null)
-      mockPrismaService.userProfile.create.mockReset()
-    })
+      mockPrismaService.user.findUnique.mockReset().mockResolvedValue(null);
+      mockPrismaService.userProfile.create.mockReset();
+    });
 
     it('should create new user', async () => {
       const createUserDto = {
@@ -186,7 +200,7 @@ describe('UsersService', () => {
         firstName: 'New',
         lastName: 'User',
         role: Role.NORMAL,
-      }
+      };
 
       const createdUser = {
         id: 2,
@@ -195,13 +209,13 @@ describe('UsersService', () => {
         lastName: 'User',
         role: 'NORMAL',
         isActive: true,
-      }
+      };
 
-      mockPrismaService.user.create.mockResolvedValue(createdUser)
+      mockPrismaService.user.create.mockResolvedValue(createdUser);
 
-      const result = await service.create(createUserDto)
+      const result = await service.create(createUserDto);
 
-      expect(result).toEqual(createdUser)
+      expect(result).toEqual(createdUser);
       expect(mockPrismaService.user.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           email: createUserDto.email,
@@ -210,9 +224,9 @@ describe('UsersService', () => {
           role: createUserDto.role,
         }),
         include: expect.any(Object),
-      })
-      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled()
-    })
+      });
+      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled();
+    });
 
     it('creates a BUSINESS UserProfile when role is PROFESIONAL with a commerceName (inferred)', async () => {
       const createUserDto = {
@@ -223,11 +237,14 @@ describe('UsersService', () => {
         role: Role.PROFESIONAL,
         commerceName: 'Mi Negocio',
         categoryId: 'cat-1',
-      }
+      };
 
-      mockPrismaService.user.create.mockResolvedValue({ id: 'user-1', role: 'PROFESIONAL' })
+      mockPrismaService.user.create.mockResolvedValue({
+        id: 'user-1',
+        role: 'PROFESIONAL',
+      });
 
-      await service.create(createUserDto)
+      await service.create(createUserDto);
 
       expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -237,8 +254,8 @@ describe('UsersService', () => {
           categoryId: 'cat-1',
           status: 'ACTIVE',
         }),
-      })
-    })
+      });
+    });
 
     it('creates a PROFESSIONAL/FREELANCER UserProfile when role is PROFESIONAL without a commerceName', async () => {
       const createUserDto = {
@@ -248,11 +265,14 @@ describe('UsersService', () => {
         lastName: 'Lancer',
         role: Role.PROFESIONAL,
         categoryId: 'cat-2',
-      }
+      };
 
-      mockPrismaService.user.create.mockResolvedValue({ id: 'user-2', role: 'PROFESIONAL' })
+      mockPrismaService.user.create.mockResolvedValue({
+        id: 'user-2',
+        role: 'PROFESIONAL',
+      });
 
-      await service.create(createUserDto)
+      await service.create(createUserDto);
 
       expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -262,8 +282,8 @@ describe('UsersService', () => {
           categoryId: 'cat-2',
           status: 'ACTIVE',
         }),
-      })
-    })
+      });
+    });
 
     it('creates a PROFESSIONAL/SERVICE_PROVIDER UserProfile when businessProfileType/professionalSubtype are explicit', async () => {
       const createUserDto = {
@@ -275,11 +295,14 @@ describe('UsersService', () => {
         businessProfileType: 'PROFESSIONAL' as any,
         professionalSubtype: 'SERVICE_PROVIDER' as any,
         categoryId: 'cat-3',
-      }
+      };
 
-      mockPrismaService.user.create.mockResolvedValue({ id: 'user-3', role: 'PROFESIONAL' })
+      mockPrismaService.user.create.mockResolvedValue({
+        id: 'user-3',
+        role: 'PROFESIONAL',
+      });
 
-      await service.create(createUserDto)
+      await service.create(createUserDto);
 
       expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -289,8 +312,8 @@ describe('UsersService', () => {
           categoryId: 'cat-3',
           status: 'ACTIVE',
         }),
-      })
-    })
+      });
+    });
 
     it('does NOT create a UserProfile when role is ADMIN (even though it also gets a Commerce)', async () => {
       const createUserDto = {
@@ -299,15 +322,18 @@ describe('UsersService', () => {
         firstName: 'Admin',
         lastName: 'User',
         role: Role.ADMIN,
-      }
+      };
 
-      mockPrismaService.user.create.mockResolvedValue({ id: 'admin-1', role: 'ADMIN' })
+      mockPrismaService.user.create.mockResolvedValue({
+        id: 'admin-1',
+        role: 'ADMIN',
+      });
 
-      await service.create(createUserDto)
+      await service.create(createUserDto);
 
-      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled()
-    })
-  })
+      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled();
+    });
+  });
 
   describe('update', () => {
     it('should update user', async () => {
@@ -315,7 +341,7 @@ describe('UsersService', () => {
         firstName: 'Updated',
         lastName: 'Name',
         email: 'updated@example.com',
-      }
+      };
 
       const updatedUser = {
         id: 1,
@@ -323,26 +349,30 @@ describe('UsersService', () => {
         lastName: 'Name',
         email: 'updated@example.com',
         role: 'NORMAL',
-      }
+      };
 
-      mockPrismaService.user.update.mockResolvedValue(updatedUser)
+      mockPrismaService.user.update.mockResolvedValue(updatedUser);
 
-      const result = await service.updateUser('1', updateUserDto)
+      const result = await service.updateUser('1', updateUserDto);
 
-      expect(result).toEqual(updatedUser)
+      expect(result).toEqual(updatedUser);
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: '1' },
         data: updateUserDto,
         include: expect.any(Object),
-      })
-    })
-  })
+      });
+    });
+  });
 
   describe('getProfileCompletion', () => {
     beforeEach(() => {
-      mockAccountTypeResolver.resolve.mockReset()
-      mockAccountTypeResolver.isFreelancer.mockReset().mockImplementation((accountType: string | null) => accountType === 'FREELANCER')
-    })
+      mockAccountTypeResolver.resolve.mockReset();
+      mockAccountTypeResolver.isFreelancer
+        .mockReset()
+        .mockImplementation(
+          (accountType: string | null) => accountType === 'FREELANCER'
+        );
+    });
 
     it('classifies a PROFESIONAL user without a Commerce as freelancer via AccountTypeResolver, not via a local role heuristic', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
@@ -354,19 +384,23 @@ describe('UsersService', () => {
         categoryId: 'cat-1',
         subcategoryId: 'sub-1',
         commerce: null,
-      })
-      mockPrismaService.userCategory = { findUnique: jest.fn().mockResolvedValue({ id: 'cat-1' }) }
-      mockPrismaService.userSubcategory = { findUnique: jest.fn().mockResolvedValue({ id: 'sub-1' }) }
+      });
+      mockPrismaService.userCategory = {
+        findUnique: jest.fn().mockResolvedValue({ id: 'cat-1' }),
+      };
+      mockPrismaService.userSubcategory = {
+        findUnique: jest.fn().mockResolvedValue({ id: 'sub-1' }),
+      };
       // El perfil BUSINESS quedó ACTIVE un instante antes de que el usuario
       // cree su Commerce — AccountTypeResolver ya lo resolvería como COMMERCE,
       // pero acá no hay Commerce todavía, así que debe caer a freelancer.
-      mockAccountTypeResolver.resolve.mockResolvedValue('FREELANCER')
+      mockAccountTypeResolver.resolve.mockResolvedValue('FREELANCER');
 
-      const result = await service.getProfileCompletion('user-1')
+      const result = await service.getProfileCompletion('user-1');
 
-      expect(mockAccountTypeResolver.resolve).toHaveBeenCalledWith('user-1')
-      expect(result).toBeDefined()
-    })
+      expect(mockAccountTypeResolver.resolve).toHaveBeenCalledWith('user-1');
+      expect(result).toBeDefined();
+    });
 
     it('short-circuits isFreelancer when the user already has a Commerce (isBusiness wins, no ambiguity possible)', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
@@ -378,18 +412,22 @@ describe('UsersService', () => {
         categoryId: 'cat-1',
         subcategoryId: 'sub-1',
         commerce: { id: 'commerce-1' },
-      })
-      mockPrismaService.userCategory = { findUnique: jest.fn().mockResolvedValue({ id: 'cat-1' }) }
-      mockPrismaService.userSubcategory = { findUnique: jest.fn().mockResolvedValue({ id: 'sub-1' }) }
-      mockAccountTypeResolver.resolve.mockResolvedValue('COMMERCE')
+      });
+      mockPrismaService.userCategory = {
+        findUnique: jest.fn().mockResolvedValue({ id: 'cat-1' }),
+      };
+      mockPrismaService.userSubcategory = {
+        findUnique: jest.fn().mockResolvedValue({ id: 'sub-1' }),
+      };
+      mockAccountTypeResolver.resolve.mockResolvedValue('COMMERCE');
 
-      const result = await service.getProfileCompletion('user-2')
+      const result = await service.getProfileCompletion('user-2');
 
-      expect(mockAccountTypeResolver.resolve).toHaveBeenCalledWith('user-2')
-      expect(mockAccountTypeResolver.isFreelancer).not.toHaveBeenCalled()
-      expect(result).toBeDefined()
-    })
-  })
+      expect(mockAccountTypeResolver.resolve).toHaveBeenCalledWith('user-2');
+      expect(mockAccountTypeResolver.isFreelancer).not.toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+  });
 
   describe('delete', () => {
     it('should delete user', async () => {
@@ -397,16 +435,16 @@ describe('UsersService', () => {
         id: 1,
         email: 'deleted@example.com',
         name: 'Deleted User',
-      }
+      };
 
-      mockPrismaService.user.delete.mockResolvedValue(deletedUser)
+      mockPrismaService.user.delete.mockResolvedValue(deletedUser);
 
-      const result = await service.deleteUser('1')
+      const result = await service.deleteUser('1');
 
-      expect(result).toEqual({ message: 'Usuario eliminado correctamente' })
+      expect(result).toEqual({ message: 'Usuario eliminado correctamente' });
       expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
         where: { id: '1' },
-      })
-    })
-  })
-})
+      });
+    });
+  });
+});

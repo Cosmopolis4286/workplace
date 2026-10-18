@@ -1,5 +1,17 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { KycStatus, ProfessionalSubtype, ProfileStatus, ProfileType, ProposalStatus, Role } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  KycStatus,
+  ProfessionalSubtype,
+  ProfileStatus,
+  ProfileType,
+  ProposalStatus,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
@@ -16,14 +28,17 @@ export class FreelancerApplicationsService {
     private readonly redis: RedisService,
     private readonly notifications: NotificationsService,
     private readonly roleResolver: RoleResolverService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   async getMine(userId: string) {
     return this.prisma.freelancerApplication.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      include: { category: { select: { id: true, name: true, icon: true } }, subcategory: { select: { id: true, name: true } } },
+      include: {
+        category: { select: { id: true, name: true, icon: true } },
+        subcategory: { select: { id: true, name: true } },
+      },
     });
   }
 
@@ -33,22 +48,32 @@ export class FreelancerApplicationsService {
    * tests) mientras exista el módulo; se elimina junto con él.
    */
   async create(userId: string, dto: CreateFreelancerApplicationDto) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
     if (!user) throw new NotFoundException('Usuario no encontrado');
     if (user.role !== Role.NORMAL) {
-      throw new BadRequestException('Solo un usuario con cuenta de cliente puede solicitar convertirse en freelancer');
+      throw new BadRequestException(
+        'Solo un usuario con cuenta de cliente puede solicitar convertirse en freelancer'
+      );
     }
 
     const pending = await this.prisma.freelancerApplication.findFirst({
       where: { userId, status: ProposalStatus.PENDING },
     });
-    if (pending) throw new ConflictException('Ya tienes una solicitud en revisión');
+    if (pending)
+      throw new ConflictException('Ya tienes una solicitud en revisión');
 
-    const category = await this.prisma.userCategory.findUnique({ where: { id: dto.categoryId } });
+    const category = await this.prisma.userCategory.findUnique({
+      where: { id: dto.categoryId },
+    });
     if (!category) throw new BadRequestException('Categoría inválida');
 
     if (dto.subcategoryId) {
-      const subcategory = await this.prisma.userSubcategory.findUnique({ where: { id: dto.subcategoryId } });
+      const subcategory = await this.prisma.userSubcategory.findUnique({
+        where: { id: dto.subcategoryId },
+      });
       if (!subcategory || subcategory.categoryId !== dto.categoryId) {
         throw new BadRequestException('Subcategoría inválida');
       }
@@ -70,7 +95,11 @@ export class FreelancerApplicationsService {
     // No @@unique en UserProfile(userId, type): si por lo que sea ya hay uno,
     // actualizamos en vez de duplicar.
     const existingProfile = await this.prisma.userProfile.findFirst({
-      where: { userId, type: ProfileType.PROFESSIONAL, status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] } },
+      where: {
+        userId,
+        type: ProfileType.PROFESSIONAL,
+        status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] },
+      },
     });
     if (existingProfile) {
       await this.prisma.userProfile.update({
@@ -112,17 +141,32 @@ export class FreelancerApplicationsService {
         skip,
         take: limit,
         include: {
-          user: { select: { id: true, firstName: true, lastName: true, email: true, role: true, kycStatus: true } },
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+              kycStatus: true,
+            },
+          },
           category: { select: { id: true, name: true, icon: true } },
           subcategory: { select: { id: true, name: true } },
         },
       }),
-      this.prisma.freelancerApplication.count({ where: { status: ProposalStatus.PENDING } }),
+      this.prisma.freelancerApplication.count({
+        where: { status: ProposalStatus.PENDING },
+      }),
     ]);
     return { data, total, page, limit };
   }
 
-  async review(id: string, reviewerId: string, dto: ReviewFreelancerApplicationDto) {
+  async review(
+    id: string,
+    reviewerId: string,
+    dto: ReviewFreelancerApplicationDto
+  ) {
     const application = await this.prisma.freelancerApplication.findUnique({
       where: { id },
       include: { user: { select: { kycStatus: true } } },
@@ -131,7 +175,10 @@ export class FreelancerApplicationsService {
     if (application.status !== ProposalStatus.PENDING) {
       throw new BadRequestException('Esta solicitud ya fue revisada');
     }
-    if (dto.status === ProposalStatus.APPROVED && application.user.kycStatus !== KycStatus.APPROVED) {
+    if (
+      dto.status === ProposalStatus.APPROVED &&
+      application.user.kycStatus !== KycStatus.APPROVED
+    ) {
       throw new BadRequestException(
         'El solicitante debe tener su identidad verificada (KYC aprobado) antes de convertirse en freelancer'
       );
@@ -140,16 +187,24 @@ export class FreelancerApplicationsService {
     // Espejo en UserProfile (ver create() más arriba): busca el PENDING que
     // esta misma solicitud creó/actualizó para mantenerlo sincronizado.
     const linkedProfile = await this.prisma.userProfile.findFirst({
-      where: { userId: application.userId, type: ProfileType.PROFESSIONAL, status: ProfileStatus.PENDING },
+      where: {
+        userId: application.userId,
+        type: ProfileType.PROFESSIONAL,
+        status: ProfileStatus.PENDING,
+      },
     });
-    const profileStatus = dto.status === ProposalStatus.APPROVED ? ProfileStatus.ACTIVE : ProfileStatus.REJECTED;
+    const profileStatus =
+      dto.status === ProposalStatus.APPROVED
+        ? ProfileStatus.ACTIVE
+        : ProfileStatus.REJECTED;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.freelancerApplication.update({
         where: { id },
         data: {
           status: dto.status,
-          rejectionReason: dto.status === ProposalStatus.REJECTED ? dto.rejectionReason : null,
+          rejectionReason:
+            dto.status === ProposalStatus.REJECTED ? dto.rejectionReason : null,
           reviewedBy: reviewerId,
           reviewedAt: new Date(),
         },
@@ -158,7 +213,10 @@ export class FreelancerApplicationsService {
       if (dto.status === ProposalStatus.APPROVED) {
         await tx.user.update({
           where: { id: application.userId },
-          data: { categoryId: application.categoryId, subcategoryId: application.subcategoryId },
+          data: {
+            categoryId: application.categoryId,
+            subcategoryId: application.subcategoryId,
+          },
         });
       }
 
@@ -167,7 +225,10 @@ export class FreelancerApplicationsService {
           where: { id: linkedProfile.id },
           data: {
             status: profileStatus,
-            rejectionReason: dto.status === ProposalStatus.REJECTED ? dto.rejectionReason : null,
+            rejectionReason:
+              dto.status === ProposalStatus.REJECTED
+                ? dto.rejectionReason
+                : null,
             reviewedBy: reviewerId,
             reviewedAt: new Date(),
           },
@@ -213,7 +274,11 @@ export class FreelancerApplicationsService {
     }
 
     this.notifications
-      .notifyFreelancerApplicationReviewed(application.userId, dto.status, dto.rejectionReason)
+      .notifyFreelancerApplicationReviewed(
+        application.userId,
+        dto.status,
+        dto.rejectionReason
+      )
       .catch(() => {});
 
     return updated;

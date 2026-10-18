@@ -62,10 +62,7 @@ export class NotificationsController {
   }
 
   @Delete('device-token')
-  removeDeviceToken(
-    @CurrentUser() user: any,
-    @Body() dto: { token: string }
-  ) {
+  removeDeviceToken(@CurrentUser() user: any, @Body() dto: { token: string }) {
     return this.notificationsService.removeDeviceToken(user.id, dto.token);
   }
 

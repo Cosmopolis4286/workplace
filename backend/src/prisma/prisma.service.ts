@@ -2,15 +2,20 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly maxConnections = 15; // Límite de pool para 4GB RAM
   private static activeConnections = 0;
 
   async onModuleInit() {
     // Conectar con DATABASE_URL
     await this.$connect();
-    
-    console.log(`🔧 Prisma pool configurado: maxConnections=${this.maxConnections}`);
+
+    console.log(
+      `🔧 Prisma pool configurado: maxConnections=${this.maxConnections}`
+    );
     console.log('💡 Pool management implementado a nivel de aplicación');
   }
 
@@ -33,7 +38,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   // Método para liberar conexiones
   static decrementConnection(): void {
     PrismaService.activeConnections--;
-    console.log(`🔌 Prisma Connection released: ${PrismaService.activeConnections}/15`);
+    console.log(
+      `🔌 Prisma Connection released: ${PrismaService.activeConnections}/15`
+    );
   }
 
   // Método para obtener estado del pool
@@ -41,7 +48,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     return {
       active: PrismaService.activeConnections,
       max: 15,
-      available: PrismaService.activeConnections < 15
+      available: PrismaService.activeConnections < 15,
     };
   }
 }

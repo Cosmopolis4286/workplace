@@ -15,6 +15,8 @@ export class MatchingController {
 
   @Post('rank')
   async rank(@Body() dto: RankCandidatesDto) {
-    return this.matchingService.rankCandidates(dto.candidates, { origin: dto.origin ?? null });
+    return this.matchingService.rankCandidates(dto.candidates, {
+      origin: dto.origin ?? null,
+    });
   }
 }

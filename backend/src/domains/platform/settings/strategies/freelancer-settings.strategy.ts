@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import {
@@ -9,7 +13,10 @@ import {
   UpdateFreelancerProfileDto,
 } from '../dto/update-settings.dto';
 import { SettingsAccountStrategy } from './settings-account.strategy.interface';
-import { COMMERCE_SLUG_COOLDOWN_DAYS, RESERVED_SLUGS } from './commerce-settings.strategy';
+import {
+  COMMERCE_SLUG_COOLDOWN_DAYS,
+  RESERVED_SLUGS,
+} from './commerce-settings.strategy';
 
 @Injectable()
 export class FreelancerSettingsStrategy implements SettingsAccountStrategy {
@@ -67,12 +74,25 @@ export class FreelancerSettingsStrategy implements SettingsAccountStrategy {
     });
   }
 
-  async updateNotificationSettings(userId: string, dto: UpdateNotificationSettingsDto) {
-    const { notifyNewRequests, notifyRequestUpdates, notifyDailyReports, notifyCustomerReviews } = dto;
+  async updateNotificationSettings(
+    userId: string,
+    dto: UpdateNotificationSettingsDto
+  ) {
+    const {
+      notifyNewRequests,
+      notifyRequestUpdates,
+      notifyDailyReports,
+      notifyCustomerReviews,
+    } = dto;
     await this.getOrCreateFreelancerSettings(userId);
     return this.prisma.freelancerSettings.update({
       where: { userId },
-      data: { notifyNewRequests, notifyRequestUpdates, notifyDailyReports, notifyCustomerReviews },
+      data: {
+        notifyNewRequests,
+        notifyRequestUpdates,
+        notifyDailyReports,
+        notifyCustomerReviews,
+      },
     });
   }
 
@@ -112,11 +132,18 @@ export class FreelancerSettingsStrategy implements SettingsAccountStrategy {
     nextChangeAt: string | null;
   }> {
     if (RESERVED_SLUGS.has(slug)) {
-      return { available: false, canChange: true, daysLeft: 0, nextChangeAt: null };
+      return {
+        available: false,
+        canChange: true,
+        daysLeft: 0,
+        nextChangeAt: null,
+      };
     }
 
     const settings = await this.getOrCreateFreelancerSettings(userId);
-    const existing = await this.prisma.freelancerSettings.findUnique({ where: { slug } });
+    const existing = await this.prisma.freelancerSettings.findUnique({
+      where: { slug },
+    });
     const available = !existing || existing.userId === userId;
 
     let canChange = true;
@@ -130,7 +157,8 @@ export class FreelancerSettingsStrategy implements SettingsAccountStrategy {
         canChange = false;
         daysLeft = Math.ceil(COMMERCE_SLUG_COOLDOWN_DAYS - daysSince);
         nextChangeAt = new Date(
-          settings.slugUpdatedAt.getTime() + COMMERCE_SLUG_COOLDOWN_DAYS * 24 * 60 * 60 * 1000
+          settings.slugUpdatedAt.getTime() +
+            COMMERCE_SLUG_COOLDOWN_DAYS * 24 * 60 * 60 * 1000
         ).toISOString();
       }
     }
@@ -164,7 +192,10 @@ export class FreelancerSettingsStrategy implements SettingsAccountStrategy {
         data: { slug, slugUpdatedAt: new Date() },
       });
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
         throw new ConflictException('Esa URL de perfil ya está en uso');
       }
       throw err;

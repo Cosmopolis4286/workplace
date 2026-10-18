@@ -14,13 +14,25 @@ import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
-import { PlatformFeesFacade, PLATFORM_FEES_FACADE } from '../../money/platform-fees/platform-fees.facade';
-import { PlanLimitsFacade, PLAN_LIMITS_FACADE } from '../../money/plans/plan-limits.facade';
+import {
+  PlatformFeesFacade,
+  PLATFORM_FEES_FACADE,
+} from '../../money/platform-fees/platform-fees.facade';
+import {
+  PlanLimitsFacade,
+  PLAN_LIMITS_FACADE,
+} from '../../money/plans/plan-limits.facade';
 import { InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
 import { EscrowFacade, ESCROW_FACADE } from '../../money/escrow/escrow.facade';
-import { ReputationFacade, REPUTATION_FACADE } from '../../reputation/reputation.facade';
+import {
+  ReputationFacade,
+  REPUTATION_FACADE,
+} from '../../reputation/reputation.facade';
 import { CategoryScopeService } from '../../../common/category-scope/category-scope.service';
-import { normalizeTags, tagSearchCondition } from '../../../common/utils/tags.util';
+import {
+  normalizeTags,
+  tagSearchCondition,
+} from '../../../common/utils/tags.util';
 import { fetchImageFromUrlSafely } from '../../../common/utils/safe-url-image-fetch.util';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -58,10 +70,17 @@ const SERVICE_SELECT = {
   },
 };
 
-function attachRating<T extends { user: { reviewsReceived: { rating: number }[], [k: string]: any }, [k: string]: any }>(item: T) {
+function attachRating<
+  T extends {
+    user: { reviewsReceived: { rating: number }[]; [k: string]: any };
+    [k: string]: any;
+  },
+>(item: T) {
   const reviews = item.user.reviewsReceived;
   const rating = reviews.length
-    ? Number((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(2))
+    ? Number(
+        (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(2)
+      )
     : null;
   const reviewsCount = reviews.length;
   const { reviewsReceived: _, ...userWithoutReviews } = item.user;
@@ -90,14 +109,22 @@ export class ServicesService {
   //   rubro nunca aparecería hasta que alguien publicara el primer servicio
   //   ahí) — en su lugar se filtra por CategoryScopeService al rubro del
   //   usuario, que es la restricción que sí aplica al publicar.
-  async getCatalogCategories(user?: { id: string; role: Role }, forCreation = false) {
+  async getCatalogCategories(
+    user?: { id: string; role: Role },
+    forCreation = false
+  ) {
     const userCategoryId =
-      forCreation && user && user.role !== Role.SUPERADMIN && user.role !== Role.ADMIN
+      forCreation &&
+      user &&
+      user.role !== Role.SUPERADMIN &&
+      user.role !== Role.ADMIN
         ? await this.categoryScope.getUserCategoryId(user.id)
         : null;
 
     const cats = await this.prisma.serviceCategory.findMany({
-      where: forCreation ? undefined : { services: { some: { status: ServiceStatus.ACTIVE } } },
+      where: forCreation
+        ? undefined
+        : { services: { some: { status: ServiceStatus.ACTIVE } } },
       select: {
         id: true,
         name: true,
@@ -112,7 +139,10 @@ export class ServicesService {
     });
 
     const scoped =
-      forCreation && user && user.role !== Role.SUPERADMIN && user.role !== Role.ADMIN
+      forCreation &&
+      user &&
+      user.role !== Role.SUPERADMIN &&
+      user.role !== Role.ADMIN
         ? this.categoryScope.filterByCategory(cats, userCategoryId)
         : cats;
 
@@ -130,7 +160,10 @@ export class ServicesService {
   // Top tags reales (por frecuencia) entre servicios activos, opcionalmente
   // filtrados por substring `q` para autocompletado. Se trae solo la columna
   // `tags` y se cuenta en memoria: evita mantener una tabla maestra aparte.
-  async getPopularTags(q?: string, limit = 20): Promise<{ tag: string; count: number }[]> {
+  async getPopularTags(
+    q?: string,
+    limit = 20
+  ): Promise<{ tag: string; count: number }[]> {
     const services = await this.prisma.service.findMany({
       where: { status: ServiceStatus.ACTIVE },
       select: { tags: true },
@@ -226,7 +259,13 @@ export class ServicesService {
       this.prisma.service.count({ where }),
     ]);
 
-    return { data: data.map(attachRating), total, page, limit, totalPages: Math.ceil(total / limit) };
+    return {
+      data: data.map(attachRating),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   /**
@@ -241,23 +280,58 @@ export class ServicesService {
     orderBy: Prisma.ServiceOrderByWithRelationInput
   ) {
     const skip = (page - 1) * limit;
-    const tiers: { tier: 'city' | 'state' | 'country'; user: Prisma.UserWhereInput }[] = [];
-    if (dto.city) tiers.push({ tier: 'city', user: { city: { equals: dto.city, mode: 'insensitive' } } });
-    if (dto.state) tiers.push({ tier: 'state', user: { state: { equals: dto.state, mode: 'insensitive' } } });
-    if (dto.country) tiers.push({ tier: 'country', user: { country: { equals: dto.country, mode: 'insensitive' } } });
+    const tiers: {
+      tier: 'city' | 'state' | 'country';
+      user: Prisma.UserWhereInput;
+    }[] = [];
+    if (dto.city)
+      tiers.push({
+        tier: 'city',
+        user: { city: { equals: dto.city, mode: 'insensitive' } },
+      });
+    if (dto.state)
+      tiers.push({
+        tier: 'state',
+        user: { state: { equals: dto.state, mode: 'insensitive' } },
+      });
+    if (dto.country)
+      tiers.push({
+        tier: 'country',
+        user: { country: { equals: dto.country, mode: 'insensitive' } },
+      });
 
     for (const { tier, user } of tiers) {
       const where: Prisma.ServiceWhereInput = { ...baseWhere, user };
       const [data, total] = await Promise.all([
-        this.prisma.service.findMany({ where, select: SERVICE_SELECT, skip, take: limit, orderBy }),
+        this.prisma.service.findMany({
+          where,
+          select: SERVICE_SELECT,
+          skip,
+          take: limit,
+          orderBy,
+        }),
         this.prisma.service.count({ where }),
       ]);
       if (total > 0) {
-        return { data: data.map(attachRating), total, page, limit, totalPages: Math.ceil(total / limit), locationTier: tier };
+        return {
+          data: data.map(attachRating),
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          locationTier: tier,
+        };
       }
     }
 
-    return { data: [], total: 0, page, limit, totalPages: 0, locationTier: null };
+    return {
+      data: [],
+      total: 0,
+      page,
+      limit,
+      totalPages: 0,
+      locationTier: null,
+    };
   }
 
   async getCatalogServiceById(id: string) {
@@ -304,14 +378,26 @@ export class ServicesService {
       where: { userId },
       _count: { _all: true },
     });
-    const counts: Record<string, number> = { ACTIVE: 0, PAUSED: 0, INACTIVE: 0 };
+    const counts: Record<string, number> = {
+      ACTIVE: 0,
+      PAUSED: 0,
+      INACTIVE: 0,
+    };
     for (const g of grouped) counts[g.status] = g._count._all;
     const total = counts.ACTIVE + counts.PAUSED + counts.INACTIVE;
-    return { total, activos: counts.ACTIVE, pausados: counts.PAUSED, inactivos: counts.INACTIVE };
+    return {
+      total,
+      activos: counts.ACTIVE,
+      pausados: counts.PAUSED,
+      inactivos: counts.INACTIVE,
+    };
   }
 
   async createService(userId: string, dto: CreateServiceDto) {
-    if (dto.status !== ServiceStatus.PAUSED && dto.status !== ServiceStatus.INACTIVE) {
+    if (
+      dto.status !== ServiceStatus.PAUSED &&
+      dto.status !== ServiceStatus.INACTIVE
+    ) {
       await this.planLimits.assertServiceLimit(userId);
     }
     return this.prisma.service.create({
@@ -355,13 +441,21 @@ export class ServicesService {
   // 3 rellenado con '' en los huecos para que un slot se pueda reemplazar sin
   // afectar a los demás.
 
-  private async setServiceImageSlot(id: string, slot: number, relativePath: string) {
-    const s = await this.prisma.service.findUnique({ where: { id }, select: { images: true } });
+  private async setServiceImageSlot(
+    id: string,
+    slot: number,
+    relativePath: string
+  ) {
+    const s = await this.prisma.service.findUnique({
+      where: { id },
+      select: { images: true },
+    });
     const current = [...(s?.images ?? [])];
     while (current.length < 3) current.push('');
     current[slot] = relativePath;
     // Recorta huecos finales vacíos para no persistir slots vacíos de más.
-    while (current.length > 0 && current[current.length - 1] === '') current.pop();
+    while (current.length > 0 && current[current.length - 1] === '')
+      current.pop();
     return this.prisma.service.update({
       where: { id },
       data: { images: current },
@@ -376,10 +470,19 @@ export class ServicesService {
     file: Express.Multer.File
   ) {
     await this.assertOwner(id, userId);
-    return this.setServiceImageSlot(id, slot, `/uploads/services/${file.filename}`);
+    return this.setServiceImageSlot(
+      id,
+      slot,
+      `/uploads/services/${file.filename}`
+    );
   }
 
-  async importServiceImageFromUrl(id: string, userId: string, slot: number, url: string) {
+  async importServiceImageFromUrl(
+    id: string,
+    userId: string,
+    slot: number,
+    url: string
+  ) {
     await this.assertOwner(id, userId);
     const { buffer, extension } = await fetchImageFromUrlSafely(url);
 
@@ -399,7 +502,10 @@ export class ServicesService {
   // (que solo alterna entre ACTIVE/PAUSED, nunca toca/sale de INACTIVE).
 
   async moderateService(id: string, hide: boolean) {
-    const s = await this.prisma.service.findUnique({ where: { id }, select: { id: true } });
+    const s = await this.prisma.service.findUnique({
+      where: { id },
+      select: { id: true },
+    });
     if (!s) throw new NotFoundException('Servicio no encontrado');
 
     return this.prisma.service.update({
@@ -442,7 +548,12 @@ export class ServicesService {
     });
   }
 
-  async createModality(dto: { name: string; value: string; emoji?: string; sortOrder?: number }) {
+  async createModality(dto: {
+    name: string;
+    value: string;
+    emoji?: string;
+    sortOrder?: number;
+  }) {
     return this.prisma.serviceModality.create({
       data: {
         name: dto.name,
@@ -453,7 +564,16 @@ export class ServicesService {
     });
   }
 
-  async updateModality(id: string, dto: Partial<{ name: string; value: string; emoji: string; sortOrder: number; isActive: boolean }>) {
+  async updateModality(
+    id: string,
+    dto: Partial<{
+      name: string;
+      value: string;
+      emoji: string;
+      sortOrder: number;
+      isActive: boolean;
+    }>
+  ) {
     return this.prisma.serviceModality.update({
       where: { id },
       data: dto,
@@ -467,7 +587,11 @@ export class ServicesService {
   // ─── Service Requests ─────────────────────────────────────────────────────
 
   // Estados que cuentan como "trato abierto": el proveedor todavía no resolvió la solicitud.
-  private static readonly OPEN_REQUEST_STATUSES = ['PENDING', 'SEEN', 'CONTACTED'];
+  private static readonly OPEN_REQUEST_STATUSES = [
+    'PENDING',
+    'SEEN',
+    'CONTACTED',
+  ];
 
   async createServiceRequest(
     dto: CreateServiceRequestDto,
@@ -478,10 +602,14 @@ export class ServicesService {
       select: { id: true, userId: true, status: true },
     });
     if (!service || service.status !== ServiceStatus.ACTIVE) {
-      throw new NotFoundException('El servicio no existe o ya no está disponible');
+      throw new NotFoundException(
+        'El servicio no existe o ya no está disponible'
+      );
     }
     if (service.userId !== dto.providerId) {
-      throw new BadRequestException('El proveedor no coincide con el dueño del servicio');
+      throw new BadRequestException(
+        'El proveedor no coincide con el dueño del servicio'
+      );
     }
     if (requesterId === dto.providerId) {
       throw new BadRequestException('No puedes solicitar tu propio servicio');
@@ -495,7 +623,9 @@ export class ServicesService {
       status: { in: ServicesService.OPEN_REQUEST_STATUSES as any },
       requesterId,
     };
-    const existingOpen = await this.prisma.serviceRequest.findFirst({ where: duplicateWhere });
+    const existingOpen = await this.prisma.serviceRequest.findFirst({
+      where: duplicateWhere,
+    });
     if (existingOpen) {
       throw new BadRequestException(
         'Ya tienes una solicitud en curso para este servicio con este proveedor. Espera a que el proveedor responda antes de enviar otra.'
@@ -574,35 +704,64 @@ export class ServicesService {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const [total, active, completedToday, cancelled, closedThisMonth] = await Promise.all([
-      this.prisma.serviceRequest.count({ where: { providerId } }),
-      this.prisma.serviceRequest.count({
-        where: { providerId, status: { in: ServicesService.OPEN_REQUEST_STATUSES as any } },
-      }),
-      this.prisma.serviceRequest.count({
-        where: { providerId, status: 'CLOSED', statusUpdatedAt: { gte: startOfToday } },
-      }),
-      this.prisma.serviceRequest.count({ where: { providerId, status: 'CANCELLED' } }),
-      this.prisma.serviceRequest.findMany({
-        where: { providerId, status: 'CLOSED', statusUpdatedAt: { gte: startOfMonth } },
-        select: { price: true },
-      }),
-    ]);
+    const [total, active, completedToday, cancelled, closedThisMonth] =
+      await Promise.all([
+        this.prisma.serviceRequest.count({ where: { providerId } }),
+        this.prisma.serviceRequest.count({
+          where: {
+            providerId,
+            status: { in: ServicesService.OPEN_REQUEST_STATUSES as any },
+          },
+        }),
+        this.prisma.serviceRequest.count({
+          where: {
+            providerId,
+            status: 'CLOSED',
+            statusUpdatedAt: { gte: startOfToday },
+          },
+        }),
+        this.prisma.serviceRequest.count({
+          where: { providerId, status: 'CANCELLED' },
+        }),
+        this.prisma.serviceRequest.findMany({
+          where: {
+            providerId,
+            status: 'CLOSED',
+            statusUpdatedAt: { gte: startOfMonth },
+          },
+          select: { price: true },
+        }),
+      ]);
 
-    const totalRevenue = closedThisMonth.reduce((sum, r) => sum + (r.price ?? 0), 0);
-    const avgTicket = closedThisMonth.length > 0
-      ? Math.round((totalRevenue / closedThisMonth.length) * 100) / 100
-      : 0;
+    const totalRevenue = closedThisMonth.reduce(
+      (sum, r) => sum + (r.price ?? 0),
+      0
+    );
+    const avgTicket =
+      closedThisMonth.length > 0
+        ? Math.round((totalRevenue / closedThisMonth.length) * 100) / 100
+        : 0;
 
-    return { total, active, completedToday, cancelled, totalRevenue, avgTicket };
+    return {
+      total,
+      active,
+      completedToday,
+      cancelled,
+      totalRevenue,
+      avgTicket,
+    };
   }
 
-  async getMyServiceRequests(userId: string, page = 1, limit = 20, asRole: 'provider' | 'client' = 'provider') {
+  async getMyServiceRequests(
+    userId: string,
+    page = 1,
+    limit = 20,
+    asRole: 'provider' | 'client' = 'provider'
+  ) {
     limit = Math.min(100, Math.max(1, limit));
     const skip = (page - 1) * limit;
-    const where = asRole === 'client'
-      ? { requesterId: userId }
-      : { providerId: userId };
+    const where =
+      asRole === 'client' ? { requesterId: userId } : { providerId: userId };
     const [data, total] = await Promise.all([
       this.prisma.serviceRequest.findMany({
         where,
@@ -613,17 +772,38 @@ export class ServicesService {
       }),
       this.prisma.serviceRequest.count({ where }),
     ]);
-    return { data: await this.withAvatars(data), total, page, limit, totalPages: Math.ceil(total / limit) };
+    return {
+      data: await this.withAvatars(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   // providerId/requesterId no tienen FK formal a User en este modelo (providerId
   // es de un Service ajeno al dueño autenticado), así que el avatar se resuelve
   // en batch en memoria en lugar de vía include/relation de Prisma.
-  private async withAvatars<T extends { providerId: string; requesterId: string | null }>(
+  private async withAvatars<
+    T extends { providerId: string; requesterId: string | null },
+  >(
     requests: T[]
-  ): Promise<(T & { providerAvatar: string | null; clientAvatar: string | null })[]> {
-    const userIds = [...new Set(requests.flatMap((r) => [r.providerId, r.requesterId].filter((id): id is string => !!id)))];
-    if (userIds.length === 0) return requests.map((r) => ({ ...r, providerAvatar: null, clientAvatar: null }));
+  ): Promise<
+    (T & { providerAvatar: string | null; clientAvatar: string | null })[]
+  > {
+    const userIds = [
+      ...new Set(
+        requests.flatMap((r) =>
+          [r.providerId, r.requesterId].filter((id): id is string => !!id)
+        )
+      ),
+    ];
+    if (userIds.length === 0)
+      return requests.map((r) => ({
+        ...r,
+        providerAvatar: null,
+        clientAvatar: null,
+      }));
 
     const users = await this.prisma.user.findMany({
       where: { id: { in: userIds } },
@@ -634,17 +814,30 @@ export class ServicesService {
     return requests.map((r) => ({
       ...r,
       providerAvatar: avatarById.get(r.providerId) ?? null,
-      clientAvatar: r.requesterId ? avatarById.get(r.requesterId) ?? null : null,
+      clientAvatar: r.requesterId
+        ? (avatarById.get(r.requesterId) ?? null)
+        : null,
     }));
   }
 
   // Autoriza y resuelve el filename de un archivo de media de una solicitud de servicio.
   // El archivo solo puede ser visto por el cliente, el proveedor de esa solicitud, o un admin/superadmin.
-  async authorizeRequestMedia(filename: string, userId: string, userRole: Role) {
+  async authorizeRequestMedia(
+    filename: string,
+    userId: string,
+    userRole: Role
+  ) {
     const relativePath = `/uploads/service-requests/${filename}`;
     const item = await this.prisma.serviceRequestItem.findFirst({
-      where: { OR: [{ photos: { has: relativePath } }, { videos: { has: relativePath } }] },
-      select: { serviceRequest: { select: { providerId: true, requesterId: true } } },
+      where: {
+        OR: [
+          { photos: { has: relativePath } },
+          { videos: { has: relativePath } },
+        ],
+      },
+      select: {
+        serviceRequest: { select: { providerId: true, requesterId: true } },
+      },
     });
     if (!item) throw new NotFoundException('Archivo no encontrado');
 
@@ -667,8 +860,15 @@ export class ServicesService {
     const [withAvatar] = await this.withAvatars([req]);
 
     // Sugerencia de precio para el proveedor: solo tiene sentido antes de cerrar el trato.
-    if (req.providerId === userId && !req.price && ['PENDING', 'SEEN'].includes(req.status)) {
-      const suggestion = await this.getSuggestedPrice(req.serviceId, req.providerId);
+    if (
+      req.providerId === userId &&
+      !req.price &&
+      ['PENDING', 'SEEN'].includes(req.status)
+    ) {
+      const suggestion = await this.getSuggestedPrice(
+        req.serviceId,
+        req.providerId
+      );
       return { ...withAvatar, ...suggestion };
     }
 
@@ -685,7 +885,8 @@ export class ServicesService {
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
-    if (closed.length === 0) return { suggestedPrice: null, suggestedPriceBasedOn: 0 };
+    if (closed.length === 0)
+      return { suggestedPrice: null, suggestedPriceBasedOn: 0 };
     const sum = closed.reduce((acc, r) => acc + (r.price ?? 0), 0);
     return {
       suggestedPrice: Math.round(sum / closed.length),
@@ -710,24 +911,39 @@ export class ServicesService {
     REJECTED: [],
   };
 
-  private static readonly TERMINAL_STATUSES = ['CLOSED', 'CANCELLED', 'REJECTED'];
+  private static readonly TERMINAL_STATUSES = [
+    'CLOSED',
+    'CANCELLED',
+    'REJECTED',
+  ];
 
   private assertValidStatusTransition(from: string, to: string) {
     // Un estado terminal no admite ningún cambio, ni siquiera a sí mismo: evita que
     // un doble-click reintente acciones (y sus efectos secundarios, ej. notificaciones).
     if (ServicesService.TERMINAL_STATUSES.includes(from)) {
-      throw new ForbiddenException(`No puedes cambiar el estado de ${from} a ${to}`);
+      throw new ForbiddenException(
+        `No puedes cambiar el estado de ${from} a ${to}`
+      );
     }
     if (from === to) return;
     const allowed = ServicesService.VALID_STATUS_TRANSITIONS[from] ?? [];
     if (!allowed.includes(to)) {
       throw new ForbiddenException(
-        `No puedes cambiar el estado de ${from} a ${to}`,
+        `No puedes cambiar el estado de ${from} a ${to}`
       );
     }
   }
 
-  async updateServiceRequest(id: string, userId: string, data: { status?: string; providerNotes?: string; price?: number; priceUnit?: string }) {
+  async updateServiceRequest(
+    id: string,
+    userId: string,
+    data: {
+      status?: string;
+      providerNotes?: string;
+      price?: number;
+      priceUnit?: string;
+    }
+  ) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.providerId !== userId)
@@ -736,22 +952,33 @@ export class ServicesService {
     if (data.status !== undefined) {
       // CANCELLED is client-only — provider cannot cancel on behalf of the client
       if (data.status === 'CANCELLED')
-        throw new ForbiddenException('Solo el cliente puede cancelar una solicitud');
+        throw new ForbiddenException(
+          'Solo el cliente puede cancelar una solicitud'
+        );
       // CLOSED is client-only — only confirmServiceRequestCompletion can close a request,
       // so the platform fee is always charged when a deal is marked as done.
       if (data.status === 'CLOSED')
-        throw new ForbiddenException('Solo el cliente puede confirmar la finalización de una solicitud');
+        throw new ForbiddenException(
+          'Solo el cliente puede confirmar la finalización de una solicitud'
+        );
       this.assertValidStatusTransition(req.status, data.status);
       update.status = data.status;
       update.statusUpdatedAt = new Date();
     }
-    if (data.providerNotes !== undefined) update.providerNotes = data.providerNotes;
+    if (data.providerNotes !== undefined)
+      update.providerNotes = data.providerNotes;
     if (data.priceUnit !== undefined) update.priceUnit = data.priceUnit;
 
     if (data.price !== undefined) {
-      const feeConfig = await this.platformFees.resolveFeeConfig('SERVICE_REQUEST', req.providerId);
+      const feeConfig = await this.platformFees.resolveFeeConfig(
+        'SERVICE_REQUEST',
+        req.providerId
+      );
       if (feeConfig?.payer === 'CLIENT') {
-        const { feeAmount } = this.platformFees.calculateFee(data.price, feeConfig);
+        const { feeAmount } = this.platformFees.calculateFee(
+          data.price,
+          feeConfig
+        );
         update.price = data.price + feeAmount;
         update.platformFeeRate = feeConfig.rate;
         update.platformFeeAmount = feeAmount;
@@ -765,7 +992,8 @@ export class ServicesService {
       // doble-retención si el precio se corrige más de una vez), y esta misma
       // llamada no está rechazando/cancelando la solicitud a la vez.
       const resultingStatus = update.status ?? req.status;
-      const isTerminalNow = ServicesService.TERMINAL_STATUSES.includes(resultingStatus);
+      const isTerminalNow =
+        ServicesService.TERMINAL_STATUSES.includes(resultingStatus);
       if (req.escrowStatus === 'NONE' && !isTerminalNow) {
         const service = await this.prisma.service.findUnique({
           where: { id: req.serviceId },
@@ -799,7 +1027,12 @@ export class ServicesService {
             update.escrowStatus = 'PENDING_FUNDS';
             update.escrowAmount = update.price;
             this.notifications
-              .notifyEscrowFundsNeeded(req.requesterId, req.providerName, req.serviceName, update.price)
+              .notifyEscrowFundsNeeded(
+                req.requesterId,
+                req.providerName,
+                req.serviceName,
+                update.price
+              )
               .catch(() => {});
           }
         }
@@ -826,7 +1059,10 @@ export class ServicesService {
       }
     }
 
-    const updated = await this.prisma.serviceRequest.update({ where: { id }, data: update });
+    const updated = await this.prisma.serviceRequest.update({
+      where: { id },
+      data: update,
+    });
 
     if (data.status !== undefined && data.status !== req.status) {
       await this.prisma.serviceRequestStatusHistory.create({
@@ -840,13 +1076,22 @@ export class ServicesService {
 
       if (req.requesterId && ['SEEN', 'CONTACTED'].includes(data.status)) {
         this.notifications
-          .notifyServiceRequestStatusChanged(req.requesterId, req.providerName, req.serviceName, data.status as 'SEEN' | 'CONTACTED')
+          .notifyServiceRequestStatusChanged(
+            req.requesterId,
+            req.providerName,
+            req.serviceName,
+            data.status as 'SEEN' | 'CONTACTED'
+          )
           .catch(() => {});
       }
 
       if (req.requesterId && data.status === 'REJECTED') {
         this.notifications
-          .notifyServiceRequestRejected(req.requesterId, req.providerName, req.serviceName)
+          .notifyServiceRequestRejected(
+            req.requesterId,
+            req.providerName,
+            req.serviceName
+          )
           .catch(() => {});
       }
 
@@ -854,15 +1099,21 @@ export class ServicesService {
       // tener sentido si la solicitud llega a un estado terminal — invalidarla evita
       // que el cliente apruebe un aumento sobre un trato ya cerrado/cancelado/rechazado.
       if (ServicesService.TERMINAL_STATUSES.includes(data.status)) {
-        this.reputation.recalculate('PROFESSIONAL', req.providerId).catch(() => {});
+        this.reputation
+          .recalculate('PROFESSIONAL', req.providerId)
+          .catch(() => {});
 
-        const invalidated = await this.prisma.serviceRequestPriceChangeProposal.updateMany({
-          where: { serviceRequestId: id, status: 'PENDING' },
-          data: { status: 'INVALIDATED', resolvedAt: new Date() },
-        });
+        const invalidated =
+          await this.prisma.serviceRequestPriceChangeProposal.updateMany({
+            where: { serviceRequestId: id, status: 'PENDING' },
+            data: { status: 'INVALIDATED', resolvedAt: new Date() },
+          });
         if (invalidated.count > 0) {
           this.notifications
-            .notifyPriceChangeProposalInvalidated(req.providerId, req.serviceName)
+            .notifyPriceChangeProposalInvalidated(
+              req.providerId,
+              req.serviceName
+            )
             .catch(() => {});
         }
       }
@@ -873,12 +1124,20 @@ export class ServicesService {
 
   // Empuja al cliente a dejar una reseña verificada apenas se cierra el trato,
   // en vez de depender de que la descubra por su cuenta al visitar el perfil.
-  private async sendReviewReminder(clientId: string, providerId: string, providerName: string) {
+  private async sendReviewReminder(
+    clientId: string,
+    providerId: string,
+    providerName: string
+  ) {
     const provider = await this.prisma.user.findUnique({
       where: { id: providerId },
       select: { username: true },
     });
-    return this.notifications.notifyReviewReminder(clientId, providerName, provider?.username);
+    return this.notifications.notifyReviewReminder(
+      clientId,
+      providerName,
+      provider?.username
+    );
   }
 
   async updateServiceRequestStatus(id: string, userId: string, status: string) {
@@ -895,15 +1154,22 @@ export class ServicesService {
       throw new ForbiddenException('No tienes permiso');
     if (req.status !== 'CONTACTED')
       throw new ForbiddenException(
-        'Solo puedes confirmar una solicitud que ya fue contactada por el proveedor',
+        'Solo puedes confirmar una solicitud que ya fue contactada por el proveedor'
       );
 
     // Resolve fee before starting any write so we don't mark CLOSED on a fee error
     let feeData: { feeAmount: number; feeConfig: any } | null = null;
     if (!req.platformFeePayer && req.price) {
-      const feeConfig = await this.platformFees.resolveFeeConfig('SERVICE_REQUEST', req.providerId);
+      const feeConfig = await this.platformFees.resolveFeeConfig(
+        'SERVICE_REQUEST',
+        req.providerId
+      );
       if (feeConfig?.payer === 'PROVIDER') {
-        feeData = { feeAmount: this.platformFees.calculateFee(req.price, feeConfig).feeAmount, feeConfig };
+        feeData = {
+          feeAmount: this.platformFees.calculateFee(req.price, feeConfig)
+            .feeAmount,
+          feeConfig,
+        };
       }
     }
 
@@ -914,7 +1180,7 @@ export class ServicesService {
         req.providerId,
         feeData.feeAmount,
         `FEE-SVC-${id}`,
-        { serviceRequestId: id },
+        { serviceRequestId: id }
       );
     }
 
@@ -922,7 +1188,9 @@ export class ServicesService {
     // comisión cuando el proveedor la paga (feeData) — la comisión en sí ya se
     // cobró arriba vía chargeProviderFee, así que acá no se duplica.
     if (req.escrowStatus === 'HELD' && req.escrowAmount) {
-      const releaseAmount = feeData ? req.escrowAmount - feeData.feeAmount : req.escrowAmount;
+      const releaseAmount = feeData
+        ? req.escrowAmount - feeData.feeAmount
+        : req.escrowAmount;
       if (releaseAmount > 0) {
         await this.escrow.release({
           entityType: 'SERVICE_REQUEST',
@@ -939,9 +1207,11 @@ export class ServicesService {
     // cliente retroactivamente un servicio ya cerrado, sin volver a liberar
     // nada al proveedor (releaseEscrow solo se dispara desde este método).
     const escrowResolution =
-      req.escrowStatus === 'HELD' ? { escrowStatus: 'RELEASED' as const } :
-      req.escrowStatus === 'PENDING_FUNDS' ? { escrowStatus: 'NONE' as const, escrowAmount: null } :
-      {};
+      req.escrowStatus === 'HELD'
+        ? { escrowStatus: 'RELEASED' as const }
+        : req.escrowStatus === 'PENDING_FUNDS'
+          ? { escrowStatus: 'NONE' as const, escrowAmount: null }
+          : {};
 
     const updated = await this.prisma.serviceRequest.update({
       where: { id },
@@ -949,11 +1219,13 @@ export class ServicesService {
         status: 'CLOSED',
         statusUpdatedAt: new Date(),
         ...escrowResolution,
-        ...(feeData ? {
-          platformFeeRate: feeData.feeConfig.rate,
-          platformFeeAmount: feeData.feeAmount,
-          platformFeePayer: 'PROVIDER',
-        } : {}),
+        ...(feeData
+          ? {
+              platformFeeRate: feeData.feeConfig.rate,
+              platformFeeAmount: feeData.feeAmount,
+              platformFeePayer: 'PROVIDER',
+            }
+          : {}),
       },
     });
 
@@ -966,7 +1238,9 @@ export class ServicesService {
       },
     });
 
-    this.sendReviewReminder(userId, req.providerId, req.providerName).catch(() => {});
+    this.sendReviewReminder(userId, req.providerId, req.providerName).catch(
+      () => {}
+    );
 
     return updated;
   }
@@ -999,7 +1273,11 @@ export class ServicesService {
 
     const updated = await this.prisma.serviceRequest.update({
       where: { id },
-      data: { status: 'CANCELLED', statusUpdatedAt: new Date(), ...escrowUpdate },
+      data: {
+        status: 'CANCELLED',
+        statusUpdatedAt: new Date(),
+        ...escrowUpdate,
+      },
     });
 
     await this.prisma.serviceRequestStatusHistory.create({
@@ -1012,7 +1290,11 @@ export class ServicesService {
     });
 
     this.notifications
-      .notifyServiceRequestCancelled(req.providerId, req.clientName, req.serviceName)
+      .notifyServiceRequestCancelled(
+        req.providerId,
+        req.clientName,
+        req.serviceName
+      )
       .catch(() => {});
 
     return updated;
@@ -1030,7 +1312,9 @@ export class ServicesService {
       throw new ForbiddenException('No tienes permiso');
     }
     if (req.status !== 'CONTACTED') {
-      throw new BadRequestException('Solo se puede disputar una solicitud en curso (contactada)');
+      throw new BadRequestException(
+        'Solo se puede disputar una solicitud en curso (contactada)'
+      );
     }
 
     const dispute = await this.escrow.openDispute({
@@ -1043,7 +1327,7 @@ export class ServicesService {
     this.notifications
       .notifyEscrowDisputeOpened(
         userId === req.requesterId ? req.providerId : req.requesterId!,
-        req.serviceName,
+        req.serviceName
       )
       .catch(() => {});
 
@@ -1064,15 +1348,21 @@ export class ServicesService {
   // — ver approvePriceChangeProposal). En ese segundo caso solo se reintenta el
   // delta, no el precio total, o se duplicaría la retención ya existente.
   private async retryPendingEscrow(requestId: string): Promise<boolean> {
-    const req = await this.prisma.serviceRequest.findUnique({ where: { id: requestId } });
+    const req = await this.prisma.serviceRequest.findUnique({
+      where: { id: requestId },
+    });
     if (!req || req.escrowStatus !== 'PENDING_FUNDS' || !req.requesterId) {
       return false;
     }
 
-    const pendingProposal = await this.prisma.serviceRequestPriceChangeProposal.findFirst({
-      where: { serviceRequestId: requestId, status: 'APPROVED_PENDING_FUNDS' },
-      orderBy: { createdAt: 'asc' },
-    });
+    const pendingProposal =
+      await this.prisma.serviceRequestPriceChangeProposal.findFirst({
+        where: {
+          serviceRequestId: requestId,
+          status: 'APPROVED_PENDING_FUNDS',
+        },
+        orderBy: { createdAt: 'asc' },
+      });
 
     if (pendingProposal) {
       try {
@@ -1082,7 +1372,9 @@ export class ServicesService {
           payerId: req.requesterId,
           payeeId: req.providerId,
           deltaAmount: pendingProposal.deltaAmount,
-          referenceOverride: pendingProposal.escrowReference ?? `ESCROW-HOLD-INCREASE-${pendingProposal.id}`,
+          referenceOverride:
+            pendingProposal.escrowReference ??
+            `ESCROW-HOLD-INCREASE-${pendingProposal.id}`,
         });
       } catch {
         return false;
@@ -1102,7 +1394,12 @@ export class ServicesService {
         }),
       ]);
       this.notifications
-        .notifyPriceChangeApproved(req.providerId, req.clientName, req.serviceName, pendingProposal.deltaAmount)
+        .notifyPriceChangeApproved(
+          req.providerId,
+          req.clientName,
+          req.serviceName,
+          pendingProposal.deltaAmount
+        )
         .catch(() => {});
       return true;
     }
@@ -1124,7 +1421,12 @@ export class ServicesService {
       data: { escrowStatus: 'HELD', escrowHeldAt: new Date() },
     });
     this.notifications
-      .notifyEscrowHeld(req.requesterId, req.providerName, req.serviceName, req.escrowAmount)
+      .notifyEscrowHeld(
+        req.requesterId,
+        req.providerName,
+        req.serviceName,
+        req.escrowAmount
+      )
       .catch(() => {});
     return true;
   }
@@ -1169,50 +1471,71 @@ export class ServicesService {
   // Solo el proveedor propietario puede proponer, y solo mientras la solicitud
   // está CONTACTED — antes de eso el precio base sigue negociándose libremente
   // vía updateServiceRequest; después (CLOSED/CANCELLED/REJECTED) ya no aplica.
-  async proposePriceChange(serviceRequestId: string, providerId: string, dto: CreatePriceChangeProposalDto) {
-    const req = await this.prisma.serviceRequest.findUnique({ where: { id: serviceRequestId } });
+  async proposePriceChange(
+    serviceRequestId: string,
+    providerId: string,
+    dto: CreatePriceChangeProposalDto
+  ) {
+    const req = await this.prisma.serviceRequest.findUnique({
+      where: { id: serviceRequestId },
+    });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
-    if (req.providerId !== providerId) throw new ForbiddenException('No tienes permiso');
+    if (req.providerId !== providerId)
+      throw new ForbiddenException('No tienes permiso');
     if (req.status !== 'CONTACTED') {
-      throw new BadRequestException('Solo puedes proponer un aumento de precio mientras la solicitud está en curso (contactada)');
+      throw new BadRequestException(
+        'Solo puedes proponer un aumento de precio mientras la solicitud está en curso (contactada)'
+      );
     }
 
-    const existingPending = await this.prisma.serviceRequestPriceChangeProposal.findFirst({
-      where: { serviceRequestId, status: 'PENDING' },
-    });
+    const existingPending =
+      await this.prisma.serviceRequestPriceChangeProposal.findFirst({
+        where: { serviceRequestId, status: 'PENDING' },
+      });
     if (existingPending) {
-      throw new BadRequestException('Ya existe una propuesta de aumento pendiente de respuesta del cliente');
+      throw new BadRequestException(
+        'Ya existe una propuesta de aumento pendiente de respuesta del cliente'
+      );
     }
 
     const previousPrice = req.price ?? 0;
     const deltaAmount = dto.proposedPrice - previousPrice;
     if (deltaAmount <= 0) {
-      throw new BadRequestException('El precio propuesto debe ser mayor al precio actual');
+      throw new BadRequestException(
+        'El precio propuesto debe ser mayor al precio actual'
+      );
     }
 
-    const proposal = await this.prisma.serviceRequestPriceChangeProposal.create({
-      data: {
-        serviceRequestId,
-        previousPrice,
-        proposedPrice: dto.proposedPrice,
-        deltaAmount,
-        note: dto.note,
-        proposedBy: providerId,
-        items: {
-          create: dto.items.map((item) => ({
-            fields: item.fields ?? {},
-            notes: item.notes,
-            photos: item.photos ?? [],
-            videos: item.videos ?? [],
-          })),
+    const proposal = await this.prisma.serviceRequestPriceChangeProposal.create(
+      {
+        data: {
+          serviceRequestId,
+          previousPrice,
+          proposedPrice: dto.proposedPrice,
+          deltaAmount,
+          note: dto.note,
+          proposedBy: providerId,
+          items: {
+            create: dto.items.map((item) => ({
+              fields: item.fields ?? {},
+              notes: item.notes,
+              photos: item.photos ?? [],
+              videos: item.videos ?? [],
+            })),
+          },
         },
-      },
-      include: { items: true },
-    });
+        include: { items: true },
+      }
+    );
 
     if (req.requesterId) {
       this.notifications
-        .notifyPriceChangeProposed(req.requesterId, req.providerName, req.serviceName, deltaAmount)
+        .notifyPriceChangeProposed(
+          req.requesterId,
+          req.providerName,
+          req.serviceName,
+          deltaAmount
+        )
         .catch(() => {});
     }
 
@@ -1222,7 +1545,9 @@ export class ServicesService {
   // Ambas partes de la solicitud pueden ver el historial completo de propuestas
   // (trazabilidad de quién propuso/aprobó/rechazó y cuándo).
   async listPriceChangeProposals(serviceRequestId: string, userId: string) {
-    const req = await this.prisma.serviceRequest.findUnique({ where: { id: serviceRequestId } });
+    const req = await this.prisma.serviceRequest.findUnique({
+      where: { id: serviceRequestId },
+    });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.providerId !== userId && req.requesterId !== userId) {
       throw new ForbiddenException('No tienes permiso');
@@ -1239,27 +1564,37 @@ export class ServicesService {
   // ServiceRequestItem y actualiza price/escrowAmount juntos — cierra el bug
   // de desincronización de escrow que motivó este feature (ver contexto del plan).
   async approvePriceChangeProposal(proposalId: string, clientUserId: string) {
-    const proposal = await this.prisma.serviceRequestPriceChangeProposal.findUnique({
-      where: { id: proposalId },
-      include: { items: true, serviceRequest: true },
-    });
+    const proposal =
+      await this.prisma.serviceRequestPriceChangeProposal.findUnique({
+        where: { id: proposalId },
+        include: { items: true, serviceRequest: true },
+      });
     if (!proposal) throw new NotFoundException('Propuesta no encontrada');
     if (proposal.status !== 'PENDING') {
       throw new BadRequestException('Esta propuesta ya fue resuelta');
     }
     const req = proposal.serviceRequest;
-    if (req.requesterId !== clientUserId) throw new ForbiddenException('No tienes permiso');
+    if (req.requesterId !== clientUserId)
+      throw new ForbiddenException('No tienes permiso');
     if (req.status !== 'CONTACTED') {
-      throw new BadRequestException('La solicitud ya no está en un estado que permita aprobar esta propuesta');
+      throw new BadRequestException(
+        'La solicitud ya no está en un estado que permita aprobar esta propuesta'
+      );
     }
 
     // El fee de plataforma (si lo paga el cliente) también aplica sobre el
     // delta aprobado, igual que ya aplica sobre el precio inicial en
     // updateServiceRequest — mismo criterio, no se cobra aparte.
     let deltaWithFee = proposal.deltaAmount;
-    const feeConfig = await this.platformFees.resolveFeeConfig('SERVICE_REQUEST', req.providerId);
+    const feeConfig = await this.platformFees.resolveFeeConfig(
+      'SERVICE_REQUEST',
+      req.providerId
+    );
     if (feeConfig?.payer === 'CLIENT') {
-      const { feeAmount } = this.platformFees.calculateFee(proposal.deltaAmount, feeConfig);
+      const { feeAmount } = this.platformFees.calculateFee(
+        proposal.deltaAmount,
+        feeConfig
+      );
       deltaWithFee = proposal.deltaAmount + feeAmount;
     }
 
@@ -1295,16 +1630,26 @@ export class ServicesService {
       ]);
 
       this.notifications
-        .notifyPriceChangeApprovedPendingFunds(clientUserId, req.providerName, req.serviceName, deltaWithFee)
+        .notifyPriceChangeApprovedPendingFunds(
+          clientUserId,
+          req.providerName,
+          req.serviceName,
+          deltaWithFee
+        )
         .catch(() => {});
 
-      return this.prisma.serviceRequestPriceChangeProposal.findUnique({ where: { id: proposalId }, include: { items: true } });
+      return this.prisma.serviceRequestPriceChangeProposal.findUnique({
+        where: { id: proposalId },
+        include: { items: true },
+      });
     }
 
-    const existingMaxSortOrder = await this.prisma.serviceRequestItem.aggregate({
-      where: { serviceRequestId: req.id },
-      _max: { sortOrder: true },
-    });
+    const existingMaxSortOrder = await this.prisma.serviceRequestItem.aggregate(
+      {
+        where: { serviceRequestId: req.id },
+        _max: { sortOrder: true },
+      }
+    );
     let nextSortOrder = (existingMaxSortOrder._max.sortOrder ?? -1) + 1;
 
     await this.prisma.$transaction([
@@ -1314,7 +1659,11 @@ export class ServicesService {
           price: (req.price ?? 0) + deltaWithFee,
           escrowAmount: (req.escrowAmount ?? 0) + deltaWithFee,
           ...(feeConfig?.payer === 'CLIENT'
-            ? { platformFeeAmount: (req.platformFeeAmount ?? 0) + (deltaWithFee - proposal.deltaAmount) }
+            ? {
+                platformFeeAmount:
+                  (req.platformFeeAmount ?? 0) +
+                  (deltaWithFee - proposal.deltaAmount),
+              }
             : {}),
         },
       }),
@@ -1343,33 +1692,58 @@ export class ServicesService {
     ]);
 
     this.notifications
-      .notifyPriceChangeApproved(req.providerId, req.clientName, req.serviceName, deltaWithFee)
+      .notifyPriceChangeApproved(
+        req.providerId,
+        req.clientName,
+        req.serviceName,
+        deltaWithFee
+      )
       .catch(() => {});
 
-    return this.prisma.serviceRequestPriceChangeProposal.findUnique({ where: { id: proposalId }, include: { items: true } });
+    return this.prisma.serviceRequestPriceChangeProposal.findUnique({
+      where: { id: proposalId },
+      include: { items: true },
+    });
   }
 
   // El cliente rechaza: no se toca price/escrow/items, solo queda registrada
   // la propuesta como REJECTED para auditoría.
-  async rejectPriceChangeProposal(proposalId: string, clientUserId: string, reason?: string) {
-    const proposal = await this.prisma.serviceRequestPriceChangeProposal.findUnique({
-      where: { id: proposalId },
-      include: { serviceRequest: true },
-    });
+  async rejectPriceChangeProposal(
+    proposalId: string,
+    clientUserId: string,
+    reason?: string
+  ) {
+    const proposal =
+      await this.prisma.serviceRequestPriceChangeProposal.findUnique({
+        where: { id: proposalId },
+        include: { serviceRequest: true },
+      });
     if (!proposal) throw new NotFoundException('Propuesta no encontrada');
     if (proposal.status !== 'PENDING') {
       throw new BadRequestException('Esta propuesta ya fue resuelta');
     }
     const req = proposal.serviceRequest;
-    if (req.requesterId !== clientUserId) throw new ForbiddenException('No tienes permiso');
+    if (req.requesterId !== clientUserId)
+      throw new ForbiddenException('No tienes permiso');
 
     const updated = await this.prisma.serviceRequestPriceChangeProposal.update({
       where: { id: proposalId },
-      data: { status: 'REJECTED', resolvedBy: clientUserId, resolvedAt: new Date(), rejectionReason: reason },
+      data: {
+        status: 'REJECTED',
+        resolvedBy: clientUserId,
+        resolvedAt: new Date(),
+        rejectionReason: reason,
+      },
     });
 
     this.notifications
-      .notifyPriceChangeRejected(req.providerId, req.clientName, req.serviceName, proposal.deltaAmount, reason)
+      .notifyPriceChangeRejected(
+        req.providerId,
+        req.clientName,
+        req.serviceName,
+        proposal.deltaAmount,
+        reason
+      )
       .catch(() => {});
 
     return updated;
@@ -1378,7 +1752,13 @@ export class ServicesService {
   // ─── Admin (solo lectura) ─────────────────────────────────────────────────
 
   async getServiceRequestsAdmin(
-    filters: { status?: string; providerId?: string; requesterId?: string; from?: string; to?: string },
+    filters: {
+      status?: string;
+      providerId?: string;
+      requesterId?: string;
+      from?: string;
+      to?: string;
+    },
     page = 1,
     limit = 20
   ) {
@@ -1407,7 +1787,13 @@ export class ServicesService {
       }),
       this.prisma.serviceRequest.count({ where }),
     ]);
-    return { data: await this.withAvatars(data), total, page, limit, totalPages: Math.ceil(total / limit) };
+    return {
+      data: await this.withAvatars(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async getServiceRequestAdminDetail(id: string) {
@@ -1481,7 +1867,11 @@ export class ServicesService {
         },
         select: {
           price: true,
-          service: { select: { category: { select: { id: true, name: true, color: true } } } },
+          service: {
+            select: {
+              category: { select: { id: true, name: true, color: true } },
+            },
+          },
         },
       }),
       this.prisma.unmetSearch.findMany({
@@ -1495,7 +1885,13 @@ export class ServicesService {
 
     const byCategory = new Map<
       string,
-      { name: string; color: string; count: number; priceSum: number; priceCount: number }
+      {
+        name: string;
+        color: string;
+        count: number;
+        priceSum: number;
+        priceCount: number;
+      }
     >();
 
     for (const r of requests) {
@@ -1522,7 +1918,10 @@ export class ServicesService {
         categoryName: v.name,
         categoryColor: v.color,
         requestCount: v.count,
-        avgPrice: v.priceCount > 0 ? Math.round((v.priceSum / v.priceCount) * 100) / 100 : null,
+        avgPrice:
+          v.priceCount > 0
+            ? Math.round((v.priceSum / v.priceCount) * 100) / 100
+            : null,
       }))
       .sort((a, b) => b.requestCount - a.requestCount);
 
@@ -1540,41 +1939,72 @@ export class ServicesService {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    return { data: opportunities, unmetQueries, city: city ?? null, periodDays: 30 };
+    return {
+      data: opportunities,
+      unmetQueries,
+      city: city ?? null,
+      periodDays: 30,
+    };
   }
 
   async getServiceMetrics(id: string, userId: string) {
     await this.assertOwner(id, userId);
 
     const now = new Date();
-    const days7ago  = new Date(now.getTime() - 7  * 86400_000);
+    const days7ago = new Date(now.getTime() - 7 * 86400_000);
     const days30ago = new Date(now.getTime() - 30 * 86400_000);
     const days14ago = new Date(now.getTime() - 14 * 86400_000);
 
     const [
-      views, profileVisits, requests,
-      viewsLast7, viewsPrev7,
-      requestsLast30, recentViewEvents,
+      views,
+      profileVisits,
+      requests,
+      viewsLast7,
+      viewsPrev7,
+      requestsLast30,
+      recentViewEvents,
       lastRequest,
     ] = await Promise.all([
       // Totales históricos
-      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.VIEW } }),
-      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.PROFILE_VISIT } }),
-      this.prisma.serviceEvent.count({ where: { serviceId: id, type: ServiceEventType.REQUEST } }),
-      // Vistas últimos 7 días vs 7 días anteriores (para tendencia)
       this.prisma.serviceEvent.count({
-        where: { serviceId: id, type: ServiceEventType.VIEW, createdAt: { gte: days7ago } },
+        where: { serviceId: id, type: ServiceEventType.VIEW },
       }),
       this.prisma.serviceEvent.count({
-        where: { serviceId: id, type: ServiceEventType.VIEW, createdAt: { gte: days14ago, lt: days7ago } },
+        where: { serviceId: id, type: ServiceEventType.PROFILE_VISIT },
+      }),
+      this.prisma.serviceEvent.count({
+        where: { serviceId: id, type: ServiceEventType.REQUEST },
+      }),
+      // Vistas últimos 7 días vs 7 días anteriores (para tendencia)
+      this.prisma.serviceEvent.count({
+        where: {
+          serviceId: id,
+          type: ServiceEventType.VIEW,
+          createdAt: { gte: days7ago },
+        },
+      }),
+      this.prisma.serviceEvent.count({
+        where: {
+          serviceId: id,
+          type: ServiceEventType.VIEW,
+          createdAt: { gte: days14ago, lt: days7ago },
+        },
       }),
       // Solicitudes últimos 30 días
       this.prisma.serviceEvent.count({
-        where: { serviceId: id, type: ServiceEventType.REQUEST, createdAt: { gte: days30ago } },
+        where: {
+          serviceId: id,
+          type: ServiceEventType.REQUEST,
+          createdAt: { gte: days30ago },
+        },
       }),
       // Eventos de vista recientes para gráfico por día
       this.prisma.serviceEvent.findMany({
-        where: { serviceId: id, type: ServiceEventType.VIEW, createdAt: { gte: days7ago } },
+        where: {
+          serviceId: id,
+          type: ServiceEventType.VIEW,
+          createdAt: { gte: days7ago },
+        },
         select: { createdAt: true },
         orderBy: { createdAt: 'asc' },
       }),
@@ -1598,13 +2028,17 @@ export class ServicesService {
     }
 
     // Tendencia de vistas: variación % respecto a los 7 días anteriores
-    const viewsTrend = viewsPrev7 > 0
-      ? Math.round(((viewsLast7 - viewsPrev7) / viewsPrev7) * 100)
-      : viewsLast7 > 0 ? 100 : 0;
+    const viewsTrend =
+      viewsPrev7 > 0
+        ? Math.round(((viewsLast7 - viewsPrev7) / viewsPrev7) * 100)
+        : viewsLast7 > 0
+          ? 100
+          : 0;
 
     const conversionRate = views > 0 ? Math.round((requests / views) * 100) : 0;
     // Tasa de interés: visitas al perfil / vistas totales
-    const interestRate   = views > 0 ? Math.round((profileVisits / views) * 100) : 0;
+    const interestRate =
+      views > 0 ? Math.round((profileVisits / views) * 100) : 0;
     // Alcance estimado: vistas únicas aproximadas (últimos 7 días)
     const weeklyReach = viewsLast7;
 
@@ -1624,7 +2058,10 @@ export class ServicesService {
             modality: lastRequest.modality,
           }
         : null,
-      viewsByDay: Object.entries(viewsByDay).map(([date, count]) => ({ date, count })),
+      viewsByDay: Object.entries(viewsByDay).map(([date, count]) => ({
+        date,
+        count,
+      })),
     };
   }
 

@@ -1,32 +1,40 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsInt, IsHexColor, Min } from 'class-validator'
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsInt,
+  IsHexColor,
+  Min,
+} from 'class-validator';
 
 export class CreateTestimonialDto {
   @IsString()
   @IsNotEmpty()
-  quote: string
+  quote: string;
 
   @IsString()
   @IsNotEmpty()
-  name: string
+  name: string;
 
   @IsString()
   @IsNotEmpty()
-  role: string
+  role: string;
 
   @IsString()
   @IsOptional()
-  initials?: string
+  initials?: string;
 
   @IsHexColor()
   @IsOptional()
-  avatarColor?: string
+  avatarColor?: string;
 
   @IsBoolean()
   @IsOptional()
-  isActive?: boolean
+  isActive?: boolean;
 
   @IsInt()
   @Min(0)
   @IsOptional()
-  sortOrder?: number
+  sortOrder?: number;
 }

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
@@ -11,7 +15,7 @@ export class AccountReceivablesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly exchangeRates: ExchangeRatesService,
-    private readonly i18n: I18nService,
+    private readonly i18n: I18nService
   ) {}
 
   async create(commerceId: string, userId: string, dto: CreateReceivableDto) {
@@ -19,21 +23,25 @@ export class AccountReceivablesService {
       const customer = await this.prisma.customer.findFirst({
         where: { id: dto.customerId, commerceId },
       });
-      if (!customer) throw new NotFoundException(this.i18n.t('accounts.customer_not_found'));
+      if (!customer)
+        throw new NotFoundException(this.i18n.t('accounts.customer_not_found'));
     }
 
     if (dto.orderId) {
       const order = await this.prisma.order.findFirst({
         where: { id: dto.orderId, commerceId },
       });
-      if (!order) throw new NotFoundException(this.i18n.t('accounts.order_not_found'));
+      if (!order)
+        throw new NotFoundException(this.i18n.t('accounts.order_not_found'));
     }
 
     const currencyCode = dto.currencyCode.toUpperCase();
     const resolved = await this.exchangeRates.resolveRateToUsd(currencyCode);
     if (!resolved) {
       throw new BadRequestException(
-        this.i18n.t('accounts.invalid_exchange_rate', { args: { code: currencyCode } }),
+        this.i18n.t('accounts.invalid_exchange_rate', {
+          args: { code: currencyCode },
+        })
       );
     }
 
@@ -70,7 +78,8 @@ export class AccountReceivablesService {
       where: { id, commerceId },
       include: { customer: { select: { id: true, name: true } } },
     });
-    if (!receivable) throw new NotFoundException(this.i18n.t('accounts.receivable_not_found'));
+    if (!receivable)
+      throw new NotFoundException(this.i18n.t('accounts.receivable_not_found'));
     return receivable;
   }
 
@@ -106,7 +115,9 @@ export class AccountReceivablesService {
       };
     }
 
-    const current = await this.exchangeRates.resolveRateToUsd(receivable.currencyCode);
+    const current = await this.exchangeRates.resolveRateToUsd(
+      receivable.currencyCode
+    );
     if (!current) {
       return {
         id,
@@ -120,7 +131,9 @@ export class AccountReceivablesService {
     const currentAmountUsd = receivable.amount / current.rateToUsd;
     const valueLossUsd = receivable.amountUsd - currentAmountUsd;
     // % que se devaluó la moneda desde la venta hasta hoy respecto al USD.
-    const rateChangePct = Math.round(((current.rateToUsd - originalRate) / originalRate) * 1000) / 10;
+    const rateChangePct =
+      Math.round(((current.rateToUsd - originalRate) / originalRate) * 1000) /
+      10;
 
     return {
       id,

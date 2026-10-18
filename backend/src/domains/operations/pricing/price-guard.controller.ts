@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { PriceGuardService } from './price-guard.service';
 import { SimulatePriceDto } from './dto/simulate-price.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
@@ -15,12 +23,15 @@ import { CommerceResolverService } from '../../../common/commerce-resolver/comme
 export class PriceGuardController {
   constructor(
     private readonly priceGuardService: PriceGuardService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   @Get(':productId/min-price')
   @RequirePermission('purchases:view')
-  async getMinPrice(@Param('productId') productId: string, @CurrentUser() user: any) {
+  async getMinPrice(
+    @Param('productId') productId: string,
+    @CurrentUser() user: any
+  ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
     return this.priceGuardService.getMinPrice(productId, commerceId);
   }
@@ -30,13 +41,13 @@ export class PriceGuardController {
   async simulate(
     @Param('productId') productId: string,
     @CurrentUser() user: any,
-    @Body() dto: SimulatePriceDto,
+    @Body() dto: SimulatePriceDto
   ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
     return this.priceGuardService.simulatePriceChange(
       productId,
       commerceId,
-      dto.costIncreasePct ?? 0,
+      dto.costIncreasePct ?? 0
     );
   }
 }

@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 const envSchema = z.object({
   // App
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
   APP_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
 
@@ -10,7 +12,10 @@ const envSchema = z.object({
   DATABASE_URL: z
     .string()
     .url()
-    .startsWith('postgresql://', 'DATABASE_URL debe comenzar con postgresql://'),
+    .startsWith(
+      'postgresql://',
+      'DATABASE_URL debe comenzar con postgresql://'
+    ),
 
   // Redis
   REDIS_HOST: z.string().min(1),
@@ -18,9 +23,15 @@ const envSchema = z.object({
   REDIS_PASSWORD: z.string().min(1),
 
   // JWT
-  JWT_SECRET: z.string().min(16, 'JWT_SECRET debe tener al menos 16 caracteres'),
-  JWT_EXPIRES_IN: z.string().regex(/^\d+[smhd]$/, 'JWT_EXPIRES_IN debe ser ej. 15m, 1h, 7d'),
-  JWT_REFRESH_SECRET: z.string().min(16, 'JWT_REFRESH_SECRET debe tener al menos 16 caracteres'),
+  JWT_SECRET: z
+    .string()
+    .min(16, 'JWT_SECRET debe tener al menos 16 caracteres'),
+  JWT_EXPIRES_IN: z
+    .string()
+    .regex(/^\d+[smhd]$/, 'JWT_EXPIRES_IN debe ser ej. 15m, 1h, 7d'),
+  JWT_REFRESH_SECRET: z
+    .string()
+    .min(16, 'JWT_REFRESH_SECRET debe tener al menos 16 caracteres'),
   JWT_REFRESH_EXPIRES_IN: z
     .string()
     .regex(/^\d+[smhd]$/, 'JWT_REFRESH_EXPIRES_IN debe ser ej. 7d, 30d'),
@@ -28,7 +39,10 @@ const envSchema = z.object({
   // Cifrado (2FA - secretos TOTP en reposo, AES-256-GCM)
   ENCRYPTION_KEY: z
     .string()
-    .regex(/^[0-9a-f]{64}$/i, 'ENCRYPTION_KEY debe ser una clave hex de 64 caracteres (32 bytes) — generar con: openssl rand -hex 32'),
+    .regex(
+      /^[0-9a-f]{64}$/i,
+      'ENCRYPTION_KEY debe ser una clave hex de 64 caracteres (32 bytes) — generar con: openssl rand -hex 32'
+    ),
 
   // CORS
   FRONTEND_URL: z.string().url(),

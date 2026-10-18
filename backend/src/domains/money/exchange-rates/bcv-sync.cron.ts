@@ -20,7 +20,9 @@ export class BcvSyncCron implements OnModuleInit {
     try {
       await this.bcvSyncService.ensureDefaultRate();
     } catch (error) {
-      this.logger.error(`ensureDefaultRate on startup failed: ${error.message}`);
+      this.logger.error(
+        `ensureDefaultRate on startup failed: ${error.message}`
+      );
     }
   }
 
@@ -38,17 +40,26 @@ export class BcvSyncCron implements OnModuleInit {
     await this.runSync('early (7 AM)');
   }
 
-  @Cron('0 10 * * 1-5', { name: 'bcv-sync-morning', timeZone: 'America/Caracas' })
+  @Cron('0 10 * * 1-5', {
+    name: 'bcv-sync-morning',
+    timeZone: 'America/Caracas',
+  })
   async handleMorningSync() {
     await this.runSync('morning (10 AM)');
   }
 
-  @Cron('0 13 * * 1-5', { name: 'bcv-sync-midday', timeZone: 'America/Caracas' })
+  @Cron('0 13 * * 1-5', {
+    name: 'bcv-sync-midday',
+    timeZone: 'America/Caracas',
+  })
   async handleMiddaySync() {
     await this.runSync('midday (1 PM)');
   }
 
-  @Cron('0 17 * * 1-5', { name: 'bcv-sync-afternoon', timeZone: 'America/Caracas' })
+  @Cron('0 17 * * 1-5', {
+    name: 'bcv-sync-afternoon',
+    timeZone: 'America/Caracas',
+  })
   async handleAfternoonSync() {
     await this.runSync('afternoon (5 PM)');
   }
@@ -60,7 +71,10 @@ export class BcvSyncCron implements OnModuleInit {
    * whatever the last known-good rate window was (scraping still works,
    * it just won't have moved since Friday).
    */
-  @Cron('0 12 * * 0,6', { name: 'bcv-sync-weekend-check', timeZone: 'America/Caracas' })
+  @Cron('0 12 * * 0,6', {
+    name: 'bcv-sync-weekend-check',
+    timeZone: 'America/Caracas',
+  })
   async handleWeekendCheck() {
     await this.runSync('weekend check');
   }
@@ -77,7 +91,7 @@ export class BcvSyncCron implements OnModuleInit {
       }
 
       const results = await Promise.allSettled(
-        currencies.map(c => this.bcvSyncService.syncCurrency(c.currencyCode)),
+        currencies.map((c) => this.bcvSyncService.syncCurrency(c.currencyCode))
       );
 
       let successCount = 0;
@@ -88,19 +102,23 @@ export class BcvSyncCron implements OnModuleInit {
         if (result.status === 'fulfilled') {
           successCount++;
           this.logger.log(
-            `✅ ${code}: Synced from ${result.value.source} at rate ${result.value.rate} (confidence: ${result.value.confidence})`,
+            `✅ ${code}: Synced from ${result.value.source} at rate ${result.value.rate} (confidence: ${result.value.confidence})`
           );
         } else {
           failureCount++;
-          this.logger.error(`❌ ${code}: Failed to sync - ${result.reason.message}`);
+          this.logger.error(
+            `❌ ${code}: Failed to sync - ${result.reason.message}`
+          );
         }
       });
 
       this.logger.log(
-        `BCV sync (${label}) completed: ${successCount} successful, ${failureCount} failed`,
+        `BCV sync (${label}) completed: ${successCount} successful, ${failureCount} failed`
       );
     } catch (error) {
-      this.logger.error(`Scheduled BCV sync (${label}) failed: ${error.message}`);
+      this.logger.error(
+        `Scheduled BCV sync (${label}) failed: ${error.message}`
+      );
     }
   }
 
@@ -125,7 +143,9 @@ export class BcvSyncCron implements OnModuleInit {
     try {
       await this.bcvSyncService.ensureDefaultRate();
     } catch (error) {
-      this.logger.error(`ensureDefaultRate in health check failed: ${error.message}`);
+      this.logger.error(
+        `ensureDefaultRate in health check failed: ${error.message}`
+      );
     }
 
     try {
@@ -138,20 +158,28 @@ export class BcvSyncCron implements OnModuleInit {
 
       for (const status of statuses) {
         if (!status.isStale) {
-          this.logger.debug(`${status.currencyCode} rate is fresh. Last sync: ${status.lastSyncAt?.toISOString()}`);
+          this.logger.debug(
+            `${status.currencyCode} rate is fresh. Last sync: ${status.lastSyncAt?.toISOString()}`
+          );
           continue;
         }
 
         this.logger.warn(
-          `⚠️ ${status.currencyCode} rate is stale. Last sync: ${status.lastSyncAt?.toISOString() || 'never'}`,
+          `⚠️ ${status.currencyCode} rate is stale. Last sync: ${status.lastSyncAt?.toISOString() || 'never'}`
         );
 
-        this.logger.log(`Attempting automatic re-sync for ${status.currencyCode}...`);
+        this.logger.log(
+          `Attempting automatic re-sync for ${status.currencyCode}...`
+        );
         try {
           await this.bcvSyncService.syncCurrency(status.currencyCode);
-          this.logger.log(`✅ Auto-repair sync successful for ${status.currencyCode}`);
+          this.logger.log(
+            `✅ Auto-repair sync successful for ${status.currencyCode}`
+          );
         } catch (error) {
-          this.logger.error(`Auto-repair sync failed for ${status.currencyCode}: ${error.message}`);
+          this.logger.error(
+            `Auto-repair sync failed for ${status.currencyCode}: ${error.message}`
+          );
         }
       }
     } catch (error) {
@@ -162,7 +190,9 @@ export class BcvSyncCron implements OnModuleInit {
   /**
    * Manual trigger for sync (can be called programmatically)
    */
-  async triggerManualSync(currencyCode?: string): Promise<{ success: boolean; message: string }> {
+  async triggerManualSync(
+    currencyCode?: string
+  ): Promise<{ success: boolean; message: string }> {
     try {
       const code = currencyCode || 'VES';
       const result = await this.bcvSyncService.syncCurrency(code);

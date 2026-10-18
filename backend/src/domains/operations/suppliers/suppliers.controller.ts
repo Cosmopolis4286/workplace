@@ -26,7 +26,7 @@ import { CommerceResolverService } from '../../../common/commerce-resolver/comme
 export class SuppliersController {
   constructor(
     private readonly suppliersService: SuppliersService,
-    private readonly commerceResolver: CommerceResolverService,
+    private readonly commerceResolver: CommerceResolverService
   ) {}
 
   @Get()
@@ -38,7 +38,10 @@ export class SuppliersController {
 
   @Get('compare/:productId')
   @RequirePermission('suppliers:view')
-  async compareForProduct(@Param('productId') productId: string, @CurrentUser() user: any) {
+  async compareForProduct(
+    @Param('productId') productId: string,
+    @CurrentUser() user: any
+  ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
     return this.suppliersService.compareForProduct(productId, commerceId);
   }
@@ -69,7 +72,7 @@ export class SuppliersController {
   async createQuote(
     @Param('id') id: string,
     @CurrentUser() user: any,
-    @Body() dto: CreateSupplierQuoteDto,
+    @Body() dto: CreateSupplierQuoteDto
   ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
     return this.suppliersService.createQuote(id, commerceId, dto);
@@ -80,7 +83,7 @@ export class SuppliersController {
   async update(
     @Param('id') id: string,
     @CurrentUser() user: any,
-    @Body() dto: UpdateSupplierDto,
+    @Body() dto: UpdateSupplierDto
   ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
     return this.suppliersService.update(id, commerceId, dto);

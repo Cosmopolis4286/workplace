@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ExchangeRatesService } from '../../money/exchange-rates/exchange-rates.service';
@@ -21,7 +26,7 @@ export class SuppliersService {
     private readonly exchangeRates: ExchangeRatesService,
     private readonly notifications: NotificationsService,
     private readonly alertEngine: AlertEngineService,
-    private readonly i18n: I18nService,
+    private readonly i18n: I18nService
   ) {}
 
   // ── Suppliers CRUD ─────────────────────────────────────────────────────────
@@ -34,8 +39,11 @@ export class SuppliersService {
   }
 
   async findOne(id: string, commerceId: string) {
-    const supplier = await this.prisma.supplier.findFirst({ where: { id, commerceId } });
-    if (!supplier) throw new NotFoundException(this.i18n.t('suppliers.not_found'));
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id, commerceId },
+    });
+    if (!supplier)
+      throw new NotFoundException(this.i18n.t('suppliers.not_found'));
     return supplier;
   }
 
@@ -43,7 +51,8 @@ export class SuppliersService {
     const existing = await this.prisma.supplier.findFirst({
       where: { name: dto.name, commerceId },
     });
-    if (existing) throw new ConflictException(this.i18n.t('suppliers.name_taken'));
+    if (existing)
+      throw new ConflictException(this.i18n.t('suppliers.name_taken'));
 
     return this.prisma.supplier.create({ data: { ...dto, commerceId } });
   }
@@ -55,7 +64,8 @@ export class SuppliersService {
       const existing = await this.prisma.supplier.findFirst({
         where: { name: dto.name, commerceId, id: { not: id } },
       });
-      if (existing) throw new ConflictException(this.i18n.t('suppliers.name_taken'));
+      if (existing)
+        throw new ConflictException(this.i18n.t('suppliers.name_taken'));
     }
 
     return this.prisma.supplier.update({ where: { id }, data: dto });
@@ -69,19 +79,26 @@ export class SuppliersService {
 
   // ── Quotes ─────────────────────────────────────────────────────────────────
 
-  async createQuote(supplierId: string, commerceId: string, dto: CreateSupplierQuoteDto) {
+  async createQuote(
+    supplierId: string,
+    commerceId: string,
+    dto: CreateSupplierQuoteDto
+  ) {
     const supplier = await this.findOne(supplierId, commerceId);
 
     const product = await this.prisma.product.findFirst({
       where: { id: dto.productId, commerceId },
     });
-    if (!product) throw new NotFoundException(this.i18n.t('suppliers.product_not_found'));
+    if (!product)
+      throw new NotFoundException(this.i18n.t('suppliers.product_not_found'));
 
     const currencyCode = dto.currencyCode.toUpperCase();
     const resolved = await this.exchangeRates.resolveRateToUsd(currencyCode);
     if (!resolved) {
       throw new BadRequestException(
-        this.i18n.t('suppliers.invalid_exchange_rate', { args: { code: currencyCode } }),
+        this.i18n.t('suppliers.invalid_exchange_rate', {
+          args: { code: currencyCode },
+        })
       );
     }
 
@@ -105,8 +122,15 @@ export class SuppliersService {
 
     // Best-effort: una falla al notificar no debe hacer fallar el registro
     // de la cotización, que ya se guardó correctamente.
-    this.checkSupplierPriceChange(commerceId, supplierId, supplier.name, dto.productId, product.name, priceUsd, quote.id)
-      .catch(() => {});
+    this.checkSupplierPriceChange(
+      commerceId,
+      supplierId,
+      supplier.name,
+      dto.productId,
+      product.name,
+      priceUsd,
+      quote.id
+    ).catch(() => {});
 
     return quote;
   }
@@ -122,23 +146,38 @@ export class SuppliersService {
     productId: string,
     productName: string,
     newPriceUsd: number,
-    newQuoteId: string,
+    newQuoteId: string
   ) {
-    const lookbackDate = new Date(Date.now() - PRICE_TREND_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+    const lookbackDate = new Date(
+      Date.now() - PRICE_TREND_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
+    );
     const previous = await this.prisma.supplierQuote.findFirst({
-      where: { supplierId, productId, commerceId, id: { not: newQuoteId }, quotedAt: { gte: lookbackDate } },
+      where: {
+        supplierId,
+        productId,
+        commerceId,
+        id: { not: newQuoteId },
+        quotedAt: { gte: lookbackDate },
+      },
       orderBy: { quotedAt: 'desc' },
     });
     if (!previous || previous.priceUsd <= 0) return;
 
-    const priceChangePct = ((newPriceUsd - previous.priceUsd) / previous.priceUsd) * 100;
-    if (await this.alertEngine.shouldFire(commerceId, AlertType.SUPPLIER_PRICE_CHANGE, priceChangePct)) {
+    const priceChangePct =
+      ((newPriceUsd - previous.priceUsd) / previous.priceUsd) * 100;
+    if (
+      await this.alertEngine.shouldFire(
+        commerceId,
+        AlertType.SUPPLIER_PRICE_CHANGE,
+        priceChangePct
+      )
+    ) {
       await this.notifications.notifySupplierPriceChange(
         commerceId,
         supplierName,
         productName,
         priceChangePct,
-        PRICE_TREND_LOOKBACK_DAYS,
+        PRICE_TREND_LOOKBACK_DAYS
       );
     }
   }
@@ -161,7 +200,8 @@ export class SuppliersService {
     const product = await this.prisma.product.findFirst({
       where: { id: productId, commerceId },
     });
-    if (!product) throw new NotFoundException(this.i18n.t('suppliers.product_not_found'));
+    if (!product)
+      throw new NotFoundException(this.i18n.t('suppliers.product_not_found'));
 
     const allQuotes = await this.prisma.supplierQuote.findMany({
       where: { productId, commerceId },
@@ -172,10 +212,13 @@ export class SuppliersService {
     // Última cotización por proveedor (la primera que aparece, ya viene desc).
     const latestBySupplier = new Map<string, (typeof allQuotes)[number]>();
     for (const quote of allQuotes) {
-      if (!latestBySupplier.has(quote.supplierId)) latestBySupplier.set(quote.supplierId, quote);
+      if (!latestBySupplier.has(quote.supplierId))
+        latestBySupplier.set(quote.supplierId, quote);
     }
 
-    const lookbackDate = new Date(Date.now() - PRICE_TREND_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+    const lookbackDate = new Date(
+      Date.now() - PRICE_TREND_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
+    );
 
     const comparison = Array.from(latestBySupplier.values()).map((latest) => {
       // Cotización más antigua del mismo proveedor dentro de la ventana de
@@ -184,10 +227,12 @@ export class SuppliersService {
         (q) =>
           q.supplierId === latest.supplierId &&
           q.id !== latest.id &&
-          q.quotedAt >= lookbackDate,
+          q.quotedAt >= lookbackDate
       );
       const priceChangePct = previous
-        ? Math.round(((latest.priceUsd - previous.priceUsd) / previous.priceUsd) * 1000) / 10
+        ? Math.round(
+            ((latest.priceUsd - previous.priceUsd) / previous.priceUsd) * 1000
+          ) / 10
         : null;
 
       return {

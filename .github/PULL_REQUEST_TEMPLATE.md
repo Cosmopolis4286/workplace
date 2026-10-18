@@ -23,6 +23,6 @@
 ## Checklist
 
 - [ ] Backend: `type-check`, `lint:ci`, `deps:check` y `test` en verde
-- [ ] Frontend: `node scripts/typecheck-ratchet.mjs` en verde
+- [ ] Frontend: `pnpm type-check:ratchet` en verde
 - [ ] `pnpm-lock.yaml` actualizado si cambió algún `package.json`
 - [ ] `CHANGELOG.md` actualizado si el cambio es relevante para el producto

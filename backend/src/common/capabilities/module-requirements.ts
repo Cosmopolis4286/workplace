@@ -33,8 +33,13 @@ export const COMMERCE_BOUND_MODULES: readonly string[] = [
  * le crearía un Commerce a cualquier diseñador o repartidor. Esos módulos se
  * usan si el Commerce ya existe.
  */
-export const PRODUCT_MODULES: readonly string[] = ['menu', 'inventory', 'orders'];
+export const PRODUCT_MODULES: readonly string[] = [
+  'menu',
+  'inventory',
+  'orders',
+];
 
-export const isCommerceBoundModule = (module: string) => COMMERCE_BOUND_MODULES.includes(module);
+export const isCommerceBoundModule = (module: string) =>
+  COMMERCE_BOUND_MODULES.includes(module);
 export const includesProductModule = (modules: readonly string[]) =>
   modules.some((m) => PRODUCT_MODULES.includes(m));

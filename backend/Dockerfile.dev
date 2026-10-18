@@ -32,4 +32,4 @@ EXPOSE 3001
 
 # Regenerar Prisma client y correr migraciones en cada arranque para
 # que el volumen montado siempre tenga el cliente actualizado con el schema actual
-CMD ["sh", "-c", "pnpm prisma:generate && pnpm prisma migrate deploy && pnpm dev"]
+CMD ["sh", "-c", "pnpm prisma:generate && sh scripts/migrate-deploy.sh && node scripts/seed-if-empty.js && pnpm dev"]

@@ -5,16 +5,27 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BnplProvider, BnplTransactionStatus, NotificationType, Prisma } from '@prisma/client';
+import {
+  BnplProvider,
+  BnplTransactionStatus,
+  NotificationType,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { TelegramService } from '../../engagement/telegram/telegram.service';
-import { encryptSecret, decryptSecret } from '../../../common/utils/crypto.util';
+import {
+  encryptSecret,
+  decryptSecret,
+} from '../../../common/utils/crypto.util';
 import { SimulatedAdapter } from './adapters/simulated.adapter';
 import { CasheaAdapter } from './adapters/cashea.adapter';
 import { KreceAdapter } from './adapters/krece.adapter';
-import { BnplProviderAdapter, BnplProviderCredentials } from './adapters/bnpl-provider.interface';
+import {
+  BnplProviderAdapter,
+  BnplProviderCredentials,
+} from './adapters/bnpl-provider.interface';
 import { UpsertBnplSettingsDto } from './dto/upsert-bnpl-settings.dto';
 import { BnplWebhookDto } from './dto/bnpl-webhook.dto';
 
@@ -50,7 +61,10 @@ export class BnplService {
     return decryptSecret(value, this.config.get('ENCRYPTION_KEY') as string);
   }
 
-  private getAdapter(isSimulated: boolean, provider: BnplProvider): BnplProviderAdapter {
+  private getAdapter(
+    isSimulated: boolean,
+    provider: BnplProvider
+  ): BnplProviderAdapter {
     if (isSimulated) return this.simulatedAdapter;
     return provider === 'CASHEA' ? this.casheaAdapter : this.kreceAdapter;
   }
@@ -59,7 +73,9 @@ export class BnplService {
   // Settings (credenciales por comercio y proveedor)
   // ──────────────────────────────────────────────────────────────────────────
   async getSettings(commerceId: string) {
-    const rows = await this.prisma.bnplSettings.findMany({ where: { commerceId } });
+    const rows = await this.prisma.bnplSettings.findMany({
+      where: { commerceId },
+    });
     return (['CASHEA', 'KRECE'] as BnplProvider[]).map((provider) => {
       const row = rows.find((r) => r.provider === provider);
       return {
@@ -74,20 +90,28 @@ export class BnplService {
     });
   }
 
-  async upsertSettings(commerceId: string, provider: BnplProvider, dto: UpsertBnplSettingsDto) {
+  async upsertSettings(
+    commerceId: string,
+    provider: BnplProvider,
+    dto: UpsertBnplSettingsDto
+  ) {
     const existing = await this.prisma.bnplSettings.findUnique({
       where: { commerceId_provider: { commerceId, provider } },
     });
 
     const data = {
       isEnabled: dto.isEnabled,
-      publicApiKeyEnc: this.encryptField(dto.publicApiKey) ?? existing?.publicApiKeyEnc,
-      privateApiKeyEnc: this.encryptField(dto.privateApiKey) ?? existing?.privateApiKeyEnc,
+      publicApiKeyEnc:
+        this.encryptField(dto.publicApiKey) ?? existing?.publicApiKeyEnc,
+      privateApiKeyEnc:
+        this.encryptField(dto.privateApiKey) ?? existing?.privateApiKeyEnc,
       storeId: dto.storeId ?? existing?.storeId,
       storeName: dto.storeName ?? existing?.storeName,
       externalClientIdEnc:
-        this.encryptField(dto.externalClientId) ?? existing?.externalClientIdEnc,
-      extraConfig: (dto.extraConfig ?? existing?.extraConfig) as Prisma.InputJsonValue | undefined,
+        this.encryptField(dto.externalClientId) ??
+        existing?.externalClientIdEnc,
+      extraConfig: (dto.extraConfig ?? existing?.extraConfig) as
+        Prisma.InputJsonValue | undefined,
     };
 
     if (existing) {
@@ -117,7 +141,9 @@ export class BnplService {
       where: { orderId, productId: { not: null } },
       select: { productId: true, productName: true },
     });
-    const productIds = items.map((i) => i.productId).filter((id): id is string => !!id);
+    const productIds = items
+      .map((i) => i.productId)
+      .filter((id): id is string => !!id);
     if (productIds.length === 0) return;
 
     const ineligible = await this.prisma.product.findMany({
@@ -149,7 +175,9 @@ export class BnplService {
       where: { commerceId_provider: { commerceId, provider } },
     });
     if (!settings?.isEnabled) {
-      throw new BadRequestException(`${provider} no está habilitado para este comercio`);
+      throw new BadRequestException(
+        `${provider} no está habilitado para este comercio`
+      );
     }
 
     const creds: BnplProviderCredentials = {
@@ -158,7 +186,8 @@ export class BnplService {
       storeId: settings.storeId ?? undefined,
       storeName: settings.storeName ?? undefined,
       externalClientId: this.decryptField(settings.externalClientIdEnc),
-      extraConfig: (settings.extraConfig as Record<string, unknown>) ?? undefined,
+      extraConfig:
+        (settings.extraConfig as Record<string, unknown>) ?? undefined,
     };
 
     const adapter = this.getAdapter(settings.isSimulated, provider);
@@ -226,19 +255,28 @@ export class BnplService {
     if (!transaction) throw new NotFoundException('Transacción no encontrada');
 
     const settings = await this.prisma.bnplSettings.findUnique({
-      where: { commerceId_provider: { commerceId, provider: transaction.provider } },
+      where: {
+        commerceId_provider: { commerceId, provider: transaction.provider },
+      },
     });
     if (settings && transaction.externalReference) {
-      const adapter = this.getAdapter(settings.isSimulated, transaction.provider);
+      const adapter = this.getAdapter(
+        settings.isSimulated,
+        transaction.provider
+      );
       const creds: BnplProviderCredentials = {
         publicApiKey: this.decryptField(settings.publicApiKeyEnc),
         privateApiKey: this.decryptField(settings.privateApiKeyEnc),
         storeId: settings.storeId ?? undefined,
         externalClientId: this.decryptField(settings.externalClientIdEnc),
       };
-      await adapter.cancel(creds, transaction.externalReference).catch((err) => {
-        this.logger.warn(`No se pudo cancelar en el proveedor: ${err.message}`);
-      });
+      await adapter
+        .cancel(creds, transaction.externalReference)
+        .catch((err) => {
+          this.logger.warn(
+            `No se pudo cancelar en el proveedor: ${err.message}`
+          );
+        });
     }
 
     return this.prisma.bnplTransaction.update({
@@ -257,8 +295,14 @@ export class BnplService {
   // que esto es la mitigación real disponible hoy: sin secreto configurado,
   // fail-closed — no se acepta ningún webhook, en vez de aceptar todo por
   // defecto solo porque el operador no lo configuró.
-  verifyWebhookSecret(provider: BnplProvider, receivedSecret: string | undefined): boolean {
-    const key = provider === 'CASHEA' ? 'BNPL_CASHEA_WEBHOOK_SECRET' : 'BNPL_KRECE_WEBHOOK_SECRET';
+  verifyWebhookSecret(
+    provider: BnplProvider,
+    receivedSecret: string | undefined
+  ): boolean {
+    const key =
+      provider === 'CASHEA'
+        ? 'BNPL_CASHEA_WEBHOOK_SECRET'
+        : 'BNPL_KRECE_WEBHOOK_SECRET';
     const expected = this.config.get<string>(key);
     if (!expected) return false;
     return receivedSecret === expected;
@@ -271,7 +315,9 @@ export class BnplService {
       where: { externalReference: payload.externalReference, provider },
     });
     if (!transaction) {
-      this.logger.warn(`Webhook ${provider} sin transacción asociada: ${payload.externalReference}`);
+      this.logger.warn(
+        `Webhook ${provider} sin transacción asociada: ${payload.externalReference}`
+      );
       return { received: true, matched: false };
     }
 
@@ -282,7 +328,8 @@ export class BnplService {
       data: {
         status: nextStatus,
         installments: payload.installments ?? transaction.installments,
-        confirmedAt: nextStatus === 'APPROVED' ? new Date() : transaction.confirmedAt,
+        confirmedAt:
+          nextStatus === 'APPROVED' ? new Date() : transaction.confirmedAt,
         rawResponse: payload as any,
       },
     });
@@ -325,9 +372,14 @@ export class BnplService {
   // se agrega una segunda capa: solo resuelve referencias generadas por
   // SimulatedAdapter (prefijo "SIM-"), nunca una transacción que haya
   // llegado a usar un adapter real.
-  async simulateResolve(externalReference: string, status: 'APPROVED' | 'REJECTED') {
+  async simulateResolve(
+    externalReference: string,
+    status: 'APPROVED' | 'REJECTED'
+  ) {
     if (!externalReference.startsWith('SIM-')) {
-      throw new BadRequestException('Solo se pueden resolver transacciones simuladas');
+      throw new BadRequestException(
+        'Solo se pueden resolver transacciones simuladas'
+      );
     }
     const transaction = await this.prisma.bnplTransaction.findFirst({
       where: { externalReference },
@@ -340,7 +392,10 @@ export class BnplService {
       throw new BadRequestException('Esta transacción ya fue resuelta');
     }
 
-    return this.handleWebhook(transaction.provider, { externalReference, status });
+    return this.handleWebhook(transaction.provider, {
+      externalReference,
+      status,
+    });
   }
 
   // ──────────────────────────────────────────────────────────────────────────

@@ -77,7 +77,9 @@ export interface FetchedImage {
  * fuerza HTTPS, limita tamaño y tiempo, y verifica que el contenido sea
  * realmente una imagen (magic numbers) y no solo lo que diga el header.
  */
-export async function fetchImageFromUrlSafely(rawUrl: string): Promise<FetchedImage> {
+export async function fetchImageFromUrlSafely(
+  rawUrl: string
+): Promise<FetchedImage> {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -121,7 +123,11 @@ export async function fetchImageFromUrlSafely(rawUrl: string): Promise<FetchedIm
       (res) => {
         if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
           res.destroy();
-          reject(new BadRequestException(`No se pudo descargar la imagen (HTTP ${res.statusCode})`));
+          reject(
+            new BadRequestException(
+              `No se pudo descargar la imagen (HTTP ${res.statusCode})`
+            )
+          );
           return;
         }
 
@@ -129,7 +135,11 @@ export async function fetchImageFromUrlSafely(rawUrl: string): Promise<FetchedIm
           totalBytes += chunk.length;
           if (totalBytes > MAX_IMAGE_BYTES) {
             res.destroy();
-            reject(new BadRequestException('La imagen supera el tamaño máximo permitido (5 MB)'));
+            reject(
+              new BadRequestException(
+                'La imagen supera el tamaño máximo permitido (5 MB)'
+              )
+            );
             return;
           }
           chunks.push(chunk);
@@ -140,17 +150,27 @@ export async function fetchImageFromUrlSafely(rawUrl: string): Promise<FetchedIm
     );
 
     req.on('timeout', () => {
-      req.destroy(new BadRequestException('Tiempo de espera agotado al descargar la imagen'));
+      req.destroy(
+        new BadRequestException(
+          'Tiempo de espera agotado al descargar la imagen'
+        )
+      );
     });
     req.on('error', (err) => {
-      reject(err instanceof BadRequestException ? err : new BadRequestException('No se pudo descargar la imagen'));
+      reject(
+        err instanceof BadRequestException
+          ? err
+          : new BadRequestException('No se pudo descargar la imagen')
+      );
     });
     req.end();
   });
 
   const detectedType = detectImageType(buffer);
   if (!detectedType || !ALLOWED_CONTENT_TYPES[detectedType]) {
-    throw new BadRequestException('El contenido de la URL no es una imagen válida (jpeg, png, webp, gif)');
+    throw new BadRequestException(
+      'El contenido de la URL no es una imagen válida (jpeg, png, webp, gif)'
+    );
   }
 
   return {

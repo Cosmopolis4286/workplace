@@ -29,7 +29,10 @@ export class CategoryScopeService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** true si el ítem aplica al rubro `userCategoryId` (o no tiene scope — aplica a todos). */
-  isVisibleForCategory(itemUserCategoryIds: string[], userCategoryId: string | null | undefined): boolean {
+  isVisibleForCategory(
+    itemUserCategoryIds: string[],
+    userCategoryId: string | null | undefined
+  ): boolean {
     if (itemUserCategoryIds.length === 0) return true;
     if (!userCategoryId) return false;
     return itemUserCategoryIds.includes(userCategoryId);
@@ -38,9 +41,11 @@ export class CategoryScopeService {
   /** Filtra una lista de ítems con `userCategoryIds` a los que aplican al rubro dado. */
   filterByCategory<T extends { userCategoryIds: string[] }>(
     items: T[],
-    userCategoryId: string | null | undefined,
+    userCategoryId: string | null | undefined
   ): T[] {
-    return items.filter((item) => this.isVisibleForCategory(item.userCategoryIds, userCategoryId));
+    return items.filter((item) =>
+      this.isVisibleForCategory(item.userCategoryIds, userCategoryId)
+    );
   }
 
   /**
@@ -49,13 +54,22 @@ export class CategoryScopeService {
    * de esta clase — no se renombró para evitar una migración de datos
    * innecesaria). `getField` extrae el array de scope de cada ítem.
    */
-  filterByField<T>(items: T[], getField: (item: T) => string[], userCategoryId: string | null | undefined): T[] {
-    return items.filter((item) => this.isVisibleForCategory(getField(item), userCategoryId));
+  filterByField<T>(
+    items: T[],
+    getField: (item: T) => string[],
+    userCategoryId: string | null | undefined
+  ): T[] {
+    return items.filter((item) =>
+      this.isVisibleForCategory(getField(item), userCategoryId)
+    );
   }
 
   /** Resuelve el categoryId de negocio del usuario — punto único de lectura para no repetir `prisma.user.findUnique` en cada consumidor. */
   async getUserCategoryId(userId: string): Promise<string | null> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { categoryId: true } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { categoryId: true },
+    });
     return user?.categoryId ?? null;
   }
 }

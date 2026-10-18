@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Param, Body, UseGuards, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  Res,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { ReceiptsService } from './receipts.service';
 import { CreateReceiptDto } from './dto/create-receipt.dto';
@@ -34,7 +42,10 @@ export class ReceiptsController {
 
   @Get('by-order/:orderId')
   @RequirePermission('orders:view')
-  async findByOrder(@Param('orderId') orderId: string, @CurrentUser() user: any) {
+  async findByOrder(
+    @Param('orderId') orderId: string,
+    @CurrentUser() user: any
+  ) {
     const commerceId = await this.getCommerceId(user.id);
     return this.receiptsService.findByOrder(orderId, commerceId);
   }
@@ -48,13 +59,20 @@ export class ReceiptsController {
 
   @Get(':id/pdf')
   @RequirePermission('orders:view')
-  async downloadPdf(@Param('id') id: string, @CurrentUser() user: any, @Res() res: Response) {
+  async downloadPdf(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Res() res: Response
+  ) {
     const commerceId = await this.getCommerceId(user.id);
     const receipt = await this.receiptsService.findOne(id, commerceId);
     const pdf = await this.receiptsService.generatePdf(id, commerceId);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${receipt.receiptNumber}.pdf"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${receipt.receiptNumber}.pdf"`
+    );
     res.send(pdf);
   }
 }

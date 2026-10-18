@@ -72,8 +72,9 @@ cp .env.dev.example .env.dev      # completar valores
 # 3. Backend + Postgres + Redis + Mailhog + Adminer
 docker compose --env-file .env.dev -f docker-compose.hybrid.yml up -d
 
-# 4. Migraciones y seed (dentro del contenedor, que resuelve el host "postgres")
-docker exec backend-hybrid sh -c "cd /app/backend && npx prisma migrate deploy && node prisma/seed.js"
+# 4. El contenedor del backend aplica las migraciones y, si la base está
+#    vacía, corre el seed automáticamente. Para re-sembrar a mano:
+docker exec backend-hybrid sh -c "cd /app/backend && node prisma/seed.js"
 
 # 5. Frontend en el host
 pnpm dev:frontend
@@ -110,7 +111,7 @@ El seed es idempotente: crea catálogos (categorías de usuario, servicios, empl
 
 | Comando (frontend)                        | Descripción                                   |
 |-------------------------------------------|-----------------------------------------------|
-| `node scripts/typecheck-ratchet.mjs`      | Typecheck con trinquete: los errores solo pueden bajar |
+| `pnpm type-check:ratchet`                 | Typecheck con trinquete: los errores solo pueden bajar |
 | `node scripts/typecheck-ratchet.mjs --update` | Reescribe la línea base tras corregir errores |
 | `pnpm test`                               | Tests (Vitest)                                |
 

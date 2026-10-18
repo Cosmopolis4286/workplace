@@ -21,7 +21,8 @@ import { ReportReviewDto } from './dto/report-review.dto';
 const ADMIN_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN];
 
 const AVG_RESPONSE_CACHE_TTL = 60 * 60; // 1h: cambia poco, no necesita estar siempre fresco
-const avgResponseCacheKey = (providerId: string) => `profile:avg-response:${providerId}`;
+const avgResponseCacheKey = (providerId: string) =>
+  `profile:avg-response:${providerId}`;
 
 @Injectable()
 export class ProfilesService {
@@ -29,7 +30,7 @@ export class ProfilesService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private redis: RedisService,
-    private accountTypeResolver: AccountTypeResolver,
+    private accountTypeResolver: AccountTypeResolver
   ) {}
 
   // ADMIN/SUPERADMIN tienen perfil social por su nivel de acceso puro (Role).
@@ -37,7 +38,10 @@ export class ProfilesService {
   // espejo derivado de UserProfile (ver RoleResolverService), así que la
   // fuente de verdad real es AccountTypeResolver, que consulta UserProfile
   // ACTIVE primero y solo cae a Role como fallback legacy.
-  private async hasSocialProfile(user: { id: string; role: Role }): Promise<boolean> {
+  private async hasSocialProfile(user: {
+    id: string;
+    role: Role;
+  }): Promise<boolean> {
     if (ADMIN_ROLES.includes(user.role)) return true;
     const accountType = await this.accountTypeResolver.resolve(user.id);
     return accountType !== null;
@@ -56,7 +60,10 @@ export class ProfilesService {
     if (!freelancerSettings?.user.username) {
       throw new NotFoundException('Perfil no encontrado');
     }
-    return this.getPublicProfile(freelancerSettings.user.username, currentUserId);
+    return this.getPublicProfile(
+      freelancerSettings.user.username,
+      currentUserId
+    );
   }
 
   async getPublicProfile(username: string, currentUserId?: string) {
@@ -119,7 +126,9 @@ export class ProfilesService {
           },
         }),
         this.prisma.review.findUnique({
-          where: { authorId_targetId: { authorId: currentUserId, targetId: user.id } },
+          where: {
+            authorId_targetId: { authorId: currentUserId, targetId: user.id },
+          },
         }),
         this.findVerifiedTransaction(currentUserId, user.id),
       ]);
@@ -160,7 +169,9 @@ export class ProfilesService {
   // primera reacción real del proveedor (SEEN/CONTACTED/CLOSED). Se excluyen
   // PENDING (sin respuesta) y CANCELLED (no hubo respuesta real del proveedor).
   // Limitado a las últimas 50 para no escanear todo el histórico en cada visita.
-  private async getAvgResponseHours(providerId: string): Promise<number | null> {
+  private async getAvgResponseHours(
+    providerId: string
+  ): Promise<number | null> {
     const cached = await this.redis.get(avgResponseCacheKey(providerId));
     if (cached !== null) return cached === 'null' ? null : Number(cached);
 
@@ -184,7 +195,11 @@ export class ProfilesService {
       result = Number((totalHours / responded.length).toFixed(1));
     }
 
-    await this.redis.setex(avgResponseCacheKey(providerId), AVG_RESPONSE_CACHE_TTL, String(result));
+    await this.redis.setex(
+      avgResponseCacheKey(providerId),
+      AVG_RESPONSE_CACHE_TTL,
+      String(result)
+    );
     return result;
   }
 
@@ -429,11 +444,11 @@ export class ProfilesService {
 
     const verification = await this.findVerifiedTransaction(
       authorId,
-      dto.targetId,
+      dto.targetId
     );
     if (!verification) {
       throw new ForbiddenException(
-        'Solo puedes reseñar a usuarios con los que hayas completado una compra o servicio',
+        'Solo puedes reseñar a usuarios con los que hayas completado una compra o servicio'
       );
     }
 
@@ -491,7 +506,7 @@ export class ProfilesService {
         dto.targetId,
         `${review.author.firstName} ${review.author.lastName}`,
         dto.rating,
-        target.username ?? undefined,
+        target.username ?? undefined
       )
       .catch(() => {});
 
@@ -532,7 +547,7 @@ export class ProfilesService {
   // comercio (resuelto via Commerce.userId).
   private async findVerifiedTransaction(
     authorId: string,
-    targetId: string,
+    targetId: string
   ): Promise<{ orderId?: string; requestId?: string } | null> {
     const request = await this.prisma.serviceRequest.findFirst({
       where: {
@@ -578,7 +593,7 @@ export class ProfilesService {
   async respondToReview(
     targetUserId: string,
     reviewId: string,
-    dto: RespondReviewDto,
+    dto: RespondReviewDto
   ) {
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
@@ -608,7 +623,7 @@ export class ProfilesService {
       .notifyReviewResponse(
         review.authorId,
         `${updated.target.firstName} ${updated.target.lastName}`,
-        updated.target.username ?? undefined,
+        updated.target.username ?? undefined
       )
       .catch(() => {});
 
@@ -629,7 +644,11 @@ export class ProfilesService {
     });
   }
 
-  async reportReview(reporterId: string, reviewId: string, dto: ReportReviewDto) {
+  async reportReview(
+    reporterId: string,
+    reviewId: string,
+    dto: ReportReviewDto
+  ) {
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
     });
@@ -666,10 +685,20 @@ export class ProfilesService {
         review: {
           include: {
             author: {
-              select: { id: true, username: true, firstName: true, lastName: true },
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+              },
             },
             target: {
-              select: { id: true, username: true, firstName: true, lastName: true },
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+              },
             },
           },
         },
@@ -679,7 +708,7 @@ export class ProfilesService {
 
   async moderateReview(
     reviewId: string,
-    action: 'HIDE' | 'RESTORE' | 'DISMISS_REPORTS',
+    action: 'HIDE' | 'RESTORE' | 'DISMISS_REPORTS'
   ) {
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
