@@ -14,6 +14,7 @@ import {
   PLATFORM_FEES_FACADE,
 } from '../../money/platform-fees/platform-fees.facade';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { isPositive } from '../../../common/money/money';
 
 const PRICE_PER_KM: Record<RideVehicleType, number> = {
   MOTORCYCLE: 8,
@@ -324,7 +325,7 @@ export class RidesService {
     if (status === RideStatus.COMPLETED) {
       extra.completedAt = new Date();
 
-      if (!ride.platformFeePayer && ride.price && ride.driverId) {
+      if (!ride.platformFeePayer && isPositive(ride.price) && ride.driverId) {
         const feeConfig = await this.platformFees.resolveFeeConfig(
           'RIDE',
           ride.driverId
