@@ -4,7 +4,7 @@
 services:
   # 🌐 Traefik - Router SSL esencial
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.6  # >= v3.6: compatible con la API de Docker Engine 29
     restart: unless-stopped
     init: true
     container_name: traefik
@@ -95,7 +95,7 @@ services:
       - "traefik.http.routers.backend.tls.domains[0].sans=www.${DOMAIN:-localhost}"
       - "traefik.http.routers.backend.priority=100"
       - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT:-3001}"
-      - "traefik.http.routers.backend.middlewares=security-headers@file,cors-api@file,rate-limit@file"
+      - "traefik.http.routers.backend.middlewares=security-headers@file,rate-limit@file"
     logging:
       driver: "json-file"
       options:
@@ -236,36 +236,8 @@ services:
         max-size: "5m"
         max-file: "2"
 
-  # 💾 Backup Service - PostgreSQL daily dumps (ejecutado via host cron)
-  backup:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    init: true
-    container_name: backup
-    entrypoint: ["tail", "-f", "/dev/null"]
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_HOST: postgres
-      BACKUP_RETENTION_DAYS: 7
-    volumes:
-      - ./scripts/database:/scripts:ro
-      - ./backups:/backups
-      - /etc/localtime:/etc/localtime:ro
-    networks:
-      - private_network
-    depends_on:
-      postgres:
-        condition: service_healthy
-    cpus: "0.1"
-    mem_limit: 64m
-    mem_reservation: 32m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
+  # 💾 Backups: no hay contenedor dedicado. scripts/backup/host-backup.sh corre
+  # desde el cron del host (lo instala el deploy) y antes de cada deploy.
 
 volumes:
   postgres_data:

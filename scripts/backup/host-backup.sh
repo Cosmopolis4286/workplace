@@ -1,245 +1,286 @@
 #!/bin/bash
 
-# host-backup.sh - Backups simples desde el host (recomendado para 4GB RAM)
-# Sin consumo extra de RAM, crontab nativo
+# host-backup.sh - Backups del stack lite desde el host (cron nativo, sin RAM extra)
+#
+# Ubica los contenedores por sus labels de Docker Compose (proyecto + servicio),
+# no por nombre fijo: en docker-compose.lite.yml postgres/redis no tienen
+# container_name y Docker los llama <proyecto>-postgres-1. Las credenciales de
+# PostgreSQL se leen del propio contenedor (no dependen del entorno de cron).
+#
+# Uso: host-backup.sh [postgres|redis|uploads|cleanup|status|check|verify|restore <archivo>|install|all]
 
 set -euo pipefail
 
-# Configuration
-BACKUP_DIR="${BACKUP_DIR:-/opt/workplace/backups}"
-POSTGRES_USER="${POSTGRES_USER:-app_user}"
-POSTGRES_DB="${POSTGRES_DB:-app_db}"
-REDIS_PASSWORD="${REDIS_PASSWORD:-redis_password}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/workplace}"
+COMPOSE_PROJECT="${COMPOSE_PROJECT:-$(basename "$DEPLOY_PATH")}"
+BACKUP_DIR="${BACKUP_DIR:-$DEPLOY_PATH/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-7}"
+# Antigüedad máxima aceptable del último backup de PostgreSQL (para `check`)
+MAX_AGE_HOURS="${MAX_AGE_HOURS:-26}"
+# En DEPLOY_PATH (no /var/log): el usuario de deploy puede no ser root, y si
+# cron no puede abrir el log la tarea ni siquiera se ejecuta.
+LOG_FILE="${LOG_FILE:-$DEPLOY_PATH/logs/backups.log}"
 
-# Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-log() {
-    echo -e "${GREEN}[$(date '+%H:%M:%S')]${NC} $1"
-}
-
-warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
+log() { echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" >&2
     exit 1
 }
 
-# Create backup directory
-setup_backup_dir() {
-    log "📁 Creando directorio de backups..."
-    mkdir -p "$BACKUP_DIR/postgres"
-    mkdir -p "$BACKUP_DIR/redis"
-    mkdir -p "$BACKUP_DIR/uploads"
+# ID del contenedor en ejecución de un servicio del stack
+container_for() {
+    local service="$1" id
+    id=$(docker ps -q \
+        --filter "label=com.docker.compose.project=${COMPOSE_PROJECT}" \
+        --filter "label=com.docker.compose.service=${service}" | head -1)
+    [[ -n "$id" ]] || error "Contenedor '${service}' del proyecto '${COMPOSE_PROJECT}' no está corriendo"
+    echo "$id"
 }
 
-# Backup PostgreSQL
+# Valor de una variable del .env del deploy (sin ejecutarlo como shell)
+env_value() {
+    local key="$1" file="$DEPLOY_PATH/.env"
+    [[ -f "$file" ]] || return 0
+    grep -E "^${key}=" "$file" | tail -1 | cut -d= -f2- | sed -E "s/^['\"]//; s/['\"]$//"
+}
+
+setup_backup_dir() {
+    mkdir -p "$BACKUP_DIR/postgres" "$BACKUP_DIR/redis" "$BACKUP_DIR/uploads"
+}
+
 backup_postgres() {
     log "🗄️ Backup PostgreSQL..."
-    local timestamp=$(date +%Y%m%d_%H%M%S)
-    local backup_file="$BACKUP_DIR/postgres/postgres_${timestamp}.sql"
-    
-    # Direct compression (faster + less disk usage)
-    if timeout 300 docker exec postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "${backup_file}.gz"; then
-        log "✅ PostgreSQL backup: $(basename "${backup_file}.gz") (comprimido)"
-        
-        # Verify backup integrity
-        if gunzip -t "${backup_file}.gz" 2>/dev/null; then
-            log "✅ PostgreSQL verificado: $(basename "${backup_file}.gz")"
-        else
-            error "❌ PostgreSQL corrupto: $(basename "${backup_file}.gz")"
-        fi
-    else
-        error "❌ Falló backup PostgreSQL"
+    local pg file tmp
+    pg=$(container_for postgres)
+    file="$BACKUP_DIR/postgres/postgres_$(date +%Y%m%d_%H%M%S).sql.gz"
+    tmp="${file}.partial"
+
+    # Credenciales del propio contenedor; pipefail detecta un pg_dump fallido.
+    if ! timeout 900 docker exec "$pg" sh -c \
+        'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --no-privileges' \
+        | gzip > "$tmp"; then
+        rm -f "$tmp"
+        error "❌ Falló pg_dump"
     fi
+
+    gzip -t "$tmp" || { rm -f "$tmp"; error "❌ Backup PostgreSQL corrupto"; }
+    # Un dump cortado a la mitad no trae la marca final de pg_dump.
+    if ! gzip -dc "$tmp" | tail -n 5 | grep -q "PostgreSQL database dump complete"; then
+        rm -f "$tmp"
+        error "❌ Backup PostgreSQL incompleto"
+    fi
+
+    mv "$tmp" "$file"
+    log "✅ PostgreSQL: $(basename "$file") ($(du -h "$file" | cut -f1))"
 }
 
-# Backup Redis
 backup_redis() {
     log "🔴 Backup Redis..."
-    local timestamp=$(date +%Y%m%d_%H%M%S)
-    local backup_file="$BACKUP_DIR/redis/redis_${timestamp}.rdb"
-    
-    # Trigger Redis BGSAVE (async - no blocking)
-    if docker exec redis redis-cli -a "$REDIS_PASSWORD" BGSAVE; then
-        sleep 3  # Wait for async save
-        
-        # Copy RDB file from container
-        if docker cp redis:/data/dump.rdb "$backup_file"; then
-            log "✅ Redis backup: $(basename "$backup_file")"
-            
-            # Compress if file is large
-            if [ $(stat -c%s "$backup_file") -gt 10485760 ]; then
-                gzip "$backup_file"
-                log "🗜️ Comprimido: $(basename "$backup_file").gz"
-            fi
-            
-            # Verify backup integrity
-            if [ -f "${backup_file}.gz" ]; then
-                if gunzip -t "${backup_file}.gz" 2>/dev/null; then
-                    log "✅ Redis verificado: $(basename "${backup_file}.gz")"
-                else
-                    error "❌ Redis corrupto: $(basename "${backup_file}.gz")"
-                fi
-            fi
-        else
-            error "❌ Falló copia Redis RDB"
-        fi
-    else
-        error "❌ Falló save Redis"
-    fi
+    local rd password before after file
+    rd=$(container_for redis)
+    password="$(env_value REDIS_PASSWORD)"
+    file="$BACKUP_DIR/redis/redis_$(date +%Y%m%d_%H%M%S).rdb"
+
+    redis() { docker exec -e REDISCLI_AUTH="$password" "$rd" redis-cli --no-auth-warning "$@"; }
+
+    # redis-cli devuelve exit 0 aun con error de auth: validar la respuesta.
+    before=$(redis LASTSAVE 2>&1 || true)
+    [[ "$before" =~ ^[0-9]+$ ]] ||
+        error "❌ Redis rechazó la conexión: ${before} (¿REDIS_PASSWORD en $DEPLOY_PATH/.env?)"
+    redis BGSAVE 2>&1 | grep -q "Background saving" || error "❌ Falló BGSAVE"
+    # BGSAVE es asíncrono: esperar a que LASTSAVE cambie antes de copiar.
+    for _ in $(seq 1 60); do
+        after=$(redis LASTSAVE)
+        [[ "$after" != "$before" ]] && break
+        sleep 1
+    done
+    [[ "$after" != "$before" ]] || error "❌ BGSAVE no terminó en 60s"
+
+    docker cp "$rd:/data/dump.rdb" "$file" || error "❌ Falló copia de dump.rdb"
+    gzip "$file"
+    log "✅ Redis: $(basename "$file").gz"
 }
 
-# Backup Uploads
 backup_uploads() {
     log "📁 Backup Uploads..."
-    local timestamp=$(date +%Y%m%d_%H%M%S)
-    local backup_file="$BACKUP_DIR/uploads/uploads_${timestamp}.tar.gz"
-    
-    if docker run --rm \
-        -v uploads_data:/source:ro \
-        -v "$BACKUP_DIR/uploads":/backup \
-        alpine:latest \
-        tar czf "/backup/uploads_${timestamp}.tar.gz" -C /source .; then
-        
-        log "✅ Uploads backup: $(basename "$backup_file")"
-    else
-        error "❌ Falló backup uploads"
-    fi
+    local be volume file
+    be=$(container_for backend)
+    # Volumen real montado en /app/uploads (Compose le antepone el proyecto:
+    # <proyecto>_uploads_data). Montar "uploads_data" a secas crea un volumen
+    # nuevo vacío y el backup sale vacío sin error.
+    volume=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/uploads"}}{{.Name}}{{end}}{{end}}' "$be")
+    [[ -n "$volume" ]] || error "❌ El backend no tiene un volumen montado en /app/uploads"
+    file="uploads_$(date +%Y%m%d_%H%M%S).tar.gz"
+
+    docker run --rm \
+        -v "${volume}:/source:ro" \
+        -v "$BACKUP_DIR/uploads:/backup" \
+        alpine:3 \
+        tar czf "/backup/${file}" -C /source . || error "❌ Falló backup de uploads"
+
+    gzip -t "$BACKUP_DIR/uploads/$file" || error "❌ Backup de uploads corrupto"
+    log "✅ Uploads: $file ($(tar tzf "$BACKUP_DIR/uploads/$file" | grep -vc '/$') archivos)"
 }
 
-# Cleanup old backups
+latest_postgres_backup() {
+    find "$BACKUP_DIR/postgres" -name 'postgres_*.sql.gz' -type f 2>/dev/null | sort | tail -1
+}
+
 cleanup_old() {
-    log "🗑️ Limpiando backups antiguos (> ${RETENTION_DAYS} días)..."
-    
-    find "$BACKUP_DIR/postgres" -name "*.sql*" -mtime +${RETENTION_DAYS} -delete 2>/dev/null || true
-    find "$BACKUP_DIR/postgres" -name "*.sql.gz*" -mtime +${RETENTION_DAYS} -delete 2>/dev/null || true
-    find "$BACKUP_DIR/redis" -name "*.rdb*" -mtime +${RETENTION_DAYS} -delete 2>/dev/null || true
-    find "$BACKUP_DIR/redis" -name "*.rdb.gz*" -mtime +${RETENTION_DAYS} -delete 2>/dev/null || true
-    find "$BACKUP_DIR/uploads" -name "*.tar.gz*" -mtime +${RETENTION_DAYS} -delete 2>/dev/null || true
-    
+    log "🗑️ Limpiando backups de más de ${RETENTION_DAYS} días..."
+    # Nunca borrar el último backup de PostgreSQL, aunque sea viejo (p. ej. si
+    # los backups dejaron de correr, la limpieza no debe dejar la carpeta vacía).
+    local keep
+    keep="$(latest_postgres_backup)"
+    find "$BACKUP_DIR/postgres" -name 'postgres_*.sql.gz' -mtime +"${RETENTION_DAYS}" \
+        ! -path "${keep:-/nonexistent}" -delete 2>/dev/null || true
+    find "$BACKUP_DIR/postgres" -name '*.partial' -mmin +60 -delete 2>/dev/null || true
+    find "$BACKUP_DIR/redis" -name 'redis_*.rdb.gz' -mtime +"${RETENTION_DAYS}" -delete 2>/dev/null || true
+    find "$BACKUP_DIR/uploads" -name 'uploads_*.tar.gz' -mtime +"${RETENTION_DAYS}" -delete 2>/dev/null || true
     log "✅ Limpieza completada"
 }
 
-# Show backup status
 show_status() {
-    log "📊 Estado actual de backups:"
-    
-    echo "PostgreSQL:"
-    find "$BACKUP_DIR/postgres" -name "*.sql*" -exec ls -lh {} \; | head -5
-    
-    echo "Redis:"
-    find "$BACKUP_DIR/redis" -name "*.rdb*" -exec ls -lh {} \; | head -5
-    
-    echo "Uploads:"
-    find "$BACKUP_DIR/uploads" -name "*.tar.gz*" -exec ls -lh {} \; | head -5
-    
-    echo "Uso de disco:"
-    du -sh "$BACKUP_DIR"
+    for kind in postgres redis uploads; do
+        echo "${kind}:"
+        find "$BACKUP_DIR/$kind" -type f -printf '  %TY-%Tm-%Td %TH:%TM  %8s  %f\n' 2>/dev/null | sort | tail -5
+    done
+    echo "Uso de disco: $(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1)"
 }
 
-# Install crontab
+# Para monitoreo: falla si el último backup de PostgreSQL no existe o es viejo.
+check_freshness() {
+    local latest age_h
+    latest="$(latest_postgres_backup)"
+    [[ -n "$latest" ]] || error "❌ No hay backups de PostgreSQL en $BACKUP_DIR/postgres"
+    age_h=$(( ($(date +%s) - $(stat -c %Y "$latest")) / 3600 ))
+    if (( age_h > MAX_AGE_HOURS )); then
+        error "❌ Último backup de PostgreSQL tiene ${age_h}h (máx ${MAX_AGE_HOURS}h): $(basename "$latest")"
+    fi
+    log "✅ Último backup de PostgreSQL: $(basename "$latest") (${age_h}h)"
+}
+
+# Restaura un dump en una base TEMPORAL dentro del mismo contenedor y la
+# borra: prueba que el backup sirve sin tocar la base real.
+verify_restore() {
+    local file="${1:-$(latest_postgres_backup)}" pg tables
+    [[ -n "$file" && -f "$file" ]] || error "❌ No hay backup para verificar"
+    pg=$(container_for postgres)
+    log "🧪 Verificando restauración de $(basename "$file")..."
+
+    docker exec "$pg" sh -c 'dropdb -U "$POSTGRES_USER" --if-exists backup_verify && createdb -U "$POSTGRES_USER" backup_verify'
+    if ! gzip -dc "$file" | docker exec -i "$pg" sh -c \
+        'psql -U "$POSTGRES_USER" -d backup_verify -v ON_ERROR_STOP=1 -q' >/dev/null; then
+        docker exec "$pg" sh -c 'dropdb -U "$POSTGRES_USER" --if-exists backup_verify' || true
+        error "❌ El backup no se pudo restaurar"
+    fi
+    tables=$(docker exec "$pg" sh -c \
+        "psql -U \"\$POSTGRES_USER\" -d backup_verify -tAc \"SELECT count(*) FROM information_schema.tables WHERE table_schema='public'\"")
+    docker exec "$pg" sh -c 'dropdb -U "$POSTGRES_USER" backup_verify'
+    log "✅ Restauración verificada: ${tables} tablas"
+}
+
+# Restaura un dump SOBRE la base real (reemplaza todo su contenido).
+restore_postgres() {
+    local file="${1:-}" pg
+    [[ -n "$file" && -f "$file" ]] || error "Uso: $0 restore <archivo.sql.gz>"
+    gzip -t "$file" || error "❌ Backup corrupto: $file"
+    pg=$(container_for postgres)
+    if [[ "${CONFIRM_RESTORE:-}" != "yes" ]]; then
+        echo "⚠️  Esto REEMPLAZA la base de datos de producción con $(basename "$file")."
+        read -r -p "Escribe 'restaurar' para continuar: " answer
+        [[ "$answer" == "restaurar" ]] || error "Cancelado"
+    fi
+    log "💾 Backup previo de seguridad antes de restaurar..."
+    backup_postgres
+    log "🔄 Restaurando $(basename "$file")..."
+    docker exec "$pg" sh -c \
+        'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -qc "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
+    gzip -dc "$file" | docker exec -i "$pg" sh -c \
+        'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -q' >/dev/null \
+        || error "❌ Falló la restauración (hay un backup previo en $BACKUP_DIR/postgres)"
+    log "✅ Restauración completada. Reinicia el backend: docker compose -f $DEPLOY_PATH/docker-compose.lite.yml restart backend"
+}
+
 install_crontab() {
     log "⏰ Instalando crontab de backups..."
-    
-    local temp_cron=$(mktemp)
-    
-    # Keep existing cron jobs (prevent overwriting)
-    crontab -l 2>/dev/null > "$temp_cron" || echo "# Workplace Backups" > "$temp_cron"
-    
-    # Add new jobs only if not already present
-    if ! grep -q "host-backup.sh" "$temp_cron"; then
-        cat >> "$temp_cron" << EOF
-
-# Backups automáticos - Workplace App
-# PostgreSQL: Diario a las 2 AM
-0 2 * * * /opt/workplace/scripts/backup/host-backup.sh postgres >> /var/log/workplace-backups.log 2>&1
-
-# Redis: Diario a las 3 AM
-0 3 * * * /opt/workplace/scripts/backup/host-backup.sh redis >> /var/log/workplace-backups.log 2>&1
-
-# Uploads: Semanal los domingos a las 4 AM
-0 4 * * 0 /opt/workplace/scripts/backup/host-backup.sh uploads >> /var/log/workplace-backups.log 2>&1
-
-# Limpieza: Diario a las 5 AM
-0 5 * * * /opt/workplace/scripts/backup/host-backup.sh cleanup >> /var/log/workplace-backups.log 2>&1
+    command -v crontab >/dev/null || error "❌ crontab no está instalado (apt install cron)"
+    local script tmp
+    mkdir -p "$(dirname "$LOG_FILE")"
+    script="$(readlink -f "$0")"
+    tmp=$(mktemp)
+    # Reemplaza solo el bloque propio; conserva el resto del crontab tal cual.
+    crontab -l 2>/dev/null | sed '/# >>> workplace-backups/,/# <<< workplace-backups/d' > "$tmp" || true
+    cat >> "$tmp" <<EOF
+# >>> workplace-backups (gestionado por host-backup.sh install)
+0 2 * * * DEPLOY_PATH=$DEPLOY_PATH $script postgres >> $LOG_FILE 2>&1
+0 3 * * * DEPLOY_PATH=$DEPLOY_PATH $script redis >> $LOG_FILE 2>&1
+0 4 * * 0 DEPLOY_PATH=$DEPLOY_PATH $script uploads >> $LOG_FILE 2>&1
+30 4 * * 0 DEPLOY_PATH=$DEPLOY_PATH $script verify >> $LOG_FILE 2>&1
+0 5 * * * DEPLOY_PATH=$DEPLOY_PATH $script cleanup >> $LOG_FILE 2>&1
+0 9 * * * DEPLOY_PATH=$DEPLOY_PATH $script check >> $LOG_FILE 2>&1
+# <<< workplace-backups
 EOF
-    fi
-    
-    # Install new crontab safely
-    if (crontab -l 2>/dev/null; cat "$temp_cron") | crontab -; then
-        log "✅ Crontab instalado (preservando jobs existentes)"
-        log "📋 Revisar con: crontab -l"
-    else
-        error "❌ Falló instalación de crontab"
-    fi
-    
-    rm -f "$temp_cron"
+    crontab "$tmp" || { rm -f "$tmp"; error "❌ Falló instalación de crontab"; }
+    rm -f "$tmp"
+    log "✅ Crontab instalado (revisar con: crontab -l)"
 }
 
-# Main execution
 main() {
-    # Check for lock file (prevent duplicates)
-    LOCK_FILE="/tmp/workplace_backup.lock"
-    if [ -f "$LOCK_FILE" ]; then
-        warn "Backup ya en ejecución, saliendo..."
-        exit 1
-    fi
-    
-    # Set up lock file and cleanup
-    trap 'rm -f "$LOCK_FILE"' EXIT
-    touch "$LOCK_FILE"
-    
-    case "${1:-}" in
-        "postgres")
+    local cmd="${1:-}"
+    case "$cmd" in
+        status|check|install|"") ;;
+        *)
+            # Un solo backup a la vez; si hay otro corriendo (cron + deploy),
+            # esperar en lugar de fallar.
             setup_backup_dir
-            backup_postgres
+            exec 9>"$BACKUP_DIR/.lock"
+            flock -w 1800 9 || error "Otro backup sigue en curso tras 30 min"
             ;;
-        "redis")
-            setup_backup_dir
-            backup_redis
-            ;;
-        "uploads")
-            setup_backup_dir
-            backup_uploads
-            ;;
-        "cleanup")
-            cleanup_old
-            ;;
-        "status")
-            show_status
-            ;;
-        "install")
-            install_crontab
-            ;;
-        "all")
-            setup_backup_dir
+    esac
+
+    case "$cmd" in
+        postgres) backup_postgres ;;
+        redis) backup_redis ;;
+        uploads) backup_uploads ;;
+        cleanup) cleanup_old ;;
+        status) show_status ;;
+        check) check_freshness ;;
+        verify) verify_restore "${2:-}" ;;
+        restore) restore_postgres "${2:-}" ;;
+        install) install_crontab ;;
+        all)
             backup_postgres
             backup_redis
             backup_uploads
             cleanup_old
             ;;
         *)
-            echo "Uso: $0 [postgres|redis|uploads|cleanup|status|install|all]"
-            echo ""
-            echo "Comandos:"
-            echo "  postgres  - Backup PostgreSQL"
-            echo "  redis     - Backup Redis"
-            echo "  uploads   - Backup Uploads"
-            echo "  cleanup   - Limpiar backups antiguos"
-            echo "  status    - Mostrar estado"
-            echo "  install   - Instalar crontab"
-            echo "  all       - Todos los backups"
+            cat <<EOF
+Uso: $0 <comando>
+
+  postgres            Backup de PostgreSQL (pg_dump comprimido y verificado)
+  redis               Backup de Redis (BGSAVE + dump.rdb)
+  uploads             Backup del volumen de uploads
+  cleanup             Borra backups de más de ${RETENTION_DAYS} días (conserva el último de PostgreSQL)
+  status              Muestra los últimos backups
+  check               Falla si el último backup de PostgreSQL tiene más de ${MAX_AGE_HOURS}h
+  verify [archivo]    Restaura en una base temporal para probar el backup
+  restore <archivo>   Restaura sobre la base real (pide confirmación)
+  install             Instala/actualiza las tareas de cron
+  all                 postgres + redis + uploads + cleanup
+
+Variables: DEPLOY_PATH (${DEPLOY_PATH}), BACKUP_DIR, COMPOSE_PROJECT, RETENTION_DAYS, MAX_AGE_HOURS
+EOF
             exit 1
             ;;
     esac
 }
 
-# Run main function
 main "$@"

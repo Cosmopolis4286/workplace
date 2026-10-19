@@ -74,4 +74,10 @@ runs:
           ssh "$REMOTE" "find $DEPLOY_PATH/scripts/deploy -name '*.sh' -exec chmod +x {} \;"
         fi
 
+        # Scripts de backup (cron del host + backup previo a cada deploy)
+        if [[ -d "scripts/backup" ]]; then
+          copy_dir "scripts/backup" "$DEPLOY_PATH/scripts/backup"
+          ssh "$REMOTE" "find $DEPLOY_PATH/scripts/backup -name '*.sh' -exec chmod +x {} \;"
+        fi
+
         echo "✅ Sincronización completada → $REMOTE:$DEPLOY_PATH"
