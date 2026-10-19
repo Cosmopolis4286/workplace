@@ -6,6 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { AlertEngineService } from '../../domains/operations/alert-engine/alert-engine.service';
+import { money } from '../money-matcher';
 
 describe('PurchasesService', () => {
   let service: PurchasesService;
@@ -124,8 +125,8 @@ describe('PurchasesService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             currencyCode: 'USD',
-            exchangeRateValue: 1,
-            unitCostUsd: 5,
+            exchangeRateValue: money(1),
+            unitCostUsd: money(5),
             exchangeRateSource: null,
             createdBy: userId,
           }),
@@ -158,12 +159,37 @@ describe('PurchasesService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             currencyCode: 'VES',
-            exchangeRateValue: 40,
-            unitCostUsd: 10,
+            exchangeRateValue: money(40),
+            unitCostUsd: money(10),
             exchangeRateSource: 'BCV_SCRAPING',
           }),
         })
       );
+    });
+
+    it('guarda el costo unitario en USD con 8 decimales (fracción de centavo)', async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        commerceId,
+        stock: 20,
+        minStock: 5,
+      });
+      mockExchangeRatesService.findByCode.mockResolvedValue({
+        rateToUsd: '36.5',
+        source: 'BCV',
+        syncSource: 'BCV_SCRAPING',
+      });
+      mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' });
+
+      await service.create(commerceId, userId, {
+        ...dto,
+        currencyCode: 'VES',
+        unitCost: 1,
+      } as any);
+
+      // 1 / 36.5 = 0.0273972602… → al centavo sería 0.03 (+9.5% de error)
+      const data = mockPrismaService.purchase.create.mock.calls[0][0].data;
+      expect(data.unitCostUsd.toString()).toBe('0.02739726');
     });
 
     it('repone stock del producto y recalcula status tras registrar la compra', async () => {

@@ -10,7 +10,16 @@ import { NotificationsService } from '../../engagement/notifications/notificatio
 import { AlertEngineService } from '../alert-engine/alert-engine.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { QueryPurchasesDto } from './dto/query-purchases.dto';
-import { AlertType, ProductStatus } from '@prisma/client';
+import { AlertType, Prisma, ProductStatus } from '@prisma/client';
+import {
+  average,
+  div,
+  isPositive,
+  RATE_SCALE,
+  roundRate,
+  toDecimal,
+  toNumber,
+} from '../../../common/money/money';
 
 // Cuántas compras recientes se promedian para el "costo de reposición
 // promedio" — ver WORKPLACE_VISION.md (Business Shield, sección 5).
@@ -30,18 +39,18 @@ export class PurchasesService {
   // moneda base del sistema y no requiere fila en ExchangeRate.
   private async resolveRate(
     currencyCode: string
-  ): Promise<{ rateToUsd: number; source: string | null }> {
+  ): Promise<{ rateToUsd: Prisma.Decimal; source: string | null }> {
     const code = currencyCode.toUpperCase();
-    if (code === 'USD') return { rateToUsd: 1, source: null };
+    if (code === 'USD') return { rateToUsd: toDecimal(1), source: null };
 
     const rate = await this.exchangeRates.findByCode(code);
-    if (!rate.rateToUsd || rate.rateToUsd <= 0) {
+    if (!isPositive(rate.rateToUsd)) {
       throw new BadRequestException(
         this.i18n.t('purchases.invalid_exchange_rate', { args: { code } })
       );
     }
     return {
-      rateToUsd: rate.rateToUsd,
+      rateToUsd: toDecimal(rate.rateToUsd),
       source: rate.syncSource ?? rate.source,
     };
   }
@@ -65,7 +74,10 @@ export class PurchasesService {
 
     const currencyCode = dto.currencyCode.toUpperCase();
     const { rateToUsd, source } = await this.resolveRate(currencyCode);
-    const unitCostUsd = dto.unitCost / rateToUsd;
+    // 8 decimales: el costo unitario en USD de un producto barato en Bs es
+    // fracción de centavo (1 Bs / 36.5 = 0.0274 USD) y redondearlo al centavo
+    // distorsionaría los márgenes.
+    const unitCostUsd = roundRate(div(dto.unitCost, rateToUsd));
 
     // Reponer stock y registrar la compra en una sola transacción: sin esto,
     // comprarle a un proveedor no aumentaba el inventario disponible y había
@@ -226,10 +238,14 @@ export class PurchasesService {
       };
     }
 
-    const lastPurchaseCostUsd = recentPurchases[0].unitCostUsd;
-    const averageReplacementCostUsd =
-      recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) /
-      recentPurchases.length;
+    const lastPurchaseCostUsd = toNumber(
+      recentPurchases[0].unitCostUsd,
+      RATE_SCALE
+    );
+    const averageReplacementCostUsd = toNumber(
+      average(recentPurchases.map((p) => p.unitCostUsd)),
+      RATE_SCALE
+    );
 
     return {
       productId,
@@ -274,9 +290,10 @@ export class PurchasesService {
     });
 
     const rows = productsWithPurchases.map((p) => {
-      const averageReplacementCostUsd =
-        p.purchases.reduce((sum, pu) => sum + pu.unitCostUsd, 0) /
-        p.purchases.length;
+      const averageReplacementCostUsd = toNumber(
+        average(p.purchases.map((pu) => pu.unitCostUsd)),
+        RATE_SCALE
+      );
       const marginHistoricalPct = this.marginPct(p.price, p.cost);
       const marginReplacementPct = this.marginPct(
         p.price,

@@ -23,6 +23,7 @@ import { RoleResolverService } from '../../../common/account-type/role-resolver.
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 import { CategoryScopeService } from '../../../common/category-scope/category-scope.service';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
+import { isPositive, toNumber } from '../../../common/money/money';
 
 @Injectable()
 export class PlansService {
@@ -230,7 +231,7 @@ export class PlansService {
       dto.interval === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY'
     ) as BillingInterval;
 
-    if (plan.price > 0) {
+    if (isPositive(plan.price)) {
       const existingPending = await this.prisma.subscription.findFirst({
         where: { userId, status: 'PENDING' },
       });
@@ -296,7 +297,7 @@ export class PlansService {
 
     const plan = await this.prisma.plan.findUnique({ where: { id: planId } });
     if (!plan) throw new NotFoundException('Plan no encontrado');
-    if (plan.price <= 0) {
+    if (!isPositive(plan.price)) {
       throw new ConflictException(
         'No tiene sentido activar una prueba gratuita de un plan gratuito'
       );
@@ -306,7 +307,7 @@ export class PlansService {
       where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
       include: { plan: true },
     });
-    if (currentSubscription && currentSubscription.plan.price > 0) {
+    if (currentSubscription && isPositive(currentSubscription.plan.price)) {
       throw new ConflictException(
         'Ya tienes un plan pago activo — la prueba gratuita es solo para cuentas en el plan gratuito'
       );
@@ -418,7 +419,8 @@ export class PlansService {
       subscription,
       pendingSubscription,
       trialAvailable:
-        !user?.trialUsedAt && (!subscription || subscription.plan.price === 0),
+        !user?.trialUsedAt &&
+        (!subscription || !isPositive(subscription.plan.price)),
     };
   }
 
@@ -625,7 +627,7 @@ export class PlansService {
       totalPlans,
       totalSubs,
       activeSubs,
-      monthlyRevenue: revenue._sum.pricePaid ?? 0,
+      monthlyRevenue: toNumber(revenue._sum.pricePaid ?? 0),
       planStats,
     };
   }

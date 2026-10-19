@@ -11,7 +11,7 @@ import { TelegramService } from '../../engagement/telegram/telegram.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import {
   PlanLimitsFacade,
   PLAN_LIMITS_FACADE,
@@ -26,6 +26,18 @@ import {
 } from '../../reputation/reputation.facade';
 import { ReceiptsService } from '../receipts/receipts.service';
 import { CashService } from '../cash/cash.service';
+import {
+  div,
+  gt,
+  mul,
+  round,
+  sub,
+  sum,
+  toNumber,
+} from '../../../common/money/money';
+
+// Reintentos ante choque de número de pedido (ver create()).
+const ORDER_NUMBER_MAX_ATTEMPTS = 5;
 
 // Valid status transitions for business logic enforcement
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -109,8 +121,8 @@ export class OrdersService {
       pendingOrders: statusMap['PENDING'] ?? 0,
       completedOrders: statusMap['DELIVERED'] ?? 0,
       cancelledOrders: statusMap['CANCELLED'] ?? 0,
-      monthlyRevenue: monthlyRevenue._sum.total ?? 0,
-      avgTicket: Math.round((avgTicket._avg.total ?? 0) * 100) / 100,
+      monthlyRevenue: toNumber(monthlyRevenue._sum.total ?? 0),
+      avgTicket: toNumber(avgTicket._avg.total ?? 0),
     };
   }
 
@@ -162,8 +174,8 @@ export class OrdersService {
       pendingOrders: statusMap['PENDING'] ?? 0,
       completedOrders: statusMap['DELIVERED'] ?? 0,
       cancelledOrders: statusMap['CANCELLED'] ?? 0,
-      monthlyRevenue: monthlyRevenue._sum.total ?? 0,
-      avgTicket: Math.round((avgTicket._avg.total ?? 0) * 100) / 100,
+      monthlyRevenue: toNumber(monthlyRevenue._sum.total ?? 0),
+      avgTicket: toNumber(avgTicket._avg.total ?? 0),
     };
   }
 
@@ -282,19 +294,23 @@ export class OrdersService {
       throw new BadRequestException('El pedido debe tener al menos un ítem');
     if (userId) await this.planLimits.assertOrderLimit(userId, commerceId);
 
-    // Calculate totals
-    const subtotal = dto.items.reduce(
-      (sum, item) => sum + item.unitPrice * item.quantity,
-      0
+    // Totales con Decimal: subtotal = suma de las líneas ya redondeadas al
+    // centavo, así la suma de OrderItem.subtotal siempre cuadra con
+    // Order.subtotal (antes se sumaban los Float sin redondear).
+    const lineSubtotals = dto.items.map((item) =>
+      round(mul(item.unitPrice, item.quantity))
     );
+    const subtotal = sum(lineSubtotals);
     const settings = await this.prisma.commerceSettings.findUnique({
       where: { commerceId },
     });
     const taxRate = settings?.tax ?? 0;
-    const tax = Math.round(subtotal * (taxRate / 100) * 100) / 100;
-    const deliveryFee = dto.deliveryFee ?? 0;
-    const discount = dto.discount ?? 0;
-    if (discount > subtotal + tax + deliveryFee) {
+    const tax = round(mul(subtotal, div(taxRate, 100)));
+    // Redondeo al centavo en vez de rechazar: el POS puede mandar un
+    // descuento porcentual calculado con más decimales.
+    const deliveryFee = round(dto.deliveryFee ?? 0);
+    const discount = round(dto.discount ?? 0);
+    if (gt(discount, sum([subtotal, tax, deliveryFee]))) {
       throw new BadRequestException(
         'El descuento no puede ser mayor al total del pedido'
       );
@@ -309,51 +325,73 @@ export class OrdersService {
       ).feeAmount;
     }
 
-    const total =
-      Math.round(
-        (subtotal + tax + deliveryFee - discount + platformFeeAmount) * 100
-      ) / 100;
+    const total = sub(
+      sum([subtotal, tax, deliveryFee, platformFeeAmount]),
+      discount
+    );
 
-    // Generate order number
+    // Número correlativo por comercio (único por commerceId+orderNumber).
+    // count()+1 puede chocar si dos pedidos se crean a la vez o si se borró
+    // un pedido: ante P2002 se prueba el siguiente número.
     const count = await this.prisma.order.count({ where: { commerceId } });
-    const orderNumber = `ORD-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
+    const year = new Date().getFullYear();
+    const orderNumberFor = (n: number) =>
+      `ORD-${year}-${String(n).padStart(4, '0')}`;
 
-    const order = await this.prisma.order.create({
-      data: {
-        orderNumber,
-        commerceId,
-        customerName: dto.customerName,
-        customerPhone: dto.customerPhone,
-        customerEmail: dto.customerEmail,
-        deliveryAddress: dto.deliveryAddress,
-        notes: dto.notes,
-        orderType: dto.orderType,
-        paymentMethod: dto.paymentMethod,
-        customerId: dto.customerId,
-        scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
-        subtotal,
-        tax,
-        deliveryFee,
-        discount,
-        total,
-        platformFeeRate:
-          feeConfig?.payer === 'CLIENT' ? feeConfig.rate : undefined,
-        platformFeeAmount:
-          feeConfig?.payer === 'CLIENT' ? platformFeeAmount : undefined,
-        platformFeePayer: feeConfig?.payer === 'CLIENT' ? 'CLIENT' : undefined,
-        items: {
-          create: dto.items.map((item) => ({
-            productId: item.productId,
-            productName: item.productName,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            subtotal: Math.round(item.unitPrice * item.quantity * 100) / 100,
-            notes: item.notes,
-          })),
+    const createWithNumber = (orderNumber: string) =>
+      this.prisma.order.create({
+        data: {
+          orderNumber,
+          commerceId,
+          customerName: dto.customerName,
+          customerPhone: dto.customerPhone,
+          customerEmail: dto.customerEmail,
+          deliveryAddress: dto.deliveryAddress,
+          notes: dto.notes,
+          orderType: dto.orderType,
+          paymentMethod: dto.paymentMethod,
+          customerId: dto.customerId,
+          scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
+          subtotal,
+          tax,
+          deliveryFee,
+          discount,
+          total,
+          platformFeeRate:
+            feeConfig?.payer === 'CLIENT' ? feeConfig.rate : undefined,
+          platformFeeAmount:
+            feeConfig?.payer === 'CLIENT' ? platformFeeAmount : undefined,
+          platformFeePayer:
+            feeConfig?.payer === 'CLIENT' ? 'CLIENT' : undefined,
+          items: {
+            create: dto.items.map((item, i) => ({
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              subtotal: lineSubtotals[i],
+              notes: item.notes,
+            })),
+          },
         },
-      },
-      include: { items: true },
-    });
+        include: { items: true },
+      });
+
+    let order!: Awaited<ReturnType<typeof createWithNumber>>;
+    let orderNumber = '';
+    for (let attempt = 1; ; attempt++) {
+      orderNumber = orderNumberFor(count + attempt);
+      try {
+        order = await createWithNumber(orderNumber);
+        break;
+      } catch (e) {
+        const isNumberClash =
+          e instanceof Prisma.PrismaClientKnownRequestError &&
+          e.code === 'P2002' &&
+          attempt < ORDER_NUMBER_MAX_ATTEMPTS;
+        if (!isNumberClash) throw e;
+      }
+    }
 
     // Update customer stats if linked
     if (dto.customerId) {
@@ -368,7 +406,7 @@ export class OrdersService {
 
     // Fire-and-forget notification
     this.notifications
-      .notifyNewOrder(commerceId, orderNumber, total)
+      .notifyNewOrder(commerceId, orderNumber, toNumber(total))
       .catch(() => null);
 
     if (dto.customerId) {
@@ -570,7 +608,7 @@ export class OrdersService {
       processingOrders,
       completedOrders: statusMap['DELIVERED'] ?? 0,
       cancelledOrders: statusMap['CANCELLED'] ?? 0,
-      totalSpent: totalSpent._sum.total ?? 0,
+      totalSpent: toNumber(totalSpent._sum.total ?? 0),
     };
   }
 

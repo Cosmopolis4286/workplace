@@ -1,5 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  RATE_SCALE,
+  toNumber,
+  type MoneyInput,
+} from '../../../common/money/money';
+
+// Índice analítico (variación %): basta number con 8 decimales.
+const toNumericCost = <T extends { unitCostUsd: MoneyInput }>(p: T) => ({
+  ...p,
+  unitCostUsd: toNumber(p.unitCostUsd, RATE_SCALE),
+});
 
 // Ventanas de comparación: "ahora" son los últimos WINDOW_DAYS días, "antes"
 // los WINDOW_DAYS días previos a esos. Ver WORKPLACE_VISION.md sección 7 —
@@ -66,8 +77,12 @@ export class PurchasingPowerService {
     }
 
     // Costo promedio ponderado por producto en cada ventana.
-    const currentByProduct = this.weightedAverageByProduct(currentPurchases);
-    const previousByProduct = this.weightedAverageByProduct(previousPurchases);
+    const currentByProduct = this.weightedAverageByProduct(
+      currentPurchases.map(toNumericCost)
+    );
+    const previousByProduct = this.weightedAverageByProduct(
+      previousPurchases.map(toNumericCost)
+    );
 
     const basket: BasketItem[] = [];
     for (const [productId, current] of currentByProduct) {

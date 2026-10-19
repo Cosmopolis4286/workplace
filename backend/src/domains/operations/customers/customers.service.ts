@@ -9,6 +9,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { toNumber } from '../../../common/money/money';
 
 @Injectable()
 export class CustomersService {
@@ -52,7 +53,7 @@ export class CustomersService {
     return {
       totalClients: total,
       activeClients: active,
-      avgSpent: Number((avgResult._avg.totalSpent ?? 0).toFixed(2)),
+      avgSpent: toNumber(avgResult._avg.totalSpent ?? 0),
     };
   }
 

@@ -9,6 +9,14 @@ import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { CreateReceivableDto } from './dto/create-receivable.dto';
 import { QueryAccountsDto } from './dto/query-accounts.dto';
 import { AccountStatus } from '@prisma/client';
+import {
+  div,
+  mul,
+  RATE_SCALE,
+  round,
+  sub,
+  toNumber,
+} from '../../../common/money/money';
 
 @Injectable()
 export class AccountReceivablesService {
@@ -54,7 +62,7 @@ export class AccountReceivablesService {
         amount: dto.amount,
         currencyCode,
         exchangeRateValue: resolved.rateToUsd,
-        amountUsd: dto.amount / resolved.rateToUsd,
+        amountUsd: round(div(dto.amount, resolved.rateToUsd)),
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
         createdBy: userId,
       },
@@ -128,23 +136,24 @@ export class AccountReceivablesService {
     }
 
     const originalRate = receivable.exchangeRateValue;
-    const currentAmountUsd = receivable.amount / current.rateToUsd;
-    const valueLossUsd = receivable.amountUsd - currentAmountUsd;
+    const currentAmountUsd = div(receivable.amount, current.rateToUsd);
+    const valueLossUsd = sub(receivable.amountUsd, currentAmountUsd);
     // % que se devaluó la moneda desde la venta hasta hoy respecto al USD.
-    const rateChangePct =
-      Math.round(((current.rateToUsd - originalRate) / originalRate) * 1000) /
-      10;
+    const rateChangePct = toNumber(
+      mul(div(sub(current.rateToUsd, originalRate), originalRate), 100),
+      1
+    );
 
     return {
       id,
       currencyCode: receivable.currencyCode,
       hasExposure: true,
-      originalRate,
-      currentRate: current.rateToUsd,
+      originalRate: toNumber(originalRate, RATE_SCALE),
+      currentRate: toNumber(current.rateToUsd, RATE_SCALE),
       rateChangePct,
-      originalAmountUsd: receivable.amountUsd,
-      currentAmountUsd: Math.round(currentAmountUsd * 100) / 100,
-      valueLossUsd: Math.round(valueLossUsd * 100) / 100,
+      originalAmountUsd: toNumber(receivable.amountUsd),
+      currentAmountUsd: toNumber(currentAmountUsd),
+      valueLossUsd: toNumber(valueLossUsd),
     };
   }
 }

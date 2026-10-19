@@ -28,6 +28,7 @@ import {
 } from './adapters/bnpl-provider.interface';
 import { UpsertBnplSettingsDto } from './dto/upsert-bnpl-settings.dto';
 import { BnplWebhookDto } from './dto/bnpl-webhook.dto';
+import { toNumber } from '../../../common/money/money';
 
 @Injectable()
 export class BnplService {
@@ -194,7 +195,7 @@ export class BnplService {
     const result = await adapter.initiate(creds, {
       orderId: order.id,
       orderNumber: order.orderNumber,
-      amount: order.total,
+      amount: toNumber(order.total),
       currency: 'USD',
       customerName: order.customerName,
       customerPhone: order.customerPhone ?? undefined,

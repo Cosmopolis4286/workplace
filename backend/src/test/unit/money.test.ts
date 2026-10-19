@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import {
   add,
+  average,
   convert,
   div,
   eq,
@@ -8,6 +9,7 @@ import {
   isPositive,
   lt,
   mul,
+  percentChange,
   round,
   roundRate,
   sqlNumeric,
@@ -77,6 +79,20 @@ describe('money', () => {
   it('toNumber redondea para la salida', () => {
     expect(toNumber(div(10, 3))).toBe(3.33);
     expect(toNumber(div(10, 3), 4)).toBe(3.3333);
+  });
+});
+
+describe('average / percentChange', () => {
+  it('promedia sin error de coma flotante', () => {
+    expect(average(['0.1', '0.2', '0.3']).toString()).toBe('0.2');
+    expect(() => average([])).toThrow(RangeError);
+  });
+
+  it('variación % con base 0 o negativa es null, no Infinity', () => {
+    expect(percentChange(10, 12)).toBe(20);
+    expect(percentChange('1.45', '1.595', 2)).toBe(10);
+    expect(percentChange(0, 12)).toBeNull();
+    expect(percentChange(-1, 12)).toBeNull();
   });
 });
 

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { PurchasesService } from '../purchases/purchases.service';
+import { RATE_SCALE, toNumber } from '../../../common/money/money';
 
 @Injectable()
 export class PriceGuardService {
@@ -37,13 +38,13 @@ export class PriceGuardService {
     if (!product)
       throw new NotFoundException(this.i18n.t('purchases.product_not_found'));
     if (product.minMarginPct !== null && product.minMarginPct !== undefined) {
-      return product.minMarginPct;
+      return toNumber(product.minMarginPct, RATE_SCALE);
     }
     const settings = await this.prisma.commerceSettings.findUnique({
       where: { commerceId },
       select: { minMarginPct: true },
     });
-    return settings?.minMarginPct ?? 15;
+    return toNumber(settings?.minMarginPct ?? 15, RATE_SCALE);
   }
 
   // Precio mínimo recomendado = costo / (1 - margen). Ej.: costo $13, margen

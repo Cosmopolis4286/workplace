@@ -392,8 +392,8 @@ model CommerceSettings {
 
   // Payment
   currency       String   @default("MXN")
-  tax            Float    @default(16)
-  suggestedTip   Float    @default(10)
+  tax            Decimal  @default(16) @db.Decimal(20, 8)
+  suggestedTip   Decimal  @default(10) @db.Decimal(20, 8)
   paymentMethods String[] @default(["cash", "card", "transfer"])
 
   // Price Guard (Business Shield, ver WORKPLACE_VISION.md sección 6) — margen
@@ -402,14 +402,14 @@ model CommerceSettings {
   // minMarginPct es el que efectivamente calcula el precio mínimo
   // recomendado. Product.minMarginPct puede sobreescribir este default
   // producto por producto.
-  targetMarginPct Float @default(30)
-  minMarginPct    Float @default(15)
+  targetMarginPct Decimal @default(30) @db.Decimal(20, 8)
+  minMarginPct    Decimal @default(15) @db.Decimal(20, 8)
 
   // Operations
-  avgPrepTime         Int   @default(20)
-  avgDeliveryTime     Int   @default(30)
-  deliveryFee         Float @default(35)
-  freeDeliveryMinimum Float @default(200)
+  avgPrepTime         Int     @default(20)
+  avgDeliveryTime     Int     @default(30)
+  deliveryFee         Decimal @default(35) @db.Decimal(20, 2)
+  freeDeliveryMinimum Decimal @default(200) @db.Decimal(20, 2)
 
   // Notifications
   notifyNewOrders       Boolean @default(true)
@@ -500,7 +500,7 @@ model Customer {
   notes              String?
   segment            CustomerSegment     @default(NEW)
   totalOrders        Int                 @default(0)
-  totalSpent         Float               @default(0)
+  totalSpent         Decimal             @default(0) @db.Decimal(20, 2)
   isActive           Boolean             @default(true)
   telegramChatId     String?
   commerceId         String
@@ -664,7 +664,7 @@ model Product {
   // Override de CommerceSettings.minMarginPct para este producto específico
   // (Price Guard, ver WORKPLACE_VISION.md sección 6). null = usa el default
   // del comercio.
-  minMarginPct    Float?
+  minMarginPct    Decimal?            @db.Decimal(20, 8)
   // Cache desnormalizado de la suma de CatalogOrder.quantity para este
   // producto. Incrementado en CatalogService.createOrder — permite ORDER BY
   // nativo en Postgres para "más vendidos" en vez de un groupBy + sort en memoria.
@@ -870,8 +870,8 @@ model Delivery {
   customerPhone   String?
   deliveryAddress String
   notes           String?
-  total           Float
-  deliveryFee     Float          @default(0)
+  total           Decimal        @db.Decimal(20, 2)
+  deliveryFee     Decimal        @default(0) @db.Decimal(20, 2)
   status          DeliveryStatus @default(PENDING)
   estimatedTime   Int? // minutes
   pickedUpAt      DateTime?
@@ -961,7 +961,7 @@ enum PaymentStatus {
 
 model Order {
   id                String             @id @default(uuid())
-  orderNumber       String             @unique
+  orderNumber       String
   customerName      String
   customerPhone     String?
   customerEmail     String?
@@ -971,11 +971,11 @@ model Order {
   orderType         OrderType          @default(IMMEDIATE)
   paymentMethod     PaymentMethod      @default(CASH)
   paymentStatus     PaymentStatus      @default(PENDING)
-  subtotal          Float              @default(0)
-  tax               Float              @default(0)
-  deliveryFee       Float              @default(0)
-  discount          Float              @default(0)
-  total             Float
+  subtotal          Decimal            @default(0) @db.Decimal(20, 2)
+  tax               Decimal            @default(0) @db.Decimal(20, 2)
+  deliveryFee       Decimal            @default(0) @db.Decimal(20, 2)
+  discount          Decimal            @default(0) @db.Decimal(20, 2)
+  total             Decimal            @db.Decimal(20, 2)
   platformFeeRate   Decimal?           @db.Decimal(20, 8)
   platformFeeAmount Decimal?           @db.Decimal(20, 2)
   platformFeePayer  FeePayer?
@@ -994,6 +994,7 @@ model Order {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
+  @@unique([commerceId, orderNumber])
   @@index([commerceId])
   @@index([customerId])
   @@map("orders")
@@ -1006,8 +1007,8 @@ model OrderItem {
   productId   String?
   productName String
   quantity    Int      @default(1)
-  unitPrice   Float
-  subtotal    Float
+  unitPrice   Decimal  @db.Decimal(20, 2)
+  subtotal    Decimal  @db.Decimal(20, 2)
   notes       String?
   createdAt   DateTime @default(now())
 
@@ -1053,7 +1054,7 @@ model BnplTransaction {
 
   externalReference String?
   checkoutUrl       String?
-  amount            Float
+  amount            Decimal @db.Decimal(20, 2)
   currency          String  @default("USD")
   installments      Int?
 
@@ -1085,7 +1086,7 @@ model BnplTransaction {
 
 model Receipt {
   id              String   @id @default(uuid())
-  receiptNumber   String   @unique
+  receiptNumber   String
   orderId         String   @unique
   order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   commerceId      String
@@ -1097,6 +1098,7 @@ model Receipt {
   commercePhone   String?
   issuedAt        DateTime @default(now())
 
+  @@unique([commerceId, receiptNumber])
   @@index([commerceId])
   @@map("receipts")
 }
@@ -1490,7 +1492,7 @@ model ExpenseCategory {
   id         String    @id @default(uuid())
   name       String
   color      String    @default("#6b7280")
-  budget     Float     @default(0)
+  budget     Decimal   @default(0) @db.Decimal(20, 2)
   commerceId String
   commerce   Commerce  @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   expenses   Expense[]
@@ -1505,7 +1507,7 @@ model ExpenseCategory {
 model Expense {
   id            String               @id @default(uuid())
   description   String
-  amount        Float
+  amount        Decimal              @db.Decimal(20, 2)
   date          DateTime
   type          ExpenseType          @default(OPERATIONAL)
   status        ExpenseStatus        @default(PENDING)
@@ -1612,7 +1614,7 @@ model Employee {
   phone            String?
   role             EmployeeRole   @default(OTHER)
   status           EmployeeStatus @default(ACTIVE)
-  salary           Float?
+  salary           Decimal?       @db.Decimal(20, 2)
   hireDate         DateTime?
   birthDate        DateTime?
   address          String?
@@ -1712,14 +1714,14 @@ model SupplierQuote {
   productId  String
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  price        Float
+  price        Decimal @db.Decimal(20, 8)
   currencyCode String
 
   // Snapshot inmutable de la tasa usada para el equivalente en USD, mismo
   // criterio que Purchase.exchangeRateValue — no se recalcula si la tasa
   // cambia después.
-  exchangeRateValue Float
-  priceUsd          Float
+  exchangeRateValue Decimal @db.Decimal(20, 8)
+  priceUsd          Decimal @db.Decimal(20, 8)
 
   // Días estimados de entrega desde que se confirma el pedido — permite el
   // trade-off "más barato pero más lento" de la sección 12.
@@ -1754,18 +1756,18 @@ model Purchase {
 
   quantity Int
   // Costo unitario en la moneda original de la compra (currencyCode).
-  unitCost Float
+  unitCost Decimal @db.Decimal(20, 8)
 
   // Moneda en la que se pactó/pagó esta compra (código de ExchangeRate, ej. "USD", "VES").
   currencyCode       String
   // Snapshot inmutable de la tasa usada para calcular el equivalente en USD
   // al momento de la compra — NO se recalcula si la tasa cambia después.
-  exchangeRateValue  Float
+  exchangeRateValue  Decimal @db.Decimal(20, 8)
   exchangeRateSource String? // "BCV_SCRAPING" | "MANUAL" | etc., informativo
 
   // unitCost convertido a USD usando exchangeRateValue, para poder comparar
   // compras hechas en distintas monedas/fechas sin reconvertir en cada query.
-  unitCostUsd Float
+  unitCostUsd Decimal @db.Decimal(20, 8)
 
   purchasedAt DateTime @default(now())
   notes       String?
@@ -1806,12 +1808,12 @@ model AccountReceivable {
   order      Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   description       String
-  amount            Float
+  amount            Decimal @db.Decimal(20, 2)
   currencyCode      String
   // Snapshot inmutable de la tasa a USD en el momento de LA VENTA — se
   // compara contra la tasa actual al cobrar para medir exposición cambiaria.
-  exchangeRateValue Float
-  amountUsd         Float
+  exchangeRateValue Decimal @db.Decimal(20, 8)
+  amountUsd         Decimal @db.Decimal(20, 2)
 
   dueDate DateTime?
   status  AccountStatus @default(PENDING)
@@ -1839,10 +1841,10 @@ model AccountPayable {
   purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
 
   description       String
-  amount            Float
+  amount            Decimal @db.Decimal(20, 2)
   currencyCode      String
-  exchangeRateValue Float
-  amountUsd         Float
+  exchangeRateValue Decimal @db.Decimal(20, 8)
+  amountUsd         Decimal @db.Decimal(20, 2)
 
   dueDate DateTime?
   status  AccountStatus @default(PENDING)
@@ -2609,8 +2611,8 @@ model Plan {
   id          String     @id @default(uuid())
   name        String
   description String?
-  price       Float
-  priceAnnual Float? // descuento anual (opcional)
+  price       Decimal    @db.Decimal(20, 2)
+  priceAnnual Decimal?   @db.Decimal(20, 2) // descuento anual (opcional)
   status      PlanStatus @default(ACTIVE)
   isPopular   Boolean    @default(false)
   color       String     @default("#3B82F6")
@@ -2665,7 +2667,7 @@ model Subscription {
   trialEnds DateTime?
 
   // Snapshot del precio al momento de suscribirse
-  pricePaid Float @default(0)
+  pricePaid Decimal @default(0) @db.Decimal(20, 2)
 
   // Quién asignó (superadmin o auto)
   assignedBy String? // userId del admin
@@ -2933,7 +2935,7 @@ model ExchangeRate {
   code      String  @unique // e.g. "VES", "COP", "EUR"
   name      String // e.g. "Bolívar Venezolano"
   symbol    String // e.g. "Bs.", "COP", "€"
-  rateToUsd Float // how many units of this currency equal 1 USD
+  rateToUsd Decimal @db.Decimal(20, 8) // how many units of this currency equal 1 USD
   isActive  Boolean @default(true)
   isDefault Boolean @default(false) // only one can be default
   source    String? // e.g. "BCV", "Paralelo", "Manual"
@@ -2960,8 +2962,8 @@ model ExchangeRateHistory {
   exchangeRateId String
   exchangeRate   ExchangeRate @relation(fields: [exchangeRateId], references: [id], onDelete: Cascade)
   code           String // denormalizado: sigue siendo legible si se elimina la moneda
-  previousRate   Float? // null en el alta inicial
-  newRate        Float
+  previousRate   Decimal?     @db.Decimal(20, 8) // null en el alta inicial
+  newRate        Decimal      @db.Decimal(20, 8)
   source         String // "MANUAL" | "BCV_SCRAPING" | "API_FALLBACK" | "CREATE"
   changedBy      String? // userId si fue manual; null si fue automático (cron)
   createdAt      DateTime     @default(now())
@@ -3025,8 +3027,8 @@ model Job {
   description     String
   requirements    String[]
   benefits        String[]
-  salaryMin       Float?
-  salaryMax       Float?
+  salaryMin       Decimal?    @db.Decimal(20, 2)
+  salaryMax       Decimal?    @db.Decimal(20, 2)
   salaryCurrency  String      @default("USD")
   location        String?
   type            JobType     @default(FULL_TIME)

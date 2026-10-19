@@ -12,6 +12,14 @@ import { QueryExpensesDto } from './dto/query-expenses.dto';
 import { CreateExpenseCategoryDto } from './dto/create-expense-category.dto';
 import { UpdateExpenseCategoryDto } from './dto/update-expense-category.dto';
 import { ExpenseStatus } from '@prisma/client';
+import {
+  div,
+  isPositive,
+  mul,
+  percentChange,
+  toDecimal,
+  toNumber,
+} from '../../../common/money/money';
 
 @Injectable()
 export class ExpensesService {
@@ -76,34 +84,34 @@ export class ExpensesService {
     const statusMap = Object.fromEntries(
       byStatus.map((s) => [
         s.status,
-        { amount: s._sum.amount ?? 0, count: s._count },
+        { amount: toNumber(s._sum.amount ?? 0), count: s._count },
       ])
     );
 
-    const totalMonthly = currentMonth._sum.amount ?? 0;
-    const totalPrev = prevMonth._sum.amount ?? 0;
-    const changeVsPrev =
-      totalPrev > 0 ? ((totalMonthly - totalPrev) / totalPrev) * 100 : 0;
+    const totalMonthly = toDecimal(currentMonth._sum.amount ?? 0);
+    const totalPrev = toDecimal(prevMonth._sum.amount ?? 0);
+    const changeVsPrev = percentChange(totalPrev, totalMonthly) ?? 0;
 
     const pendingAmount = statusMap['PENDING']?.amount ?? 0;
     const paidAmount = statusMap['PAID']?.amount ?? 0;
     const overdueAmount = statusMap['OVERDUE']?.amount ?? 0;
-    const totalBudgetAmount = totalBudget._sum.budget ?? 0;
-    const budgetUsed =
-      totalBudgetAmount > 0 ? (totalMonthly / totalBudgetAmount) * 100 : 0;
-    const dailyAvg = now.getDate() > 0 ? totalMonthly / now.getDate() : 0;
+    const totalBudgetAmount = toDecimal(totalBudget._sum.budget ?? 0);
+    const budgetUsed = isPositive(totalBudgetAmount)
+      ? toNumber(mul(div(totalMonthly, totalBudgetAmount), 100), 1)
+      : 0;
+    const dailyAvg = div(totalMonthly, now.getDate());
 
     return {
-      totalMonthly,
-      totalPrevMonth: totalPrev,
-      changeVsPrev: Math.round(changeVsPrev * 10) / 10,
+      totalMonthly: toNumber(totalMonthly),
+      totalPrevMonth: toNumber(totalPrev),
+      changeVsPrev,
       pendingAmount,
       paidAmount,
       overdueAmount,
       totalCount: currentMonth._count,
-      budgetTotal: totalBudgetAmount,
-      budgetUsed: Math.round(budgetUsed * 10) / 10,
-      dailyAverage: Math.round(dailyAvg * 100) / 100,
+      budgetTotal: toNumber(totalBudgetAmount),
+      budgetUsed,
+      dailyAverage: toNumber(dailyAvg),
     };
   }
 
@@ -143,19 +151,18 @@ export class ExpensesService {
     const statusMap = Object.fromEntries(
       byStatus.map((s) => [
         s.status,
-        { amount: s._sum.amount ?? 0, count: s._count },
+        { amount: toNumber(s._sum.amount ?? 0), count: s._count },
       ])
     );
 
-    const totalMonthly = currentMonth._sum.amount ?? 0;
-    const totalPrev = prevMonth._sum.amount ?? 0;
-    const changeVsPrev =
-      totalPrev > 0 ? ((totalMonthly - totalPrev) / totalPrev) * 100 : 0;
+    const totalMonthly = toDecimal(currentMonth._sum.amount ?? 0);
+    const totalPrev = toDecimal(prevMonth._sum.amount ?? 0);
+    const changeVsPrev = percentChange(totalPrev, totalMonthly) ?? 0;
 
     return {
-      totalMonthly,
-      totalPrevMonth: totalPrev,
-      changeVsPrev: Math.round(changeVsPrev * 10) / 10,
+      totalMonthly: toNumber(totalMonthly),
+      totalPrevMonth: toNumber(totalPrev),
+      changeVsPrev,
       pendingAmount: statusMap['PENDING']?.amount ?? 0,
       paidAmount: statusMap['PAID']?.amount ?? 0,
       overdueAmount: statusMap['OVERDUE']?.amount ?? 0,

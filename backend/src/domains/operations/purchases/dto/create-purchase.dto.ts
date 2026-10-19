@@ -18,7 +18,7 @@ export class CreatePurchaseDto {
   @Min(1)
   quantity: number;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 8 })
   @Min(0)
   unitCost: number;
 
