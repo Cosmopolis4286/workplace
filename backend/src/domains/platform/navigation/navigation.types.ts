@@ -131,5 +131,7 @@ export interface NavigationResponse {
   routeModules: Record<string, string>;
   /** Ruta → capacidad requerida (ej. '/orders' → 'HAS_COMMERCE'), para los middlewares. */
   routeCapabilities: Record<string, Capability>;
+  /** Ruta → módulos alternativos (basta uno, con su permiso `:view`), ej. '/jobs' → ['employees']. */
+  routeAnyModules: Record<string, string[]>;
   generatedAt: string;
 }

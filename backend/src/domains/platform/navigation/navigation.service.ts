@@ -107,14 +107,19 @@ export class NavigationService {
       .sort((a, b) => a.order - b.order)
       .map(({ order: _order, ...section }) => section);
 
-    const { routePermissions, routeModules, routeCapabilities } =
-      this.getRouteMaps();
+    const {
+      routePermissions,
+      routeModules,
+      routeCapabilities,
+      routeAnyModules,
+    } = this.getRouteMaps();
 
     return {
       sections,
       routePermissions,
       routeModules,
       routeCapabilities,
+      routeAnyModules,
       generatedAt: new Date().toISOString(),
     };
   }
@@ -130,10 +135,15 @@ export class NavigationService {
     routePermissions: Record<string, string | null>;
     routeModules: Record<string, string>;
     routeCapabilities: Record<string, Capability>;
+    routeAnyModules: Record<string, string[]>;
   } {
     const routePermissions: Record<string, string | null> = {};
     const routeModules: Record<string, string> = {};
     const routeCapabilities: Record<string, Capability> = {};
+    // Ruta → "al menos uno de estos módulos (con su permiso :view)". Sin esto
+    // la regla solo existía al armar el sidebar: el acceso rápido y el
+    // middleware de rutas dejaban entrar igual (ej. /jobs para un delivery).
+    const routeAnyModules: Record<string, string[]> = {};
     const allItems = [
       ...NAVIGATION_TREE.flatMap((section) => section.items),
       ...EXTRA_PROTECTED_ROUTES,
@@ -146,7 +156,15 @@ export class NavigationService {
       if (item.condition.requiresCapability) {
         routeCapabilities[item.to] = item.condition.requiresCapability;
       }
+      if (item.condition.requiresAnyModule) {
+        routeAnyModules[item.to] = item.condition.requiresAnyModule;
+      }
     }
-    return { routePermissions, routeModules, routeCapabilities };
+    return {
+      routePermissions,
+      routeModules,
+      routeCapabilities,
+      routeAnyModules,
+    };
   }
 }

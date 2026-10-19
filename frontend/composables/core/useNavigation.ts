@@ -30,6 +30,9 @@ export interface NavigationResponse {
   // Ruta → capacidad requerida (ej. '/orders' → 'HAS_COMMERCE'). Reemplaza
   // la lista COMMERCE_ONLY_ROUTES que vivía hardcoded en middleware/auth.ts.
   routeCapabilities: Record<string, Capability>
+  // Ruta → módulos alternativos: basta uno (con su permiso `:view`). Ej.
+  // '/jobs' → ['employees']: publicar vacantes es de quien tiene personal.
+  routeAnyModules: Record<string, string[]>
   generatedAt: string
 }
 
@@ -37,6 +40,7 @@ const sections = ref<NavSection[]>([])
 const routePermissions = ref<Record<string, string | null>>({})
 const routeModules = ref<Record<string, string>>({})
 const routeCapabilities = ref<Record<string, Capability>>({})
+const routeAnyModules = ref<Record<string, string[]>>({})
 const loaded = ref(false)
 const loading = ref(false)
 
@@ -53,6 +57,7 @@ export function useNavigation() {
       routePermissions.value = data.routePermissions
       routeModules.value = data.routeModules
       routeCapabilities.value = data.routeCapabilities ?? {}
+      routeAnyModules.value = data.routeAnyModules ?? {}
       loaded.value = true
     } catch {
       // Degradación: sections vacío, el sidebar no muestra items restringidos.
@@ -89,6 +94,7 @@ export function useNavigation() {
     routePermissions: computed(() => routePermissions.value),
     routeModules: computed(() => routeModules.value),
     routeCapabilities: computed(() => routeCapabilities.value),
+    routeAnyModules: computed(() => routeAnyModules.value),
     loaded: computed(() => loaded.value),
     loading: computed(() => loading.value),
     loadNavigation,

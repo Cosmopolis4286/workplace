@@ -1,4 +1,4 @@
-const { PrismaClient, Role, VeLocationType, ProfileType, ProfessionalSubtype, ProfileStatus } = require('@prisma/client')
+const { PrismaClient, Role, VeLocationType, ProfileType, ProfessionalSubtype, ProfileStatus, KycStatus } = require('@prisma/client')
 const bcrypt = require('bcrypt')
 const Redis = require('ioredis')
 const veLocationsData = require('./data/ve-locations.json')
@@ -1174,6 +1174,12 @@ async function upsertDemoUserProfile(userId, demo, categoryId, subcategoryId) {
   } else {
     await prisma.userProfile.create({ data: { ...data, userId } })
   }
+  // ProfileActivationsService.review() solo activa un perfil con KYC
+  // aprobado; el seed crea el perfil ya ACTIVE, así que tiene que dejar al
+  // usuario en el mismo estado. Sin esto delivery@demo.com no podía aceptar
+  // corridas (KycApprovedGuard en POST /rides/:id/accept) y el dashboard le
+  // pedía verificar identidad a un perfil ya activo.
+  await prisma.user.update({ where: { id: userId }, data: { kycStatus: KycStatus.APPROVED } })
 }
 
 async function main() {

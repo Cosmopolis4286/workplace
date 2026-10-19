@@ -12,6 +12,7 @@ import {
 import { useDashboardQuickActions } from '~/composables/dashboard/useDashboardQuickActions'
 import { useModules } from '~/composables/commerce/useModules'
 import { useProfileContext } from '~/composables/users/useProfileContext'
+import { usePermissions } from '~/composables/users/usePermissions'
 
 export interface DashboardWidget extends WidgetConfig {
   visible: boolean
@@ -25,6 +26,7 @@ export const useDashboardWidgets = () => {
   const { user } = useAuth()
   const { selectedItems: selectedQuickActions } = useDashboardQuickActions()
   const { hasModule, loadModules } = useModules()
+  const { can } = usePermissions()
 
   // Idempotente (loadModules ya no repite el fetch si loaded=true) — no
   // depende de que SidebarContent.vue haya montado primero. effectiveModules/
@@ -53,7 +55,7 @@ export const useDashboardWidgets = () => {
     const role = userRole.value
     if (!role) return []
 
-    return QUICK_ACTIONS.filter(action => canAccessAction(action.id, role, hasCapability, hasModule))
+    return QUICK_ACTIONS.filter(action => canAccessAction(action.id, role, hasCapability, hasModule, can))
   })
 
   // Acciones elegidas por el usuario (o las primeras 6 si no ha configurado nada)
@@ -77,7 +79,7 @@ export const useDashboardWidgets = () => {
   const canViewAction = (actionId: string): boolean => {
     const role = userRole.value
     if (!role) return false
-    return canAccessAction(actionId, role, hasCapability, hasModule)
+    return canAccessAction(actionId, role, hasCapability, hasModule, can)
   }
 
   // Obtener widgets por sección
