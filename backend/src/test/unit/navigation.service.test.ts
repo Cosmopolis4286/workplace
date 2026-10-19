@@ -473,6 +473,12 @@ describe('NavigationService', () => {
   });
 
   describe('getRouteMaps', () => {
+    it('expone requiresAnyModule por ruta para el middleware y el acceso rápido', () => {
+      const { routeAnyModules } = service.getRouteMaps();
+      expect(routeAnyModules['/jobs']).toEqual(['employees']);
+      expect(routeAnyModules['/orders']).toBeUndefined();
+    });
+
     it('is static and does not depend on the user', () => {
       const first = service.getRouteMaps();
       const second = service.getRouteMaps();
