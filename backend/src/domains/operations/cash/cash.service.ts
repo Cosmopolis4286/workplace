@@ -6,6 +6,13 @@ import {
 import { I18nService } from 'nestjs-i18n';
 import { Prisma, CashMovementType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  sub,
+  sum,
+  toDecimal,
+  toNumber,
+  type MoneyInput,
+} from '../../../common/money/money';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { OpenSessionDto } from './dto/open-session.dto';
 import { CloseSessionDto } from './dto/close-session.dto';
@@ -98,7 +105,7 @@ export class CashService {
         );
 
       const { expectedAmount } = await this.getSummary(commerceId, session, tx);
-      const difference = dto.countedAmount - expectedAmount;
+      const difference = sub(dto.countedAmount, expectedAmount);
 
       return tx.cashSession.update({
         where: { id: session.id },
@@ -175,7 +182,7 @@ export class CashService {
 
   private async getSummary(
     commerceId: string,
-    session: { id: string; openingAmount: number; openedAt: Date },
+    session: { id: string; openingAmount: MoneyInput; openedAt: Date },
     client: Prisma.TransactionClient | PrismaService = this.prisma
   ) {
     const [cashSales, movements] = await Promise.all([
@@ -196,25 +203,27 @@ export class CashService {
       }),
     ]);
 
-    const movementsByType: Record<CashMovementType, number> = {
-      INCOME: 0,
-      WITHDRAWAL: 0,
+    const movementsByType: Record<CashMovementType, Prisma.Decimal> = {
+      INCOME: toDecimal(0),
+      WITHDRAWAL: toDecimal(0),
     };
-    for (const m of movements) movementsByType[m.type] = m._sum.amount ?? 0;
+    for (const m of movements)
+      movementsByType[m.type] = toDecimal(m._sum.amount ?? 0);
 
-    const cashSalesTotal = cashSales._sum.total ?? 0;
-    const expectedAmount =
-      session.openingAmount +
-      cashSalesTotal +
-      movementsByType.INCOME -
-      movementsByType.WITHDRAWAL;
+    // Order.total sigue en Float (tanda de precios pendiente): su suma puede
+    // traer ruido de coma flotante, por eso se redondea al centavo.
+    const cashSalesTotal = toNumber(cashSales._sum.total ?? 0);
+    const expectedAmount = sub(
+      sum([session.openingAmount, cashSalesTotal, movementsByType.INCOME]),
+      movementsByType.WITHDRAWAL
+    );
 
     return {
       cashSalesTotal,
       cashSalesCount: cashSales._count,
-      manualIncome: movementsByType.INCOME,
-      manualWithdrawals: movementsByType.WITHDRAWAL,
-      expectedAmount,
+      manualIncome: toNumber(movementsByType.INCOME),
+      manualWithdrawals: toNumber(movementsByType.WITHDRAWAL),
+      expectedAmount: toNumber(expectedAmount),
     };
   }
 }

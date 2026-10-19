@@ -1,6 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FeeTransactionType, FeePayer } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  div,
+  mul,
+  RATE_SCALE,
+  round,
+  toNumber,
+  type MoneyInput,
+} from '../../../common/money/money';
 import { WalletsService } from '../wallets/wallets.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { PlatformFeesFacade, FeeConfig } from './platform-fees.facade';
@@ -46,7 +54,7 @@ export class PlatformFeesService implements PlatformFeesFacade {
       });
       if (userOverride) {
         return {
-          rate: userOverride.rate,
+          rate: toNumber(userOverride.rate, RATE_SCALE),
           payer: userOverride.payer ?? global?.payer ?? 'PROVIDER',
         };
       }
@@ -62,14 +70,16 @@ export class PlatformFeesService implements PlatformFeesFacade {
         });
         if (planOverride) {
           return {
-            rate: planOverride.rate,
+            rate: toNumber(planOverride.rate, RATE_SCALE),
             payer: planOverride.payer ?? global?.payer ?? 'PROVIDER',
           };
         }
       }
     }
 
-    return global ? { rate: global.rate, payer: global.payer } : null;
+    return global
+      ? { rate: toNumber(global.rate, RATE_SCALE), payer: global.payer }
+      : null;
   }
 
   private async getGlobalRate(type: FeeTransactionType) {
@@ -78,9 +88,14 @@ export class PlatformFeesService implements PlatformFeesFacade {
     });
   }
 
-  calculateFee(baseAmount: number, config: FeeConfig): { feeAmount: number } {
-    const feeAmount = Math.round(baseAmount * (config.rate / 100) * 100) / 100;
-    return { feeAmount };
+  // Decimal + HALF_UP al centavo: con Float, 1.45 × 10% daba 0.14 en vez de
+  // 0.15 (0.145 se guarda como 0.14499…).
+  calculateFee(
+    baseAmount: MoneyInput,
+    config: FeeConfig
+  ): { feeAmount: number } {
+    const feeAmount = round(mul(baseAmount, div(config.rate, 100)));
+    return { feeAmount: toNumber(feeAmount) };
   }
 
   // Débito automático al proveedor/comercio/conductor cuando payer=PROVIDER.

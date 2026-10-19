@@ -1670,9 +1670,10 @@ export class ServicesService {
           escrowAmount: add(req.escrowAmount ?? 0, deltaWithFee),
           ...(feeConfig?.payer === 'CLIENT'
             ? {
-                platformFeeAmount:
-                  (req.platformFeeAmount ?? 0) +
-                  (deltaWithFee - proposal.deltaAmount),
+                platformFeeAmount: add(
+                  req.platformFeeAmount ?? 0,
+                  sub(deltaWithFee, proposal.deltaAmount)
+                ),
               }
             : {}),
         },

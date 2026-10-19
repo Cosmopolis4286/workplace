@@ -976,8 +976,8 @@ model Order {
   deliveryFee       Float              @default(0)
   discount          Float              @default(0)
   total             Float
-  platformFeeRate   Float?
-  platformFeeAmount Float?
+  platformFeeRate   Decimal?           @db.Decimal(20, 8)
+  platformFeeAmount Decimal?           @db.Decimal(20, 2)
   platformFeePayer  FeePayer?
   scheduledAt       DateTime?
   completedAt       DateTime?
@@ -1540,13 +1540,13 @@ enum CashMovementType {
 model CashSession {
   id             String            @id @default(uuid())
   status         CashSessionStatus @default(OPEN)
-  openingAmount  Float
+  openingAmount  Decimal           @db.Decimal(20, 2)
   openedAt       DateTime          @default(now())
   openedBy       String
   notes          String?
-  countedAmount  Float?
-  expectedAmount Float?
-  difference     Float?
+  countedAmount  Decimal?          @db.Decimal(20, 2)
+  expectedAmount Decimal?          @db.Decimal(20, 2)
+  difference     Decimal?          @db.Decimal(20, 2)
   closedAt       DateTime?
   closedBy       String?
   closingNotes   String?
@@ -1569,7 +1569,7 @@ model CashSession {
 model CashMovement {
   id         String           @id @default(uuid())
   type       CashMovementType
-  amount     Float
+  amount     Decimal          @db.Decimal(20, 2)
   reason     String
   sessionId  String
   session    CashSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -2200,8 +2200,8 @@ model CatalogOrder {
   // la fuente de verdad real es la fila Escrow (entityType=CATALOG_ORDER).
   escrowStatus      EscrowStatus @default(NONE)
   escrowAmount      Decimal?     @db.Decimal(20, 2)
-  platformFeeRate   Float?
-  platformFeeAmount Float?
+  platformFeeRate   Decimal?     @db.Decimal(20, 8)
+  platformFeeAmount Decimal?     @db.Decimal(20, 2)
 
   createdAt DateTime @default(now())
 
@@ -2356,8 +2356,8 @@ model ServiceRequest {
   description          String?
   price                Float?
   priceUnit            String?
-  platformFeeRate      Float?
-  platformFeeAmount    Float?
+  platformFeeRate      Decimal?                            @db.Decimal(20, 8)
+  platformFeeAmount    Decimal?                            @db.Decimal(20, 2)
   platformFeePayer     FeePayer?
   // Escrow opcional (Service.hasEscrow) — retención del monto total en la
   // wallet de plataforma entre la fijación de precio y la finalización.
@@ -2793,7 +2793,7 @@ enum FeePayer {
 model PlatformFeeRate {
   id          String             @id @default(uuid())
   type        FeeTransactionType
-  rate        Float // porcentaje, ej. 10 = 10%
+  rate        Decimal            @db.Decimal(20, 8) // porcentaje, ej. 10 = 10%
   payer       FeePayer
   isActive    Boolean            @default(true)
   updatedById String? // SUPERADMIN que hizo el cambio
@@ -2810,7 +2810,7 @@ model PlatformFeeRate {
 model PlatformFeeOverride {
   id       String             @id @default(uuid())
   type     FeeTransactionType
-  rate     Float
+  rate     Decimal            @db.Decimal(20, 8)
   payer    FeePayer? // null = hereda el payer del rate global
   planId   String?
   plan     Plan?              @relation(fields: [planId], references: [id], onDelete: Cascade)
@@ -2896,8 +2896,8 @@ model Ride {
   price             Float?
   distance          Float?
   duration          Int? // minutes
-  platformFeeRate   Float?
-  platformFeeAmount Float?
+  platformFeeRate   Decimal?        @db.Decimal(20, 8)
+  platformFeeAmount Decimal?        @db.Decimal(20, 2)
   platformFeePayer  FeePayer?
   notes             String?
   // Datos de flete (carga/paquete) — solo aplican cuando serviceType = FREIGHT
@@ -3298,8 +3298,8 @@ model Pledge {
 
   // Snapshot inmutable de la comisión cobrada al cerrar la campaña — nunca
   // se recalcula si la config de fees cambia después.
-  platformFeeRate   Float?
-  platformFeeAmount Float?
+  platformFeeRate   Decimal? @db.Decimal(20, 8)
+  platformFeeAmount Decimal? @db.Decimal(20, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
