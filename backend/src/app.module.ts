@@ -83,7 +83,9 @@ import { EscrowModule } from './domains/money/escrow/escrow.module';
       fallbackLanguage: 'es',
       loaderOptions: {
         path: join(__dirname, 'i18n'),
-        watch: true,
+        // Recarga en caliente solo en desarrollo: en producción las traducciones
+        // no cambian y el watcher (chokidar) sería un proceso de más.
+        watch: process.env.APP_ENV === 'development',
       },
       resolvers: [
         { use: QueryResolver, options: ['lang'] },
