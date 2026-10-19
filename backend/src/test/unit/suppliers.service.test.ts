@@ -7,7 +7,7 @@ import {
 import { I18nService } from 'nestjs-i18n';
 import { SuppliersService } from '../../domains/operations/suppliers/suppliers.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service';
+import { EXCHANGE_RATES_FACADE } from '../../domains/money/exchange-rates/exchange-rates.facade';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { AlertEngineService } from '../../domains/operations/alert-engine/alert-engine.service';
 import { money } from '../money-matcher';
@@ -65,7 +65,7 @@ describe('SuppliersService', () => {
       providers: [
         SuppliersService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: ExchangeRatesService, useValue: mockExchangeRatesService },
+        { provide: EXCHANGE_RATES_FACADE, useValue: mockExchangeRatesService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: AlertEngineService, useValue: mockAlertEngineService },
         { provide: I18nService, useValue: mockI18nService },

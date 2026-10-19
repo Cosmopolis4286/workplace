@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
+import { ORDERS_FACADE } from './orders.facade';
 import { NotificationsModule } from '../../engagement/notifications/notifications.module';
 import { PlansModule } from '../../money/plans/plans.module';
 import { TelegramModule } from '../../engagement/telegram/telegram.module';
@@ -20,7 +21,10 @@ import { CashModule } from '../cash/cash.module';
     CashModule,
   ],
   controllers: [OrdersController],
-  providers: [OrdersService],
-  exports: [OrdersService],
+  providers: [
+    OrdersService,
+    { provide: ORDERS_FACADE, useExisting: OrdersService },
+  ],
+  exports: [OrdersService, ORDERS_FACADE],
 })
 export class OrdersModule {}

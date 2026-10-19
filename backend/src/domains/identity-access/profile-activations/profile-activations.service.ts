@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,7 +16,7 @@ import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
-import { PlansService } from '../../money/plans/plans.service';
+import { PLANS_FACADE, PlansFacade } from '../../money/plans/plans.facade';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { CreateProfileActivationDto } from './dto/create-profile-activation.dto';
 import { ReviewProfileActivationDto } from './dto/review-profile-activation.dto';
@@ -42,7 +43,7 @@ export class ProfileActivationsService {
     private readonly redis: RedisService,
     private readonly notifications: NotificationsService,
     private readonly roleResolver: RoleResolverService,
-    private readonly plansService: PlansService,
+    @Inject(PLANS_FACADE) private readonly plansService: PlansFacade,
     private readonly commerceResolver: CommerceResolverService
   ) {}
 

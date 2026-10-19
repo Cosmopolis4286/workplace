@@ -26,6 +26,7 @@ import { PaymentDto } from './dto/payment.dto';
 import { AdjustDto } from './dto/adjust.dto';
 import { SetPinDto, ChangePinDto } from './dto/set-pin.dto';
 import { ESCROW_SYSTEM_USER_EMAIL } from './escrow-system-user.const';
+import { InsufficientEscrowFundsError } from './wallet.errors';
 import {
   add,
   gt,
@@ -36,17 +37,13 @@ import {
   toNumber,
   type MoneyInput,
 } from '../../../common/money/money';
-import type { ServicesService } from '../../commerce-core/services/services.service';
+import {
+  SERVICES_FACADE,
+  type ServicesFacade,
+} from '../../commerce-core/services/services.facade';
 
 const ADMIN_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN];
 const IDEMPOTENCY_TTL = 60 * 60; // 1 hour
-
-// Error interno (no HTTP) que distingue "saldo insuficiente" — la única causa
-// de holdEscrow() que amerita dejar la solicitud en PENDING_FUNDS para
-// reintento automático — de cualquier otra falla (wallet inexistente,
-// congelada, suspendida) que debe propagarse como error real y NO reintentarse
-// indefinidamente sin que nadie lo note.
-export class InsufficientEscrowFundsError extends Error {}
 
 @Injectable()
 export class WalletsService {
@@ -269,8 +266,8 @@ export class WalletsService {
     return result;
   }
 
-  private getServicesService(): ServicesService {
-    return this.moduleRef.get('ServicesService', { strict: false });
+  private getServicesService(): ServicesFacade {
+    return this.moduleRef.get(SERVICES_FACADE, { strict: false });
   }
 
   async withdraw(userId: string, role: Role, dto: WithdrawDto) {

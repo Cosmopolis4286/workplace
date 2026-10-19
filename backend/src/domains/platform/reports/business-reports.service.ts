@@ -1,9 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { OrdersService } from '../../operations/orders/orders.service';
-import { ExpensesService } from '../../operations/expenses/expenses.service';
-import { EmployeesService } from '../../commerce-core/employees/employees.service';
-import { ServicesService } from '../../commerce-core/services/services.service';
+import {
+  ORDERS_FACADE,
+  OrdersFacade,
+} from '../../operations/orders/orders.facade';
+import {
+  EXPENSES_FACADE,
+  ExpensesFacade,
+} from '../../operations/expenses/expenses.facade';
+import {
+  EMPLOYEES_FACADE,
+  EmployeesFacade,
+} from '../../commerce-core/employees/employees.facade';
+import {
+  SERVICES_FACADE,
+  ServicesFacade,
+} from '../../commerce-core/services/services.facade';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { CapabilitiesService } from '../../../common/capabilities/capabilities.service';
 import {
@@ -22,10 +34,11 @@ import {
 @Injectable()
 export class BusinessReportsService {
   constructor(
-    private readonly ordersService: OrdersService,
-    private readonly expensesService: ExpensesService,
-    private readonly employeesService: EmployeesService,
-    private readonly servicesService: ServicesService,
+    @Inject(ORDERS_FACADE) private readonly ordersService: OrdersFacade,
+    @Inject(EXPENSES_FACADE) private readonly expensesService: ExpensesFacade,
+    @Inject(EMPLOYEES_FACADE)
+    private readonly employeesService: EmployeesFacade,
+    @Inject(SERVICES_FACADE) private readonly servicesService: ServicesFacade,
     private readonly commerceResolver: CommerceResolverService,
     private readonly capabilities: CapabilitiesService,
     @Inject(PERMISSIONS_FACADE) private readonly permissions: PermissionsFacade

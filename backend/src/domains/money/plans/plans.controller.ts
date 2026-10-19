@@ -11,10 +11,14 @@ import {
   Query,
   UseGuards,
   ParseBoolPipe,
+  Inject,
 } from '@nestjs/common';
 import { PlansService } from './plans.service';
 import { PlanLimitsService } from './plan-limits.service';
-import { SystemModulesService } from '../../platform/system-modules/system-modules.service';
+import {
+  SYSTEM_MODULES_FACADE,
+  SystemModulesFacade,
+} from '../../platform/system-modules/system-modules.facade';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { AssignSubscriptionDto } from './dto/assign-subscription.dto';
@@ -30,7 +34,8 @@ export class PlansController {
   constructor(
     private readonly plansService: PlansService,
     private readonly planLimitsService: PlanLimitsService,
-    private readonly systemModulesService: SystemModulesService
+    @Inject(SYSTEM_MODULES_FACADE)
+    private readonly systemModulesService: SystemModulesFacade
   ) {}
 
   // ─── Public — no auth required ────────────────────────────────────────────

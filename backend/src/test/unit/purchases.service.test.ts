@@ -2,8 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PurchasesService } from '../../domains/operations/purchases/purchases.service';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service';
+import { EXCHANGE_RATES_FACADE } from '../../domains/money/exchange-rates/exchange-rates.facade';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { AlertEngineService } from '../../domains/operations/alert-engine/alert-engine.service';
 import { money } from '../money-matcher';
@@ -33,7 +34,7 @@ describe('PurchasesService', () => {
   };
 
   const mockExchangeRatesService = {
-    findByCode: jest.fn(),
+    resolveRateToUsd: jest.fn(),
   };
 
   const mockNotificationsService = {
@@ -53,6 +54,13 @@ describe('PurchasesService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Por defecto la facade resuelve USD (moneda base) como lo hace el servicio real.
+    mockExchangeRatesService.resolveRateToUsd.mockImplementation(
+      async (code: string) =>
+        code.toUpperCase() === 'USD'
+          ? { rateToUsd: new Prisma.Decimal(1), source: null }
+          : null
+    );
     mockNotificationsService.notifyMarginDrop.mockResolvedValue(undefined);
     mockAlertEngineService.shouldFire.mockResolvedValue(false);
     // checkMarginDrop() vuelve a consultar compras recientes tras crear una
@@ -63,7 +71,7 @@ describe('PurchasesService', () => {
       providers: [
         PurchasesService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: ExchangeRatesService, useValue: mockExchangeRatesService },
+        { provide: EXCHANGE_RATES_FACADE, useValue: mockExchangeRatesService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: AlertEngineService, useValue: mockAlertEngineService },
         { provide: I18nService, useValue: mockI18nService },
@@ -120,7 +128,9 @@ describe('PurchasesService', () => {
 
       await service.create(commerceId, userId, dto as any);
 
-      expect(mockExchangeRatesService.findByCode).not.toHaveBeenCalled();
+      expect(mockExchangeRatesService.resolveRateToUsd).toHaveBeenCalledWith(
+        'USD'
+      );
       expect(mockPrismaService.purchase.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -141,10 +151,9 @@ describe('PurchasesService', () => {
         stock: 20,
         minStock: 5,
       });
-      mockExchangeRatesService.findByCode.mockResolvedValue({
-        rateToUsd: 40,
-        source: 'BCV',
-        syncSource: 'BCV_SCRAPING',
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({
+        rateToUsd: new Prisma.Decimal(40),
+        source: 'BCV_SCRAPING',
       });
       mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' });
 
@@ -154,7 +163,9 @@ describe('PurchasesService', () => {
         unitCost: 400,
       } as any);
 
-      expect(mockExchangeRatesService.findByCode).toHaveBeenCalledWith('VES');
+      expect(mockExchangeRatesService.resolveRateToUsd).toHaveBeenCalledWith(
+        'VES'
+      );
       expect(mockPrismaService.purchase.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -174,10 +185,9 @@ describe('PurchasesService', () => {
         stock: 20,
         minStock: 5,
       });
-      mockExchangeRatesService.findByCode.mockResolvedValue({
-        rateToUsd: '36.5',
-        source: 'BCV',
-        syncSource: 'BCV_SCRAPING',
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue({
+        rateToUsd: new Prisma.Decimal('36.5'),
+        source: 'BCV_SCRAPING',
       });
       mockPrismaService.purchase.create.mockResolvedValue({ id: 'purchase-1' });
 
@@ -232,7 +242,7 @@ describe('PurchasesService', () => {
         id: 'prod-1',
         commerceId,
       });
-      mockExchangeRatesService.findByCode.mockResolvedValue({ rateToUsd: 0 });
+      mockExchangeRatesService.resolveRateToUsd.mockResolvedValue(null);
 
       await expect(
         service.create(commerceId, userId, {

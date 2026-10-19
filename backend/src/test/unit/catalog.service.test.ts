@@ -16,7 +16,7 @@ import {
   PlatformFeesFacade,
   PLATFORM_FEES_FACADE,
 } from '../../domains/money/platform-fees/platform-fees.facade';
-import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallets.service';
+import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallet.errors';
 import { money } from '../money-matcher';
 
 describe('CatalogService', () => {

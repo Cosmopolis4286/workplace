@@ -1,3 +1,5 @@
+import type { SystemModule } from '@prisma/client';
+
 /**
  * Contrato público de SystemModulesService para consumidores de otros
  * dominios (plans en Money, que necesita el kill-switch global y el subset
@@ -7,6 +9,8 @@
  * SUPERADMIN/ADMIN administran el catálogo vía SystemModulesController.
  */
 export interface SystemModulesFacade {
+  /** Catálogo completo (key + label) para el frontend. */
+  listAll(): Promise<SystemModule[]>;
   getDisabledModules(): Promise<string[]>;
   listBusinessModules(): Promise<string[]>;
 }

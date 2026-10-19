@@ -1,12 +1,16 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { ServicesService } from '../../commerce-core/services/services.service';
+import {
+  SERVICES_FACADE,
+  ServicesFacade,
+} from '../../commerce-core/services/services.facade';
 import {
   QueryServicesDto,
   ServiceSortBy,
@@ -42,7 +46,7 @@ export class AiOrchestratorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly servicesService: ServicesService
+    @Inject(SERVICES_FACADE) private readonly servicesService: ServicesFacade
   ) {}
 
   async searchNeed(userId: string, dto: SearchNeedDto) {

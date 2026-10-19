@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ConflictException,
@@ -6,7 +7,10 @@ import {
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { ExchangeRatesService } from '../../money/exchange-rates/exchange-rates.service';
+import {
+  EXCHANGE_RATES_FACADE,
+  ExchangeRatesFacade,
+} from '../../money/exchange-rates/exchange-rates.facade';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { AlertEngineService } from '../alert-engine/alert-engine.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
@@ -32,7 +36,8 @@ const PRICE_TREND_LOOKBACK_DAYS = 30;
 export class SuppliersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly exchangeRates: ExchangeRatesService,
+    @Inject(EXCHANGE_RATES_FACADE)
+    private readonly exchangeRates: ExchangeRatesFacade,
     private readonly notifications: NotificationsService,
     private readonly alertEngine: AlertEngineService,
     private readonly i18n: I18nService
