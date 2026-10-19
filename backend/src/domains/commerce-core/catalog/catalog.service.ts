@@ -968,7 +968,7 @@ export class CatalogService {
       // null), lo paga el comercio ahora, descontado de lo liberado — mismo
       // criterio que ServiceRequest: el fee se cobra siempre, nunca se
       // duplica ni se omite.
-      if (commerce && !order.platformFeeRate) {
+      if (commerce && !isPositive(order.platformFeeRate)) {
         const feeConfig = await this.platformFees.resolveFeeConfig(
           'CATALOG_ORDER',
           commerce.userId

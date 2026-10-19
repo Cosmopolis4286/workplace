@@ -1,4 +1,5 @@
 import { FeeTransactionType, FeePayer } from '@prisma/client';
+import type { MoneyInput } from '../../../common/money/money';
 
 export interface FeeConfig {
   rate: number;
@@ -19,7 +20,10 @@ export interface PlatformFeesFacade {
     type: FeeTransactionType,
     userId?: string
   ): Promise<FeeConfig | null>;
-  calculateFee(baseAmount: number, config: FeeConfig): { feeAmount: number };
+  calculateFee(
+    baseAmount: MoneyInput,
+    config: FeeConfig
+  ): { feeAmount: number };
   chargeProviderFee(
     type: FeeTransactionType,
     userId: string,
