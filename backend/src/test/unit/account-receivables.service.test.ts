@@ -5,6 +5,7 @@ import { AccountReceivablesService } from '../../domains/money/accounts/account-
 import { PrismaService } from '../../prisma/prisma.service';
 import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service';
 import { AccountStatus } from '@prisma/client';
+import { money } from '../money-matcher';
 
 describe('AccountReceivablesService', () => {
   let service: AccountReceivablesService;
@@ -111,7 +112,7 @@ describe('AccountReceivablesService', () => {
           data: expect.objectContaining({
             currencyCode: 'VES',
             exchangeRateValue: 40,
-            amountUsd: 100,
+            amountUsd: money(100),
             createdBy: userId,
           }),
         })

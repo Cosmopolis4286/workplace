@@ -10,7 +10,7 @@ export class CreatePayableDto {
   @IsString()
   description: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   amount: number;
 

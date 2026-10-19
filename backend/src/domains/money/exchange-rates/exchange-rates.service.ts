@@ -4,10 +4,18 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { BcvSyncService } from './bcv-sync.service';
 import { CreateExchangeRateDto } from './dto/create-exchange-rate.dto';
 import { UpdateExchangeRateDto } from './dto/update-exchange-rate.dto';
+import {
+  eq,
+  isPositive,
+  mul,
+  toDecimal,
+  toNumber,
+} from '../../../common/money/money';
 
 @Injectable()
 export class ExchangeRatesService {
@@ -23,12 +31,12 @@ export class ExchangeRatesService {
   // servicio a los i18n keys de otros dominios).
   async resolveRateToUsd(
     currencyCode: string
-  ): Promise<{ rateToUsd: number; source: string | null } | null> {
+  ): Promise<{ rateToUsd: Prisma.Decimal; source: string | null } | null> {
     const code = currencyCode.toUpperCase();
-    if (code === 'USD') return { rateToUsd: 1, source: null };
+    if (code === 'USD') return { rateToUsd: toDecimal(1), source: null };
 
     const rate = await this.prisma.exchangeRate.findUnique({ where: { code } });
-    if (!rate || !rate.rateToUsd || rate.rateToUsd <= 0) return null;
+    if (!rate || !isPositive(rate.rateToUsd)) return null;
     return {
       rateToUsd: rate.rateToUsd,
       source: rate.syncSource ?? rate.source,
@@ -159,7 +167,7 @@ export class ExchangeRatesService {
 
     if (
       typeof dto.rateToUsd === 'number' &&
-      dto.rateToUsd !== existing.rateToUsd
+      !eq(dto.rateToUsd, existing.rateToUsd)
     ) {
       await this.prisma.exchangeRateHistory.create({
         data: {
@@ -290,7 +298,7 @@ export class ExchangeRatesService {
           name: r.name,
           symbol: r.symbol,
           rate: r.rateToUsd,
-          converted: +(amountUsd * r.rateToUsd).toFixed(2),
+          converted: toNumber(mul(amountUsd, r.rateToUsd)),
           isDefault: r.isDefault,
         }))
       );

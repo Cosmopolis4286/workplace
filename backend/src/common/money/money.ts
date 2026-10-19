@@ -78,6 +78,26 @@ export function sum(values: readonly MoneyInput[]): Prisma.Decimal {
   return add(...values);
 }
 
+/** Promedio simple. Lanza con lista vacía: el caller decide qué significa "sin datos". */
+export function average(values: readonly MoneyInput[]): Prisma.Decimal {
+  if (values.length === 0) throw new RangeError('Promedio de lista vacía');
+  return sum(values).dividedBy(values.length);
+}
+
+/**
+ * Variación % de `from` a `to`, redondeada a `places` decimales.
+ * null si `from` no es positivo: no hay base contra la cual medir (evita
+ * Infinity/NaN cuando la referencia es 0).
+ */
+export function percentChange(
+  from: MoneyInput,
+  to: MoneyInput,
+  places = 1
+): number | null {
+  if (!isPositive(from)) return null;
+  return toNumber(mul(div(sub(to, from), from), 100), places);
+}
+
 export function sub(a: MoneyInput, b: MoneyInput): Prisma.Decimal {
   return toDecimal(a).minus(toDecimal(b));
 }

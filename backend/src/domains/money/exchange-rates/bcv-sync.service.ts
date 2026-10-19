@@ -5,6 +5,13 @@ import * as https from 'https';
 import * as cheerio from 'cheerio';
 import { RedisService } from '../../../redis/redis.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import {
+  eq,
+  RATE_SCALE,
+  roundRate,
+  toNumber,
+} from '../../../common/money/money';
 
 export interface BCVRateResult {
   rate: number;
@@ -211,7 +218,7 @@ export class BcvSyncService {
       syncError: currency.syncError,
       syncAttempts: currency.syncAttempts,
       autoSync: currency.autoSync,
-      currentRate: currency.rateToUsd,
+      currentRate: toNumber(currency.rateToUsd, RATE_SCALE),
       isStale,
     };
   }
@@ -401,7 +408,7 @@ export class BcvSyncService {
       syncError: currency.syncError,
       syncAttempts: currency.syncAttempts,
       autoSync: currency.autoSync,
-      currentRate: currency.rateToUsd,
+      currentRate: toNumber(currency.rateToUsd, RATE_SCALE),
       isStale: currency.lastSyncAt
         ? this.isRateStale(currency.lastSyncAt)
         : true,
@@ -588,7 +595,9 @@ export class BcvSyncService {
     result: BCVRateResult
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      const locked = await tx.$queryRaw<{ id: string; rateToUsd: number }[]>`
+      const locked = await tx.$queryRaw<
+        { id: string; rateToUsd: Prisma.Decimal }[]
+      >`
         SELECT id, "rateToUsd" FROM exchange_rates WHERE code = ${currencyCode.toUpperCase()} FOR UPDATE
       `;
       const existing = locked[0] ?? null;
@@ -596,7 +605,7 @@ export class BcvSyncService {
       const updated = await tx.exchangeRate.update({
         where: { code: currencyCode.toUpperCase() },
         data: {
-          rateToUsd: result.rate,
+          rateToUsd: roundRate(result.rate),
           source: 'BCV',
           syncSource: result.source,
           lastSyncAt: new Date(),
@@ -605,13 +614,13 @@ export class BcvSyncService {
         },
       });
 
-      if (existing && existing.rateToUsd !== result.rate) {
+      if (existing && !eq(existing.rateToUsd, roundRate(result.rate))) {
         await tx.exchangeRateHistory.create({
           data: {
             exchangeRateId: updated.id,
             code: updated.code,
             previousRate: existing.rateToUsd,
-            newRate: result.rate,
+            newRate: roundRate(result.rate),
             source: result.source,
             changedBy: null,
           },

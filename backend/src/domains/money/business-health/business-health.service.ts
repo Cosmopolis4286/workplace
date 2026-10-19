@@ -1,10 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AccountStatus } from '@prisma/client';
+import {
+  average,
+  RATE_SCALE,
+  toNumber,
+  type MoneyInput,
+} from '../../../common/money/money';
 
 // Cuántas compras recientes por producto se promedian para el costo de
 // reposición agregado — mismo criterio que PurchasesService.getReplacementCost.
 const REPLACEMENT_COST_SAMPLE_SIZE = 5;
+
+// Últimas compras de cada producto, traídas junto con el producto en una sola
+// consulta (antes: una consulta de compras por producto, N+1).
+const RECENT_PURCHASE_COSTS = {
+  orderBy: { purchasedAt: 'desc' as const },
+  take: REPLACEMENT_COST_SAMPLE_SIZE,
+  select: { unitCostUsd: true },
+};
+
+// Costo de reposición promedio en USD (analítica: number con 8 decimales).
+const averageUnitCost = (purchases: { unitCostUsd: MoneyInput }[]): number =>
+  toNumber(average(purchases.map((p) => p.unitCostUsd)), RATE_SCALE);
 
 export interface ScoreComponent {
   key: string;
@@ -143,7 +161,7 @@ export class BusinessHealthService {
   ): Promise<ScoreComponent> {
     const products = await this.prisma.product.findMany({
       where: { commerceId, purchases: { some: {} } },
-      select: { id: true, price: true },
+      select: { id: true, price: true, purchases: RECENT_PURCHASE_COSTS },
     });
 
     if (products.length === 0) {
@@ -161,17 +179,9 @@ export class BusinessHealthService {
 
     const margins: number[] = [];
     for (const product of products) {
-      const recentPurchases = await this.prisma.purchase.findMany({
-        where: { productId: product.id, commerceId },
-        orderBy: { purchasedAt: 'desc' },
-        take: REPLACEMENT_COST_SAMPLE_SIZE,
-        select: { unitCostUsd: true },
-      });
-      if (recentPurchases.length === 0 || product.price <= 0) continue;
+      if (product.purchases.length === 0 || product.price <= 0) continue;
 
-      const avgCost =
-        recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) /
-        recentPurchases.length;
+      const avgCost = averageUnitCost(product.purchases);
       const marginPct = ((product.price - avgCost) / product.price) * 100;
       margins.push(marginPct);
     }
@@ -225,7 +235,12 @@ export class BusinessHealthService {
 
     const products = await this.prisma.product.findMany({
       where: { commerceId, purchases: { some: {} } },
-      select: { id: true, price: true, minMarginPct: true },
+      select: {
+        id: true,
+        price: true,
+        minMarginPct: true,
+        purchases: RECENT_PURCHASE_COSTS,
+      },
     });
 
     if (products.length === 0) {
@@ -244,17 +259,9 @@ export class BusinessHealthService {
     let evaluated = 0;
     let compliant = 0;
     for (const product of products) {
-      const recentPurchases = await this.prisma.purchase.findMany({
-        where: { productId: product.id, commerceId },
-        orderBy: { purchasedAt: 'desc' },
-        take: REPLACEMENT_COST_SAMPLE_SIZE,
-        select: { unitCostUsd: true },
-      });
-      if (recentPurchases.length === 0) continue;
+      if (product.purchases.length === 0) continue;
 
-      const avgCost =
-        recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) /
-        recentPurchases.length;
+      const avgCost = averageUnitCost(product.purchases);
       const minMarginPct = product.minMarginPct ?? defaultMinMarginPct;
       const marginFraction = minMarginPct / 100;
       const minPrice =
