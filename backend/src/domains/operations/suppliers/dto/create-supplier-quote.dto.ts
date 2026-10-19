@@ -12,7 +12,7 @@ export class CreateSupplierQuoteDto {
   @IsString()
   productId: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 8 })
   @Min(0)
   price: number;
 

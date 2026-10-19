@@ -55,13 +55,15 @@ describe('BusinessHealthService', () => {
   describe('getScore — solo margen de reposición con datos', () => {
     it('computes the overall score from a single component and reports partial confidence', async () => {
       mockPrismaService.product.findMany.mockResolvedValue([
-        { id: 'prod-1', price: 15, minMarginPct: null },
+        {
+          id: 'prod-1',
+          price: 15,
+          minMarginPct: null,
+          purchases: [{ unitCostUsd: 10 }],
+        },
       ]);
-      mockPrismaService.purchase.findMany.mockResolvedValue([
-        { unitCostUsd: 10 },
-      ]);
-      // El componente Price Guard también consulta purchase.findMany con el
-      // mismo producto — usamos el mismo mock, así que también tendrá datos.
+      // El componente Price Guard lee las mismas compras anidadas del
+      // producto, así que también tendrá datos.
       // Para aislar el caso "solo 1 de 4", forzamos accountReceivable/Payable
       // ya en null por default y dejamos product sin compras para ese cálculo
       // sería contradictorio; en su lugar validamos el caso "2 de 4" abajo.
@@ -79,10 +81,12 @@ describe('BusinessHealthService', () => {
   describe('getScore — todos los componentes con datos', () => {
     it('averages all 4 components with equal weight and reaches full confidence', async () => {
       mockPrismaService.product.findMany.mockResolvedValue([
-        { id: 'prod-1', price: 20, minMarginPct: null },
-      ]);
-      mockPrismaService.purchase.findMany.mockResolvedValue([
-        { unitCostUsd: 10 },
+        {
+          id: 'prod-1',
+          price: 20,
+          minMarginPct: null,
+          purchases: [{ unitCostUsd: 10 }],
+        },
       ]);
       mockPrismaService.commerceSettings.findUnique.mockResolvedValue({
         minMarginPct: 15,
@@ -129,9 +133,8 @@ describe('BusinessHealthService', () => {
 
     it('reports null for price_guard_compliance when there is no purchase history for any product', async () => {
       mockPrismaService.product.findMany.mockResolvedValue([
-        { id: 'prod-1', price: 20, minMarginPct: null },
+        { id: 'prod-1', price: 20, minMarginPct: null, purchases: [] },
       ]);
-      mockPrismaService.purchase.findMany.mockResolvedValue([]);
 
       const result = await service.getScore(commerceId);
       const priceGuard = result.components.find(
@@ -143,10 +146,12 @@ describe('BusinessHealthService', () => {
 
     it('caps the replacement_margin score at 100 for very high margins', async () => {
       mockPrismaService.product.findMany.mockResolvedValue([
-        { id: 'prod-1', price: 100, minMarginPct: null },
-      ]);
-      mockPrismaService.purchase.findMany.mockResolvedValue([
-        { unitCostUsd: 5 },
+        {
+          id: 'prod-1',
+          price: 100,
+          minMarginPct: null,
+          purchases: [{ unitCostUsd: 5 }],
+        },
       ]);
 
       const result = await service.getScore(commerceId);
@@ -160,10 +165,12 @@ describe('BusinessHealthService', () => {
 
     it('floors the replacement_margin score at 0 when selling at a loss on replacement cost', async () => {
       mockPrismaService.product.findMany.mockResolvedValue([
-        { id: 'prod-1', price: 10, minMarginPct: null },
-      ]);
-      mockPrismaService.purchase.findMany.mockResolvedValue([
-        { unitCostUsd: 15 },
+        {
+          id: 'prod-1',
+          price: 10,
+          minMarginPct: null,
+          purchases: [{ unitCostUsd: 15 }],
+        },
       ]);
 
       const result = await service.getScore(commerceId);
@@ -172,6 +179,8 @@ describe('BusinessHealthService', () => {
       )!;
 
       expect(margin.score).toBe(0);
+      // Compras anidadas en la consulta de productos: sin N+1.
+      expect(mockPrismaService.purchase.findMany).not.toHaveBeenCalled();
     });
   });
 

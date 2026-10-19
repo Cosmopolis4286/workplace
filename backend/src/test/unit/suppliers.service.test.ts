@@ -276,6 +276,12 @@ describe('SuppliersService', () => {
       await service.createQuote('sup-1', commerceId, dto as any);
       await new Promise(process.nextTick);
 
+      // La base excluye cotizaciones en 0 (no se puede medir % contra 0).
+      expect(mockPrismaService.supplierQuote.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ priceUsd: { gt: 0 } }),
+        })
+      );
       expect(mockAlertEngineService.shouldFire).not.toHaveBeenCalled();
       expect(
         mockNotificationsService.notifySupplierPriceChange
@@ -417,6 +423,66 @@ describe('SuppliersService', () => {
       const result = await service.compareForProduct('prod-1', commerceId);
 
       expect(result.quotes[0].priceChangePct).toBeNull();
+    });
+
+    const quote = (id: string, priceUsd: number | string, daysAgo: number) => ({
+      id,
+      supplierId: 'sup-1',
+      priceUsd,
+      leadTimeDays: 3,
+      available: true,
+      quotedAt: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000),
+      supplier: { id: 'sup-1', name: 'Proveedor A' },
+    });
+
+    it('mide la variación contra la cotización MÁS ANTIGUA de la ventana, no la anterior inmediata', async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        name: 'Aceite 1L',
+      });
+      // desc: 12 hoy, 11 hace 5 días, 10 hace 20 días → +20% en el período
+      mockPrismaService.supplierQuote.findMany.mockResolvedValue([
+        quote('q3', 12, 0),
+        quote('q2', 11, 5),
+        quote('q1', 10, 20),
+      ]);
+
+      const result = await service.compareForProduct('prod-1', commerceId);
+
+      expect(result.quotes[0].priceChangePct).toBe(20);
+    });
+
+    it('ignora una cotización base en 0 y usa la última con precio real', async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        name: 'Aceite 1L',
+      });
+      mockPrismaService.supplierQuote.findMany.mockResolvedValue([
+        quote('q3', '12.5', 0),
+        quote('q2', '10', 5),
+        quote('q1', '0', 20), // error de carga: no es base válida
+      ]);
+
+      const result = await service.compareForProduct('prod-1', commerceId);
+
+      expect(result.quotes[0].priceChangePct).toBe(25);
+      expect(result.quotes[0].priceChangeLookbackDays).toBe(30);
+    });
+
+    it('sin base válida, variación y días quedan en null juntos', async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue({
+        id: 'prod-1',
+        name: 'Aceite 1L',
+      });
+      mockPrismaService.supplierQuote.findMany.mockResolvedValue([
+        quote('q2', 12, 0),
+        quote('q1', 0, 5),
+      ]);
+
+      const result = await service.compareForProduct('prod-1', commerceId);
+
+      expect(result.quotes[0].priceChangePct).toBeNull();
+      expect(result.quotes[0].priceChangeLookbackDays).toBeNull();
     });
   });
 });

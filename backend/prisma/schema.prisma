@@ -1712,7 +1712,7 @@ model SupplierQuote {
   productId  String
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  price        Decimal @db.Decimal(20, 2)
+  price        Decimal @db.Decimal(20, 8)
   currencyCode String
 
   // Snapshot inmutable de la tasa usada para el equivalente en USD, mismo
@@ -1754,7 +1754,7 @@ model Purchase {
 
   quantity Int
   // Costo unitario en la moneda original de la compra (currencyCode).
-  unitCost Decimal @db.Decimal(20, 2)
+  unitCost Decimal @db.Decimal(20, 8)
 
   // Moneda en la que se pactó/pagó esta compra (código de ExchangeRate, ej. "USD", "VES").
   currencyCode       String

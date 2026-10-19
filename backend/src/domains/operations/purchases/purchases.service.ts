@@ -12,11 +12,11 @@ import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { QueryPurchasesDto } from './dto/query-purchases.dto';
 import { AlertType, Prisma, ProductStatus } from '@prisma/client';
 import {
+  average,
   div,
   isPositive,
   RATE_SCALE,
   roundRate,
-  sum,
   toDecimal,
   toNumber,
 } from '../../../common/money/money';
@@ -243,10 +243,7 @@ export class PurchasesService {
       RATE_SCALE
     );
     const averageReplacementCostUsd = toNumber(
-      div(
-        sum(recentPurchases.map((p) => p.unitCostUsd)),
-        recentPurchases.length
-      ),
+      average(recentPurchases.map((p) => p.unitCostUsd)),
       RATE_SCALE
     );
 
@@ -294,7 +291,7 @@ export class PurchasesService {
 
     const rows = productsWithPurchases.map((p) => {
       const averageReplacementCostUsd = toNumber(
-        div(sum(p.purchases.map((pu) => pu.unitCostUsd)), p.purchases.length),
+        average(p.purchases.map((pu) => pu.unitCostUsd)),
         RATE_SCALE
       );
       const marginHistoricalPct = this.marginPct(p.price, p.cost);

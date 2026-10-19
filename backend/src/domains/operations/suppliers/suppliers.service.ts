@@ -16,11 +16,11 @@ import { AlertType } from '@prisma/client';
 import {
   div,
   isPositive,
-  mul,
+  percentChange,
   RATE_SCALE,
   roundRate,
-  sub,
   toNumber,
+  type MoneyInput,
 } from '../../../common/money/money';
 
 // Cuántas cotizaciones anteriores del mismo proveedor+producto se miran para
@@ -138,7 +138,7 @@ export class SuppliersService {
       supplier.name,
       dto.productId,
       product.name,
-      toNumber(priceUsd, RATE_SCALE),
+      priceUsd,
       quote.id
     ).catch(() => {});
 
@@ -155,7 +155,7 @@ export class SuppliersService {
     supplierName: string,
     productId: string,
     productName: string,
-    newPriceUsd: number,
+    newPriceUsd: MoneyInput,
     newQuoteId: string
   ) {
     const lookbackDate = new Date(
@@ -168,20 +168,22 @@ export class SuppliersService {
         commerceId,
         id: { not: newQuoteId },
         quotedAt: { gte: lookbackDate },
+        // Una cotización previa en 0 no sirve de base (división por cero):
+        // se compara contra la última con precio real.
+        priceUsd: { gt: 0 },
       },
       orderBy: { quotedAt: 'desc' },
     });
-    if (!previous || !isPositive(previous.priceUsd)) return;
+    if (!previous) return;
 
-    const previousPriceUsd = toNumber(previous.priceUsd, RATE_SCALE);
-    const priceChangePct =
-      ((newPriceUsd - previousPriceUsd) / previousPriceUsd) * 100;
+    const priceChangePct = percentChange(previous.priceUsd, newPriceUsd, 2);
     if (
-      await this.alertEngine.shouldFire(
+      priceChangePct !== null &&
+      (await this.alertEngine.shouldFire(
         commerceId,
         AlertType.SUPPLIER_PRICE_CHANGE,
         priceChangePct
-      )
+      ))
     ) {
       await this.notifications.notifySupplierPriceChange(
         commerceId,
@@ -220,48 +222,40 @@ export class SuppliersService {
       orderBy: { quotedAt: 'desc' },
     });
 
-    // Última cotización por proveedor (la primera que aparece, ya viene desc).
-    const latestBySupplier = new Map<string, (typeof allQuotes)[number]>();
-    for (const quote of allQuotes) {
-      if (!latestBySupplier.has(quote.supplierId))
-        latestBySupplier.set(quote.supplierId, quote);
-    }
-
     const lookbackDate = new Date(
       Date.now() - PRICE_TREND_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
     );
 
-    const comparison = Array.from(latestBySupplier.values()).map((latest) => {
-      // Cotización más antigua del mismo proveedor dentro de la ventana de
-      // lookback, para medir cuánto varió el precio en ese período.
-      const previous = allQuotes.find(
-        (q) =>
-          q.supplierId === latest.supplierId &&
-          q.id !== latest.id &&
-          q.quotedAt >= lookbackDate
-      );
-      const priceChangePct =
-        previous && isPositive(previous.priceUsd)
-          ? toNumber(
-              mul(
-                div(sub(latest.priceUsd, previous.priceUsd), previous.priceUsd),
-                100
-              ),
-              1
-            )
-          : null;
+    // Una sola pasada (allQuotes viene desc): la primera cotización de cada
+    // proveedor es la vigente, y la base para la variación es la MÁS ANTIGUA
+    // dentro de la ventana con precio > 0 — así "subió 12% en 14 días" mide
+    // el período completo, y una cotización en 0 (error de carga, promo) no
+    // deja la variación en Infinity ni la anula.
+    type Quote = (typeof allQuotes)[number];
+    const bySupplier = new Map<string, { latest: Quote; baseline?: Quote }>();
+    for (const quote of allQuotes) {
+      const entry = bySupplier.get(quote.supplierId);
+      if (!entry) {
+        bySupplier.set(quote.supplierId, { latest: quote });
+      } else if (quote.quotedAt >= lookbackDate && isPositive(quote.priceUsd)) {
+        entry.baseline = quote;
+      }
+    }
 
-      return {
+    const comparison = Array.from(bySupplier.values()).map(
+      ({ latest, baseline }) => ({
         supplierId: latest.supplierId,
         supplierName: latest.supplier.name,
         priceUsd: toNumber(latest.priceUsd, RATE_SCALE),
         leadTimeDays: latest.leadTimeDays,
         available: latest.available,
         quotedAt: latest.quotedAt,
-        priceChangePct,
-        priceChangeLookbackDays: previous ? PRICE_TREND_LOOKBACK_DAYS : null,
-      };
-    });
+        priceChangePct: baseline
+          ? percentChange(baseline.priceUsd, latest.priceUsd)
+          : null,
+        priceChangeLookbackDays: baseline ? PRICE_TREND_LOOKBACK_DAYS : null,
+      })
+    );
 
     comparison.sort((a, b) => a.priceUsd - b.priceUsd);
 
