@@ -14,6 +14,7 @@ import {
   getPreviousPeriodRange,
   pct,
 } from './analytics.helpers';
+import { toNumber } from '../../../../common/money/money';
 
 @Injectable()
 export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
@@ -271,7 +272,7 @@ export class CommerceAnalyticsStrategy implements AnalyticsAccountStrategy {
     return {
       labels: items.map((i) => i.productName),
       values: items.map((i) => i._sum.quantity ?? 0),
-      revenue: items.map((i) => Math.round((i._sum.subtotal ?? 0) * 100) / 100),
+      revenue: items.map((i) => toNumber(i._sum.subtotal ?? 0)),
     };
   }
 
