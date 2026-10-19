@@ -13,6 +13,7 @@ import {
 } from '../../commerce-core/services/dto/query-services.dto';
 import { SearchNeedDto } from './dto/search-need.dto';
 import { ConfirmNeedDto } from './dto/confirm-need.dto';
+import { toNumber } from '../../../common/money/money';
 
 const SEARCH_TTL_SECONDS = 15 * 60; // suficiente para elegir sin apurarse, corto porque es intención efímera
 const searchCacheKey = (searchId: string) => `ai-need-search:${searchId}`;
@@ -140,7 +141,7 @@ export class AiOrchestratorService {
         clientPhone: phone,
         clientEmail: requester.email,
         description: dto.description,
-        price: service.price,
+        price: toNumber(service.price),
         priceUnit: service.priceUnit ?? undefined,
       },
       userId

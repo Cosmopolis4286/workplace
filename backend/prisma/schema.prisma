@@ -641,8 +641,8 @@ model Product {
   id              String              @id @default(uuid())
   name            String
   description     String?
-  price           Float
-  cost            Float               @default(0)
+  price           Decimal             @db.Decimal(20, 2)
+  cost            Decimal             @default(0) @db.Decimal(20, 8)
   stock           Int                 @default(0)
   minStock        Int                 @default(5)
   maxStock        Int                 @default(100)
@@ -2189,7 +2189,7 @@ model CatalogOrder {
   buyerPhone    String
   buyerEmail    String?
   notes         String?
-  totalEstimate Float?
+  totalEstimate Decimal?            @db.Decimal(20, 2)
   status        CatalogOrderStatus  @default(PENDING)
   requesterId   String?
   requester     User?               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
@@ -2223,7 +2223,7 @@ model CatalogOrderItem {
   order       CatalogOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId   String
   productName String
-  unitPrice   Float
+  unitPrice   Decimal      @db.Decimal(20, 2)
   quantity    Int          @default(1)
   isBundle    Boolean      @default(false)
 
@@ -2277,7 +2277,7 @@ model Service {
   id              String           @id @default(uuid())
   name            String
   description     String?
-  price           Float
+  price           Decimal          @db.Decimal(20, 2)
   priceUnit       String?
   duration        Int? // minutos estimados
   images          String[]         @default([]) // [0] = principal, [1..2] = secundarias
@@ -2356,7 +2356,7 @@ model ServiceRequest {
   clientPhone          String
   clientEmail          String?
   description          String?
-  price                Float?
+  price                Decimal?                            @db.Decimal(20, 2)
   priceUnit            String?
   platformFeeRate      Decimal?                            @db.Decimal(20, 8)
   platformFeeAmount    Decimal?                            @db.Decimal(20, 2)
@@ -2449,9 +2449,9 @@ model ServiceRequestPriceChangeProposal {
   serviceRequestId String
   serviceRequest   ServiceRequest               @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
   status           ServiceRequestProposalStatus @default(PENDING)
-  previousPrice    Float
-  proposedPrice    Float
-  deltaAmount      Float
+  previousPrice    Decimal                      @db.Decimal(20, 2)
+  proposedPrice    Decimal                      @db.Decimal(20, 2)
+  deltaAmount      Decimal                      @db.Decimal(20, 2)
   note             String?
   proposedBy       String
   resolvedBy       String?
@@ -2895,7 +2895,7 @@ model Ride {
   destinationLng    Float?
   status            RideStatus      @default(PENDING)
   vehicleType       RideVehicleType @default(MOTORCYCLE)
-  price             Float?
+  price             Decimal?        @db.Decimal(20, 2)
   distance          Float?
   duration          Int? // minutes
   platformFeeRate   Decimal?        @db.Decimal(20, 8)
@@ -2907,7 +2907,7 @@ model Ride {
   recipientPhone    String?
   cargoDescription  String?
   cargoWeight       Float? // kg aproximados
-  declaredValue     Float? // valor declarado de la carga para responsabilidad
+  declaredValue     Decimal?        @db.Decimal(20, 2) // valor declarado de la carga para responsabilidad
   acceptedAt        DateTime?
   startedAt         DateTime?
   completedAt       DateTime?

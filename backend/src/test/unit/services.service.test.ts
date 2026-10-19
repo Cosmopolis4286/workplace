@@ -497,7 +497,7 @@ describe('ServicesService — service request status transitions', () => {
             serviceRequestId: 'req-1',
             previousPrice: 100,
             proposedPrice: 150,
-            deltaAmount: 50,
+            deltaAmount: money(50),
             proposedBy: 'provider-1',
           }),
         })
@@ -576,14 +576,14 @@ describe('ServicesService — service request status transitions', () => {
         entityId: 'req-1',
         payerId: 'client-1',
         payeeId: 'provider-1',
-        deltaAmount: 50,
+        deltaAmount: money(50),
         referenceOverride: 'ESCROW-HOLD-INCREASE-proposal-1',
       });
       expect(mockPrismaService.$transaction).toHaveBeenCalled();
       expect(mockPrismaService.serviceRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            price: 150,
+            price: money(150),
             escrowAmount: money(150),
           }),
         })

@@ -145,6 +145,29 @@ describe('CatalogService', () => {
       expect(mockPrismaService.catalogOrder.create).not.toHaveBeenCalled();
     });
 
+    it('calcula totalEstimate exacto al centavo (3 × 0.1 = 0.3)', async () => {
+      mockPrismaService.product.findMany.mockImplementation(({ select }: any) =>
+        Promise.resolve(
+          select?.minStock
+            ? [{ id: PRODUCT_ID, minStock: 5, name: 'Chicle' }]
+            : [baseProduct({ price: '0.10' })]
+        )
+      );
+      mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.catalogOrder.create.mockImplementation(
+        ({ data }: any) =>
+          Promise.resolve({ id: 'order-1', ...data, items: data.items.create })
+      );
+
+      const result = await service.createOrder(
+        baseDto({ items: [{ productId: PRODUCT_ID, quantity: 3 }] }) as any,
+        REQUESTER_ID
+      );
+
+      expect(0.1 * 3).not.toBe(0.3);
+      expect(result.data.totalEstimate.toString()).toBe('0.3');
+    });
+
     it('deriva productName/commerceName/unitPrice/totalEstimate del producto real, no del body', async () => {
       mockPrismaService.product.findMany.mockImplementation(({ select }: any) =>
         Promise.resolve(
@@ -162,7 +185,7 @@ describe('CatalogService', () => {
       const result = await service.createOrder(baseDto() as any, REQUESTER_ID);
 
       expect(result.data.commerceName).toBe('Pastelería Ana');
-      expect(result.data.totalEstimate).toBe(50); // price 25 * quantity 2
+      expect(result.data.totalEstimate).toEqual(money(50)); // price 25 * quantity 2
       expect(result.data.items[0]).toMatchObject({
         productId: PRODUCT_ID,
         productName: 'Torta de chocolate',
@@ -346,11 +369,11 @@ describe('CatalogService', () => {
           entityType: 'CATALOG_ORDER',
           payerId: REQUESTER_ID,
           payeeId: 'owner-1',
-          deltaAmount: 50,
+          deltaAmount: money(50),
         })
       );
       expect(result.data.escrowStatus).toBe('HELD');
-      expect(result.data.escrowAmount).toBe(50);
+      expect(result.data.escrowAmount).toEqual(money(50));
     });
 
     it('rejects with BadRequestException (not the raw wallet error) when the buyer has insufficient funds', async () => {
@@ -399,7 +422,7 @@ describe('CatalogService', () => {
         expect.objectContaining({
           entityType: 'CATALOG_ORDER',
           payerId: REQUESTER_ID,
-          amount: 50,
+          amount: money(50),
         })
       );
     });
@@ -420,9 +443,9 @@ describe('CatalogService', () => {
       const result = await service.createOrder(baseDto() as any, REQUESTER_ID);
 
       expect(mockEscrowService.hold).toHaveBeenCalledWith(
-        expect.objectContaining({ deltaAmount: 55 })
+        expect.objectContaining({ deltaAmount: money(55) })
       );
-      expect(result.data.escrowAmount).toBe(55);
+      expect(result.data.escrowAmount).toEqual(money(55));
       expect(result.data.platformFeeRate).toBe(10);
     });
   });

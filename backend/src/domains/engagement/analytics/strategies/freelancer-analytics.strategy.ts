@@ -13,6 +13,7 @@ import {
   getPreviousPeriodRange,
   pct,
 } from './analytics.helpers';
+import { sum, toNumber } from '../../../../common/money/money';
 
 const CLOSED = ServiceRequestStatus.CLOSED;
 const OPEN_OR_CLOSED_NOT_CANCELLED: ServiceRequestStatus[] = [
@@ -123,10 +124,7 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
       }),
     ]);
 
-    const totalRevenue = closedInPeriod.reduce(
-      (sum, r) => sum + (r.price ?? 0),
-      0
-    );
+    const totalRevenue = toNumber(sum(closedInPeriod.map((r) => r.price ?? 0)));
     const avgTicket =
       closedInPeriod.length > 0
         ? Math.round((totalRevenue / closedInPeriod.length) * 100) / 100
@@ -174,7 +172,7 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
       const hourly: number[] = Array(24).fill(0);
       closed.forEach((r) => {
         if (!r.statusUpdatedAt) return;
-        hourly[new Date(r.statusUpdatedAt).getHours()] += r.price ?? 0;
+        hourly[new Date(r.statusUpdatedAt).getHours()] += Number(r.price ?? 0);
       });
       const currentHour = new Date().getHours();
       for (let h = 6; h <= Math.min(currentHour, 23); h++) {
@@ -195,7 +193,7 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
         if (!r.statusUpdatedAt) return;
         const d = new Date(r.statusUpdatedAt);
         const key = `${d.getFullYear()}-${d.getMonth()}`;
-        if (key in monthly) monthly[key] += r.price ?? 0;
+        if (key in monthly) monthly[key] += Number(r.price ?? 0);
       });
       for (const [key, val] of Object.entries(monthly)) {
         const [year, month] = key.split('-').map(Number);
@@ -215,7 +213,8 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
         const idx = Math.floor(
           (startOfDay(d).getTime() - from.getTime()) / (1000 * 60 * 60 * 24)
         );
-        if (idx >= 0 && idx < values.length) values[idx] += r.price ?? 0;
+        if (idx >= 0 && idx < values.length)
+          values[idx] += Number(r.price ?? 0);
       });
       values.forEach((_, i) => {
         values[i] = Math.round(values[i] * 100) / 100;
@@ -265,7 +264,7 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
     for (const r of closed) {
       const cur = byService.get(r.serviceName) ?? { count: 0, revenue: 0 };
       cur.count += 1;
-      cur.revenue += r.price ?? 0;
+      cur.revenue += Number(r.price ?? 0);
       byService.set(r.serviceName, cur);
     }
 
@@ -338,10 +337,7 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
     }) => r.requesterId ?? r.clientPhone;
     const totalClients = new Set(allRequests.map(clientKey)).size;
     const closedRequests = allRequests.filter((r) => r.status === CLOSED);
-    const totalRevenue = closedRequests.reduce(
-      (sum, r) => sum + (r.price ?? 0),
-      0
-    );
+    const totalRevenue = toNumber(sum(closedRequests.map((r) => r.price ?? 0)));
     const totalOrders = closedRequests.length;
     const avgTicket =
       totalOrders > 0
@@ -449,7 +445,7 @@ export class FreelancerAnalyticsStrategy implements AnalyticsAccountStrategy {
     closedRequests.forEach((r) => {
       if (!r.statusUpdatedAt) return;
       const idx = dayIndex(r.statusUpdatedAt);
-      if (idx >= 0 && idx < days) salesValues[idx] += r.price ?? 0;
+      if (idx >= 0 && idx < days) salesValues[idx] += Number(r.price ?? 0);
     });
 
     const requestsValues = Array(days).fill(0);
