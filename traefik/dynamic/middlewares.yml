@@ -57,21 +57,7 @@ http:
         prefixes:
           - "/api"
 
-    # CORS para API
-    # Nota: Traefik no expande variables en config dinamica.
-    # Los origenes se configuran via labels en docker-compose.lite.yml
-    cors-api:
-      headers:
-        accessControlAllowCredentials: true
-        accessControlAllowHeaders:
-          - "Content-Type"
-          - "Authorization"
-          - "X-Requested-With"
-        accessControlAllowMethods:
-          - "GET"
-          - "POST"
-          - "PUT"
-          - "DELETE"
-          - "OPTIONS"
-        accessControlAllowOriginListRegex:
-          - "^https://(www\\.)?playrke\\.com$"
+    # CORS: lo resuelve el backend (main.ts, enableCors con whitelist de
+    # FRONTEND_URL + https://localhost de la app Android). No se configura
+    # aquí: Traefik responde los preflight OPTIONS por su cuenta y, con otra
+    # lista de orígenes, bloqueaba orígenes válidos para el backend.

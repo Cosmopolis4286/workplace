@@ -1,7 +1,7 @@
 services:
   # Traefik - Reemplaza NGINX + Certbot + Scripts SSL
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.6  # >= v3.6: compatible con la API de Docker Engine 29
     restart: unless-stopped
     container_name: traefik
     command:
@@ -132,7 +132,7 @@ services:
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT:-3001}"
-      - "traefik.http.routers.backend.middlewares=api-stripprefix@file,cors-api@file,global-rate-limit@file,security-headers@file"
+      - "traefik.http.routers.backend.middlewares=api-stripprefix@file,global-rate-limit@file,security-headers@file"
       - "traefik.http.services.backend.loadbalancer.healthcheck.path=/api/ready"
       - "traefik.http.services.backend.loadbalancer.healthcheck.interval=15s"
 

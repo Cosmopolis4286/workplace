@@ -4,7 +4,7 @@
 services:
   # 🌐 Traefik - Router SSL esencial
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.6  # >= v3.6: compatible con la API de Docker Engine 29
     restart: unless-stopped
     init: true
     container_name: traefik
@@ -95,7 +95,7 @@ services:
       - "traefik.http.routers.backend.tls.domains[0].sans=www.${DOMAIN:-localhost}"
       - "traefik.http.routers.backend.priority=100"
       - "traefik.http.services.backend.loadbalancer.server.port=${NODE_PORT:-3001}"
-      - "traefik.http.routers.backend.middlewares=security-headers@file,cors-api@file,rate-limit@file"
+      - "traefik.http.routers.backend.middlewares=security-headers@file,rate-limit@file"
     logging:
       driver: "json-file"
       options:

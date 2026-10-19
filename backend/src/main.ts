@@ -71,7 +71,9 @@ async function bootstrap() {
       if (!origin || allowedOrigins.includes(origin))
         return callback(null, true);
       if (isDev && isPrivateLan(origin)) return callback(null, true);
-      callback(new Error('Not allowed by CORS'), false);
+      // Origen no permitido: responder sin cabeceras CORS (el navegador
+      // bloquea). Lanzar un Error lo convertía en un 500 en cada preflight.
+      callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
