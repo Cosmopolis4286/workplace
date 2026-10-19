@@ -210,8 +210,6 @@ export class CashService {
     for (const m of movements)
       movementsByType[m.type] = toDecimal(m._sum.amount ?? 0);
 
-    // Order.total sigue en Float (tanda de precios pendiente): su suma puede
-    // traer ruido de coma flotante, por eso se redondea al centavo.
     const cashSalesTotal = toNumber(cashSales._sum.total ?? 0);
     const expectedAmount = sub(
       sum([session.openingAmount, cashSalesTotal, movementsByType.INCOME]),

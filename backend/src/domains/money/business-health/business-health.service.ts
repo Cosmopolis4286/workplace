@@ -231,7 +231,10 @@ export class BusinessHealthService {
       where: { commerceId },
       select: { minMarginPct: true },
     });
-    const defaultMinMarginPct = settings?.minMarginPct ?? 15;
+    const defaultMinMarginPct = toNumber(
+      settings?.minMarginPct ?? 15,
+      RATE_SCALE
+    );
 
     const products = await this.prisma.product.findMany({
       where: { commerceId, purchases: { some: {} } },
@@ -262,7 +265,10 @@ export class BusinessHealthService {
       if (product.purchases.length === 0) continue;
 
       const avgCost = averageUnitCost(product.purchases);
-      const minMarginPct = product.minMarginPct ?? defaultMinMarginPct;
+      const minMarginPct =
+        product.minMarginPct == null
+          ? defaultMinMarginPct
+          : toNumber(product.minMarginPct, RATE_SCALE);
       const marginFraction = minMarginPct / 100;
       const minPrice =
         marginFraction >= 1 ? Infinity : avgCost / (1 - marginFraction);

@@ -9,11 +9,12 @@ import { PLATFORM_FEES_FACADE } from '../../domains/money/platform-fees/platform
 import { REPUTATION_FACADE } from '../../domains/reputation/reputation.facade';
 import { ReceiptsService } from '../../domains/operations/receipts/receipts.service';
 import { CashService } from '../../domains/operations/cash/cash.service';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { CreateOrderDto } from '../../domains/operations/orders/dto/create-order.dto';
 import { UpdateOrderDto } from '../../domains/operations/orders/dto/update-order.dto';
 import { QueryOrdersDto } from '../../domains/operations/orders/dto/query-orders.dto';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { money } from '../money-matcher';
 
 describe('OrdersService', () => {
   let service: OrdersService;
@@ -315,7 +316,7 @@ describe('OrdersService', () => {
             customerName: 'John Doe',
             customerPhone: '+1234567890',
             notes: 'Test order',
-            total: 40,
+            total: money(40),
           }),
         })
       );
@@ -382,6 +383,61 @@ describe('OrdersService', () => {
       expect(mockPrismaService.order.create).not.toHaveBeenCalled();
     });
 
+    it('calcula subtotal, IVA y total exactos al centavo y cuadra con las líneas', async () => {
+      const commerceId = 'commerce-123';
+      mockPrismaService.commerceSettings.findUnique.mockResolvedValue({
+        tax: 16,
+      });
+      mockPrismaService.order.count.mockResolvedValue(0);
+      mockPrismaService.order.create.mockResolvedValue({ id: 'order-1' });
+
+      await service.create(commerceId, {
+        customerName: 'John Doe',
+        items: [
+          // 3 × 0.1 = 0.30000000000000004 en Float
+          { productId: 'p1', productName: 'A', quantity: 3, unitPrice: 0.1 },
+          // 1.005 × 1: HALF_UP → 1.01 (Float daba 1.00)
+          { productId: 'p2', productName: 'B', quantity: 1, unitPrice: 1.005 },
+        ],
+        deliveryFee: 0.2,
+        discount: 0.1,
+      } as CreateOrderDto);
+
+      const data = mockPrismaService.order.create.mock.calls[0][0].data;
+      const lines = data.items.create.map((i: any) => i.subtotal.toString());
+      expect(lines).toEqual(['0.3', '1.01']);
+      expect(data.subtotal.toString()).toBe('1.31');
+      expect(data.tax.toString()).toBe('0.21'); // 1.31 × 16% = 0.2096
+      // 1.31 + 0.21 + 0.2 − 0.1 = 1.62
+      expect(data.total.toString()).toBe('1.62');
+    });
+
+    it('reintenta con el siguiente número si el correlativo ya existe (P2002)', async () => {
+      mockPrismaService.commerceSettings.findUnique.mockResolvedValue(null);
+      mockPrismaService.order.count.mockResolvedValue(3);
+      const clash = new Prisma.PrismaClientKnownRequestError('dup', {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target: ['commerceId', 'orderNumber'] },
+      });
+      mockPrismaService.order.create
+        .mockRejectedValueOnce(clash)
+        .mockResolvedValueOnce({ id: 'order-1', orderNumber: 'ORD-X-0005' });
+
+      await service.create('commerce-123', {
+        customerName: 'John Doe',
+        items: [
+          { productId: 'p1', productName: 'A', quantity: 1, unitPrice: 1 },
+        ],
+      } as CreateOrderDto);
+
+      const numbers = mockPrismaService.order.create.mock.calls.map(
+        (c: any[]) => c[0].data.orderNumber
+      );
+      expect(numbers[0]).toMatch(/-0004$/);
+      expect(numbers[1]).toMatch(/-0005$/);
+    });
+
     it('should allow a discount equal to the order total', async () => {
       const commerceId = 'commerce-123';
       const createOrderDto: CreateOrderDto = {
@@ -407,7 +463,9 @@ describe('OrdersService', () => {
       await service.create(commerceId, createOrderDto);
 
       expect(mockPrismaService.order.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ total: 0 }) })
+        expect.objectContaining({
+          data: expect.objectContaining({ total: money(0) }),
+        })
       );
     });
   });

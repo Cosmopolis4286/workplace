@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import {
   ConflictException,
   Injectable,
@@ -6,6 +7,14 @@ import {
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
 import PDFDocument from 'pdfkit';
+import {
+  isPositive,
+  toDecimal,
+  type MoneyInput,
+} from '../../../common/money/money';
+
+// Reintentos ante choque de número de comprobante (ver create()).
+const RECEIPT_NUMBER_MAX_ATTEMPTS = 5;
 
 @Injectable()
 export class ReceiptsService {
@@ -28,19 +37,36 @@ export class ReceiptsService {
       where: { id: commerceId },
     });
 
+    // Correlativo por comercio (único por commerceId+receiptNumber). Ante
+    // choque (emisión simultánea o comprobante borrado) se prueba el
+    // siguiente número; si el choque es por orderId, ya fue emitido.
     const count = await this.prisma.receipt.count({ where: { commerceId } });
-    const receiptNumber = `COMP-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
-
-    return this.prisma.receipt.create({
-      data: {
-        receiptNumber,
-        orderId,
-        commerceId,
-        commerceName: commerce?.name ?? 'Comercio',
-        commerceAddress: commerce?.address,
-        commercePhone: commerce?.phone,
-      },
-    });
+    const year = new Date().getFullYear();
+    for (let attempt = 1; ; attempt++) {
+      const receiptNumber = `COMP-${year}-${String(count + attempt).padStart(5, '0')}`;
+      try {
+        return await this.prisma.receipt.create({
+          data: {
+            receiptNumber,
+            orderId,
+            commerceId,
+            commerceName: commerce?.name ?? 'Comercio',
+            commerceAddress: commerce?.address,
+            commercePhone: commerce?.phone,
+          },
+        });
+      } catch (e) {
+        if (
+          !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+          e.code !== 'P2002'
+        )
+          throw e;
+        const target = String(e.meta?.target ?? '');
+        if (target.includes('orderId'))
+          throw new ConflictException(this.i18n.t('receipts.already_issued'));
+        if (attempt >= RECEIPT_NUMBER_MAX_ATTEMPTS) throw e;
+      }
+    }
   }
 
   async findOne(id: string, commerceId: string) {
@@ -84,7 +110,7 @@ export class ReceiptsService {
 
   private renderPdf(doc: PDFKit.PDFDocument, receipt: any, currency: string) {
     const order = receipt.order;
-    const money = (n: number) => `${currency} ${n.toFixed(2)}`;
+    const money = (n: MoneyInput) => `${currency} ${toDecimal(n).toFixed(2)}`;
 
     const marginLeft = doc.page.margins.left;
     const contentWidth =
@@ -200,17 +226,17 @@ export class ReceiptsService {
       width: totalsWidth,
       align: 'right',
     });
-    if (order.discount > 0)
+    if (isPositive(order.discount))
       doc.text(`Descuento: -${money(order.discount)}`, totalsX, doc.y, {
         width: totalsWidth,
         align: 'right',
       });
-    if (order.tax > 0)
+    if (isPositive(order.tax))
       doc.text(`Impuestos: ${money(order.tax)}`, totalsX, doc.y, {
         width: totalsWidth,
         align: 'right',
       });
-    if (order.deliveryFee > 0)
+    if (isPositive(order.deliveryFee))
       doc.text(`Delivery: ${money(order.deliveryFee)}`, totalsX, doc.y, {
         width: totalsWidth,
         align: 'right',
