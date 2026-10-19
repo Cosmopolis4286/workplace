@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AccountStatus } from '@prisma/client';
+import { RATE_SCALE, toNumber } from '../../../common/money/money';
 
 // Cuántas compras recientes por producto se promedian para el costo de
 // reposición agregado — mismo criterio que PurchasesService.getReplacementCost.
@@ -170,8 +171,10 @@ export class BusinessHealthService {
       if (recentPurchases.length === 0 || product.price <= 0) continue;
 
       const avgCost =
-        recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) /
-        recentPurchases.length;
+        recentPurchases.reduce(
+          (sum, p) => sum + toNumber(p.unitCostUsd, RATE_SCALE),
+          0
+        ) / recentPurchases.length;
       const marginPct = ((product.price - avgCost) / product.price) * 100;
       margins.push(marginPct);
     }
@@ -253,8 +256,10 @@ export class BusinessHealthService {
       if (recentPurchases.length === 0) continue;
 
       const avgCost =
-        recentPurchases.reduce((sum, p) => sum + p.unitCostUsd, 0) /
-        recentPurchases.length;
+        recentPurchases.reduce(
+          (sum, p) => sum + toNumber(p.unitCostUsd, RATE_SCALE),
+          0
+        ) / recentPurchases.length;
       const minMarginPct = product.minMarginPct ?? defaultMinMarginPct;
       const marginFraction = minMarginPct / 100;
       const minPrice =

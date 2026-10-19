@@ -9,6 +9,7 @@ import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { CreatePayableDto } from './dto/create-payable.dto';
 import { QueryAccountsDto } from './dto/query-accounts.dto';
 import { AccountStatus } from '@prisma/client';
+import { div, round } from '../../../common/money/money';
 
 @Injectable()
 export class AccountPayablesService {
@@ -54,7 +55,7 @@ export class AccountPayablesService {
         amount: dto.amount,
         currencyCode,
         exchangeRateValue: resolved.rateToUsd,
-        amountUsd: dto.amount / resolved.rateToUsd,
+        amountUsd: round(div(dto.amount, resolved.rateToUsd)),
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
         createdBy: userId,
       },

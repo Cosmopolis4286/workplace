@@ -13,6 +13,15 @@ import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { CreateSupplierQuoteDto } from './dto/create-supplier-quote.dto';
 import { AlertType } from '@prisma/client';
+import {
+  div,
+  isPositive,
+  mul,
+  RATE_SCALE,
+  roundRate,
+  sub,
+  toNumber,
+} from '../../../common/money/money';
 
 // Cuántas cotizaciones anteriores del mismo proveedor+producto se miran para
 // calcular "cuánto subió el precio en los últimos N días" (sección 12 de
@@ -102,7 +111,8 @@ export class SuppliersService {
       );
     }
 
-    const priceUsd = dto.price / resolved.rateToUsd;
+    // 8 decimales, igual que Purchase.unitCostUsd (fracciones de centavo).
+    const priceUsd = roundRate(div(dto.price, resolved.rateToUsd));
 
     const quote = await this.prisma.supplierQuote.create({
       data: {
@@ -128,7 +138,7 @@ export class SuppliersService {
       supplier.name,
       dto.productId,
       product.name,
-      priceUsd,
+      toNumber(priceUsd, RATE_SCALE),
       quote.id
     ).catch(() => {});
 
@@ -161,10 +171,11 @@ export class SuppliersService {
       },
       orderBy: { quotedAt: 'desc' },
     });
-    if (!previous || previous.priceUsd <= 0) return;
+    if (!previous || !isPositive(previous.priceUsd)) return;
 
+    const previousPriceUsd = toNumber(previous.priceUsd, RATE_SCALE);
     const priceChangePct =
-      ((newPriceUsd - previous.priceUsd) / previous.priceUsd) * 100;
+      ((newPriceUsd - previousPriceUsd) / previousPriceUsd) * 100;
     if (
       await this.alertEngine.shouldFire(
         commerceId,
@@ -229,16 +240,21 @@ export class SuppliersService {
           q.id !== latest.id &&
           q.quotedAt >= lookbackDate
       );
-      const priceChangePct = previous
-        ? Math.round(
-            ((latest.priceUsd - previous.priceUsd) / previous.priceUsd) * 1000
-          ) / 10
-        : null;
+      const priceChangePct =
+        previous && isPositive(previous.priceUsd)
+          ? toNumber(
+              mul(
+                div(sub(latest.priceUsd, previous.priceUsd), previous.priceUsd),
+                100
+              ),
+              1
+            )
+          : null;
 
       return {
         supplierId: latest.supplierId,
         supplierName: latest.supplier.name,
-        priceUsd: latest.priceUsd,
+        priceUsd: toNumber(latest.priceUsd, RATE_SCALE),
         leadTimeDays: latest.leadTimeDays,
         available: latest.available,
         quotedAt: latest.quotedAt,

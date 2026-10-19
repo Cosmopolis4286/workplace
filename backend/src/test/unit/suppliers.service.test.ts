@@ -10,6 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ExchangeRatesService } from '../../domains/money/exchange-rates/exchange-rates.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { AlertEngineService } from '../../domains/operations/alert-engine/alert-engine.service';
+import { money } from '../money-matcher';
 
 describe('SuppliersService', () => {
   let service: SuppliersService;
@@ -201,7 +202,7 @@ describe('SuppliersService', () => {
           data: expect.objectContaining({
             currencyCode: 'VES',
             exchangeRateValue: 40,
-            priceUsd: 100,
+            priceUsd: money(100),
           }),
         })
       );

@@ -1712,14 +1712,14 @@ model SupplierQuote {
   productId  String
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  price        Float
+  price        Decimal @db.Decimal(20, 2)
   currencyCode String
 
   // Snapshot inmutable de la tasa usada para el equivalente en USD, mismo
   // criterio que Purchase.exchangeRateValue — no se recalcula si la tasa
   // cambia después.
-  exchangeRateValue Float
-  priceUsd          Float
+  exchangeRateValue Decimal @db.Decimal(20, 8)
+  priceUsd          Decimal @db.Decimal(20, 8)
 
   // Días estimados de entrega desde que se confirma el pedido — permite el
   // trade-off "más barato pero más lento" de la sección 12.
@@ -1754,18 +1754,18 @@ model Purchase {
 
   quantity Int
   // Costo unitario en la moneda original de la compra (currencyCode).
-  unitCost Float
+  unitCost Decimal @db.Decimal(20, 2)
 
   // Moneda en la que se pactó/pagó esta compra (código de ExchangeRate, ej. "USD", "VES").
   currencyCode       String
   // Snapshot inmutable de la tasa usada para calcular el equivalente en USD
   // al momento de la compra — NO se recalcula si la tasa cambia después.
-  exchangeRateValue  Float
+  exchangeRateValue  Decimal @db.Decimal(20, 8)
   exchangeRateSource String? // "BCV_SCRAPING" | "MANUAL" | etc., informativo
 
   // unitCost convertido a USD usando exchangeRateValue, para poder comparar
   // compras hechas en distintas monedas/fechas sin reconvertir en cada query.
-  unitCostUsd Float
+  unitCostUsd Decimal @db.Decimal(20, 8)
 
   purchasedAt DateTime @default(now())
   notes       String?
@@ -1806,12 +1806,12 @@ model AccountReceivable {
   order      Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   description       String
-  amount            Float
+  amount            Decimal @db.Decimal(20, 2)
   currencyCode      String
   // Snapshot inmutable de la tasa a USD en el momento de LA VENTA — se
   // compara contra la tasa actual al cobrar para medir exposición cambiaria.
-  exchangeRateValue Float
-  amountUsd         Float
+  exchangeRateValue Decimal @db.Decimal(20, 8)
+  amountUsd         Decimal @db.Decimal(20, 2)
 
   dueDate DateTime?
   status  AccountStatus @default(PENDING)
@@ -1839,10 +1839,10 @@ model AccountPayable {
   purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
 
   description       String
-  amount            Float
+  amount            Decimal @db.Decimal(20, 2)
   currencyCode      String
-  exchangeRateValue Float
-  amountUsd         Float
+  exchangeRateValue Decimal @db.Decimal(20, 8)
+  amountUsd         Decimal @db.Decimal(20, 2)
 
   dueDate DateTime?
   status  AccountStatus @default(PENDING)
@@ -2933,7 +2933,7 @@ model ExchangeRate {
   code      String  @unique // e.g. "VES", "COP", "EUR"
   name      String // e.g. "Bolívar Venezolano"
   symbol    String // e.g. "Bs.", "COP", "€"
-  rateToUsd Float // how many units of this currency equal 1 USD
+  rateToUsd Decimal @db.Decimal(20, 8) // how many units of this currency equal 1 USD
   isActive  Boolean @default(true)
   isDefault Boolean @default(false) // only one can be default
   source    String? // e.g. "BCV", "Paralelo", "Manual"
@@ -2960,8 +2960,8 @@ model ExchangeRateHistory {
   exchangeRateId String
   exchangeRate   ExchangeRate @relation(fields: [exchangeRateId], references: [id], onDelete: Cascade)
   code           String // denormalizado: sigue siendo legible si se elimina la moneda
-  previousRate   Float? // null en el alta inicial
-  newRate        Float
+  previousRate   Decimal?     @db.Decimal(20, 8) // null en el alta inicial
+  newRate        Decimal      @db.Decimal(20, 8)
   source         String // "MANUAL" | "BCV_SCRAPING" | "API_FALLBACK" | "CREATE"
   changedBy      String? // userId si fue manual; null si fue automático (cron)
   createdAt      DateTime     @default(now())
