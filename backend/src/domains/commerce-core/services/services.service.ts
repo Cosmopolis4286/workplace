@@ -39,10 +39,14 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import {
   add,
+  div,
   gt,
   isPositive,
   sub,
+  sum,
+  toDecimal,
   toNumber,
+  type MoneyInput,
 } from '../../../common/money/money';
 
 const SERVICE_SELECT = {
@@ -803,9 +807,8 @@ export class ServicesService {
         }),
       ]);
 
-    const totalRevenue = closedThisMonth.reduce(
-      (sum, r) => sum + (r.price ?? 0),
-      0
+    const totalRevenue = toNumber(
+      sum(closedThisMonth.map((r) => r.price ?? 0))
     );
     const avgTicket =
       closedThisMonth.length > 0
@@ -932,7 +935,7 @@ export class ServicesService {
     // Sugerencia de precio para el proveedor: solo tiene sentido antes de cerrar el trato.
     if (
       req.providerId === userId &&
-      !req.price &&
+      !isPositive(req.price) &&
       ['PENDING', 'SEEN'].includes(req.status)
     ) {
       const suggestion = await this.getSuggestedPrice(
@@ -957,9 +960,9 @@ export class ServicesService {
     });
     if (closed.length === 0)
       return { suggestedPrice: null, suggestedPriceBasedOn: 0 };
-    const sum = closed.reduce((acc, r) => acc + (r.price ?? 0), 0);
+    const total = sum(closed.map((r) => r.price ?? 0));
     return {
-      suggestedPrice: Math.round(sum / closed.length),
+      suggestedPrice: toNumber(div(total, closed.length), 0),
       suggestedPriceBasedOn: closed.length,
     };
   }
@@ -1229,7 +1232,7 @@ export class ServicesService {
 
     // Resolve fee before starting any write so we don't mark CLOSED on a fee error
     let feeData: { feeAmount: number; feeConfig: any } | null = null;
-    if (!req.platformFeePayer && req.price) {
+    if (!req.platformFeePayer && isPositive(req.price)) {
       const feeConfig = await this.platformFees.resolveFeeConfig(
         'SERVICE_REQUEST',
         req.providerId
@@ -1454,7 +1457,7 @@ export class ServicesService {
           where: { id: req.id },
           data: {
             escrowStatus: 'HELD',
-            price: req.price! + pendingProposal.deltaAmount,
+            price: add(req.price!, pendingProposal.deltaAmount),
             escrowAmount: add(
               req.escrowAmount ?? 0,
               pendingProposal.deltaAmount
@@ -1471,7 +1474,7 @@ export class ServicesService {
           req.providerId,
           req.clientName,
           req.serviceName,
-          pendingProposal.deltaAmount
+          toNumber(pendingProposal.deltaAmount)
         )
         .catch(() => {});
       return true;
@@ -1572,8 +1575,8 @@ export class ServicesService {
     }
 
     const previousPrice = req.price ?? 0;
-    const deltaAmount = dto.proposedPrice - previousPrice;
-    if (deltaAmount <= 0) {
+    const deltaAmount = sub(dto.proposedPrice, previousPrice);
+    if (!isPositive(deltaAmount)) {
       throw new BadRequestException(
         'El precio propuesto debe ser mayor al precio actual'
       );
@@ -1607,7 +1610,7 @@ export class ServicesService {
           req.requesterId,
           req.providerName,
           req.serviceName,
-          deltaAmount
+          toNumber(deltaAmount)
         )
         .catch(() => {});
     }
@@ -1658,7 +1661,7 @@ export class ServicesService {
     // El fee de plataforma (si lo paga el cliente) también aplica sobre el
     // delta aprobado, igual que ya aplica sobre el precio inicial en
     // updateServiceRequest — mismo criterio, no se cobra aparte.
-    let deltaWithFee = proposal.deltaAmount;
+    let deltaWithFee = toDecimal(proposal.deltaAmount);
     const feeConfig = await this.platformFees.resolveFeeConfig(
       'SERVICE_REQUEST',
       req.providerId
@@ -1668,7 +1671,7 @@ export class ServicesService {
         proposal.deltaAmount,
         feeConfig
       );
-      deltaWithFee = proposal.deltaAmount + feeAmount;
+      deltaWithFee = add(proposal.deltaAmount, feeAmount);
     }
 
     const escrowReference = `ESCROW-HOLD-INCREASE-${proposal.id}`;
@@ -1707,7 +1710,7 @@ export class ServicesService {
           clientUserId,
           req.providerName,
           req.serviceName,
-          deltaWithFee
+          toNumber(deltaWithFee)
         )
         .catch(() => {});
 
@@ -1729,7 +1732,7 @@ export class ServicesService {
       this.prisma.serviceRequest.update({
         where: { id: req.id },
         data: {
-          price: (req.price ?? 0) + deltaWithFee,
+          price: add(req.price ?? 0, deltaWithFee),
           escrowAmount: add(req.escrowAmount ?? 0, deltaWithFee),
           ...(feeConfig?.payer === 'CLIENT'
             ? {
@@ -1770,7 +1773,7 @@ export class ServicesService {
         req.providerId,
         req.clientName,
         req.serviceName,
-        deltaWithFee
+        toNumber(deltaWithFee)
       )
       .catch(() => {});
 
@@ -1815,7 +1818,7 @@ export class ServicesService {
         req.providerId,
         req.clientName,
         req.serviceName,
-        proposal.deltaAmount,
+        toNumber(proposal.deltaAmount),
         reason
       )
       .catch(() => {});
@@ -1963,7 +1966,7 @@ export class ServicesService {
         name: string;
         color: string;
         count: number;
-        priceSum: number;
+        priceSum: MoneyInput;
         priceCount: number;
       }
     >();
@@ -1980,7 +1983,7 @@ export class ServicesService {
       };
       cur.count += 1;
       if (r.price != null) {
-        cur.priceSum += r.price;
+        cur.priceSum = add(cur.priceSum, r.price);
         cur.priceCount += 1;
       }
       byCategory.set(category.id, cur);
@@ -1993,9 +1996,7 @@ export class ServicesService {
         categoryColor: v.color,
         requestCount: v.count,
         avgPrice:
-          v.priceCount > 0
-            ? Math.round((v.priceSum / v.priceCount) * 100) / 100
-            : null,
+          v.priceCount > 0 ? toNumber(div(v.priceSum, v.priceCount)) : null,
       }))
       .sort((a, b) => b.requestCount - a.requestCount);
 

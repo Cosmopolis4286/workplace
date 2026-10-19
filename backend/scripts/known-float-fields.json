@@ -26,17 +26,5 @@
     "Ride.cargoWeight": "peso"
   },
   "rate": [],
-  "money": [
-    "Product.price",
-    "Product.cost",
-    "CatalogOrder.totalEstimate",
-    "CatalogOrderItem.unitPrice",
-    "Service.price",
-    "ServiceRequest.price",
-    "ServiceRequestPriceChangeProposal.previousPrice",
-    "ServiceRequestPriceChangeProposal.proposedPrice",
-    "ServiceRequestPriceChangeProposal.deltaAmount",
-    "Ride.price",
-    "Ride.declaredValue"
-  ]
+  "money": []
 }

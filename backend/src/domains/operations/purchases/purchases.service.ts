@@ -15,10 +15,13 @@ import {
   average,
   div,
   isPositive,
+  mul,
   RATE_SCALE,
   roundRate,
+  sub,
   toDecimal,
   toNumber,
+  type MoneyInput,
 } from '../../../common/money/money';
 
 // Cuántas compras recientes se promedian para el "costo de reposición
@@ -222,8 +225,9 @@ export class PurchasesService {
       take: REPLACEMENT_COST_SAMPLE_SIZE,
     });
 
-    const historicalCost = product.cost;
-    const price = product.price;
+    // number hacia afuera (PriceGuard y el frontend operan con number).
+    const historicalCost = toNumber(product.cost, RATE_SCALE);
+    const price = toNumber(product.price);
 
     if (recentPurchases.length === 0) {
       return {
@@ -260,9 +264,9 @@ export class PurchasesService {
     };
   }
 
-  private marginPct(price: number, cost: number | null): number | null {
-    if (cost === null || price <= 0) return null;
-    return Math.round(((price - cost) / price) * 1000) / 10;
+  private marginPct(price: MoneyInput, cost: MoneyInput | null): number | null {
+    if (cost === null || !isPositive(price)) return null;
+    return toNumber(mul(div(sub(price, cost), price), 100), 1);
   }
 
   // ── Reporte de márgenes (Business Shield, agregado) ──────────────────────
@@ -307,8 +311,8 @@ export class PurchasesService {
       return {
         productId: p.id,
         productName: p.name,
-        price: p.price,
-        historicalCost: p.cost,
+        price: toNumber(p.price),
+        historicalCost: toNumber(p.cost, RATE_SCALE),
         averageReplacementCostUsd,
         marginHistoricalPct,
         marginReplacementPct,

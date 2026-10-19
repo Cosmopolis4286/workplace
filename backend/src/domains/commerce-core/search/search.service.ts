@@ -187,7 +187,7 @@ export class SearchService {
             subtitle: p.commerce?.name,
             providerName: p.commerce?.name ?? null,
             image: p.image,
-            price: p.price,
+            price: p.price == null ? null : toNumber(p.price),
             category: p.category
               ? { name: p.category.name, color: p.category.color }
               : null,
@@ -207,7 +207,7 @@ export class SearchService {
               ? `${s.user.firstName} ${s.user.lastName}`.trim()
               : null,
             image: s.images?.[0] ?? null,
-            price: s.price,
+            price: s.price == null ? null : toNumber(s.price),
             priceUnit: s.priceUnit,
             rating: s.user?.rating ?? null,
             reviewsCount: s.user?.reviewsCount ?? null,
@@ -300,7 +300,7 @@ export class SearchService {
           entityType: 'COMMERCE',
           entityId: p.commerce.id,
           userId,
-          price: p.price ?? null,
+          price: p.price == null ? null : toNumber(p.price),
           isAvailable:
             p.status !== 'OUT_OF_STOCK' && p.status !== 'UNAVAILABLE',
         });
@@ -313,7 +313,7 @@ export class SearchService {
           entityType: 'PROFESSIONAL',
           entityId: s.userId ?? s.user.id,
           userId: s.user.id,
-          price: s.price ?? null,
+          price: s.price == null ? null : toNumber(s.price),
           isAvailable: s.status === 'ACTIVE',
         });
         candidateKeyByIndex.set(candidates.length - 1, `servicios:${s.id}`);

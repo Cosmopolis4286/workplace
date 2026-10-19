@@ -3,6 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { AccountStatus } from '@prisma/client';
 import {
   average,
+  isPositive,
   RATE_SCALE,
   toNumber,
   type MoneyInput,
@@ -179,10 +180,12 @@ export class BusinessHealthService {
 
     const margins: number[] = [];
     for (const product of products) {
-      if (product.purchases.length === 0 || product.price <= 0) continue;
+      if (product.purchases.length === 0 || !isPositive(product.price))
+        continue;
 
+      const price = toNumber(product.price);
       const avgCost = averageUnitCost(product.purchases);
-      const marginPct = ((product.price - avgCost) / product.price) * 100;
+      const marginPct = ((price - avgCost) / price) * 100;
       margins.push(marginPct);
     }
 
@@ -274,7 +277,7 @@ export class BusinessHealthService {
         marginFraction >= 1 ? Infinity : avgCost / (1 - marginFraction);
 
       evaluated++;
-      if (product.price >= minPrice) compliant++;
+      if (toNumber(product.price) >= minPrice) compliant++;
     }
 
     if (evaluated === 0) {

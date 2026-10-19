@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { ProductStatus, CatalogOrderStatus } from '@prisma/client';
+import { CatalogOrderStatus, Prisma, ProductStatus } from '@prisma/client';
 import { QueryCatalogDto, CatalogSortBy } from './dto/query-catalog.dto';
 import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
@@ -18,7 +18,16 @@ import {
 } from '../../money/platform-fees/platform-fees.facade';
 import { InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
 import { v4 as uuidv4 } from 'uuid';
-import { gt, isPositive, sub, toNumber } from '../../../common/money/money';
+import {
+  add,
+  gt,
+  isPositive,
+  mul,
+  round,
+  sub,
+  sum,
+  toNumber,
+} from '../../../common/money/money';
 
 function attachProductRating<
   T extends {
@@ -620,13 +629,11 @@ export class CatalogService {
     }
 
     const commerceName = products[0].commerce.name;
-    const totalEstimate =
-      Math.round(
-        dto.items.reduce(
-          (sum, item) => sum + byId.get(item.productId)!.price * item.quantity,
-          0
-        ) * 100
-      ) / 100;
+    const totalEstimate = sum(
+      dto.items.map((item) =>
+        round(mul(byId.get(item.productId)!.price, item.quantity))
+      )
+    );
 
     // Pago Protegido (escrow) — solo si el comercio lo activó en Settings
     // (CommerceSettings.requiresEscrowForCatalogOrders). A diferencia de
@@ -656,7 +663,7 @@ export class CatalogService {
     // después haya que re-vincular.
     const orderId = uuidv4();
 
-    let escrowAmount: number | null = null;
+    let escrowAmount: Prisma.Decimal | null = null;
     let platformFeeRate: number | null = null;
     let platformFeeAmount: number | null = null;
     if (requiresEscrow && commerce) {
@@ -670,7 +677,7 @@ export class CatalogService {
           totalEstimate,
           feeConfig
         );
-        escrowAmount = totalEstimate + feeAmount;
+        escrowAmount = add(totalEstimate, feeAmount);
         platformFeeRate = feeConfig.rate;
         platformFeeAmount = feeAmount;
       }
@@ -817,7 +824,7 @@ export class CatalogService {
         order.buyerName,
         summary,
         order.items.reduce((sum, i) => sum + i.quantity, 0),
-        order.totalEstimate ?? undefined
+        order.totalEstimate == null ? undefined : toNumber(order.totalEstimate)
       )
       .catch(() => {});
     for (const alert of lowStockAlerts) {
