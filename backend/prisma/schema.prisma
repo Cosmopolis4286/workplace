@@ -1540,13 +1540,13 @@ enum CashMovementType {
 model CashSession {
   id             String            @id @default(uuid())
   status         CashSessionStatus @default(OPEN)
-  openingAmount  Float
+  openingAmount  Decimal           @db.Decimal(20, 2)
   openedAt       DateTime          @default(now())
   openedBy       String
   notes          String?
-  countedAmount  Float?
-  expectedAmount Float?
-  difference     Float?
+  countedAmount  Decimal?          @db.Decimal(20, 2)
+  expectedAmount Decimal?          @db.Decimal(20, 2)
+  difference     Decimal?          @db.Decimal(20, 2)
   closedAt       DateTime?
   closedBy       String?
   closingNotes   String?
@@ -1569,7 +1569,7 @@ model CashSession {
 model CashMovement {
   id         String           @id @default(uuid())
   type       CashMovementType
-  amount     Float
+  amount     Decimal          @db.Decimal(20, 2)
   reason     String
   sessionId  String
   session    CashSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)

@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
+import { money } from '../money-matcher';
 
 describe('CashService', () => {
   let service: CashService;
@@ -137,7 +138,7 @@ describe('CashService', () => {
       });
 
       expect(result.expectedAmount).toBe(130);
-      expect(result.difference).toBe(-5); // faltante de 5
+      expect(result.difference).toEqual(money(-5)); // faltante de 5
       expect(result.status).toBe('CLOSED');
     });
 
@@ -161,7 +162,34 @@ describe('CashService', () => {
       });
 
       expect(result.expectedAmount).toBe(100);
-      expect(result.difference).toBe(10); // sobrante de 10
+      expect(result.difference).toEqual(money(10)); // sobrante de 10
+    });
+
+    it('cuadra al centavo aunque las ventas en Float traigan ruido', async () => {
+      mockPrismaService.cashSession.findFirst.mockResolvedValue({
+        ...openSession,
+        openingAmount: '0.10',
+      });
+      // Suma Float de ventas 0.1 + 0.2 tal como la devuelve Postgres.
+      mockPrismaService.order.aggregate.mockResolvedValue({
+        _sum: { total: 0.1 + 0.2 },
+        _count: 2,
+      });
+      mockPrismaService.cashMovement.groupBy.mockResolvedValue([
+        { type: 'INCOME', _sum: { amount: '0.05' } },
+        { type: 'WITHDRAWAL', _sum: { amount: '0.15' } },
+      ]);
+      mockPrismaService.cashSession.update.mockImplementation(
+        ({ data }: any) => ({ id: openSession.id, ...data })
+      );
+
+      // esperado = 0.10 + 0.30 + 0.05 - 0.15 = 0.30; con Float daba 0.30000000000000004
+      const result = await service.close(commerceId, 'Cajero Demo', {
+        countedAmount: 0.3,
+      });
+
+      expect(result.expectedAmount).toBe(0.3);
+      expect(result.difference).toEqual(money(0));
     });
   });
 
