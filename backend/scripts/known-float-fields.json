@@ -47,10 +47,6 @@
     "Order.total",
     "OrderItem.unitPrice",
     "OrderItem.subtotal",
-    "BnplTransaction.amount",
-    "ExpenseCategory.budget",
-    "Expense.amount",
-    "Employee.salary",
     "CatalogOrder.totalEstimate",
     "CatalogOrderItem.unitPrice",
     "Service.price",
@@ -58,12 +54,7 @@
     "ServiceRequestPriceChangeProposal.previousPrice",
     "ServiceRequestPriceChangeProposal.proposedPrice",
     "ServiceRequestPriceChangeProposal.deltaAmount",
-    "Plan.price",
-    "Plan.priceAnnual",
-    "Subscription.pricePaid",
     "Ride.price",
-    "Ride.declaredValue",
-    "Job.salaryMin",
-    "Job.salaryMax"
+    "Ride.declaredValue"
   ]
 }

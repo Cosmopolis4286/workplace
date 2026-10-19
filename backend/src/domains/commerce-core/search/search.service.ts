@@ -4,6 +4,7 @@ import { ServicesService } from '../services/services.service';
 import { JobsService } from '../../platform/jobs/jobs.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MATCHING_FACADE, MatchingFacade } from '../matching/matching.facade';
+import { toNumber } from '../../../common/money/money';
 
 export interface SearchSuggestion {
   id: string;
@@ -220,8 +221,8 @@ export class SearchService {
             title: j.title,
             subtitle: j.location ?? j.employer?.firstName,
             image: null,
-            salaryMin: j.salaryMin,
-            salaryMax: j.salaryMax,
+            salaryMin: j.salaryMin == null ? null : toNumber(j.salaryMin),
+            salaryMax: j.salaryMax == null ? null : toNumber(j.salaryMax),
             salaryCurrency: j.salaryCurrency,
             nearYou: isNear(j.employer),
           }))
