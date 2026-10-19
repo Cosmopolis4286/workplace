@@ -400,7 +400,53 @@ export class ServicesService {
     };
   }
 
+  // Modalidades: solo valores del catálogo activo (ServiceModality, gestionado
+  // por admin). 'ANY' ("cualquiera") ya cubre a las demás, así que combinarlo
+  // con otras es contradictorio y se normaliza a solo 'ANY'.
+  private async normalizeModalities(
+    modalities: string[] | undefined
+  ): Promise<string[] | undefined> {
+    if (!modalities) return undefined;
+    const unique = [...new Set(modalities)];
+    if (unique.length === 0) return unique;
+    const active = await this.prisma.serviceModality.findMany({
+      where: { isActive: true },
+      select: { value: true },
+    });
+    const allowed = new Set(active.map((m) => m.value));
+    const invalid = unique.filter((m) => !allowed.has(m));
+    if (invalid.length > 0) {
+      throw new BadRequestException(
+        `Modalidad no disponible: ${invalid.join(', ')}`
+      );
+    }
+    return unique.includes('ANY') ? ['ANY'] : unique;
+  }
+
+  // Sin categoría el servicio no aparece en los filtros del catálogo. Se exige
+  // solo si el rubro del usuario tiene categorías disponibles: con un rubro
+  // sin catálogo todavía (cold-start) no hay nada que elegir.
+  private async assertCategoryChosen(
+    userId: string,
+    categoryId: string | undefined
+  ) {
+    if (categoryId) return;
+    const [userCategoryId, cats] = await Promise.all([
+      this.categoryScope.getUserCategoryId(userId),
+      this.prisma.serviceCategory.findMany({
+        select: { userCategoryIds: true },
+      }),
+    ]);
+    if (this.categoryScope.filterByCategory(cats, userCategoryId).length > 0) {
+      throw new BadRequestException(
+        'Elige una categoría para que los clientes encuentren tu servicio'
+      );
+    }
+  }
+
   async createService(userId: string, dto: CreateServiceDto) {
+    await this.assertCategoryChosen(userId, dto.categoryId);
+    const modalities = await this.normalizeModalities(dto.modalities);
     if (
       dto.status !== ServiceStatus.PAUSED &&
       dto.status !== ServiceStatus.INACTIVE
@@ -408,16 +454,33 @@ export class ServicesService {
       await this.planLimits.assertServiceLimit(userId);
     }
     return this.prisma.service.create({
-      data: { ...dto, tags: normalizeTags(dto.tags) ?? [], userId },
+      data: {
+        ...dto,
+        tags: normalizeTags(dto.tags) ?? [],
+        ...(modalities && { modalities }),
+        userId,
+      },
       select: SERVICE_SELECT,
     });
   }
 
   async updateService(id: string, userId: string, dto: UpdateServiceDto) {
-    await this.assertOwner(id, userId);
+    const current = await this.assertOwner(id, userId);
+    const modalities = await this.normalizeModalities(dto.modalities);
+    // Reactivar por edición también consume cupo del plan (igual que toggle).
+    if (
+      dto.status === ServiceStatus.ACTIVE &&
+      current.status !== ServiceStatus.ACTIVE
+    ) {
+      await this.planLimits.assertServiceLimit(userId);
+    }
     return this.prisma.service.update({
       where: { id },
-      data: { ...dto, tags: normalizeTags(dto.tags) },
+      data: {
+        ...dto,
+        tags: normalizeTags(dto.tags),
+        ...(modalities && { modalities }),
+      },
       select: SERVICE_SELECT,
     });
   }

@@ -711,3 +711,109 @@ describe('ServicesService — service request status transitions', () => {
     });
   });
 });
+
+describe('ServicesService — alta y edición de servicios', () => {
+  let service: ServicesService;
+  let prisma: any;
+  let planLimits: any;
+  let categoryScope: any;
+
+  const dto = { name: 'Delivery express', price: 5 };
+
+  beforeEach(async () => {
+    prisma = {
+      service: {
+        create: jest
+          .fn()
+          .mockImplementation(({ data }) => Promise.resolve(data)),
+        update: jest
+          .fn()
+          .mockImplementation(({ data }) => Promise.resolve(data)),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ userId: 'u1', status: 'PAUSED' }),
+      },
+      serviceModality: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { value: 'IN_PERSON' },
+            { value: 'REMOTE' },
+            { value: 'ANY' },
+          ]),
+      },
+      serviceCategory: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    planLimits = { assertServiceLimit: jest.fn().mockResolvedValue(undefined) };
+    categoryScope = {
+      getUserCategoryId: jest.fn().mockResolvedValue('cat-transporte'),
+      filterByCategory: jest.fn((items: any[]) => items),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ServicesService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: NotificationsService, useValue: {} },
+        { provide: PLATFORM_FEES_FACADE, useValue: {} },
+        { provide: PLAN_LIMITS_FACADE, useValue: planLimits },
+        { provide: ESCROW_FACADE, useValue: {} },
+        { provide: REPUTATION_FACADE, useValue: {} },
+        { provide: CategoryScopeService, useValue: categoryScope },
+      ],
+    }).compile();
+    service = module.get(ServicesService);
+  });
+
+  it('exige categoría si el rubro del usuario tiene categorías disponibles', async () => {
+    prisma.serviceCategory.findMany.mockResolvedValue([
+      { userCategoryIds: [] },
+    ]);
+    await expect(service.createService('u1', dto as any)).rejects.toThrow(
+      'Elige una categoría'
+    );
+    expect(prisma.service.create).not.toHaveBeenCalled();
+  });
+
+  it('permite crear sin categoría si el rubro no tiene catálogo (cold-start)', async () => {
+    await service.createService('u1', dto as any);
+    expect(prisma.service.create).toHaveBeenCalled();
+  });
+
+  it('rechaza modalidades fuera del catálogo activo', async () => {
+    await expect(
+      service.createService('u1', {
+        ...dto,
+        categoryId: 'c1',
+        modalities: ['TELEPORT'],
+      } as any)
+    ).rejects.toThrow('Modalidad no disponible: TELEPORT');
+  });
+
+  it("normaliza 'ANY' combinado con otras modalidades a solo 'ANY'", async () => {
+    await service.createService('u1', {
+      ...dto,
+      categoryId: 'c1',
+      modalities: ['IN_PERSON', 'ANY', 'IN_PERSON'],
+    } as any);
+    expect(prisma.service.create.mock.calls[0][0].data.modalities).toEqual([
+      'ANY',
+    ]);
+  });
+
+  it('reactivar un servicio desde el formulario de edición respeta el límite del plan', async () => {
+    planLimits.assertServiceLimit.mockRejectedValue(
+      new Error('Límite del plan')
+    );
+    await expect(
+      service.updateService('s1', 'u1', { status: 'ACTIVE' } as any)
+    ).rejects.toThrow('Límite del plan');
+    expect(prisma.service.update).not.toHaveBeenCalled();
+  });
+
+  it('editar sin cambiar a ACTIVE no consulta el límite', async () => {
+    await service.updateService('s1', 'u1', { name: 'Nuevo nombre' } as any);
+    expect(planLimits.assertServiceLimit).not.toHaveBeenCalled();
+    expect(prisma.service.update).toHaveBeenCalled();
+  });
+});
