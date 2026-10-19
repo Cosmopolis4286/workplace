@@ -132,6 +132,16 @@ runs:
             echo "  ✅ $svc healthy"
           done
 
+          # Backup de PostgreSQL ANTES de recrear el backend: el backend corre
+          # las migraciones al arrancar, y si una sale mal este es el punto de
+          # restauración (host-backup.sh restore <archivo>). Sin backup no hay deploy.
+          echo "💾 Backup de PostgreSQL previo al deploy..."
+          DEPLOY_PATH="$DEPLOY_PATH" scripts/backup/host-backup.sh postgres
+
+          # Cron de backups diarios (idempotente; no bloquea el deploy si falla)
+          DEPLOY_PATH="$DEPLOY_PATH" scripts/backup/host-backup.sh install \
+            || echo "  ⚠️  No se pudo instalar el cron de backups — revisar en el servidor"
+
           # Deploy — recrear solo backend y frontend sin tocar postgres/redis/traefik
           export BACKEND_IMAGE FRONTEND_IMAGE NODE_PORT FRONTEND_PORT
           $COMPOSE up -d --no-deps --force-recreate backend frontend
