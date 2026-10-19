@@ -58,10 +58,10 @@ export function useDashboardAlerts() {
         type: rejected ? 'danger' : 'warning',
         title: rejected ? 'Verificación de identidad rechazada' : 'Verifica tu identidad',
         message: rejected
-          ? 'Tu verificación fue rechazada. Corrígela para poder publicar.'
+          ? 'Tu verificación fue rechazada. Corrígela para poder publicar y aceptar trabajos.'
           : kycStatus === 'PENDING'
             ? 'Tu verificación está en revisión. Te avisaremos cuando esté lista.'
-            : 'Necesitas verificar tu identidad antes de poder publicar.',
+            : 'Necesitas verificar tu identidad antes de publicar, aceptar trabajos o mover dinero.',
         actionLabel: kycStatus === 'PENDING' ? undefined : 'Verificar ahora',
         actionRoute: kycStatus === 'PENDING' ? undefined : '/verification',
       })

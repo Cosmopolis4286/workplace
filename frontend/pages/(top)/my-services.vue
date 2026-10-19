@@ -8,9 +8,6 @@
       :stats="headerStats"
     >
       <template #actions>
-        <HeaderActionButton :icon="AdjustmentsHorizontalIcon" @click="openModalitiesModal">
-          Modalidades
-        </HeaderActionButton>
         <HeaderActionButton variant="primary" :icon="PlusIcon" @click="openCreate">
           Nuevo Servicio
         </HeaderActionButton>
@@ -110,11 +107,19 @@
       />
     </div>
 
+    <div v-if="!loading && hasMore" class="mt-6 flex flex-col items-center gap-2">
+      <p class="text-xs text-gray-400">Mostrando {{ services.length }} de {{ totalCount }}</p>
+      <button class="btn-secondary" :disabled="loadingMore" @click="loadMore">
+        {{ loadingMore ? 'Cargando...' : 'Cargar más' }}
+      </button>
+    </div>
+
     <ServiceFormModal
       ref="formModalRef"
       :show="showModal"
       :editing="editing"
       :catalog-categories="catalogCategories"
+      :modalities="modalities"
       :saving="saving"
       @close="showModal = false"
       @submit="handleSubmit"
@@ -129,41 +134,32 @@
       @refresh="metricsTarget && openMetrics(metricsTarget)"
     />
 
-    <ServiceModalitiesModal
-      :show="showModalitiesModal"
-      :modalities="modalities"
-      :error="modalityError"
-      @close="showModalitiesModal = false"
-      @add="addModality"
-      @toggle-active="toggleModalityActive"
-      @delete="confirmDeleteModality"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   BriefcaseIcon,
   PlusIcon,
   XMarkIcon,
   MagnifyingGlassIcon,
-  AdjustmentsHorizontalIcon,
 } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import ServiceCard from '~/components/services/ServiceCard.vue'
 import ServiceFormModal from '~/components/services/ServiceFormModal.vue'
 import ServiceMetricsModal, { type ServiceMetricsData } from '~/components/services/ServiceMetricsModal.vue'
-import ServiceModalitiesModal from '~/components/services/ServiceModalitiesModal.vue'
-import { useMyServices, SERVICE_STATUS_LABELS, type Service, type ServiceModality } from '~/composables/services/useMyServices'
+import { useMyServices, SERVICE_STATUS_LABELS, type Service } from '~/composables/services/useMyServices'
 import { useConfirm } from '~/composables/ui/useConfirm'
 
 definePageMeta({ middleware: 'auth' })
 
 const {
   services,
+  totalCount,
+  currentPage,
   catalogCategories,
   modalities,
   loading,
@@ -177,9 +173,6 @@ const {
   updateService,
   toggleStatus: toggleServiceStatus,
   deleteService,
-  createModality,
-  updateModality,
-  deleteModality: deleteModalityFn,
 } = useMyServices()
 
 const { confirm } = useConfirm()
@@ -187,7 +180,6 @@ const { confirm } = useConfirm()
 const search = ref('')
 const filterStatus = ref('')
 const showModal = ref(false)
-const showModalitiesModal = ref(false)
 const editing = ref<Service | null>(null)
 const formModalRef = ref<InstanceType<typeof ServiceFormModal> | null>(null)
 const metricsTarget = ref<Service | null>(null)
@@ -195,7 +187,18 @@ const metricsData = ref<ServiceMetricsData | null>(null)
 const metricsLoading = ref(false)
 const metricsError = ref<string | null>(null)
 const saving = ref(false)
-const modalityError = ref<string | null>(null)
+const loadingMore = ref(false)
+
+const hasMore = computed(() => services.value.length < totalCount.value)
+
+async function loadMore() {
+  loadingMore.value = true
+  try {
+    await fetchServices({ search: search.value, status: filterStatus.value, page: currentPage.value + 1, append: true })
+  } finally {
+    loadingMore.value = false
+  }
+}
 
 const headerStats = computed(() => [
   { label: 'Servicios activos', value: String(stats.value.activos) },
@@ -229,10 +232,14 @@ async function handleSubmit(payload: Record<string, unknown>) {
   try {
     if (editing.value) {
       await updateService(editing.value.id, payload)
+      showModal.value = false
     } else {
-      await createService(payload)
+      // El modal queda abierto en modo edición para subir imágenes ahí mismo
+      // (necesitan el id del servicio ya creado).
+      editing.value = await createService(payload)
+      await nextTick()
+      formModalRef.value?.markSaved('Servicio creado. Ahora puedes agregar imágenes o cerrar.')
     }
-    showModal.value = false
   } catch (e: any) {
     formModalRef.value?.setError(e?.message ?? 'Error al guardar el servicio')
   } finally {
@@ -307,56 +314,11 @@ function closeMetrics() {
   metricsError.value = null
 }
 
-function openModalitiesModal() {
-  showModalitiesModal.value = true
-  modalityError.value = null
-  fetchModalities()
-}
-
-async function addModality(payload: { name: string; value: string; emoji: string }) {
-  modalityError.value = null
-  try {
-    await createModality({
-      name: payload.name,
-      value: payload.value,
-      emoji: payload.emoji,
-      sortOrder: modalities.value.length,
-    })
-  } catch (e: any) {
-    modalityError.value = e?.message ?? 'Error al crear modalidad'
-  }
-}
-
-async function toggleModalityActive(modality: ServiceModality) {
-  modalityError.value = null
-  try {
-    await updateModality(modality.id, { isActive: !modality.isActive })
-  } catch (e: any) {
-    modalityError.value = e?.message ?? 'Error al actualizar modalidad'
-  }
-}
-
-async function confirmDeleteModality(modality: ServiceModality) {
-  await confirm({
-    title: 'Eliminar modalidad',
-    message: `¿Estás seguro de eliminar ${modality.name}? Los servicios que la tengan activada dejarán de mostrarla.`,
-    confirmText: 'Eliminar',
-    variant: 'danger',
-    onConfirm: async () => {
-      try {
-        await deleteModalityFn(modality.id)
-      } catch (e: any) {
-        return e?.message ?? 'Error al eliminar modalidad'
-      }
-    },
-  })
-}
-
 const route = useRoute()
 const router = useRouter()
 
 onMounted(async () => {
-  await Promise.all([fetchServices(), fetchCatalogCategories(true), fetchStats()])
+  await Promise.all([fetchServices(), fetchCatalogCategories(true), fetchStats(), fetchModalities()])
 
   const editId = typeof route.query.edit === 'string' ? route.query.edit : null
   const metricsId = typeof route.query.metrics === 'string' ? route.query.metrics : null

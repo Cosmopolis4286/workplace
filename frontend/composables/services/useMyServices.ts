@@ -70,8 +70,10 @@ export function useMyServices() {
     }
   }
 
-  async function fetchServices(params: { search?: string; page?: number; status?: string } = {}) {
-    loading.value = true
+  // append: "Cargar más" agrega la página siguiente sin reemplazar la lista
+  // ni mostrar el skeleton de carga completa.
+  async function fetchServices(params: { search?: string; page?: number; status?: string; append?: boolean } = {}) {
+    if (!params.append) loading.value = true
     error.value = null
     try {
       const query = new URLSearchParams()
@@ -81,7 +83,7 @@ export function useMyServices() {
       query.set('limit', '48')
 
       const res = await get<{ data: Service[]; total: number; page: number }>(`/services/mine?${query}`)
-      services.value = res.data
+      services.value = params.append ? [...services.value, ...res.data] : res.data
       totalCount.value = res.total
       currentPage.value = res.page
     } catch (e: any) {

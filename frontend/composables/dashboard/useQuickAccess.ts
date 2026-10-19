@@ -43,7 +43,7 @@ export function useQuickAccess() {
   const { hasModule } = useModules()
   const { patch } = useApi()
 
-  const { routeCapabilities } = useNavigation()
+  const { routeCapabilities, routeAnyModules } = useNavigation()
   const { hasCapability } = useProfileContext()
 
   const savedIds = computed<string[]>(() => user.value?.profileSettings?.quickAccessIds ?? [])
@@ -57,6 +57,8 @@ export function useQuickAccess() {
     if (to === '/orders' && role.value === 'NORMAL') return false
     const capability = to ? routeCapabilities.value[to] : undefined
     if (capability && !hasCapability(capability)) return false
+    const anyModules = to ? routeAnyModules.value[to] : undefined
+    if (anyModules && !anyModules.some(m => hasModule(m) && can(`${m}:view`))) return false
     return can(permission) && hasModule(module)
   }
 

@@ -11,6 +11,7 @@ import { QUICK_ACTIONS, canAccessAction, type QuickActionConfig } from '~/config
 import { useApi } from '../core/useApi'
 import { useModules } from '../commerce/useModules'
 import { useProfileContext } from '../users/useProfileContext'
+import { usePermissions } from '../users/usePermissions'
 
 export const MAX_DASHBOARD_QUICK_ACTIONS = 6
 
@@ -18,6 +19,7 @@ export function useDashboardQuickActions() {
   const { user, updateLocalUser } = useAuth()
   const { patch } = useApi()
   const { hasModule } = useModules()
+  const { can } = usePermissions()
 
   const role = computed(() => user.value?.role ?? 'NORMAL')
   const { hasCapability } = useProfileContext()
@@ -29,7 +31,7 @@ export function useDashboardQuickActions() {
   // compartido con useDashboardWidgets.ts (que sí llama loadModules()) — no
   // hace falta duplicar esa llamada acá.
   const availableItems = computed<QuickActionConfig[]>(() =>
-    QUICK_ACTIONS.filter(action => canAccessAction(action.id, role.value as any, hasCapability, hasModule))
+    QUICK_ACTIONS.filter(action => canAccessAction(action.id, role.value as any, hasCapability, hasModule, can))
   )
 
   const selectedItems = computed<QuickActionConfig[]>(() => {

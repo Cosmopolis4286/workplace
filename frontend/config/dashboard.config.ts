@@ -223,9 +223,24 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     route: '/jobs',
     roles: ['PROFESIONAL'],
     capabilities: ['HAS_PROFESSIONAL_PROFILE'],
-    requiresModule: 'jobs',
+    // Igual que /jobs en el sidebar (requiresAnyModule: ['employees']):
+    // publicar vacantes es de quien tiene personal, no de cualquiera con
+    // el módulo jobs (ej. un delivery independiente).
+    requiresModule: 'employees',
+    permissions: ['employees:view'],
     color: 'purple',
     description: 'Gestionar las vacantes que publicas',
+  },
+  {
+    id: 'rides',
+    name: 'Corridas y Fletes',
+    icon: 'TruckIcon',
+    route: '/rides',
+    roles: ['PROFESIONAL'],
+    capabilities: ['HAS_PROFESSIONAL_PROFILE'],
+    requiresModule: 'corridas',
+    color: 'teal',
+    description: 'Corridas disponibles y tus asignaciones',
   },
   {
     id: 'manageMenu',
@@ -456,11 +471,15 @@ export function canAccessAction(
   role: UserRole,
   has: HasCapability,
   hasModule?: (module: string) => boolean,
+  can?: (permission: string) => boolean,
 ): boolean {
   const action = QUICK_ACTIONS.find(a => a.id === actionId)
   if (!action) return false
   if (!action.roles.includes(role)) return false
   if (action.requiresModule && hasModule && !hasModule(action.requiresModule)) return false
+  // effectiveModules es plan ∩ categoría y no filtra por papel: el permiso
+  // completa la regla cuando el módulo solo no alcanza (ver manageJobs).
+  if (action.permissions?.length && can && !action.permissions.every(can)) return false
   if (role === 'SUPERADMIN' || role === 'ADMIN') return !action.capabilities?.length
   return matchesCapabilities(action.capabilities, has)
 }

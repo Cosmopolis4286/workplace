@@ -192,10 +192,17 @@ export const useAuth = () => {
         localStorage.setItem('auth_access_token', data.accessToken)
         localStorage.setItem('auth_refresh_token', data.refreshToken)
       }
+      // La respuesta de login/register/2FA no trae profiles/capabilities/
+      // accountType (solo GET /auth/me). Sin esto, el dashboard caía al hero
+      // de "Cliente" y ocultaba widgets/acciones de perfil profesional; y tras
+      // logout + login con otra cuenta en la misma pestaña, la verificación
+      // memoizada de la sesión anterior impedía volver a pedir /auth/me.
+      sessionVerification = fetchProfile().then(() => undefined)
     }
   }
 
   function clearSession(): void {
+    sessionVerification = null
     currentUser.value = null
     accessToken.value = null
     refreshToken.value = null
