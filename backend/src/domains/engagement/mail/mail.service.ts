@@ -47,7 +47,11 @@ export class MailService {
     let template = fs.readFileSync(templatePath, 'utf-8');
 
     Object.entries(variables).forEach(([key, value]) => {
-      template = template.replace(new RegExp(`{{${key}}}`, 'g'), value);
+      // Valores escapados (el nombre lo elige el usuario) y vía función: un
+      // string de reemplazo interpretaría secuencias como $& o $'.
+      template = template.replace(new RegExp(`{{${key}}}`, 'g'), () =>
+        escapeHtml(value)
+      );
     });
 
     return template;
@@ -62,7 +66,7 @@ export class MailService {
         subject: 'Restablecer contraseña — WorkPlace Manager',
         html: `
           <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-            <h2>Hola, ${firstName}</h2>
+            <h2>Hola, ${escapeHtml(firstName)}</h2>
             <p>Recibimos una solicitud para restablecer tu contraseña.</p>
             <p>Haz clic en el botón a continuación. El enlace expira en <strong>1 hora</strong>.</p>
             <a href="${resetUrl}"
@@ -123,10 +127,10 @@ export class MailService {
         subject,
         html: `
           <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-            <h2>Hola, ${firstName}</h2>
+            <h2>Hola, ${escapeHtml(firstName)}</h2>
             <h3>${title}</h3>
             <p>${body}</p>
-            ${meta ? `<p style="color:#6b7280;font-size:13px">${meta}</p>` : ''}
+            ${meta ? `<p style="color:#6b7280;font-size:13px">${escapeHtml(meta)}</p>` : ''}
             <p style="margin-top:24px;color:#6b7280;font-size:14px">
               Si no realizaste este cambio, contacta a soporte de inmediato y restablece tu contraseña.
             </p>
@@ -178,7 +182,7 @@ export class MailService {
         subject,
         html: `
           <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-            <h2>Hola, ${firstName}</h2>
+            <h2>Hola, ${escapeHtml(firstName)}</h2>
             ${
               isApproved
                 ? `<p>¡Buenas noticias! Tu identidad ha sido <strong>verificada</strong> exitosamente. Ya puedes realizar retiros y transferencias sin restricciones.</p>`
@@ -268,7 +272,7 @@ export class MailService {
         subject,
         html: `
           <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-            <h2>Hola, ${firstName}</h2>
+            <h2>Hola, ${escapeHtml(firstName)}</h2>
             ${
               isApproved
                 ? `<p>¡Buenas noticias! Tu categoría propuesta "<strong>${escapeHtml(categoryName)}</strong>" fue <strong>aprobada</strong> y ya está disponible en los filtros de búsqueda.</p>`
@@ -298,7 +302,7 @@ export class MailService {
         subject: 'Tu solicitud sigue esperando respuesta — WorkPlace Manager',
         html: `
           <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-            <h2>Hola, ${firstName}</h2>
+            <h2>Hola, ${escapeHtml(firstName)}</h2>
             <p>Tu solicitud de "<strong>${escapeHtml(serviceName)}</strong>" con <strong>${escapeHtml(providerName)}</strong> lleva más de 24 horas sin respuesta.</p>
             <p>Puedes seguir esperando o explorar otros proveedores disponibles para este servicio.</p>
           </div>

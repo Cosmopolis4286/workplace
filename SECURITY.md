@@ -42,6 +42,21 @@ Fuera de alcance: ataques de denegación de servicio volumétricos, ingeniería 
 | Auditoría | Módulo `audit` y logs centralizados (Loki) |
 | Dependencias | `pnpm audit` en cada PR y Dependabot semanal |
 
+## Vulnerabilidades conocidas sin parche
+
+`pnpm audit` reporta dos avisos `high` para los que no existe versión corregida.
+Se revisaron y no son explotables en este proyecto; revisar de nuevo cuando
+aparezca un parche:
+
+| Paquete | Aviso | Por qué no aplica |
+|---------|-------|-------------------|
+| `node-forge` ≤ 1.4.0 | [GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv) (verificación de firmas RSA) | Solo lo usa `listhen`, del CLI de desarrollo de Nuxt, para certificados locales. No entra en el build de producción. |
+| `braces` ≤ 3.0.3 | [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) (DoS con patrones) | Llega por `chokidar` (`nestjs-i18n`, `@nestjs/cli`). Los patrones son rutas fijas del proyecto, nunca entrada de usuarios, y el watcher de i18n solo corre en desarrollo. |
+
+Los avisos de herramientas de desarrollo con parche (`glob`, `minimatch`,
+`picomatch`, `tmp`) se corrigen con `pnpm.overrides` en el `package.json` raíz,
+acotados al rango vulnerable.
+
 ## Buenas prácticas para contribuidores
 
 - Nunca commitees secretos: usá `.env.dev` / `.env.local.prod` (ignorados por git) a partir de los `*.example`.
