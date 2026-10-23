@@ -36,7 +36,7 @@ describe('CatalogOrderPaymentSourceResolver', () => {
   it(
     'derives amount, currency and seller from persisted records',
     async () => {
-    await expect(resolver.resolve('order-1', 'buyer-1')).resolves.toEqual({
+      await expect(resolver.resolve('order-1', 'buyer-1')).resolves.toEqual({
       sourceType: 'CATALOG_ORDER',
       sourceId: 'order-1',
       payerUserId: 'buyer-1',
@@ -44,8 +44,8 @@ describe('CatalogOrderPaymentSourceResolver', () => {
       currency: 'USD',
       baseAmount: '25.90',
       description: 'Pedido de catálogo - Tienda Uno',
-      quoteVersion: CatalogOrderStatus.PENDING,
-    });
+        quoteVersion: CatalogOrderStatus.PENDING,
+      });
     }
   );
 
