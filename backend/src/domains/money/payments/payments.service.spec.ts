@@ -7,7 +7,7 @@ import {
 import { PaymentsService } from './payments.service';
 
 describe('PaymentsService', () => {
-  const makeInput = (overrides: Record<string, unknown> = {}) => ({
+  const makeInput = (overrides: Partial<{ currency: 'VES' | 'USD'; commissionPayer: FeePayer; settlementMode: ExternalSettlementMode; collectionMode: ExternalCommissionCollectionMode }> = {}) => ({
     idempotencyKey: 'order-1-attempt-1',
     sourceType: 'ORDER',
     sourceId: 'order-1',
@@ -28,7 +28,7 @@ describe('PaymentsService', () => {
     const service = new PaymentsService(prisma);
 
     await expect(
-      service.prepareIntent(makeInput({ currency: 'EUR' }) as any),
+      service.prepareIntent(makeInput({ currency: 'EUR' as any })),
     ).rejects.toThrow('Moneda no admitida');
   });
 
