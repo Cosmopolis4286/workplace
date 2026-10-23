@@ -130,10 +130,10 @@ describe('ServiceRequestPaymentSourceResolver', () => {
     'fails closed for unsupported or missing currency %s',
     async (currency) => {
       (prisma.freelancerSettings.findUnique as jest.Mock).mockResolvedValue(
-        currency ? { currency } : null
+        currency ? { currency } : null,
       );
       await expect(resolver.resolve('request-1', 'client-1')).rejects.toThrow(
-        'La moneda del proveedor no está configurada'
+        'La moneda del proveedor no está configurada',
       );
     }
   );
