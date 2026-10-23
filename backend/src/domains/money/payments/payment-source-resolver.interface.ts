@@ -1,10 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
 export type PaymentSourceType =
-  | 'CATALOG_ORDER'
-  | 'SERVICE_REQUEST'
-  | 'RIDE'
-  | 'SUBSCRIPTION';
+  'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'RIDE' | 'SUBSCRIPTION';
 
 export type PaymentCurrency = 'VES' | 'USD';
 
@@ -60,9 +57,7 @@ export function assertResolvedPaymentSource(
   }
   const [whole, fraction = ''] = resolved.baseAmount.split('.');
   if (whole === '0' && Number(fraction || '0') === 0) {
-    throw new BadRequestException(
-      'El importe del origen debe ser positivo'
-    );
+    throw new BadRequestException('El importe del origen debe ser positivo');
   }
 
   return resolved;
