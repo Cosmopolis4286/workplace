@@ -74,6 +74,7 @@ import { AiOrchestratorModule } from './domains/platform/ai-orchestrator/ai-orch
 import { GroupBuyingModule } from './domains/commerce-core/group-buying/group-buying.module';
 import { MatchingModule } from './domains/commerce-core/matching/matching.module';
 import { EscrowModule } from './domains/money/escrow/escrow.module';
+import { PaymentsModule } from './domains/money/payments/payments.module';
 
 @Module({
   imports: [
@@ -164,6 +165,7 @@ import { EscrowModule } from './domains/money/escrow/escrow.module';
     GroupBuyingModule,
     MatchingModule,
     EscrowModule,
+    PaymentsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },

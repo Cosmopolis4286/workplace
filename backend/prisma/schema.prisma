@@ -3312,3 +3312,241 @@ model Pledge {
 }
 
 // ─── Wallets & Transactions ─────────────────────────────────────────────────────
+
+
+// External payment orchestration. These records do not constitute a wallet
+// and do not authorize WorkPlace to hold third-party funds.
+enum ExternalPaymentProvider {
+  VEXPAY
+  PAGOLINK
+  BDV
+  MANUAL
+}
+enum ExternalPaymentStatus {
+  DRAFT
+  REQUIRES_ACTION
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
+  PARTIALLY_REFUNDED
+  REFUNDED
+  REQUIRES_RECONCILIATION
+}
+enum ExternalSettlementMode {
+  PROVIDER_SPLIT
+  DIRECT_TO_SELLER
+  COMMISSION_INVOICE
+}
+enum ExternalCommissionCollectionMode {
+  AUTOMATIC_SPLIT
+  PERIODIC_INVOICE
+  MANUAL_COLLECTION
+}
+enum ExternalCommissionStatus {
+  PENDING
+  EARNED
+  INVOICED
+  COLLECTED
+  REVERSED
+  DISPUTED
+}
+enum ExternalRefundStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REJECTED
+}
+enum ExternalWebhookStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+}
+enum ExternalSettlementStatus {
+  NOT_ELIGIBLE
+  PENDING
+  AVAILABLE
+  PAYOUT_REQUESTED
+  PAID
+  FAILED
+  ON_HOLD
+}
+enum ExternalReconciliationStatus {
+  OPEN
+  MATCHED
+  MISMATCH
+  RESOLVED
+}
+
+model ExternalPaymentIntent {
+  id                  String @id @default(uuid())
+  idempotencyKey      String @unique
+  sourceType          String
+  sourceId            String
+  payerUserId         String?
+  sellerUserId        String
+  provider            ExternalPaymentProvider
+  status              ExternalPaymentStatus @default(DRAFT)
+  currency            String
+  baseAmount          Decimal @db.Decimal(20, 2)
+  amount              Decimal @db.Decimal(20, 2)
+  commissionAmount    Decimal @default(0) @db.Decimal(20, 2)
+  sellerNetAmount     Decimal @db.Decimal(20, 2)
+  commissionRateBps   Int @default(0)
+  commissionPayer     FeePayer @default(PROVIDER)
+  settlementMode      ExternalSettlementMode
+  collectionMode      ExternalCommissionCollectionMode
+  providerPaymentId   String?
+  providerCheckoutUrl String?
+  providerStatus      String?
+  failureCode         String?
+  failureMessage      String?
+  expiresAt           DateTime?
+  succeededAt         DateTime?
+  metadata            Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  commission          ExternalPaymentCommission?
+  refunds             ExternalPaymentRefund[]
+  settlements         ExternalPaymentSettlement[]
+
+  @@unique([provider, providerPaymentId])
+  @@index([sourceType, sourceId])
+  @@index([payerUserId, createdAt(sort: Desc)])
+  @@index([sellerUserId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("external_payment_intents")
+}
+
+model ExternalPaymentCommission {
+  id               String @id @default(uuid())
+  paymentIntentId  String @unique
+  paymentIntent    ExternalPaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
+  sellerUserId     String
+  currency         String
+  baseAmount       Decimal @db.Decimal(20, 2)
+  feeAmount        Decimal @db.Decimal(20, 2)
+  sellerNetAmount  Decimal @db.Decimal(20, 2)
+  rateBps          Int
+  payer            FeePayer
+  collectionMode   ExternalCommissionCollectionMode
+  status           ExternalCommissionStatus @default(PENDING)
+  invoiceReference String?
+  collectedAt      DateTime?
+  reversedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([sellerUserId, status, createdAt])
+  @@index([status, createdAt])
+  @@map("external_payment_commissions")
+}
+
+model ExternalPaymentRefund {
+  id                String @id @default(uuid())
+  paymentIntentId   String
+  paymentIntent     ExternalPaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
+  amount            Decimal @db.Decimal(20, 2)
+  currency          String
+  reason            String
+  status            ExternalRefundStatus @default(REQUESTED)
+  requestedByUserId String?
+  providerRefundId  String? @unique
+  idempotencyKey    String @unique
+  providerMessage   String?
+  approvedByUserId  String?
+  processedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([paymentIntentId, status])
+  @@index([status, createdAt])
+  @@map("external_payment_refunds")
+}
+
+model ExternalPaymentWebhookEvent {
+  id                String @id @default(uuid())
+  provider          ExternalPaymentProvider
+  providerEventId   String
+  eventType         String
+  signatureVerified Boolean @default(false)
+  status            ExternalWebhookStatus @default(RECEIVED)
+  payload           Json
+  processingError   String?
+  receivedAt        DateTime @default(now())
+  processedAt       DateTime?
+
+  @@unique([provider, providerEventId])
+  @@index([status, receivedAt])
+  @@map("external_payment_webhook_events")
+}
+
+model ExternalPaymentSettlement {
+  id                String @id @default(uuid())
+  paymentIntentId   String?
+  paymentIntent     ExternalPaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
+  sellerUserId      String
+  provider          ExternalPaymentProvider
+  currency          String
+  amount            Decimal @db.Decimal(20, 2)
+  status            ExternalSettlementStatus @default(PENDING)
+  providerPayoutId  String?
+  externalReference String @unique
+  expectedAt        DateTime?
+  paidAt            DateTime?
+  failureReason     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([provider, providerPayoutId])
+  @@index([sellerUserId, status, createdAt])
+  @@index([provider, status])
+  @@map("external_payment_settlements")
+}
+
+model ExternalPaymentReconciliationRun {
+  id              String @id @default(uuid())
+  provider        ExternalPaymentProvider
+  currency        String?
+  periodStart     DateTime
+  periodEnd       DateTime
+  status          ExternalReconciliationStatus @default(OPEN)
+  totalExpected   Decimal @default(0) @db.Decimal(20, 2)
+  totalReported   Decimal @default(0) @db.Decimal(20, 2)
+  differenceCount Int @default(0)
+  notes           String?
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  items           ExternalPaymentReconciliationItem[]
+
+  @@index([provider, periodStart, periodEnd])
+  @@index([status, startedAt])
+  @@map("external_payment_reconciliation_runs")
+}
+
+model ExternalPaymentReconciliationItem {
+  id             String @id @default(uuid())
+  runId          String
+  run            ExternalPaymentReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  externalRef    String?
+  internalRef    String?
+  currency       String
+  expectedAmount Decimal? @db.Decimal(20, 2)
+  reportedAmount Decimal? @db.Decimal(20, 2)
+  status         ExternalReconciliationStatus @default(OPEN)
+  reason         String?
+  resolvedBy     String?
+  resolvedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([runId, status])
+  @@index([externalRef])
+  @@map("external_payment_reconciliation_items")
+}
