@@ -1,12 +1,7 @@
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CatalogOrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import {
-  CatalogOrderPaymentSourceResolver,
-} from './catalog-order-payment-source.resolver';
+import { CatalogOrderPaymentSourceResolver } from './catalog-order-payment-source.resolver';
 
 describe('CatalogOrderPaymentSourceResolver', () => {
   const order = {
@@ -33,33 +28,30 @@ describe('CatalogOrderPaymentSourceResolver', () => {
     });
   });
 
-  it(
-    'derives amount, currency and seller from persisted records',
-    async () => {
-      await expect(resolver.resolve('order-1', 'buyer-1')).resolves.toEqual({
-        sourceType: 'CATALOG_ORDER',
-        sourceId: 'order-1',
-        payerUserId: 'buyer-1',
-        sellerUserId: 'seller-1',
-        currency: 'USD',
-        baseAmount: '25.90',
-        description: 'Pedido de catálogo - Tienda Uno',
-        quoteVersion: CatalogOrderStatus.PENDING,
-      });
-    }
-  );
+  it('derives amount, currency and seller from persisted records', async () => {
+    await expect(resolver.resolve('order-1', 'buyer-1')).resolves.toEqual({
+      sourceType: 'CATALOG_ORDER',
+      sourceId: 'order-1',
+      payerUserId: 'buyer-1',
+      sellerUserId: 'seller-1',
+      currency: 'USD',
+      baseAmount: '25.90',
+      description: 'Pedido de catálogo - Tienda Uno',
+      quoteVersion: CatalogOrderStatus.PENDING,
+    });
+  });
 
   it('rejects unknown orders', async () => {
     (prisma.catalogOrder.findUnique as jest.Mock).mockResolvedValue(null);
-    await expect(
-      resolver.resolve('missing', 'buyer-1')
-    ).rejects.toThrow(NotFoundException);
+    await expect(resolver.resolve('missing', 'buyer-1')).rejects.toThrow(
+      NotFoundException
+    );
   });
 
   it('rejects a different payer', async () => {
-    await expect(
-      resolver.resolve('order-1', 'attacker')
-    ).rejects.toThrow(BadRequestException);
+    await expect(resolver.resolve('order-1', 'attacker')).rejects.toThrow(
+      BadRequestException
+    );
     expect(prisma.commerce.findUnique).not.toHaveBeenCalled();
   });
 
@@ -70,9 +62,9 @@ describe('CatalogOrderPaymentSourceResolver', () => {
         ...order,
         status,
       });
-      await expect(
-        resolver.resolve('order-1', 'buyer-1')
-      ).rejects.toThrow(BadRequestException);
+      await expect(resolver.resolve('order-1', 'buyer-1')).rejects.toThrow(
+        BadRequestException
+      );
     }
   );
 
@@ -81,9 +73,9 @@ describe('CatalogOrderPaymentSourceResolver', () => {
       ...order,
       totalEstimate: new Prisma.Decimal('0'),
     });
-    await expect(
-      resolver.resolve('order-1', 'buyer-1')
-    ).rejects.toThrow(BadRequestException);
+    await expect(resolver.resolve('order-1', 'buyer-1')).rejects.toThrow(
+      BadRequestException
+    );
   });
 
   it.each(['MXN', 'EUR', null])(
@@ -93,9 +85,9 @@ describe('CatalogOrderPaymentSourceResolver', () => {
         userId: 'seller-1',
         settings: currency ? { currency } : null,
       });
-      await expect(
-        resolver.resolve('order-1', 'buyer-1')
-      ).rejects.toThrow('moneda del comercio no está habilitada');
+      await expect(resolver.resolve('order-1', 'buyer-1')).rejects.toThrow(
+        'moneda del comercio no está habilitada'
+      );
     }
   );
 
@@ -104,8 +96,8 @@ describe('CatalogOrderPaymentSourceResolver', () => {
       userId: 'seller-1',
       settings: { currency: 'ves' },
     });
-    await expect(
-      resolver.resolve('order-1', 'buyer-1')
-    ).resolves.toMatchObject({ currency: 'VES' });
+    await expect(resolver.resolve('order-1', 'buyer-1')).resolves.toMatchObject(
+      { currency: 'VES' }
+    );
   });
 });
