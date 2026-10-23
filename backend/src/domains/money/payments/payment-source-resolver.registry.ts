@@ -15,17 +15,20 @@ import {
 
 @Injectable()
 export class PaymentSourceResolverRegistry {
-  private readonly resolvers = new Map<PaymentSourceType, PaymentSourceResolver>();
+  private readonly resolvers = new Map<
+    PaymentSourceType,
+    PaymentSourceResolver
+  >();
 
   constructor(
     @Optional()
     @Inject(PAYMENT_SOURCE_RESOLVERS)
-    resolvers: PaymentSourceResolver[] = [],
+    resolvers: PaymentSourceResolver[] = []
   ) {
     for (const resolver of resolvers) {
       if (this.resolvers.has(resolver.sourceType)) {
         throw new ConflictException(
-          `Existe más de un resolver para ${resolver.sourceType}`,
+          `Existe más de un resolver para ${resolver.sourceType}`
         );
       }
       this.resolvers.set(resolver.sourceType, resolver);
@@ -35,7 +38,7 @@ export class PaymentSourceResolverRegistry {
   async resolve(
     sourceType: PaymentSourceType,
     sourceId: string,
-    payerUserId: string,
+    payerUserId: string
   ): Promise<ResolvedPaymentSource> {
     if (!sourceId?.trim() || !payerUserId?.trim()) {
       throw new BadRequestException('El origen y el pagador son obligatorios');
@@ -44,7 +47,7 @@ export class PaymentSourceResolverRegistry {
     const resolver = this.resolvers.get(sourceType);
     if (!resolver) {
       throw new BadRequestException(
-        `El origen de pago ${sourceType} aún no está habilitado`,
+        `El origen de pago ${sourceType} aún no está habilitado`
       );
     }
 
@@ -53,7 +56,7 @@ export class PaymentSourceResolverRegistry {
       resolved,
       sourceType,
       sourceId,
-      payerUserId,
+      payerUserId
     );
   }
 }
