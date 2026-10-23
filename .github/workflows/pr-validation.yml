@@ -50,8 +50,8 @@ jobs:
     - name: Sin campos Float nuevos
       run: cd backend && pnpm schema:float-check
 
-    - name: Format diagnostic (temporary)
-      run: cd backend && pnpm exec prettier --write src/domains/money/payments/payment-source-resolver.interface.ts src/domains/money/payments/payment-source-resolver.registry.spec.ts && git diff -- src/domains/money/payments/payment-source-resolver.interface.ts src/domains/money/payments/payment-source-resolver.registry.spec.ts
+    - name: Format check
+      run: cd backend && pnpm format:check
 
     # Bloquea vulnerabilidades críticas (hoy 0). Quedan altas/moderadas que
     # exigen saltos mayores (NestJS 10 -> 11, nodemailer 8 -> 10) o no tienen
