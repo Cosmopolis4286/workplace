@@ -71,15 +71,7 @@ describe('PaymentsService', () => {
 
     const result = await service.prepareIntent(makeInput());
 
-    expect(tx.externalPaymentIntent.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          amount: expect.objectContaining({ s: 1 }),
-          commissionAmount: expect.objectContaining({ s: 1 }),
-          sellerNetAmount: expect.objectContaining({ s: 1 }),
-        }),
-      }),
-    );
+    expect(tx.externalPaymentIntent.create).toHaveBeenCalledTimes(1);
     const created = tx.externalPaymentIntent.create.mock.calls[0][0].data;
     expect(created.amount.toFixed(2)).toBe('100.00');
     expect(created.commissionAmount.toFixed(2)).toBe('8.00');
