@@ -3,7 +3,9 @@ import {
   PaymentSourceResolver,
   ResolvedPaymentSource,
 } from './payment-source-resolver.interface';
-import { PaymentSourceResolverRegistry } from './payment-source-resolver.registry';
+import {
+  PaymentSourceResolverRegistry,
+} from './payment-source-resolver.registry';
 
 describe('PaymentSourceResolverRegistry', () => {
   const valid: ResolvedPaymentSource = {
@@ -23,12 +25,15 @@ describe('PaymentSourceResolverRegistry', () => {
     resolve,
   });
 
-  it('fails closed for source types without a registered resolver', async () => {
+  it(
+    'fails closed for source types without a registered resolver',
+    async () => {
     const registry = new PaymentSourceResolverRegistry([]);
     await expect(
       registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1')
     ).rejects.toThrow('aún no está habilitado');
-  });
+    }
+  );
 
   it('rejects duplicate resolver registrations', () => {
     expect(
