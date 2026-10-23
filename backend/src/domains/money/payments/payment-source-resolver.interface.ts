@@ -29,7 +29,7 @@ export interface PaymentSourceResolver {
   readonly sourceType: PaymentSourceType;
   resolve(
     sourceId: string,
-    payerUserId: string,
+    payerUserId: string
   ): Promise<ResolvedPaymentSource>;
 }
 
@@ -39,7 +39,7 @@ export function assertResolvedPaymentSource(
   resolved: ResolvedPaymentSource,
   expectedType: PaymentSourceType,
   expectedId: string,
-  payerUserId: string,
+  payerUserId: string
 ): ResolvedPaymentSource {
   if (
     resolved.sourceType !== expectedType ||
