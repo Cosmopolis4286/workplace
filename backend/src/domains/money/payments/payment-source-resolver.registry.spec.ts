@@ -17,7 +17,7 @@ describe('PaymentSourceResolverRegistry', () => {
   };
 
   const makeResolver = (
-    resolve = jest.fn().mockResolvedValue(valid),
+    resolve = jest.fn().mockResolvedValue(valid)
   ): PaymentSourceResolver => ({
     sourceType: 'CATALOG_ORDER',
     resolve,
@@ -26,14 +26,14 @@ describe('PaymentSourceResolverRegistry', () => {
   it('fails closed for source types without a registered resolver', async () => {
     const registry = new PaymentSourceResolverRegistry([]);
     await expect(
-      registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1'),
+      registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1')
     ).rejects.toThrow('aún no está habilitado');
   });
 
   it('rejects duplicate resolver registrations', () => {
     expect(
       () =>
-        new PaymentSourceResolverRegistry([makeResolver(), makeResolver()]),
+        new PaymentSourceResolverRegistry([makeResolver(), makeResolver()])
     ).toThrow(ConflictException);
   });
 
@@ -41,7 +41,7 @@ describe('PaymentSourceResolverRegistry', () => {
     const resolve = jest.fn().mockResolvedValue(valid);
     const registry = new PaymentSourceResolverRegistry([makeResolver(resolve)]);
     await expect(
-      registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1'),
+      registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1')
     ).resolves.toEqual(valid);
     expect(resolve).toHaveBeenCalledWith('order-1', 'buyer-1');
   });
@@ -49,11 +49,11 @@ describe('PaymentSourceResolverRegistry', () => {
   it('rejects source or payer mismatches', async () => {
     const registry = new PaymentSourceResolverRegistry([
       makeResolver(
-        jest.fn().mockResolvedValue({ ...valid, payerUserId: 'other-user' }),
+        jest.fn().mockResolvedValue({ ...valid, payerUserId: 'other-user' })
       ),
     ]);
     await expect(
-      registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1'),
+      registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1')
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -64,9 +64,9 @@ describe('PaymentSourceResolverRegistry', () => {
         makeResolver(jest.fn().mockResolvedValue({ ...valid, baseAmount })),
       ]);
       await expect(
-        registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1'),
+        registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1')
       ).rejects.toThrow(BadRequestException);
-    },
+    }
   );
 
   it('rejects unsupported currencies', async () => {
@@ -74,7 +74,7 @@ describe('PaymentSourceResolverRegistry', () => {
       makeResolver(jest.fn().mockResolvedValue({ ...valid, currency: 'EUR' })),
     ]);
     await expect(
-      registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1'),
+      registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1')
     ).rejects.toThrow(BadRequestException);
   });
 });
