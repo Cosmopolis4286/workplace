@@ -1,7 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EscrowStatus, Prisma, ServiceRequestStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { ServiceRequestPaymentSourceResolver } from './service-request-payment-source.resolver';
+import {
+  ServiceRequestPaymentSourceResolver,
+} from './service-request-payment-source.resolver';
 
 describe('ServiceRequestPaymentSourceResolver', () => {
   const request = {
