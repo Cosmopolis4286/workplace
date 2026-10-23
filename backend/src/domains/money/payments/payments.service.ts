@@ -158,7 +158,7 @@ export class PaymentsService {
           where: { paymentIntentId: id, status: ExternalCommissionStatus.PENDING },
           data: { status: ExternalCommissionStatus.EARNED },
         });
-      } else if ([ExternalPaymentStatus.FAILED, ExternalPaymentStatus.CANCELLED, ExternalPaymentStatus.EXPIRED].includes(nextStatus)) {
+      } else if (nextStatus === ExternalPaymentStatus.FAILED || nextStatus === ExternalPaymentStatus.CANCELLED || nextStatus === ExternalPaymentStatus.EXPIRED) {
         await tx.externalPaymentCommission.updateMany({
           where: { paymentIntentId: id, status: ExternalCommissionStatus.PENDING },
           data: { status: ExternalCommissionStatus.REVERSED, reversedAt: new Date() },

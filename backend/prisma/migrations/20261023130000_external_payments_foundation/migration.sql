@@ -67,7 +67,7 @@ CREATE TABLE "external_payment_reconciliation_runs" (
 "totalReported" DECIMAL(20,2) NOT NULL DEFAULT 0,"differenceCount" INTEGER NOT NULL DEFAULT 0,"notes" TEXT,
 "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"completedAt" TIMESTAMP(3),
 CONSTRAINT "external_payment_reconciliation_runs_pkey" PRIMARY KEY ("id"));
-CREATE INDEX "external_payment_reconciliation_runs_provider_periodStart_periodEnd_idx" ON "external_payment_reconciliation_runs"("provider","periodStart","periodEnd");
+CREATE INDEX "external_payment_reconciliation_runs_provider_periodStart_p_idx" ON "external_payment_reconciliation_runs"("provider","periodStart","periodEnd");
 CREATE INDEX "external_payment_reconciliation_runs_status_startedAt_idx" ON "external_payment_reconciliation_runs"("status","startedAt");
 CREATE TABLE "external_payment_reconciliation_items" (
 "id" TEXT NOT NULL,"runId" TEXT NOT NULL,"externalRef" TEXT,"internalRef" TEXT,"currency" TEXT NOT NULL,
