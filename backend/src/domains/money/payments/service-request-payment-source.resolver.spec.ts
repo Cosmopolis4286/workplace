@@ -47,7 +47,7 @@ describe('ServiceRequestPaymentSourceResolver', () => {
     'resolves confirmed price and provider currency from persisted records',
     async () => {
       await expect(
-        resolver.resolve('request-1', 'client-1'),
+        resolver.resolve('request-1', 'client-1')
       ).resolves.toEqual({
         sourceType: 'SERVICE_REQUEST',
         sourceId: 'request-1',
@@ -58,19 +58,19 @@ describe('ServiceRequestPaymentSourceResolver', () => {
         description: 'Servicio - Reparación',
         quoteVersion: '2026-10-20T12:00:00.000Z',
       });
-    },
+    }
   );
 
   it('rejects a missing request', async () => {
     (prisma.serviceRequest.findUnique as jest.Mock).mockResolvedValue(null);
     await expect(resolver.resolve('missing', 'client-1')).rejects.toThrow(
-      NotFoundException,
+      NotFoundException
     );
   });
 
   it('rejects a payer who does not own the request', async () => {
     await expect(resolver.resolve('request-1', 'other-user')).rejects.toThrow(
-      BadRequestException,
+      BadRequestException
     );
     expect(prisma.service.findUnique).not.toHaveBeenCalled();
   });
@@ -130,10 +130,10 @@ describe('ServiceRequestPaymentSourceResolver', () => {
     'fails closed for unsupported or missing currency %s',
     async (currency) => {
       (prisma.freelancerSettings.findUnique as jest.Mock).mockResolvedValue(
-        currency ? { currency } : null,
+        currency ? { currency } : null
       );
       await expect(resolver.resolve('request-1', 'client-1')).rejects.toThrow(
-        'La moneda del proveedor no está configurada',
+        'La moneda del proveedor no está configurada'
       );
     }
   );
@@ -155,7 +155,7 @@ describe('ServiceRequestPaymentSourceResolver', () => {
       currency: 'ves',
     });
     await expect(
-      resolver.resolve('request-1', 'client-1'),
+      resolver.resolve('request-1', 'client-1')
     ).resolves.toMatchObject({ currency: 'VES' });
   });
 });
