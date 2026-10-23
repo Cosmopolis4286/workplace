@@ -87,7 +87,7 @@ describe('ServiceRequestPaymentSourceResolver', () => {
       status,
     });
     await expect(resolver.resolve('request-1', 'client-1')).rejects.toThrow(
-      BadRequestException,
+      BadRequestException
     );
   });
 
@@ -103,7 +103,7 @@ describe('ServiceRequestPaymentSourceResolver', () => {
       escrowStatus,
     });
     await expect(resolver.resolve('request-1', 'client-1')).rejects.toThrow(
-      BadRequestException,
+      BadRequestException
     );
   });
 
@@ -113,7 +113,7 @@ describe('ServiceRequestPaymentSourceResolver', () => {
       price: new Prisma.Decimal('0'),
     });
     await expect(resolver.resolve('request-1', 'client-1')).rejects.toThrow(
-      BadRequestException,
+      BadRequestException
     );
   });
 
@@ -122,7 +122,7 @@ describe('ServiceRequestPaymentSourceResolver', () => {
       userId: 'different-provider',
     });
     await expect(resolver.resolve('request-1', 'client-1')).rejects.toThrow(
-      BadRequestException,
+      BadRequestException
     );
   });
 
@@ -146,7 +146,7 @@ describe('ServiceRequestPaymentSourceResolver', () => {
       currency: 'USD',
     });
     await expect(resolver.resolve('request-1', 'client-1')).rejects.toThrow(
-      BadRequestException,
+      BadRequestException
     );
   });
 
