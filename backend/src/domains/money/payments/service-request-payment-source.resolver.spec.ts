@@ -43,7 +43,9 @@ describe('ServiceRequestPaymentSourceResolver', () => {
     });
   });
 
-  it('resolves confirmed price and provider currency from persisted records', async () => {
+  it(
+    'resolves confirmed price and provider currency from persisted records',
+    async () => {
     await expect(resolver.resolve('request-1', 'client-1')).resolves.toEqual({
       sourceType: 'SERVICE_REQUEST',
       sourceId: 'request-1',
