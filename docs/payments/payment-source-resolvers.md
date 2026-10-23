@@ -11,6 +11,11 @@ Every payable domain must resolve amount, currency, seller and payer authorizati
 5. Return a stable source identity and description; revalidate mutable prices before checkout.
 6. Use decimal strings with at most two decimal places, never floating-point money arithmetic.
 
-## Rollout
+## Current rollout
 
-The registry must fail closed for unregistered source types and reject duplicate resolvers, mismatched payer/source identity, unsupported currency and invalid amounts. Catalog orders, service requests, rides and subscriptions remain disabled until each has a domain-specific resolver and tests. Implement catalog orders first, wire each resolver only after integration tests pass, and keep provider checkout disabled until official provider integration, signature verification and reconciliation are validated.
+- **Catalog orders:** resolver registered. It checks the authenticated requester, rejects cancelled/closed orders, reads the persisted order total and derives the seller from the commerce record.
+- **Currency guard:** only VES and USD are accepted. Existing commerce settings default to MXN, so those orders fail closed until the commerce currency is explicitly configured to a supported currency. Amounts are never silently converted or relabeled.
+- **Service requests, rides and subscriptions:** remain disabled until each has a domain-specific resolver and tests.
+- **Provider checkout:** remains disabled. This resolver only produces trusted source facts; it does not create an external checkout or move money.
+
+Before enabling checkout, implement provider-specific API integration, signature verification, idempotent state transitions and reconciliation, and revalidate the order's payable status and amount immediately before checkout.
