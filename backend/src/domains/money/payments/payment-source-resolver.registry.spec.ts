@@ -28,10 +28,10 @@ describe('PaymentSourceResolverRegistry', () => {
   it(
     'fails closed for source types without a registered resolver',
     async () => {
-    const registry = new PaymentSourceResolverRegistry([]);
-    await expect(
-      registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1')
-    ).rejects.toThrow('aún no está habilitado');
+      const registry = new PaymentSourceResolverRegistry([]);
+      await expect(
+        registry.resolve('CATALOG_ORDER', 'order-1', 'buyer-1')
+      ).rejects.toThrow('aún no está habilitado');
     }
   );
 
