@@ -149,8 +149,8 @@ describe('ServiceRequestPaymentSourceResolver', () => {
     (prisma.freelancerSettings.findUnique as jest.Mock).mockResolvedValue({
       currency: 'ves',
     });
-    await expect(resolver.resolve('request-1', 'client-1')).resolves.toMatchObject(
-      { currency: 'VES' }
-    );
+    await expect(
+      resolver.resolve('request-1', 'client-1'),
+    ).resolves.toMatchObject({ currency: 'VES' });
   });
 });
