@@ -50,11 +50,11 @@ export interface PaymentProviderAdapter {
   readonly provider: ExternalPaymentProvider;
   readonly capabilities: ProviderCapabilities;
   createCheckout(
-    input: CreateProviderCheckoutInput,
+    input: CreateProviderCheckoutInput
   ): Promise<ProviderCheckoutResult>;
   verifyAndParseWebhook(
     rawBody: Buffer,
-    headers: Record<string, string | string[] | undefined>,
+    headers: Record<string, string | string[] | undefined>
   ): Promise<VerifiedProviderEvent>;
   refund(input: {
     providerPaymentId: string;

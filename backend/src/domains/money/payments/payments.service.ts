@@ -64,7 +64,7 @@ export class PaymentsService {
         existing.commissionPayer === input.commissionPayer;
       if (!same) {
         throw new ConflictException(
-          'La clave de idempotencia ya se usó con otros datos',
+          'La clave de idempotencia ya se usó con otros datos'
         );
       }
       return existing;
@@ -72,7 +72,7 @@ export class PaymentsService {
 
     const base = new Prisma.Decimal(input.baseAmount).toDecimalPlaces(
       2,
-      Prisma.Decimal.ROUND_HALF_UP,
+      Prisma.Decimal.ROUND_HALF_UP
     );
     const fee = base
       .mul(input.commissionRateBps)
@@ -184,7 +184,7 @@ export class PaymentsService {
     nextStatus: ExternalPaymentStatus,
     providerStatus?: string,
     failureCode?: string,
-    failureMessage?: string,
+    failureMessage?: string
   ) {
     const current = await this.prisma.externalPaymentIntent.findUnique({
       where: { id },
@@ -193,7 +193,7 @@ export class PaymentsService {
     if (current.status === nextStatus) return current;
     if (FINAL_STATUSES.has(current.status)) {
       throw new ConflictException(
-        'No se puede sobrescribir un estado terminal del pago',
+        'No se puede sobrescribir un estado terminal del pago'
       );
     }
 
@@ -251,7 +251,7 @@ export class PaymentsService {
         'Transición de pago no permitida: ' +
           current.status +
           ' -> ' +
-          nextStatus,
+          nextStatus
       );
     }
 
@@ -272,7 +272,7 @@ export class PaymentsService {
       });
       if (changed.count !== 1) {
         throw new ConflictException(
-          'El estado del pago cambió en paralelo; debe reconciliarse',
+          'El estado del pago cambió en paralelo; debe reconciliarse'
         );
       }
       const updated = await tx.externalPaymentIntent.findUniqueOrThrow({
@@ -309,7 +309,7 @@ export class PaymentsService {
   private validateInput(input: PreparePaymentIntentInput) {
     if (!input.idempotencyKey?.trim() || input.idempotencyKey.length > 200) {
       throw new BadRequestException(
-        'La clave de idempotencia es obligatoria (máximo 200 caracteres)',
+        'La clave de idempotencia es obligatoria (máximo 200 caracteres)'
       );
     }
     if (
@@ -318,7 +318,7 @@ export class PaymentsService {
       !input.sellerUserId?.trim()
     ) {
       throw new BadRequestException(
-        'La referencia de origen y el proveedor son obligatorios',
+        'La referencia de origen y el proveedor son obligatorios'
       );
     }
     if (input.currency !== 'VES' && input.currency !== 'USD') {
@@ -332,7 +332,7 @@ export class PaymentsService {
     }
     if (!amount.isFinite() || !amount.gt(0) || amount.decimalPlaces() > 2) {
       throw new BadRequestException(
-        'El importe debe ser positivo y tener máximo 2 decimales',
+        'El importe debe ser positivo y tener máximo 2 decimales'
       );
     }
     if (
@@ -341,25 +341,23 @@ export class PaymentsService {
       input.commissionRateBps > 10000
     ) {
       throw new BadRequestException(
-        'La comisión debe estar entre 0 y 10000 puntos básicos',
+        'La comisión debe estar entre 0 y 10000 puntos básicos'
       );
     }
     if (
       input.settlementMode === ExternalSettlementMode.PROVIDER_SPLIT &&
-      input.collectionMode !==
-        ExternalCommissionCollectionMode.AUTOMATIC_SPLIT
+      input.collectionMode !== ExternalCommissionCollectionMode.AUTOMATIC_SPLIT
     ) {
       throw new BadRequestException(
-        'El split del proveedor requiere cobro automático de comisión',
+        'El split del proveedor requiere cobro automático de comisión'
       );
     }
     if (
       input.settlementMode !== ExternalSettlementMode.PROVIDER_SPLIT &&
-      input.collectionMode ===
-        ExternalCommissionCollectionMode.AUTOMATIC_SPLIT
+      input.collectionMode === ExternalCommissionCollectionMode.AUTOMATIC_SPLIT
     ) {
       throw new BadRequestException(
-        'El cobro automático requiere split habilitado por el proveedor',
+        'El cobro automático requiere split habilitado por el proveedor'
       );
     }
   }
