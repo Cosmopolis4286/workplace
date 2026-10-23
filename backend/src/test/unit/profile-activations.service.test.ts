@@ -16,7 +16,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { RoleResolverService } from '../../common/account-type/role-resolver.service';
-import { PlansService } from '../../domains/money/plans/plans.service';
+import { PLANS_FACADE } from '../../domains/money/plans/plans.facade';
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service';
 
 describe('ProfileActivationsService', () => {
@@ -93,7 +93,7 @@ describe('ProfileActivationsService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: RedisService, useValue: mockRedisService },
         { provide: NotificationsService, useValue: mockNotificationsService },
-        { provide: PlansService, useValue: mockPlansService },
+        { provide: PLANS_FACADE, useValue: mockPlansService },
       ],
     }).compile();
 

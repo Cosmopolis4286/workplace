@@ -1,11 +1,15 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { ExchangeRatesService } from '../../money/exchange-rates/exchange-rates.service';
+import {
+  EXCHANGE_RATES_FACADE,
+  ExchangeRatesFacade,
+} from '../../money/exchange-rates/exchange-rates.facade';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import { AlertEngineService } from '../alert-engine/alert-engine.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
@@ -19,7 +23,6 @@ import {
   RATE_SCALE,
   roundRate,
   sub,
-  toDecimal,
   toNumber,
   type MoneyInput,
 } from '../../../common/money/money';
@@ -32,7 +35,8 @@ const REPLACEMENT_COST_SAMPLE_SIZE = 5;
 export class PurchasesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly exchangeRates: ExchangeRatesService,
+    @Inject(EXCHANGE_RATES_FACADE)
+    private readonly exchangeRates: ExchangeRatesFacade,
     private readonly notifications: NotificationsService,
     private readonly alertEngine: AlertEngineService,
     private readonly i18n: I18nService
@@ -43,19 +47,15 @@ export class PurchasesService {
   private async resolveRate(
     currencyCode: string
   ): Promise<{ rateToUsd: Prisma.Decimal; source: string | null }> {
-    const code = currencyCode.toUpperCase();
-    if (code === 'USD') return { rateToUsd: toDecimal(1), source: null };
-
-    const rate = await this.exchangeRates.findByCode(code);
-    if (!isPositive(rate.rateToUsd)) {
+    const resolved = await this.exchangeRates.resolveRateToUsd(currencyCode);
+    if (!resolved) {
       throw new BadRequestException(
-        this.i18n.t('purchases.invalid_exchange_rate', { args: { code } })
+        this.i18n.t('purchases.invalid_exchange_rate', {
+          args: { code: currencyCode.toUpperCase() },
+        })
       );
     }
-    return {
-      rateToUsd: toDecimal(rate.rateToUsd),
-      source: rate.syncSource ?? rate.source,
-    };
+    return resolved;
   }
 
   async create(commerceId: string, userId: string, dto: CreatePurchaseDto) {

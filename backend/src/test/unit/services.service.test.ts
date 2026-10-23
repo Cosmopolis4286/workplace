@@ -15,7 +15,7 @@ import {
   ReputationFacade,
   REPUTATION_FACADE,
 } from '../../domains/reputation/reputation.facade';
-import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallets.service';
+import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallet.errors';
 import {
   EscrowFacade,
   ESCROW_FACADE,

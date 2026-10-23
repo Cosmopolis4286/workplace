@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ServicesService } from './services.service';
+import { SERVICES_FACADE } from './services.facade';
 import { ServicesController } from './services.controller';
 import { ServiceRequestReminderScheduler } from './service-request-reminder.scheduler';
 import { EscrowRetryScheduler } from './escrow-retry.scheduler';
@@ -26,10 +27,11 @@ import { ReputationModule } from '../../reputation/reputation.module';
   ],
   providers: [
     ServicesService,
+    { provide: SERVICES_FACADE, useExisting: ServicesService },
     ServiceRequestReminderScheduler,
     EscrowRetryScheduler,
   ],
   controllers: [ServicesController],
-  exports: [ServicesService],
+  exports: [ServicesService, SERVICES_FACADE],
 })
 export class ServicesModule {}

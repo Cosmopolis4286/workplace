@@ -22,7 +22,7 @@ import {
   PlanLimitsFacade,
   PLAN_LIMITS_FACADE,
 } from '../../money/plans/plan-limits.facade';
-import { InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
+import { InsufficientEscrowFundsError } from '../../money/wallets/wallet.errors';
 import { EscrowFacade, ESCROW_FACADE } from '../../money/escrow/escrow.facade';
 import {
   ReputationFacade,

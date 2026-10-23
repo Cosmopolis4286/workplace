@@ -1,15 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import {
-  WalletsService,
-  InsufficientEscrowFundsError,
-} from '../../domains/money/wallets/wallets.service';
+import { WalletsService } from '../../domains/money/wallets/wallets.service';
+import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallet.errors';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { WalletPinService } from '../../domains/money/wallets/wallet-pin.service';
 import { WalletLimitsService } from '../../domains/money/wallets/wallet-limits.service';
 import { ModuleRef } from '@nestjs/core';
+import { SERVICES_FACADE } from '../../domains/commerce-core/services/services.facade';
 
 describe('WalletsService — escrow', () => {
   let service: WalletsService;
@@ -267,7 +266,7 @@ describe('WalletsService — escrow', () => {
       await service.deposit(CLIENT_ID, Role.NORMAL, { amount: 100 } as any);
 
       // Fire-and-forget: puede no haberse resuelto aún, pero debe haberse invocado.
-      expect(moduleRef.get).toHaveBeenCalledWith('ServicesService', {
+      expect(moduleRef.get).toHaveBeenCalledWith(SERVICES_FACADE, {
         strict: false,
       });
       expect(retrySpy).toHaveBeenCalledWith(CLIENT_ID);

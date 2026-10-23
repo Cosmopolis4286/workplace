@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@prisma/client';
 import { BusinessReportsService } from '../../domains/platform/reports/business-reports.service';
-import { OrdersService } from '../../domains/operations/orders/orders.service';
-import { ExpensesService } from '../../domains/operations/expenses/expenses.service';
-import { EmployeesService } from '../../domains/commerce-core/employees/employees.service';
-import { ServicesService } from '../../domains/commerce-core/services/services.service';
+import { ORDERS_FACADE } from '../../domains/operations/orders/orders.facade';
+import { EXPENSES_FACADE } from '../../domains/operations/expenses/expenses.facade';
+import { EMPLOYEES_FACADE } from '../../domains/commerce-core/employees/employees.facade';
+import { SERVICES_FACADE } from '../../domains/commerce-core/services/services.facade';
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service';
 import { CapabilitiesService } from '../../common/capabilities/capabilities.service';
 import { PERMISSIONS_FACADE } from '../../domains/identity-access/permissions/permissions.facade';
@@ -42,10 +42,10 @@ describe('BusinessReportsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BusinessReportsService,
-        { provide: OrdersService, useValue: ordersService },
-        { provide: ExpensesService, useValue: expensesService },
-        { provide: EmployeesService, useValue: employeesService },
-        { provide: ServicesService, useValue: servicesService },
+        { provide: ORDERS_FACADE, useValue: ordersService },
+        { provide: EXPENSES_FACADE, useValue: expensesService },
+        { provide: EMPLOYEES_FACADE, useValue: employeesService },
+        { provide: SERVICES_FACADE, useValue: servicesService },
         {
           provide: CommerceResolverService,
           useValue: { resolve: jest.fn().mockResolvedValue('commerce-123') },

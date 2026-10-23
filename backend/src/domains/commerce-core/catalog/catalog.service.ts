@@ -16,7 +16,7 @@ import {
   PlatformFeesFacade,
   PLATFORM_FEES_FACADE,
 } from '../../money/platform-fees/platform-fees.facade';
-import { InsufficientEscrowFundsError } from '../../money/wallets/wallets.service';
+import { InsufficientEscrowFundsError } from '../../money/wallets/wallet.errors';
 import { v4 as uuidv4 } from 'uuid';
 import {
   add,

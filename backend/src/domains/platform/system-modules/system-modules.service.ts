@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import type { SystemModule } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { SystemModulesFacade } from './system-modules.facade';
@@ -27,7 +28,7 @@ export class SystemModulesService implements SystemModulesFacade {
    * /plans/modules/catalog (labels para selects de módulos en todo el
    * frontend) y PlanLimitsService (subset isBusinessModule=true).
    */
-  async listAll() {
+  async listAll(): Promise<SystemModule[]> {
     const cached = await this.redis.get(CATALOG_CACHE_KEY);
     if (cached) return JSON.parse(cached);
 
