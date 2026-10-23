@@ -141,13 +141,18 @@ export class PaymentsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.externalPaymentIntent.update({
-        where: { id },
+      // Compare-and-swap protects against concurrent/out-of-order webhook workers.
+      const changed = await tx.externalPaymentIntent.updateMany({
+        where: { id, status: current.status },
         data: {
           status: nextStatus, providerStatus, failureCode, failureMessage,
           succeededAt: nextStatus === ExternalPaymentStatus.SUCCEEDED ? new Date() : undefined,
         },
       });
+      if (changed.count !== 1) {
+        throw new ConflictException('El estado del pago cambió en paralelo; debe reconciliarse');
+      }
+      const updated = await tx.externalPaymentIntent.findUniqueOrThrow({ where: { id } });
       if (nextStatus === ExternalPaymentStatus.SUCCEEDED) {
         await tx.externalPaymentCommission.updateMany({
           where: { paymentIntentId: id, status: ExternalCommissionStatus.PENDING },
