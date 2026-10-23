@@ -4,7 +4,9 @@ import {
 } from '@nestjs/common';
 import { CatalogOrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CatalogOrderPaymentSourceResolver } from './catalog-order-payment-source.resolver';
+import {
+  CatalogOrderPaymentSourceResolver,
+} from './catalog-order-payment-source.resolver';
 
 describe('CatalogOrderPaymentSourceResolver', () => {
   const order = {
@@ -31,7 +33,9 @@ describe('CatalogOrderPaymentSourceResolver', () => {
     });
   });
 
-  it('derives amount, currency and seller from persisted records', async () => {
+  it(
+    'derives amount, currency and seller from persisted records',
+    async () => {
     await expect(resolver.resolve('order-1', 'buyer-1')).resolves.toEqual({
       sourceType: 'CATALOG_ORDER',
       sourceId: 'order-1',
@@ -42,7 +46,8 @@ describe('CatalogOrderPaymentSourceResolver', () => {
       description: 'Pedido de catálogo - Tienda Uno',
       quoteVersion: CatalogOrderStatus.PENDING,
     });
-  });
+    }
+  );
 
   it('rejects unknown orders', async () => {
     (prisma.catalogOrder.findUnique as jest.Mock).mockResolvedValue(null);
