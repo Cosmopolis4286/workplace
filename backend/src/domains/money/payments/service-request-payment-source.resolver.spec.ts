@@ -1,12 +1,5 @@
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
-import {
-  EscrowStatus,
-  Prisma,
-  ServiceRequestStatus,
-} from '@prisma/client';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { EscrowStatus, Prisma, ServiceRequestStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ServiceRequestPaymentSourceResolver } from './service-request-payment-source.resolver';
 
