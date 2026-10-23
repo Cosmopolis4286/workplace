@@ -1,4 +1,8 @@
-import { ExternalPaymentProvider, ExternalPaymentStatus, ExternalSettlementMode } from '@prisma/client';
+import {
+  ExternalPaymentProvider,
+  ExternalPaymentStatus,
+  ExternalSettlementMode,
+} from '@prisma/client';
 
 export interface CreateProviderCheckoutInput {
   paymentIntentId: string;
@@ -10,6 +14,7 @@ export interface CreateProviderCheckoutInput {
   webhookUrl: string;
   metadata?: Record<string, string>;
 }
+
 export interface ProviderCheckoutResult {
   providerPaymentId: string;
   checkoutUrl?: string;
@@ -17,6 +22,7 @@ export interface ProviderCheckoutResult {
   expiresAt?: Date;
   rawResponse?: unknown;
 }
+
 export interface VerifiedProviderEvent {
   provider: ExternalPaymentProvider;
   providerEventId: string;
@@ -27,6 +33,7 @@ export interface VerifiedProviderEvent {
   signatureVerified: true;
   payload: Record<string, unknown>;
 }
+
 export interface ProviderCapabilities {
   checkout: boolean;
   verifiedWebhooks: boolean;
@@ -37,11 +44,26 @@ export interface ProviderCapabilities {
   settlementCurrencies: Array<'VES' | 'USD'>;
   settlementMode: ExternalSettlementMode[];
 }
+
 /** Implement signature and response semantics from each vendor's current API contract. */
 export interface PaymentProviderAdapter {
   readonly provider: ExternalPaymentProvider;
   readonly capabilities: ProviderCapabilities;
-  createCheckout(input: CreateProviderCheckoutInput): Promise<ProviderCheckoutResult>;
-  verifyAndParseWebhook(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): Promise<VerifiedProviderEvent>;
-  refund(input: { providerPaymentId: string; amount: string; currency: 'VES' | 'USD'; idempotencyKey: string; reason: string }): Promise<{ providerRefundId?: string; status: 'PROCESSING' | 'SUCCEEDED' }>;
+  createCheckout(
+    input: CreateProviderCheckoutInput,
+  ): Promise<ProviderCheckoutResult>;
+  verifyAndParseWebhook(
+    rawBody: Buffer,
+    headers: Record<string, string | string[] | undefined>,
+  ): Promise<VerifiedProviderEvent>;
+  refund(input: {
+    providerPaymentId: string;
+    amount: string;
+    currency: 'VES' | 'USD';
+    idempotencyKey: string;
+    reason: string;
+  }): Promise<{
+    providerRefundId?: string;
+    status: 'PROCESSING' | 'SUCCEEDED';
+  }>;
 }

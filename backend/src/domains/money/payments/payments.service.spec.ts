@@ -7,7 +7,14 @@ import {
 import { PaymentsService } from './payments.service';
 
 describe('PaymentsService', () => {
-  const makeInput = (overrides: Partial<{ currency: 'VES' | 'USD'; commissionPayer: FeePayer; settlementMode: ExternalSettlementMode; collectionMode: ExternalCommissionCollectionMode }> = {}) => ({
+  const makeInput = (
+    overrides: Partial<{
+      currency: 'VES' | 'USD';
+      commissionPayer: FeePayer;
+      settlementMode: ExternalSettlementMode;
+      collectionMode: ExternalCommissionCollectionMode;
+    }> = {},
+  ) => ({
     idempotencyKey: 'order-1-attempt-1',
     sourceType: 'ORDER',
     sourceId: 'order-1',
