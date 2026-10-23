@@ -49,7 +49,9 @@ export function assertResolvedPaymentSource(
     !resolved.description?.trim() ||
     (resolved.currency !== 'VES' && resolved.currency !== 'USD')
   ) {
-    throw new BadRequestException('El origen no devolvió datos de pago válidos');
+    throw new BadRequestException(
+      'El origen no devolvió datos de pago válidos'
+    );
   }
 
   // Decimal validation stays provider-independent and avoids JS floating point.
@@ -58,7 +60,9 @@ export function assertResolvedPaymentSource(
   }
   const [whole, fraction = ''] = resolved.baseAmount.split('.');
   if (whole === '0' && Number(fraction || '0') === 0) {
-    throw new BadRequestException('El importe del origen debe ser positivo');
+    throw new BadRequestException(
+      'El importe del origen debe ser positivo'
+    );
   }
 
   return resolved;
