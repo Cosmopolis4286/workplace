@@ -167,8 +167,23 @@ La regla dura de validación (`passwordStrength()`) y el score 0-4 que alimenta 
 ## Fuera de alcance de esta pasada
 
 - **Rediseño completo de `middleware/auth.ts`** hacia `definePageMeta` por página: el guard mantiene listas estáticas (`KNOWN_PROTECTED_ROUTES`, `ADMIN_ONLY_ROUTES`, etc.) con riesgo documentado de "fail open" si una ruta nueva no se agrega a ninguna lista. Es un cambio de alto esfuerzo/alto riesgo que toca decenas de páginas — se resolvió únicamente la duplicación puntual y confirmada con `/menu` (hallazgo #11), no la arquitectura completa.
-- **Blacklist de JWT fail-open en Redis**: decisión consciente y razonable (disponibilidad sobre estrictez) — documentada, no cambiada. Sugerencia pendiente: alertar cuando Redis esté caído y haya blacklist checks fallando.
+- **Blacklist de JWT en Redis**: actualizado en la revisión del 2026-10-24. Si Redis no permite verificar el estado de revocación, la estrategia JWT ahora rechaza la autenticación con `503 Service Unavailable` en vez de aceptar el token (fail-closed). Esto prioriza seguridad sobre disponibilidad y requiere alertas operativas para detectar interrupciones de Redis.
 - **Consulta a DB en el hot path cuando no hay sesión Redis** (`checkValidRefreshTokens` en `jwt.strategy.ts`): de bajo impacto en tráfico normal, relevante solo si Redis se vaciara con muchos usuarios activos simultáneos. No se tocó en esta pasada.
+
+---
+
+## Endurecimiento adicional de autenticación — 2026-10-24
+
+En el PR #36 se agregaron los siguientes cambios, pendientes de validación por CI antes de merge:
+
+1. **Rotación atómica de refresh tokens**: el token anterior se consume con un `updateMany` condicional (`revokedAt: null`, usuario y expiración) y el reemplazo se crea en la misma transacción Prisma. Si dos solicitudes compiten, solo una puede consumir el token; si crear el reemplazo falla, la transacción revierte la revocación.
+2. **Estado de cuenta**: no se emiten tokens nuevos para cuentas inactivas durante el refresh.
+3. **Claims requeridos**: las estrategias JWT rechazan tokens sin `sub` y `jti` válidos.
+4. **Revocación fail-closed**: un fallo de Redis al consultar la blacklist ya no se trata como “token no revocado”.
+5. **Mitigación CSRF por Origin**: las peticiones mutables que usan cookies o incluyen un `Origin` deben venir de un origen permitido; se conserva el acceso de clientes nativos/API sin cookies y sin `Origin`.
+6. **Pruebas nuevas**: rotación exitosa, carrera de refresh y cuenta inactiva.
+
+**Validación pendiente:** esta revisión se hizo mediante GitHub; no se ejecutaron localmente Jest, type-check, lint ni build. No considerar el PR listo para merge hasta que CI esté verde y se revisen los casos de CORS/CSRF en los entornos reales.
 
 ---
 
