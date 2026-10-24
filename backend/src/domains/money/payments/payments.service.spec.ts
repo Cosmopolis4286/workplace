@@ -76,10 +76,10 @@ describe('PaymentsService', () => {
     async (_label, overrides) => {
       const existing = existingIntent();
       const prisma = {
-      externalPaymentIntent: {
-        findUnique: jest.fn().mockResolvedValue(existing),
-      },
-    } as any;
+        externalPaymentIntent: {
+          findUnique: jest.fn().mockResolvedValue(existing),
+        },
+      } as any;
       const service = new PaymentsService(prisma);
 
       await expect(
@@ -93,22 +93,22 @@ describe('PaymentsService', () => {
     async () => {
       const existing = existingIntent();
       const prisma = {
-      externalPaymentIntent: {
-        findUnique: jest
+        externalPaymentIntent: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(existing),
+        },
+        $transaction: jest
           .fn()
-          .mockResolvedValueOnce(null)
-          .mockResolvedValueOnce(existing),
-      },
-      $transaction: jest
-        .fn()
-        .mockRejectedValue(
-          new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
-            code: 'P2002',
-            clientVersion: 'test',
-            meta: { target: ['idempotencyKey'] },
-          }),
-        ),
-    } as any;
+          .mockRejectedValue(
+            new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+              code: 'P2002',
+              clientVersion: 'test',
+              meta: { target: ['idempotencyKey'] },
+            }),
+          ),
+      } as any;
       const service = new PaymentsService(prisma);
 
       await expect(service.prepareIntent(makeInput())).resolves.toBe(existing);
@@ -128,8 +128,8 @@ describe('PaymentsService', () => {
   it(
     'rejects a split configuration that claims unsupported automatic collection',
     async () => {
-    const prisma = {} as any;
-    const service = new PaymentsService(prisma);
+      const prisma = {} as any;
+      const service = new PaymentsService(prisma);
 
       await expect(
         service.prepareIntent(
