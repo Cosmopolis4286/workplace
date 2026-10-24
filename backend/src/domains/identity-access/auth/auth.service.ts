@@ -487,7 +487,12 @@ export class AuthService {
     }
 
     // Do not rotate credentials for a deleted, disabled, or suspended account.
-    const user = await this.usersService.findById(userId);
+    // Read account state directly from the database, not the user cache:
+    // disabling an account must take effect immediately for refresh requests.
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, role: true, isActive: true },
+    });
     if (!user || !user.isActive) {
       throw new ForbiddenException(this.i18n.t('auth.refresh.invalid_token'));
     }
