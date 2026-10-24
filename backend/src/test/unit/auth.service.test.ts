@@ -281,7 +281,7 @@ describe('AuthService', () => {
             }),
           })
         );
-      }
+      },
     );
 
     it(
@@ -296,7 +296,7 @@ describe('AuthService', () => {
         ).rejects.toThrow();
 
         expect(mockPrismaService.refreshToken.create).not.toHaveBeenCalled();
-      }
+      },
     );
 
     it(
@@ -314,7 +314,7 @@ describe('AuthService', () => {
         ).rejects.toThrow();
 
         expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
-      }
+      },
     );
   });
 
