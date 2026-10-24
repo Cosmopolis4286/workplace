@@ -174,7 +174,9 @@ describe('PaymentsService', () => {
         },
       };
       const prisma = {
-        externalPaymentIntent: { findUnique: jest.fn().mockResolvedValue(null) },
+        externalPaymentIntent: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
         $transaction: jest.fn((callback: (tx: any) => unknown) => callback(tx)),
       } as any;
       const service = new PaymentsService(prisma);
