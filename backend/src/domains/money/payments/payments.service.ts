@@ -99,7 +99,7 @@ export class PaymentsService {
         await tx.externalPaymentCommission.create({
           data: {
             paymentIntentId: intent.id,
-            sellerUserId: input.sellerUserId,
+            sellerUserId: input.sellerUserId.trim(),
             currency: input.currency,
             baseAmount: base,
             feeAmount: fee,
