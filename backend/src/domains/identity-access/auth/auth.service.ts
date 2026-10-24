@@ -513,10 +513,22 @@ export class AuthService {
     // on revokedAt=null; exactly one can win. If inserting the new token fails,
     // the transaction rolls the revocation back as well.
     const now = new Date();
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    const expiresIn = this.config.get('JWT_REFRESH_EXPIRES_IN', '7d');
+    // Preserve the session's original lifetime policy (e.g. remember-me 7d
+    // versus browser-session 1d) when sliding the refresh window.
+    const refreshLifetimeSeconds = Math.max(
+      1,
+      Math.floor(
+        (stored.expiresAt.getTime() - stored.createdAt.getTime()) / 1000
+      )
+    );
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      refreshLifetimeSeconds
+    );
     const replacementId = uuidv4();
-    const expiresAt = new Date(Date.now() + this.parseDuration(expiresIn));
+    const expiresAt = new Date(Date.now() + refreshLifetimeSeconds * 1000);
 
     const consumed = await this.prisma.$transaction(async (tx) => {
       const result = await tx.refreshToken.updateMany({
@@ -997,7 +1009,7 @@ export class AuthService {
     userId: string,
     email: string,
     role: Role,
-    refreshExpiresIn?: string
+    refreshExpiresIn?: string | number
   ) {
     const jti = uuidv4();
 
