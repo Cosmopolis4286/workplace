@@ -89,8 +89,15 @@ async function bootstrap() {
     const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
     const origin = req.headers.origin as string | undefined;
 
-    if (isStateChanging && origin) {
-      if (!allowedOrigins.includes(origin) && !(isDev && isPrivateLan(origin))) {
+    const usesCookieAuth = Boolean(
+      req.cookies?.access_token || req.cookies?.refresh_token
+    );
+
+    if (isStateChanging && (origin || usesCookieAuth)) {
+      if (
+        !origin ||
+        (!allowedOrigins.includes(origin) && !(isDev && isPrivateLan(origin)))
+      ) {
         res.status(403).json({
           statusCode: 403,
           error: 'Forbidden',
