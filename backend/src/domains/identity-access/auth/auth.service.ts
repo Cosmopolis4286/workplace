@@ -486,24 +486,60 @@ export class AuthService {
       }
     }
 
-    // Rotate: delete old, issue new
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() },
+    // Do not rotate credentials for a deleted, disabled, or suspended account.
+    const user = await this.usersService.findById(userId);
+    if (!user || !user.isActive) {
+      throw new ForbiddenException(this.i18n.t('auth.refresh.invalid_token'));
+    }
+
+    // Prepare the replacement, then consume the old token with a conditional
+    // update inside the same DB transaction. Concurrent refresh requests race
+    // on revokedAt=null; exactly one can win. If inserting the new token fails,
+    // the transaction rolls the revocation back as well.
+    const now = new Date();
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const expiresIn = this.config.get('JWT_REFRESH_EXPIRES_IN', '7d');
+    const replacementId = uuidv4();
+    const expiresAt = new Date(Date.now() + this.parseDuration(expiresIn));
+
+    const consumed = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.refreshToken.updateMany({
+        where: {
+          id: stored.id,
+          userId,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { revokedAt: now, replacedByTokenId: replacementId },
+      });
+
+      if (result.count !== 1) return false;
+
+      await tx.refreshToken.create({
+        data: {
+          id: replacementId,
+          token: hashToken(tokens.refreshToken),
+          userId,
+          expiresAt,
+          ipAddress: securityContext?.ipAddress ?? stored.ipAddress,
+          deviceInfo: securityContext?.userAgent ?? stored.deviceInfo,
+          replacedByTokenId: null,
+          jti: tokens.jti,
+        },
+      });
+      return true;
     });
 
-    const user = await this.usersService.findById(userId);
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(
-      user.id,
-      tokens.refreshToken,
-      securityContext,
-      stored.id,
-      undefined,
-      tokens.jti
-    );
+    if (!consumed) {
+      await this.logSecurityEvent(userId, 'REFRESH_TOKEN_REUSE_OR_RACE', {
+        refreshTokenId: stored.id,
+      }).catch((error) =>
+        this.logger.warn('Could not record refresh-token reuse event', error)
+      );
+      throw new ForbiddenException(this.i18n.t('auth.refresh.invalid_token'));
+    }
 
-    // Actualizar sesión
+    // Actualizar sesión solo después de que la rotación se haya confirmado.
     if (securityContext) {
       await this.updateUserSession(userId, securityContext);
     }
