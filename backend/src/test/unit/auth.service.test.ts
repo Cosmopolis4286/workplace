@@ -29,7 +29,10 @@ describe('AuthService', () => {
     },
     refreshToken: {
       create: jest.fn(),
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   const mockJwtService = {
@@ -204,6 +207,102 @@ describe('AuthService', () => {
       mockRedisService.getLoginAttempts.mockResolvedValue(5);
 
       await expect(service.login(loginDto)).rejects.toThrow();
+    });
+  });
+
+  describe('refreshTokens rotation security', () => {
+    const storedToken = {
+      id: 'old-token-id',
+      userId: 'user-1',
+      token: 'hashed-old-token',
+      createdAt: new Date(Date.now() - 60_000),
+      expiresAt: new Date(Date.now() + 60_000),
+      revokedAt: null,
+      ipAddress: null,
+      deviceInfo: null,
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue(storedToken);
+      mockPrismaService.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.$transaction.mockImplementation((callback) =>
+        callback({
+          refreshToken: {
+            updateMany: mockPrismaService.refreshToken.updateMany,
+            create: mockPrismaService.refreshToken.create,
+          },
+        })
+      );
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        role: 'USER',
+        isActive: true,
+      });
+      mockJwtService.sign
+        .mockReturnValueOnce('new-access-token')
+        .mockReturnValueOnce('new-refresh-token');
+      mockPrismaService.refreshToken.create.mockResolvedValue({});
+    });
+
+    it('consumes the previous token conditionally and creates its replacement in one transaction', async () => {
+      const result = await service.refreshTokens('user-1', 'old-refresh-token');
+
+      expect(result).toMatchObject({
+        accessToken: 'new-access-token',
+        refreshToken: 'new-refresh-token',
+      });
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'old-token-id',
+            userId: 'user-1',
+            revokedAt: null,
+            expiresAt: expect.objectContaining({ gt: expect.any(Date) }),
+          }),
+          data: expect.objectContaining({
+            revokedAt: expect.any(Date),
+            replacedByTokenId: expect.any(String),
+          }),
+        })
+      );
+      expect(mockPrismaService.refreshToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: 'user-1',
+            token: expect.any(String),
+          }),
+        })
+      );
+    });
+
+    it('rejects a concurrent refresh when another request already consumed the token', async () => {
+      mockPrismaService.refreshToken.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(
+        service.refreshTokens('user-1', 'old-refresh-token')
+      ).rejects.toThrow();
+
+      expect(mockPrismaService.refreshToken.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects refresh for an inactive account before rotating credentials', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        role: 'USER',
+        isActive: false,
+      });
+
+      await expect(
+        service.refreshTokens('user-1', 'old-refresh-token')
+      ).rejects.toThrow();
+
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
     });
   });
 

@@ -458,6 +458,17 @@ export class AuthService {
       where: { token: hashToken(oldRefreshToken) },
     });
 
+    if (stored?.revokedAt && stored.userId === userId) {
+      // A revoked token being presented again can indicate replay. Record it,
+      // but do not log the raw token or treat every concurrent request as proof
+      // of account compromise.
+      await this.logSecurityEvent(userId, 'REVOKED_REFRESH_TOKEN_REUSE', {
+        refreshTokenId: stored.id,
+      }).catch(() =>
+        this.logger.warn('Could not record revoked refresh-token reuse')
+      );
+    }
+
     if (
       !stored ||
       stored.userId !== userId ||
@@ -486,24 +497,77 @@ export class AuthService {
       }
     }
 
-    // Rotate: delete old, issue new
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() },
+    // Do not rotate credentials for a deleted, disabled, or suspended account.
+    // Read account state directly from the database, not the user cache:
+    // disabling an account must take effect immediately for refresh requests.
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, role: true, isActive: true },
+    });
+    if (!user || !user.isActive) {
+      throw new ForbiddenException(this.i18n.t('auth.refresh.invalid_token'));
+    }
+
+    // Prepare the replacement, then consume the old token with a conditional
+    // update inside the same DB transaction. Concurrent refresh requests race
+    // on revokedAt=null; exactly one can win. If inserting the new token fails,
+    // the transaction rolls the revocation back as well.
+    const now = new Date();
+    // Preserve the session's original lifetime policy (e.g. remember-me 7d
+    // versus browser-session 1d) when sliding the refresh window.
+    const refreshLifetimeSeconds = Math.max(
+      1,
+      Math.floor(
+        (stored.expiresAt.getTime() - stored.createdAt.getTime()) / 1000
+      )
+    );
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      refreshLifetimeSeconds
+    );
+    const replacementId = uuidv4();
+    const expiresAt = new Date(Date.now() + refreshLifetimeSeconds * 1000);
+
+    const consumed = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.refreshToken.updateMany({
+        where: {
+          id: stored.id,
+          userId,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { revokedAt: now, replacedByTokenId: replacementId },
+      });
+
+      if (result.count !== 1) return false;
+
+      await tx.refreshToken.create({
+        data: {
+          id: replacementId,
+          token: hashToken(tokens.refreshToken),
+          userId,
+          expiresAt,
+          ipAddress: securityContext?.ipAddress ?? stored.ipAddress,
+          deviceInfo: securityContext?.userAgent ?? stored.deviceInfo,
+          replacedByTokenId: null,
+          jti: tokens.jti,
+        },
+      });
+      return true;
     });
 
-    const user = await this.usersService.findById(userId);
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(
-      user.id,
-      tokens.refreshToken,
-      securityContext,
-      stored.id,
-      undefined,
-      tokens.jti
-    );
+    if (!consumed) {
+      await this.logSecurityEvent(userId, 'REFRESH_TOKEN_REUSE_OR_RACE', {
+        refreshTokenId: stored.id,
+      }).catch((error) =>
+        this.logger.warn('Could not record refresh-token reuse event', error)
+      );
+      throw new ForbiddenException(this.i18n.t('auth.refresh.invalid_token'));
+    }
 
-    // Actualizar sesión
+    // Actualizar sesión solo después de que la rotación se haya confirmado.
     if (securityContext) {
       await this.updateUserSession(userId, securityContext);
     }
@@ -945,7 +1009,7 @@ export class AuthService {
     userId: string,
     email: string,
     role: Role,
-    refreshExpiresIn?: string
+    refreshExpiresIn?: string | number
   ) {
     const jti = uuidv4();
 

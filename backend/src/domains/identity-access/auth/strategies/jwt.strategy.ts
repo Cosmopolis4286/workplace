@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
@@ -35,8 +36,20 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     req: any,
     payload: { sub: string; email: string; jti: string }
   ) {
-    const userId = payload.sub;
-    const jti = payload.jti;
+    const userId = payload?.sub;
+    const jti = payload?.jti;
+
+    // Never accept a signed JWT without the identifiers required by our
+    // revocation/session model. A valid signature alone is not enough.
+    if (
+      typeof userId !== 'string' ||
+      userId.length === 0 ||
+      typeof jti !== 'string' ||
+      jti.length < 16 ||
+      jti.length > 128
+    ) {
+      throw new UnauthorizedException('Token inválido');
+    }
 
     // 1. Validar token en blacklist (logout forzado)
     if (await this.isTokenBlacklisted(jti)) {
@@ -178,12 +191,15 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   private async isTokenBlacklisted(jti: string): Promise<boolean> {
     try {
       return await this.redis.isTokenBlacklisted(jti);
-    } catch (error) {
+    } catch {
+      // Fail closed: if revocation state cannot be checked, do not authenticate
+      // the request. A temporary Redis outage must not resurrect logged-out JWTs.
       this.logger.error(
-        `Error checking token blacklist for JTI ${jti}:`,
-        error
+        'Unable to verify JWT revocation state; rejecting request'
       );
-      return false; // Fail open si hay error
+      throw new ServiceUnavailableException(
+        'Servicio de autenticación temporalmente no disponible'
+      );
     }
   }
 
