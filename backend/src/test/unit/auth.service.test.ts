@@ -43,7 +43,6 @@ describe('AuthService', () => {
   const mockUsersService = {
     create: jest.fn(),
     findByEmail: jest.fn(),
-    findById: jest.fn(),
     validatePassword: jest.fn(),
   };
 
@@ -216,6 +215,7 @@ describe('AuthService', () => {
       id: 'old-token-id',
       userId: 'user-1',
       token: 'hashed-old-token',
+      createdAt: new Date(Date.now() - 60_000),
       expiresAt: new Date(Date.now() + 60_000),
       revokedAt: null,
       ipAddress: null,
