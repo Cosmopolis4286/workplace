@@ -86,7 +86,9 @@ async function bootstrap() {
   // authentication should only be used by trusted browser origins.
   app.use((req: any, res: any, next: () => void) => {
     const method = String(req.method || 'GET').toUpperCase();
-    const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(
+      method
+    );
     const origin = req.headers.origin as string | undefined;
 
     const usesCookieAuth = Boolean(
