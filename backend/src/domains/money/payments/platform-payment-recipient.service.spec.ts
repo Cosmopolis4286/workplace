@@ -68,28 +68,33 @@ describe('PlatformPaymentRecipientService', () => {
   ])(
     'fails closed when the recipient is not verified and usable: %o',
     async (patch) => {
-    (prisma.platformPaymentRecipient.findUnique as jest.Mock).mockResolvedValue({
-      provider: ExternalPaymentProvider.VEXPAY,
-      currency: 'USD',
-      environment: PlatformPaymentEnvironment.SANDBOX,
-      recipientReference: 'merchant-account-reference',
-      displayName: 'WorkPlace',
-      isEnabled: true,
-      verifiedAt: new Date('2026-10-24T12:00:00.000Z'),
-      ...patch,
-    });
-
-    await expect(
-      service.resolve({
+      (
+        prisma.platformPaymentRecipient.findUnique as jest.Mock
+      ).mockResolvedValue({
         provider: ExternalPaymentProvider.VEXPAY,
         currency: 'USD',
         environment: PlatformPaymentEnvironment.SANDBOX,
-      }),
-    ).rejects.toThrow(ServiceUnavailableException);
-  });
+        recipientReference: 'merchant-account-reference',
+        displayName: 'WorkPlace',
+        isEnabled: true,
+        verifiedAt: new Date('2026-10-24T12:00:00.000Z'),
+        ...patch,
+      });
+
+      await expect(
+        service.resolve({
+          provider: ExternalPaymentProvider.VEXPAY,
+          currency: 'USD',
+          environment: PlatformPaymentEnvironment.SANDBOX,
+        }),
+      ).rejects.toThrow(ServiceUnavailableException);
+    },
+  );
 
   it('fails closed when no destination is configured', async () => {
-    (prisma.platformPaymentRecipient.findUnique as jest.Mock).mockResolvedValue(null);
+    (
+      prisma.platformPaymentRecipient.findUnique as jest.Mock
+    ).mockResolvedValue(null);
 
     await expect(
       service.resolve({
@@ -103,15 +108,17 @@ describe('PlatformPaymentRecipientService', () => {
   it(
     'rejects currencies outside the supported set without querying the database',
     async () => {
-    await expect(
-      service.resolve({
-        provider: ExternalPaymentProvider.VEXPAY,
-        currency: 'EUR',
-        environment: PlatformPaymentEnvironment.SANDBOX,
-      }),
-    ).rejects.toThrow(ServiceUnavailableException);
+      await expect(
+        service.resolve({
+          provider: ExternalPaymentProvider.VEXPAY,
+          currency: 'EUR',
+          environment: PlatformPaymentEnvironment.SANDBOX,
+        }),
+      ).rejects.toThrow(ServiceUnavailableException);
 
-      expect(prisma.platformPaymentRecipient.findUnique).not.toHaveBeenCalled();
+      expect(
+        prisma.platformPaymentRecipient.findUnique,
+      ).not.toHaveBeenCalled();
     },
   );
 });
