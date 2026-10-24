@@ -65,7 +65,9 @@ describe('PlatformPaymentRecipientService', () => {
     { isEnabled: false },
     { verifiedAt: null },
     { recipientReference: '  ' },
-  ])('fails closed when the recipient is not verified and usable: %o', async (patch) => {
+  ])(
+    'fails closed when the recipient is not verified and usable: %o',
+    async (patch) => {
     (prisma.platformPaymentRecipient.findUnique as jest.Mock).mockResolvedValue({
       provider: ExternalPaymentProvider.VEXPAY,
       currency: 'USD',
@@ -98,7 +100,9 @@ describe('PlatformPaymentRecipientService', () => {
     ).rejects.toThrow(ServiceUnavailableException);
   });
 
-  it('rejects currencies outside the supported set without querying the database', async () => {
+  it(
+    'rejects currencies outside the supported set without querying the database',
+    async () => {
     await expect(
       service.resolve({
         provider: ExternalPaymentProvider.VEXPAY,
@@ -107,6 +111,7 @@ describe('PlatformPaymentRecipientService', () => {
       }),
     ).rejects.toThrow(ServiceUnavailableException);
 
-    expect(prisma.platformPaymentRecipient.findUnique).not.toHaveBeenCalled();
-  });
+      expect(prisma.platformPaymentRecipient.findUnique).not.toHaveBeenCalled();
+    },
+  );
 });
