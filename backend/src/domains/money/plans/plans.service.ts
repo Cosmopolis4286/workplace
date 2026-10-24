@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   NotFoundException,
   ConflictException,
   ForbiddenException,
@@ -197,6 +198,7 @@ export class PlansService {
         endAt,
         trialEnds: dto.trialEnds ? new Date(dto.trialEnds) : undefined,
         pricePaid: dto.pricePaid ?? plan.price,
+        currency: plan.currency,
         assignedBy: adminId,
         notes: dto.notes,
       },
@@ -232,6 +234,12 @@ export class PlansService {
     ) as BillingInterval;
 
     if (isPositive(plan.price)) {
+      if (plan.currency !== 'VES' && plan.currency !== 'USD') {
+        throw new BadRequestException(
+          'El plan no tiene una moneda de pago configurada (VES o USD)',
+        );
+      }
+
       const existingPending = await this.prisma.subscription.findFirst({
         where: { userId, status: 'PENDING' },
       });
@@ -248,6 +256,7 @@ export class PlansService {
           status: 'PENDING',
           interval,
           pricePaid: plan.price,
+          currency: plan.currency,
           assignedBy: userId,
         },
         include: { plan: true },
@@ -274,6 +283,7 @@ export class PlansService {
         startAt,
         endAt,
         pricePaid: 0,
+        currency: plan.currency,
         assignedBy: userId,
       },
       include: { plan: true },
@@ -333,6 +343,7 @@ export class PlansService {
           endAt,
           trialEnds: endAt,
           pricePaid: 0,
+          currency: plan.currency,
           assignedBy: userId,
           notes: 'Prueba gratuita autoservicio de 7 días',
         },
@@ -392,6 +403,7 @@ export class PlansService {
         startAt,
         endAt,
         pricePaid: plan.price,
+        currency: plan.currency,
         assignedBy: adminId,
       },
       include: { plan: true },
