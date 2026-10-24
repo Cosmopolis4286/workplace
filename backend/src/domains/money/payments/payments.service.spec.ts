@@ -122,12 +122,12 @@ describe('PaymentsService', () => {
   it(
     'rejects unsupported currencies before touching the database',
     async () => {
-      const prisma = {} as any;
-      const service = new PaymentsService(prisma);
+    const prisma = {} as any;
+    const service = new PaymentsService(prisma);
 
-      await expect(
-        service.prepareIntent(makeInput({ currency: 'EUR' as any })),
-      ).rejects.toThrow('Moneda no admitida');
+    await expect(
+      service.prepareIntent(makeInput({ currency: 'EUR' as any })),
+    ).rejects.toThrow('Moneda no admitida');
     },
   );
 
@@ -151,63 +151,63 @@ describe('PaymentsService', () => {
   it(
     'calculates provider-paid commission using decimal arithmetic',
     async () => {
-      const intent = { id: 'intent-1' };
-      const tx = {
-        externalPaymentIntent: {
-          create: jest.fn().mockResolvedValue(intent),
-          findUniqueOrThrow: jest.fn().mockResolvedValue({
-            ...intent,
-            amount: '100.00',
-            commissionAmount: '8.00',
-            sellerNetAmount: '92.00',
-            commission: { feeAmount: '8.00' },
-          }),
-        },
-        externalPaymentCommission: {
-          create: jest.fn().mockResolvedValue({ id: 'commission-1' }),
-        },
-      };
-      const prisma = {
-        externalPaymentIntent: { findUnique: jest.fn().mockResolvedValue(null) },
-        $transaction: jest.fn((callback: (tx: any) => unknown) => callback(tx)),
-      } as any;
-      const service = new PaymentsService(prisma);
+    const intent = { id: 'intent-1' };
+    const tx = {
+      externalPaymentIntent: {
+        create: jest.fn().mockResolvedValue(intent),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          ...intent,
+          amount: '100.00',
+          commissionAmount: '8.00',
+          sellerNetAmount: '92.00',
+          commission: { feeAmount: '8.00' },
+        }),
+      },
+      externalPaymentCommission: {
+        create: jest.fn().mockResolvedValue({ id: 'commission-1' }),
+      },
+    };
+    const prisma = {
+      externalPaymentIntent: { findUnique: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn((callback: (tx: any) => unknown) => callback(tx)),
+    } as any;
+    const service = new PaymentsService(prisma);
 
-      const result = await service.prepareIntent(makeInput());
+    const result = await service.prepareIntent(makeInput());
 
-      expect(tx.externalPaymentIntent.create).toHaveBeenCalledTimes(1);
-      const created = tx.externalPaymentIntent.create.mock.calls[0][0].data;
-      expect(created.amount.toFixed(2)).toBe('100.00');
-      expect(created.commissionAmount.toFixed(2)).toBe('8.00');
-      expect(created.sellerNetAmount.toFixed(2)).toBe('92.00');
-      expect(result).toBeDefined();
+    expect(tx.externalPaymentIntent.create).toHaveBeenCalledTimes(1);
+    const created = tx.externalPaymentIntent.create.mock.calls[0][0].data;
+    expect(created.amount.toFixed(2)).toBe('100.00');
+    expect(created.commissionAmount.toFixed(2)).toBe('8.00');
+    expect(created.sellerNetAmount.toFixed(2)).toBe('92.00');
+    expect(result).toBeDefined();
     },
   );
 
   it(
     'adds client-paid commission to the checkout amount',
     async () => {
-      const tx = {
-        externalPaymentIntent: {
-          create: jest.fn().mockResolvedValue({ id: 'intent-2' }),
-          findUniqueOrThrow: jest.fn().mockResolvedValue({ id: 'intent-2' }),
-        },
-        externalPaymentCommission: { create: jest.fn().mockResolvedValue({}) },
-      };
-      const prisma = {
-        externalPaymentIntent: { findUnique: jest.fn().mockResolvedValue(null) },
-        $transaction: jest.fn((callback: (tx: any) => unknown) => callback(tx)),
-      } as any;
-      const service = new PaymentsService(prisma);
+    const tx = {
+      externalPaymentIntent: {
+        create: jest.fn().mockResolvedValue({ id: 'intent-2' }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ id: 'intent-2' }),
+      },
+      externalPaymentCommission: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const prisma = {
+      externalPaymentIntent: { findUnique: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn((callback: (tx: any) => unknown) => callback(tx)),
+    } as any;
+    const service = new PaymentsService(prisma);
 
-      await service.prepareIntent(
-        makeInput({ commissionPayer: FeePayer.CLIENT }),
-      );
+    await service.prepareIntent(
+      makeInput({ commissionPayer: FeePayer.CLIENT }),
+    );
 
-      const created = tx.externalPaymentIntent.create.mock.calls[0][0].data;
-      expect(created.amount.toFixed(2)).toBe('108.00');
-      expect(created.commissionAmount.toFixed(2)).toBe('8.00');
-      expect(created.sellerNetAmount.toFixed(2)).toBe('100.00');
+    const created = tx.externalPaymentIntent.create.mock.calls[0][0].data;
+    expect(created.amount.toFixed(2)).toBe('108.00');
+    expect(created.commissionAmount.toFixed(2)).toBe('8.00');
+    expect(created.sellerNetAmount.toFixed(2)).toBe('100.00');
     },
   );
 });
