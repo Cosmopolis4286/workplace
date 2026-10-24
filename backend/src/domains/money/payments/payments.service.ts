@@ -81,7 +81,7 @@ export class PaymentsService {
             sourceType: input.sourceType.trim(),
             sourceId: input.sourceId.trim(),
             payerUserId: input.payerUserId,
-            sellerUserId: input.sellerUserId,
+            sellerUserId: input.sellerUserId.trim(),
             provider: input.provider,
             status: ExternalPaymentStatus.DRAFT,
             currency: input.currency,
