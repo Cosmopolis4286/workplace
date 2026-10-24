@@ -458,6 +458,17 @@ export class AuthService {
       where: { token: hashToken(oldRefreshToken) },
     });
 
+    if (stored?.revokedAt && stored.userId === userId) {
+      // A revoked token being presented again can indicate replay. Record it,
+      // but do not log the raw token or treat every concurrent request as proof
+      // of account compromise.
+      await this.logSecurityEvent(userId, 'REVOKED_REFRESH_TOKEN_REUSE', {
+        refreshTokenId: stored.id,
+      }).catch(() =>
+        this.logger.warn('Could not record revoked refresh-token reuse')
+      );
+    }
+
     if (
       !stored ||
       stored.userId !== userId ||
