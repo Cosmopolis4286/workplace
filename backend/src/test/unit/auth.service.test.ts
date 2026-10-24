@@ -223,6 +223,7 @@ describe('AuthService', () => {
     };
 
     beforeEach(() => {
+      jest.clearAllMocks();
       mockPrismaService.refreshToken.findUnique.mockResolvedValue(storedToken);
       mockPrismaService.refreshToken.updateMany.mockResolvedValue({ count: 1 });
       mockPrismaService.$transaction.mockImplementation((callback) =>
