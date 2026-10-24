@@ -50,6 +50,9 @@ jobs:
     - name: Sin campos Float nuevos
       run: cd backend && pnpm schema:float-check
 
+    - name: Diagnóstico temporal Prettier
+      run: cd backend && pnpm exec prettier "src/domains/money/payments/service-request-payment-source.resolver.spec.ts"
+
     - name: Format check
       run: cd backend && pnpm format:check
 
