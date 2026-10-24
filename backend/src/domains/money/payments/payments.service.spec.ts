@@ -23,7 +23,7 @@ describe('PaymentsService', () => {
       provider: ExternalPaymentProvider;
       baseAmount: string;
       commissionRateBps: number;
-    }> = {}
+    }> = {},
   ) => ({
     idempotencyKey: 'order-1-attempt-1',
     sourceType: 'ORDER',
@@ -80,9 +80,9 @@ describe('PaymentsService', () => {
     } as any;
     const service = new PaymentsService(prisma);
 
-    await expect(service.prepareIntent(makeInput(overrides as any))).rejects.toThrow(
-      ConflictException,
-    );
+    await expect(
+      service.prepareIntent(makeInput(overrides as any)),
+    ).rejects.toThrow(ConflictException);
   });
 
   it('returns the concurrently created intent when the idempotency key races', async () => {
@@ -115,7 +115,7 @@ describe('PaymentsService', () => {
     const service = new PaymentsService(prisma);
 
     await expect(
-      service.prepareIntent(makeInput({ currency: 'EUR' as any }))
+      service.prepareIntent(makeInput({ currency: 'EUR' as any })),
     ).rejects.toThrow('Moneda no admitida');
   });
 
@@ -128,8 +128,8 @@ describe('PaymentsService', () => {
         makeInput({
           settlementMode: ExternalSettlementMode.DIRECT_TO_SELLER,
           collectionMode: ExternalCommissionCollectionMode.AUTOMATIC_SPLIT,
-        })
-      )
+        }),
+      ),
     ).rejects.toThrow('El cobro automático requiere split');
   });
 
@@ -181,7 +181,7 @@ describe('PaymentsService', () => {
     const service = new PaymentsService(prisma);
 
     await service.prepareIntent(
-      makeInput({ commissionPayer: FeePayer.CLIENT })
+      makeInput({ commissionPayer: FeePayer.CLIENT }),
     );
 
     const created = tx.externalPaymentIntent.create.mock.calls[0][0].data;
