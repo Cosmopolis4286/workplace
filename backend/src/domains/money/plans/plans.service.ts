@@ -536,6 +536,21 @@ export class PlansService {
     if (subscription.status !== 'PENDING') {
       throw new ConflictException('Esta solicitud ya fue procesada');
     }
+    if (isPositive(subscription.plan.price)) {
+      if (
+        subscription.plan.currency !== 'VES' &&
+        subscription.plan.currency !== 'USD'
+      ) {
+        throw new BadRequestException(
+          'El plan pago no tiene una moneda configurada (VES o USD)',
+        );
+      }
+      if (subscription.currency !== subscription.plan.currency) {
+        throw new ConflictException(
+          'La moneda de la solicitud no coincide con la del plan; debe generarse una nueva solicitud',
+        );
+      }
+    }
 
     const targetRole = this.getTargetRole(subscription.plan);
     if (!targetRole)
