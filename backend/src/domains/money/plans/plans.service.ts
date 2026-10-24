@@ -77,7 +77,11 @@ export class PlansService {
   }
 
   async createPlan(dto: CreatePlanDto) {
-    if (isPositive(dto.price) && dto.currency !== 'VES' && dto.currency !== 'USD') {
+    if (
+      isPositive(dto.price) &&
+      dto.currency !== 'VES' &&
+      dto.currency !== 'USD'
+    ) {
       throw new BadRequestException(
         'Los planes pagos requieren una moneda configurada (VES o USD)',
       );
