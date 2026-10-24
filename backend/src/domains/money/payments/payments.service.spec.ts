@@ -71,7 +71,9 @@ describe('PaymentsService', () => {
       'different commission collection mode',
       { collectionMode: ExternalCommissionCollectionMode.MANUAL_COLLECTION },
     ],
-  ])('rejects reuse of an idempotency key with a %s', async (_label, overrides) => {
+  ])(
+    'rejects reuse of an idempotency key with a %s',
+    async (_label, overrides) => {
     const existing = existingIntent();
     const prisma = {
       externalPaymentIntent: {
@@ -80,12 +82,15 @@ describe('PaymentsService', () => {
     } as any;
     const service = new PaymentsService(prisma);
 
-    await expect(
-      service.prepareIntent(makeInput(overrides as any)),
-    ).rejects.toThrow(ConflictException);
-  });
+      await expect(
+        service.prepareIntent(makeInput(overrides as any)),
+      ).rejects.toThrow(ConflictException);
+    },
+  );
 
-  it('returns the concurrently created intent when the idempotency key races', async () => {
+  it(
+    'returns the concurrently created intent when the idempotency key races',
+    async () => {
     const existing = existingIntent();
     const prisma = {
       externalPaymentIntent: {
@@ -106,9 +111,10 @@ describe('PaymentsService', () => {
     } as any;
     const service = new PaymentsService(prisma);
 
-    await expect(service.prepareIntent(makeInput())).resolves.toBe(existing);
-    expect(prisma.externalPaymentIntent.findUnique).toHaveBeenCalledTimes(2);
-  });
+      await expect(service.prepareIntent(makeInput())).resolves.toBe(existing);
+      expect(prisma.externalPaymentIntent.findUnique).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it('rejects unsupported currencies before touching the database', async () => {
     const prisma = {} as any;
@@ -119,19 +125,22 @@ describe('PaymentsService', () => {
     ).rejects.toThrow('Moneda no admitida');
   });
 
-  it('rejects a split configuration that claims unsupported automatic collection', async () => {
+  it(
+    'rejects a split configuration that claims unsupported automatic collection',
+    async () => {
     const prisma = {} as any;
     const service = new PaymentsService(prisma);
 
-    await expect(
-      service.prepareIntent(
-        makeInput({
-          settlementMode: ExternalSettlementMode.DIRECT_TO_SELLER,
-          collectionMode: ExternalCommissionCollectionMode.AUTOMATIC_SPLIT,
-        }),
-      ),
-    ).rejects.toThrow('El cobro automático requiere split');
-  });
+      await expect(
+        service.prepareIntent(
+          makeInput({
+            settlementMode: ExternalSettlementMode.DIRECT_TO_SELLER,
+            collectionMode: ExternalCommissionCollectionMode.AUTOMATIC_SPLIT,
+          }),
+        ),
+      ).rejects.toThrow('El cobro automático requiere split');
+    },
+  );
 
   it('calculates provider-paid commission using decimal arithmetic', async () => {
     const intent = { id: 'intent-1' };
