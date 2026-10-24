@@ -194,7 +194,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     } catch {
       // Fail closed: if revocation state cannot be checked, do not authenticate
       // the request. A temporary Redis outage must not resurrect logged-out JWTs.
-      this.logger.error('Unable to verify JWT revocation state; rejecting request');
+      this.logger.error(
+        'Unable to verify JWT revocation state; rejecting request'
+      );
       throw new ServiceUnavailableException(
         'Servicio de autenticación temporalmente no disponible'
       );
