@@ -234,7 +234,7 @@ describe('AuthService', () => {
           },
         })
       );
-      mockUsersService.findById.mockResolvedValue({
+      mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-1',
         email: 'user@example.com',
         role: 'USER',
@@ -302,7 +302,7 @@ describe('AuthService', () => {
     it(
       'rejects refresh for an inactive account before rotating credentials',
       async () => {
-        mockUsersService.findById.mockResolvedValue({
+        mockPrismaService.user.findUnique.mockResolvedValue({
           id: 'user-1',
           email: 'user@example.com',
           role: 'USER',
