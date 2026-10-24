@@ -74,13 +74,13 @@ describe('PaymentsService', () => {
   ])(
     'rejects reuse of an idempotency key with a %s',
     async (_label, overrides) => {
-    const existing = existingIntent();
-    const prisma = {
+      const existing = existingIntent();
+      const prisma = {
       externalPaymentIntent: {
         findUnique: jest.fn().mockResolvedValue(existing),
       },
     } as any;
-    const service = new PaymentsService(prisma);
+      const service = new PaymentsService(prisma);
 
       await expect(
         service.prepareIntent(makeInput(overrides as any)),
@@ -91,8 +91,8 @@ describe('PaymentsService', () => {
   it(
     'returns the concurrently created intent when the idempotency key races',
     async () => {
-    const existing = existingIntent();
-    const prisma = {
+      const existing = existingIntent();
+      const prisma = {
       externalPaymentIntent: {
         findUnique: jest
           .fn()
@@ -109,7 +109,7 @@ describe('PaymentsService', () => {
           }),
         ),
     } as any;
-    const service = new PaymentsService(prisma);
+      const service = new PaymentsService(prisma);
 
       await expect(service.prepareIntent(makeInput())).resolves.toBe(existing);
       expect(prisma.externalPaymentIntent.findUnique).toHaveBeenCalledTimes(2);
