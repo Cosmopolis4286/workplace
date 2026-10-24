@@ -63,6 +63,12 @@ describe('PaymentsService', () => {
 
   it.each([
     ['different payer', { payerUserId: 'another-buyer' }],
+    ['different seller', { sellerUserId: 'another-seller' }],
+    ['different amount', { baseAmount: '101.00' }],
+    ['different currency', { currency: 'VES' }],
+    ['different provider', { provider: ExternalPaymentProvider.PAGOLINK }],
+    ['different commission rate', { commissionRateBps: 700 }],
+    ['different commission payer', { commissionPayer: FeePayer.CLIENT }],
     [
       'different settlement mode',
       { settlementMode: ExternalSettlementMode.COMMISSION_INVOICE },
