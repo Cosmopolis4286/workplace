@@ -80,6 +80,29 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  // CORS alone does not prevent cross-site HTML form submissions (CSRF).
+  // Enforce Origin on browser state-changing requests before controllers run.
+  // Requests without Origin remain available to native/API clients; cookie
+  // authentication should only be used by trusted browser origins.
+  app.use((req: any, res: any, next: () => void) => {
+    const method = String(req.method || 'GET').toUpperCase();
+    const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    const origin = req.headers.origin as string | undefined;
+
+    if (isStateChanging && origin) {
+      if (!allowedOrigins.includes(origin) && !(isDev && isPrivateLan(origin))) {
+        res.status(403).json({
+          statusCode: 403,
+          error: 'Forbidden',
+          message: 'Origen no permitido',
+        });
+        return;
+      }
+    }
+
+    next();
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
