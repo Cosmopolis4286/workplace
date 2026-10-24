@@ -37,7 +37,7 @@ async function bootstrap() {
       contentSecurityPolicy: false,
       crossOriginEmbedderPolicy: false,
       crossOriginResourcePolicy: { policy: 'cross-origin' },
-    }),
+    })
   );
 
   app.use(cookieParser());
@@ -86,9 +86,7 @@ async function bootstrap() {
   // authentication should only be used by trusted browser origins.
   app.use((req: any, res: any, next: () => void) => {
     const method = String(req.method || 'GET').toUpperCase();
-    const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(
-      method
-    );
+    const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
     const origin = req.headers.origin as string | undefined;
 
     const usesCookieAuth = Boolean(
@@ -98,8 +96,7 @@ async function bootstrap() {
     if (isStateChanging && (origin || usesCookieAuth)) {
       if (
         !origin ||
-        (!allowedOrigins.includes(origin) &&
-          !(isDev && isPrivateLan(origin)))
+        (!allowedOrigins.includes(origin) && !(isDev && isPrivateLan(origin)))
       ) {
         res.status(403).json({
           statusCode: 403,
