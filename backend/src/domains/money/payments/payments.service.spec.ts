@@ -102,11 +102,14 @@ describe('PaymentsService', () => {
         $transaction: jest
           .fn()
           .mockRejectedValue(
-            new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
-              code: 'P2002',
-              clientVersion: 'test',
-              meta: { target: ['idempotencyKey'] },
-            }),
+            new Prisma.PrismaClientKnownRequestError(
+              'Unique constraint failed',
+              {
+                code: 'P2002',
+                clientVersion: 'test',
+                meta: { target: ['idempotencyKey'] },
+              },
+            ),
           ),
       } as any;
       const service = new PaymentsService(prisma);
