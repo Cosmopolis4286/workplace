@@ -77,6 +77,12 @@ export class PlansService {
   }
 
   async createPlan(dto: CreatePlanDto) {
+    if (isPositive(dto.price) && dto.currency !== 'VES' && dto.currency !== 'USD') {
+      throw new BadRequestException(
+        'Los planes pagos requieren una moneda configurada (VES o USD)',
+      );
+    }
+
     return this.prisma.plan.create({
       data: {
         ...dto,
@@ -87,7 +93,21 @@ export class PlansService {
   }
 
   async updatePlan(id: string, dto: UpdatePlanDto) {
-    await this.findPlanById(id);
+    const plan = await this.findPlanById(id);
+    if (dto.price !== undefined || dto.currency !== undefined) {
+      const effectivePrice = dto.price ?? plan.price;
+      const effectiveCurrency = dto.currency ?? plan.currency;
+      if (
+        isPositive(effectivePrice) &&
+        effectiveCurrency !== 'VES' &&
+        effectiveCurrency !== 'USD'
+      ) {
+        throw new BadRequestException(
+          'Los planes pagos requieren una moneda configurada (VES o USD)',
+        );
+      }
+    }
+
     const data: any = { ...dto, features: dto.features as any };
     if (dto.enabledModules !== undefined)
       data.enabledModules = dto.enabledModules;
@@ -169,6 +189,15 @@ export class PlansService {
       where: { id: dto.planId },
     });
     if (!plan) throw new NotFoundException('Plan no encontrado');
+    if (
+      isPositive(plan.price) &&
+      plan.currency !== 'VES' &&
+      plan.currency !== 'USD'
+    ) {
+      throw new BadRequestException(
+        'El plan pago no tiene una moneda configurada (VES o USD)',
+      );
+    }
 
     // Cancel existing active subscriptions
     await this.prisma.subscription.updateMany({
@@ -383,6 +412,15 @@ export class PlansService {
   ) {
     const plan = await tx.plan.findUnique({ where: { id: planId } });
     if (!plan) throw new NotFoundException('Plan no encontrado');
+    if (
+      isPositive(plan.price) &&
+      plan.currency !== 'VES' &&
+      plan.currency !== 'USD'
+    ) {
+      throw new BadRequestException(
+        'El plan pago no tiene una moneda configurada (VES o USD)',
+      );
+    }
 
     await tx.subscription.updateMany({
       where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
