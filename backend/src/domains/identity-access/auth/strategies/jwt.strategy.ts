@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
@@ -190,11 +191,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   private async isTokenBlacklisted(jti: string): Promise<boolean> {
     try {
       return await this.redis.isTokenBlacklisted(jti);
-    } catch (error) {
+    } catch {
       // Fail closed: if revocation state cannot be checked, do not authenticate
       // the request. A temporary Redis outage must not resurrect logged-out JWTs.
       this.logger.error('Unable to verify JWT revocation state; rejecting request');
-      throw new (require('@nestjs/common').ServiceUnavailableException)(
+      throw new ServiceUnavailableException(
         'Servicio de autenticación temporalmente no disponible'
       );
     }
