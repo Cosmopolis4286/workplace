@@ -98,7 +98,8 @@ async function bootstrap() {
     if (isStateChanging && (origin || usesCookieAuth)) {
       if (
         !origin ||
-        (!allowedOrigins.includes(origin) && !(isDev && isPrivateLan(origin)))
+        (!allowedOrigins.includes(origin) &&
+          !(isDev && isPrivateLan(origin)))
       ) {
         res.status(403).json({
           statusCode: 403,
