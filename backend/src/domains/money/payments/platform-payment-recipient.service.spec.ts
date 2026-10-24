@@ -15,7 +15,9 @@ describe('PlatformPaymentRecipientService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     service = new PlatformPaymentRecipientService(prisma);
-    (prisma.platformPaymentRecipient.findUnique as jest.Mock).mockResolvedValue({
+    (
+      prisma.platformPaymentRecipient.findUnique as jest.Mock
+    ).mockResolvedValue({
       provider: ExternalPaymentProvider.VEXPAY,
       currency: 'USD',
       environment: PlatformPaymentEnvironment.SANDBOX,
