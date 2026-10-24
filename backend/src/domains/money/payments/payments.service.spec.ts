@@ -119,14 +119,17 @@ describe('PaymentsService', () => {
     },
   );
 
-  it('rejects unsupported currencies before touching the database', async () => {
+  it(
+    'rejects unsupported currencies before touching the database',
+    async () => {
     const prisma = {} as any;
     const service = new PaymentsService(prisma);
 
     await expect(
       service.prepareIntent(makeInput({ currency: 'EUR' as any })),
     ).rejects.toThrow('Moneda no admitida');
-  });
+    },
+  );
 
   it(
     'rejects a split configuration that claims unsupported automatic collection',
@@ -145,7 +148,9 @@ describe('PaymentsService', () => {
     },
   );
 
-  it('calculates provider-paid commission using decimal arithmetic', async () => {
+  it(
+    'calculates provider-paid commission using decimal arithmetic',
+    async () => {
     const intent = { id: 'intent-1' };
     const tx = {
       externalPaymentIntent: {
@@ -176,9 +181,12 @@ describe('PaymentsService', () => {
     expect(created.commissionAmount.toFixed(2)).toBe('8.00');
     expect(created.sellerNetAmount.toFixed(2)).toBe('92.00');
     expect(result).toBeDefined();
-  });
+    },
+  );
 
-  it('adds client-paid commission to the checkout amount', async () => {
+  it(
+    'adds client-paid commission to the checkout amount',
+    async () => {
     const tx = {
       externalPaymentIntent: {
         create: jest.fn().mockResolvedValue({ id: 'intent-2' }),
@@ -200,5 +208,6 @@ describe('PaymentsService', () => {
     expect(created.amount.toFixed(2)).toBe('108.00');
     expect(created.commissionAmount.toFixed(2)).toBe('8.00');
     expect(created.sellerNetAmount.toFixed(2)).toBe('100.00');
-  });
+    },
+  );
 });
