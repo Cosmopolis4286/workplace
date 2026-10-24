@@ -1,9 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EscrowStatus, Prisma, ServiceRequestStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import {
-  ServiceRequestPaymentSourceResolver,
-} from './service-request-payment-source.resolver';
+import { ServiceRequestPaymentSourceResolver } from './service-request-payment-source.resolver';
 
 describe('ServiceRequestPaymentSourceResolver', () => {
   const request = {
@@ -38,12 +36,8 @@ describe('ServiceRequestPaymentSourceResolver', () => {
     });
   });
 
-  it(
-    'resolves confirmed price and provider currency from persisted records',
-    async () => {
-      await expect(
-        resolver.resolve('request-1', 'client-1')
-      ).resolves.toEqual({
+  it('resolves confirmed price and provider currency from persisted records', async () => {
+    await expect(resolver.resolve('request-1', 'client-1')).resolves.toEqual({
         sourceType: 'SERVICE_REQUEST',
         sourceId: 'request-1',
         payerUserId: 'client-1',
@@ -52,9 +46,8 @@ describe('ServiceRequestPaymentSourceResolver', () => {
         baseAmount: '80.50',
         description: 'Servicio - Reparación',
         quoteVersion: '2026-10-20T12:00:00.000Z',
-      });
-    }
-  );
+    });
+  });
 
   it('rejects a missing request', async () => {
     (prisma.serviceRequest.findUnique as jest.Mock).mockResolvedValue(null);
