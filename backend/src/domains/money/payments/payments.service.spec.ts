@@ -1,8 +1,10 @@
+import { ConflictException } from '@nestjs/common';
 import {
   ExternalCommissionCollectionMode,
   ExternalPaymentProvider,
   ExternalSettlementMode,
   FeePayer,
+  Prisma,
 } from '@prisma/client';
 import { PaymentsService } from './payments.service';
 
@@ -13,6 +15,14 @@ describe('PaymentsService', () => {
       commissionPayer: FeePayer;
       settlementMode: ExternalSettlementMode;
       collectionMode: ExternalCommissionCollectionMode;
+      payerUserId: string;
+      sellerUserId: string;
+      sourceType: string;
+      sourceId: string;
+      idempotencyKey: string;
+      provider: ExternalPaymentProvider;
+      baseAmount: string;
+      commissionRateBps: number;
     }> = {}
   ) => ({
     idempotencyKey: 'order-1-attempt-1',
@@ -28,6 +38,71 @@ describe('PaymentsService', () => {
     settlementMode: ExternalSettlementMode.DIRECT_TO_SELLER,
     collectionMode: ExternalCommissionCollectionMode.PERIODIC_INVOICE,
     ...overrides,
+  });
+
+  const existingIntent = () => ({
+    id: 'intent-existing',
+    idempotencyKey: 'order-1-attempt-1',
+    sourceType: 'ORDER',
+    sourceId: 'order-1',
+    payerUserId: 'buyer-1',
+    sellerUserId: 'seller-1',
+    provider: ExternalPaymentProvider.VEXPAY,
+    status: 'DRAFT',
+    currency: 'USD',
+    baseAmount: new Prisma.Decimal('100.00'),
+    amount: new Prisma.Decimal('100.00'),
+    commissionAmount: new Prisma.Decimal('8.00'),
+    sellerNetAmount: new Prisma.Decimal('92.00'),
+    commissionRateBps: 800,
+    commissionPayer: FeePayer.PROVIDER,
+    settlementMode: ExternalSettlementMode.DIRECT_TO_SELLER,
+    collectionMode: ExternalCommissionCollectionMode.PERIODIC_INVOICE,
+    commission: { id: 'commission-existing' },
+  });
+
+  it.each([
+    ['different payer', { payerUserId: 'another-buyer' }],
+    ['different settlement mode', { settlementMode: ExternalSettlementMode.COMMISSION_INVOICE }],
+    ['different commission collection mode', { collectionMode: ExternalCommissionCollectionMode.MANUAL_COLLECTION }],
+  ])('rejects reuse of an idempotency key with a %s', async (_label, overrides) => {
+    const existing = existingIntent();
+    const prisma = {
+      externalPaymentIntent: {
+        findUnique: jest.fn().mockResolvedValue(existing),
+      },
+    } as any;
+    const service = new PaymentsService(prisma);
+
+    await expect(
+      service.prepareIntent(makeInput(overrides as any))
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('returns the concurrently created intent when the idempotency key races', async () => {
+    const existing = existingIntent();
+    const prisma = {
+      externalPaymentIntent: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(existing),
+      },
+      $transaction: jest.fn().mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed',
+          {
+            code: 'P2002',
+            clientVersion: 'test',
+            meta: { target: ['idempotencyKey'] },
+          }
+        )
+      ),
+    } as any;
+    const service = new PaymentsService(prisma);
+
+    await expect(service.prepareIntent(makeInput())).resolves.toBe(existing);
+    expect(prisma.externalPaymentIntent.findUnique).toHaveBeenCalledTimes(2);
   });
 
   it('rejects unsupported currencies before touching the database', async () => {
