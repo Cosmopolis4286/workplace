@@ -249,66 +249,71 @@ describe('AuthService', () => {
     it(
       'consumes the previous token conditionally and creates its replacement in one transaction',
       async () => {
-      const result = await service.refreshTokens('user-1', 'old-refresh-token');
+        const result = await service.refreshTokens(
+          'user-1',
+          'old-refresh-token'
+        );
 
-      expect(result).toMatchObject({
-        accessToken: 'new-access-token',
-        refreshToken: 'new-refresh-token',
-      });
-      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
-      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            id: 'old-token-id',
-            userId: 'user-1',
-            revokedAt: null,
-            expiresAt: expect.objectContaining({ gt: expect.any(Date) }),
-          }),
-          data: expect.objectContaining({
-            revokedAt: expect.any(Date),
-            replacedByTokenId: expect.any(String),
-          }),
-        })
-      );
-      expect(mockPrismaService.refreshToken.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 'user-1',
-            token: expect.any(String),
-          }),
-        })
-      );
+        expect(result).toMatchObject({
+          accessToken: 'new-access-token',
+          refreshToken: 'new-refresh-token',
+        });
+        expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+        expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              id: 'old-token-id',
+              userId: 'user-1',
+              revokedAt: null,
+              expiresAt: expect.objectContaining({ gt: expect.any(Date) }),
+            }),
+            data: expect.objectContaining({
+              revokedAt: expect.any(Date),
+              replacedByTokenId: expect.any(String),
+            }),
+          })
+        );
+        expect(mockPrismaService.refreshToken.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              userId: 'user-1',
+              token: expect.any(String),
+            }),
+          })
+        );
       }
     );
 
     it(
       'rejects a concurrent refresh when another request already consumed the token',
       async () => {
-      mockPrismaService.refreshToken.updateMany.mockResolvedValue({ count: 0 });
+        mockPrismaService.refreshToken.updateMany.mockResolvedValue({
+          count: 0,
+        });
 
-      await expect(
-        service.refreshTokens('user-1', 'old-refresh-token')
-      ).rejects.toThrow();
+        await expect(
+          service.refreshTokens('user-1', 'old-refresh-token')
+        ).rejects.toThrow();
 
-      expect(mockPrismaService.refreshToken.create).not.toHaveBeenCalled();
+        expect(mockPrismaService.refreshToken.create).not.toHaveBeenCalled();
       }
     );
 
     it(
       'rejects refresh for an inactive account before rotating credentials',
       async () => {
-      mockUsersService.findById.mockResolvedValue({
-        id: 'user-1',
-        email: 'user@example.com',
-        role: 'USER',
-        isActive: false,
-      });
+        mockUsersService.findById.mockResolvedValue({
+          id: 'user-1',
+          email: 'user@example.com',
+          role: 'USER',
+          isActive: false,
+        });
 
-      await expect(
-        service.refreshTokens('user-1', 'old-refresh-token')
-      ).rejects.toThrow();
+        await expect(
+          service.refreshTokens('user-1', 'old-refresh-token')
+        ).rejects.toThrow();
 
-      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+        expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
       }
     );
   });
