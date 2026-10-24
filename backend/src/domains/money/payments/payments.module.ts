@@ -5,6 +5,7 @@ import { PaymentsService } from './payments.service';
 import { PAYMENT_SOURCE_RESOLVERS } from './payment-source-resolver.interface';
 import { PaymentSourceResolverRegistry } from './payment-source-resolver.registry';
 import { CatalogOrderPaymentSourceResolver } from './catalog-order-payment-source.resolver';
+import { ServiceRequestPaymentSourceResolver } from './service-request-payment-source.resolver';
 
 @Module({
   imports: [PrismaModule],
@@ -13,12 +14,17 @@ import { CatalogOrderPaymentSourceResolver } from './catalog-order-payment-sourc
     PaymentsService,
     PaymentSourceResolverRegistry,
     CatalogOrderPaymentSourceResolver,
+    ServiceRequestPaymentSourceResolver,
     {
       provide: PAYMENT_SOURCE_RESOLVERS,
-      useFactory: (catalogOrderResolver: CatalogOrderPaymentSourceResolver) => [
-        catalogOrderResolver,
+      useFactory: (
+        catalogOrderResolver: CatalogOrderPaymentSourceResolver,
+        serviceRequestResolver: ServiceRequestPaymentSourceResolver
+      ) => [catalogOrderResolver, serviceRequestResolver],
+      inject: [
+        CatalogOrderPaymentSourceResolver,
+        ServiceRequestPaymentSourceResolver,
       ],
-      inject: [CatalogOrderPaymentSourceResolver],
     },
   ],
   exports: [PaymentsService, PaymentSourceResolverRegistry],
