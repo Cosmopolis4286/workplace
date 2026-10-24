@@ -19,11 +19,22 @@ export class JwtRefreshStrategy extends PassportStrategy(
     });
   }
 
-  async validate(req: Request, payload: { sub: string }) {
+  async validate(req: Request, payload: { sub?: unknown; jti?: unknown }) {
     const refreshToken =
       req.body?.refreshToken ?? req.cookies?.['refresh_token'];
     if (!refreshToken)
       throw new UnauthorizedException('Refresh token requerido');
-    return { userId: payload.sub, refreshToken };
+
+    if (
+      typeof payload?.sub !== 'string' ||
+      payload.sub.length === 0 ||
+      typeof payload?.jti !== 'string' ||
+      payload.jti.length < 16 ||
+      payload.jti.length > 128
+    ) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    return { userId: payload.sub, refreshToken, jti: payload.jti };
   }
 }
