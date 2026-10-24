@@ -38,14 +38,14 @@ describe('ServiceRequestPaymentSourceResolver', () => {
 
   it('resolves confirmed price and provider currency from persisted records', async () => {
     await expect(resolver.resolve('request-1', 'client-1')).resolves.toEqual({
-        sourceType: 'SERVICE_REQUEST',
-        sourceId: 'request-1',
-        payerUserId: 'client-1',
-        sellerUserId: 'provider-1',
-        currency: 'USD',
-        baseAmount: '80.50',
-        description: 'Servicio - Reparación',
-        quoteVersion: '2026-10-20T12:00:00.000Z',
+      sourceType: 'SERVICE_REQUEST',
+      sourceId: 'request-1',
+      payerUserId: 'client-1',
+      sellerUserId: 'provider-1',
+      currency: 'USD',
+      baseAmount: '80.50',
+      description: 'Servicio - Reparación',
+      quoteVersion: '2026-10-20T12:00:00.000Z',
     });
   });
 
