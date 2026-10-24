@@ -63,8 +63,14 @@ describe('PaymentsService', () => {
 
   it.each([
     ['different payer', { payerUserId: 'another-buyer' }],
-    ['different settlement mode', { settlementMode: ExternalSettlementMode.COMMISSION_INVOICE }],
-    ['different commission collection mode', { collectionMode: ExternalCommissionCollectionMode.MANUAL_COLLECTION }],
+    [
+      'different settlement mode',
+      { settlementMode: ExternalSettlementMode.COMMISSION_INVOICE },
+    ],
+    [
+      'different commission collection mode',
+      { collectionMode: ExternalCommissionCollectionMode.MANUAL_COLLECTION },
+    ],
   ])('rejects reuse of an idempotency key with a %s', async (_label, overrides) => {
     const existing = existingIntent();
     const prisma = {
@@ -74,9 +80,9 @@ describe('PaymentsService', () => {
     } as any;
     const service = new PaymentsService(prisma);
 
-    await expect(
-      service.prepareIntent(makeInput(overrides as any))
-    ).rejects.toThrow(ConflictException);
+    await expect(service.prepareIntent(makeInput(overrides as any))).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   it('returns the concurrently created intent when the idempotency key races', async () => {
@@ -88,16 +94,15 @@ describe('PaymentsService', () => {
           .mockResolvedValueOnce(null)
           .mockResolvedValueOnce(existing),
       },
-      $transaction: jest.fn().mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError(
-          'Unique constraint failed',
-          {
+      $transaction: jest
+        .fn()
+        .mockRejectedValue(
+          new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
             code: 'P2002',
             clientVersion: 'test',
             meta: { target: ['idempotencyKey'] },
-          }
-        )
-      ),
+          }),
+        ),
     } as any;
     const service = new PaymentsService(prisma);
 
