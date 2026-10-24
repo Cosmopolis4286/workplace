@@ -176,7 +176,7 @@ La regla dura de validación (`passwordStrength()`) y el score 0-4 que alimenta 
 
 En el PR #36 se agregaron los siguientes cambios, pendientes de validación por CI antes de merge:
 
-1. **Rotación atómica de refresh tokens**: el token anterior se consume con un `updateMany` condicional (`revokedAt: null`, usuario y expiración) y el reemplazo se crea en la misma transacción Prisma. Si dos solicitudes compiten, solo una puede consumir el token; si crear el reemplazo falla, la transacción revierte la revocación.
+1. **Rotación atómica de refresh tokens**: el token anterior se consume con un `updateMany` condicional (`revokedAt: null`, usuario y expiración) y el reemplazo se crea en la misma transacción Prisma. Si dos solicitudes compiten, solo una puede consumir el token; si crear el reemplazo falla, la transacción revierte la revocación. La rotación conserva la duración original de la sesión (por ejemplo, 1 día para sesión corta frente a 7 días para `rememberMe`) en lugar de ampliar accidentalmente todas las sesiones a 7 días.
 2. **Estado de cuenta**: no se emiten tokens nuevos para cuentas inactivas durante el refresh.
 3. **Claims requeridos**: las estrategias JWT rechazan tokens sin `sub` y `jti` válidos.
 4. **Revocación fail-closed**: un fallo de Redis al consultar la blacklist ya no se trata como “token no revocado”.
