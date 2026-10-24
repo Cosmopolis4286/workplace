@@ -27,7 +27,8 @@ export class PlatformPaymentRecipientService {
     currency: string;
     environment: PlatformPaymentEnvironment;
   }): Promise<ResolvedPlatformPaymentRecipient> {
-    const currency = input.currency.toUpperCase();
+    const currency =
+      typeof input.currency === 'string' ? input.currency.toUpperCase() : '';
     if (currency !== 'VES' && currency !== 'USD') {
       throw new ServiceUnavailableException(
         'No existe un destino de cobro habilitado para esta configuración',
