@@ -1,0 +1,82 @@
+version: 2.1
+
+jobs:
+  backend:
+    docker:
+      - image: cimg/node:22.14
+    working_directory: ~/project
+    environment:
+      # Prisma requires DATABASE_URL to be defined for schema validation/generation.
+      # Unit tests use backend/test/env-setup.ts; no live database is needed here.
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-v1-
+      - run:
+          name: Activate repository pnpm version
+          command: |
+            corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+      - run:
+          name: Install workspace dependencies
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+      - run:
+          name: Validate Prisma schema and generate client
+          command: |
+            pnpm --filter backend exec prisma validate --schema=./prisma/schema.prisma
+            pnpm --filter backend prisma:generate
+      - run:
+          name: Build backend
+          command: pnpm --filter backend build
+      - run:
+          name: Run backend unit tests
+          command: pnpm --filter backend test:ci
+      - run:
+          name: Lint backend
+          command: pnpm --filter backend lint:ci
+
+  frontend:
+    docker:
+      - image: cimg/node:22.14
+    working_directory: ~/project
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-v1-
+      - run:
+          name: Activate repository pnpm version
+          command: |
+            corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+      - run:
+          name: Install workspace dependencies
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+      - run:
+          name: Build frontend
+          command: pnpm --filter frontend build
+      - run:
+          name: Run frontend tests
+          command: pnpm --filter frontend test --run --passWithNoTests
+      - run:
+          name: Frontend type-check ratchet (existing CI check)
+          command: pnpm --filter frontend type-check:ratchet
+      # frontend/package.json does not define a lint script, so lint is omitted.
+
+workflows:
+  validate:
+    jobs:
+      - backend
+      - frontend
