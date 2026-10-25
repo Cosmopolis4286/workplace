@@ -15,7 +15,7 @@
     "install:all": "pnpm install",
     "format:fix": "pnpm --filter backend format",
     "format:check": "pnpm --filter backend format:check",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "git config core.hooksPath .githooks && chmod +x .githooks/pre-commit"
   },
   "devDependencies": {
     "@types/node": "^20.11.5"
