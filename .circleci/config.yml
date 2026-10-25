@@ -67,12 +67,15 @@ jobs:
             cat ../pnpm-audit.stderr >&2
             exit "$status"
           no_output_timeout: 5m
-      - store_artifacts:
-          path: pnpm-audit.json
-          destination: diagnostics/pnpm-audit.json
-      - store_artifacts:
-          path: pnpm-audit.stderr
-          destination: diagnostics/pnpm-audit.stderr
+      - when:
+          condition: always
+          steps:
+            - store_artifacts:
+                path: pnpm-audit.json
+                destination: diagnostics/pnpm-audit.json
+            - store_artifacts:
+                path: pnpm-audit.stderr
+                destination: diagnostics/pnpm-audit.stderr
       - run:
           name: Build backend
           command: pnpm --filter backend build
@@ -195,9 +198,12 @@ jobs:
             trivy fs --scanners vuln,misconfig,secret --severity CRITICAL --exit-code 1 --no-progress --format json --output trivy-results.json .
             status=$?
             exit "$status"
-      - store_artifacts:
-          path: trivy-results.json
-          destination: diagnostics/trivy-results.json
+      - when:
+          condition: always
+          steps:
+            - store_artifacts:
+                path: trivy-results.json
+                destination: diagnostics/trivy-results.json
 
 workflows:
   validate-pull-request:
