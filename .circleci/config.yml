@@ -199,7 +199,7 @@ jobs:
             status=$?
             if [ -s trivy-results.json ]; then
               echo "=== Trivy findings with CRITICAL severity ==="
-              trivy convert --format table --severity CRITICAL trivy-results.json
+              trivy convert --format table --severity CRITICAL --scanners vuln,misconfig,secret trivy-results.json
             else
               echo "Trivy did not produce a JSON report; inspect the scanner logs above." >&2
             fi
