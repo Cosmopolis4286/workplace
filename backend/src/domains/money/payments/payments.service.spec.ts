@@ -124,8 +124,9 @@ describe('PaymentsService', () => {
       } as any;
       const service = new PaymentsService(prisma);
 
-      await expect(service.transitionIntent('intent-1', 'SUCCEEDED' as any))
-        .rejects.toThrow('No se puede sobrescribir un estado terminal');
+      await expect(
+        service.transitionIntent('intent-1', 'SUCCEEDED' as any)
+      ).rejects.toThrow('No se puede sobrescribir un estado terminal');
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
@@ -141,8 +142,9 @@ describe('PaymentsService', () => {
       } as any;
       const service = new PaymentsService(prisma);
 
-      await expect(service.transitionIntent('intent-1', 'SUCCEEDED' as any))
-        .rejects.toThrow('Transición de pago no permitida');
+      await expect(
+        service.transitionIntent('intent-1', 'SUCCEEDED' as any)
+      ).rejects.toThrow('Transición de pago no permitida');
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
@@ -166,8 +168,9 @@ describe('PaymentsService', () => {
       } as any;
       const service = new PaymentsService(prisma);
 
-      await expect(service.transitionIntent('intent-1', 'SUCCEEDED' as any))
-        .rejects.toThrow('El estado del pago cambió en paralelo');
+      await expect(
+        service.transitionIntent('intent-1', 'SUCCEEDED' as any)
+      ).rejects.toThrow('El estado del pago cambió en paralelo');
       expect(tx.externalPaymentIntent.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'intent-1', status: 'PENDING' },
