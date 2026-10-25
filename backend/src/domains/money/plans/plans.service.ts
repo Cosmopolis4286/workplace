@@ -77,6 +77,7 @@ export class PlansService {
   }
 
   async createPlan(dto: CreatePlanDto) {
+    // Never infer VES/USD for a paid plan; the currency is part of its price contract.
     if (
       isPositive(dto.price) &&
       dto.currency !== 'VES' &&
