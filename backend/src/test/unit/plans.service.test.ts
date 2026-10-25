@@ -106,6 +106,7 @@ describe('PlansService', () => {
         name: 'Premium Plan',
         description: 'Premium features',
         price: 29.99,
+        currency: 'VES',
         duration: 30,
         features: ['Feature 1', 'Feature 2'],
         enabledModules: ['module1', 'module2'],
@@ -140,6 +141,7 @@ describe('PlansService', () => {
         name: 'Premium Plan',
         description: 'Premium features',
         price: 29.99,
+        currency: 'VES',
         duration: 30,
         features: [],
         maxUsers: 10,
@@ -294,6 +296,7 @@ describe('PlansService', () => {
         id: planId,
         name: 'Premium Plan',
         price: 29.99,
+        currency: 'VES',
       };
 
       const updatedPlan = {
@@ -421,6 +424,7 @@ describe('PlansService', () => {
       mockPrismaService.plan.findUnique.mockResolvedValue({
         id: 'plan-pro',
         price: 599,
+        currency: 'VES',
       });
       mockPrismaService.subscription.findFirst.mockResolvedValue(null);
       mockPrismaService.subscription.create.mockImplementation(
@@ -447,6 +451,7 @@ describe('PlansService', () => {
       mockPrismaService.plan.findUnique.mockResolvedValue({
         id: 'plan-pro',
         price: 599,
+        currency: 'VES',
       });
       mockPrismaService.subscription.findFirst.mockResolvedValue({
         id: 'existing-pending',
@@ -486,6 +491,7 @@ describe('PlansService', () => {
       mockPrismaService.plan.findUnique.mockResolvedValue({
         id: 'plan-pro',
         price: 599,
+        currency: 'VES',
       });
       mockPrismaService.subscription.findFirst.mockResolvedValue(null);
       mockPrismaService.subscription.updateMany.mockResolvedValue({ count: 0 });
@@ -563,6 +569,7 @@ describe('PlansService', () => {
       mockPrismaService.plan.findUnique.mockResolvedValue({
         id: 'plan-pro',
         price: 599,
+        currency: 'VES',
       });
       mockPrismaService.subscription.findFirst.mockResolvedValue({
         id: 'existing-sub',
@@ -883,6 +890,7 @@ describe('PlansService', () => {
         name: 'Test Plan',
         description: 'Test',
         price: 9.99,
+        currency: 'VES',
         duration: 30,
         features: [],
         maxUsers: 1,
