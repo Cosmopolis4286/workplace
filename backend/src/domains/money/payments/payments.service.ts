@@ -31,6 +31,17 @@ export interface PreparePaymentIntentInput {
   metadata?: Prisma.InputJsonValue;
 }
 
+function isUniqueConstraintError(
+  error: unknown
+): error is Prisma.PrismaClientKnownRequestError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'P2002'
+  );
+}
+
 const FINAL_STATUSES = new Set<ExternalPaymentStatus>([
   ExternalPaymentStatus.FAILED,
   ExternalPaymentStatus.CANCELLED,
@@ -117,8 +128,7 @@ export class PaymentsService {
       });
     } catch (error) {
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        isUniqueConstraintError(error)
       ) {
         // A concurrent request may have inserted the same idempotency key after
         // our initial read. Resolve that race to the same result, not a 500.
@@ -168,8 +178,7 @@ export class PaymentsService {
       });
     } catch (error) {
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        isUniqueConstraintError(error)
       ) {
         return this.prisma.externalPaymentWebhookEvent.findUnique({
           where: {
