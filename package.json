@@ -12,7 +12,10 @@
     "seed": "pnpm --filter backend seed",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
-    "install:all": "pnpm install"
+    "install:all": "pnpm install",
+    "format:fix": "pnpm --filter backend format",
+    "format:check": "pnpm --filter backend format:check",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
     "@types/node": "^20.11.5"
