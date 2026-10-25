@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   NotFoundException,
   ConflictException,
   ForbiddenException,
@@ -76,6 +77,17 @@ export class PlansService {
   }
 
   async createPlan(dto: CreatePlanDto) {
+    // Never infer VES/USD for a paid plan; the currency is part of its price contract.
+    if (
+      isPositive(dto.price) &&
+      dto.currency !== 'VES' &&
+      dto.currency !== 'USD'
+    ) {
+      throw new BadRequestException(
+        'Los planes pagos requieren una moneda configurada (VES o USD)',
+      );
+    }
+
     return this.prisma.plan.create({
       data: {
         ...dto,
@@ -85,8 +97,23 @@ export class PlansService {
     });
   }
 
+  // Price changes must retain an explicit currency; never infer one from locale or history.
   async updatePlan(id: string, dto: UpdatePlanDto) {
-    await this.findPlanById(id);
+    const plan = await this.findPlanById(id);
+    if (dto.price !== undefined || dto.currency !== undefined) {
+      const effectivePrice = dto.price ?? plan.price;
+      const effectiveCurrency = dto.currency ?? plan.currency;
+      if (
+        isPositive(effectivePrice) &&
+        effectiveCurrency !== 'VES' &&
+        effectiveCurrency !== 'USD'
+      ) {
+        throw new BadRequestException(
+          'Los planes pagos requieren una moneda configurada (VES o USD)',
+        );
+      }
+    }
+
     const data: any = { ...dto, features: dto.features as any };
     if (dto.enabledModules !== undefined)
       data.enabledModules = dto.enabledModules;
@@ -168,6 +195,15 @@ export class PlansService {
       where: { id: dto.planId },
     });
     if (!plan) throw new NotFoundException('Plan no encontrado');
+    if (
+      isPositive(plan.price) &&
+      plan.currency !== 'VES' &&
+      plan.currency !== 'USD'
+    ) {
+      throw new BadRequestException(
+        'El plan pago no tiene una moneda configurada (VES o USD)',
+      );
+    }
 
     // Cancel existing active subscriptions
     await this.prisma.subscription.updateMany({
@@ -197,6 +233,7 @@ export class PlansService {
         endAt,
         trialEnds: dto.trialEnds ? new Date(dto.trialEnds) : undefined,
         pricePaid: dto.pricePaid ?? plan.price,
+        currency: plan.currency,
         assignedBy: adminId,
         notes: dto.notes,
       },
@@ -232,6 +269,12 @@ export class PlansService {
     ) as BillingInterval;
 
     if (isPositive(plan.price)) {
+      if (plan.currency !== 'VES' && plan.currency !== 'USD') {
+        throw new BadRequestException(
+          'El plan no tiene una moneda de pago configurada (VES o USD)',
+        );
+      }
+
       const existingPending = await this.prisma.subscription.findFirst({
         where: { userId, status: 'PENDING' },
       });
@@ -248,6 +291,7 @@ export class PlansService {
           status: 'PENDING',
           interval,
           pricePaid: plan.price,
+          currency: plan.currency,
           assignedBy: userId,
         },
         include: { plan: true },
@@ -274,6 +318,7 @@ export class PlansService {
         startAt,
         endAt,
         pricePaid: 0,
+        currency: plan.currency,
         assignedBy: userId,
       },
       include: { plan: true },
@@ -333,6 +378,7 @@ export class PlansService {
           endAt,
           trialEnds: endAt,
           pricePaid: 0,
+          currency: plan.currency,
           assignedBy: userId,
           notes: 'Prueba gratuita autoservicio de 7 días',
         },
@@ -372,6 +418,15 @@ export class PlansService {
   ) {
     const plan = await tx.plan.findUnique({ where: { id: planId } });
     if (!plan) throw new NotFoundException('Plan no encontrado');
+    if (
+      isPositive(plan.price) &&
+      plan.currency !== 'VES' &&
+      plan.currency !== 'USD'
+    ) {
+      throw new BadRequestException(
+        'El plan pago no tiene una moneda configurada (VES o USD)',
+      );
+    }
 
     await tx.subscription.updateMany({
       where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
@@ -392,6 +447,7 @@ export class PlansService {
         startAt,
         endAt,
         pricePaid: plan.price,
+        currency: plan.currency,
         assignedBy: adminId,
       },
       include: { plan: true },
@@ -485,6 +541,21 @@ export class PlansService {
     if (!subscription) throw new NotFoundException('Solicitud no encontrada');
     if (subscription.status !== 'PENDING') {
       throw new ConflictException('Esta solicitud ya fue procesada');
+    }
+    if (isPositive(subscription.plan.price)) {
+      if (
+        subscription.plan.currency !== 'VES' &&
+        subscription.plan.currency !== 'USD'
+      ) {
+        throw new BadRequestException(
+          'El plan pago no tiene una moneda configurada (VES o USD)',
+        );
+      }
+      if (subscription.currency !== subscription.plan.currency) {
+        throw new ConflictException(
+          'La moneda de la solicitud no coincide con la del plan; debe generarse una nueva solicitud',
+        );
+      }
     }
 
     const targetRole = this.getTargetRole(subscription.plan);
