@@ -6,6 +6,7 @@ import { PAYMENT_SOURCE_RESOLVERS } from './payment-source-resolver.interface';
 import { PaymentSourceResolverRegistry } from './payment-source-resolver.registry';
 import { CatalogOrderPaymentSourceResolver } from './catalog-order-payment-source.resolver';
 import { ServiceRequestPaymentSourceResolver } from './service-request-payment-source.resolver';
+import { PlatformPaymentRecipientService } from './platform-payment-recipient.service';
 
 @Module({
   imports: [PrismaModule],
@@ -15,6 +16,7 @@ import { ServiceRequestPaymentSourceResolver } from './service-request-payment-s
     PaymentSourceResolverRegistry,
     CatalogOrderPaymentSourceResolver,
     ServiceRequestPaymentSourceResolver,
+    PlatformPaymentRecipientService,
     {
       provide: PAYMENT_SOURCE_RESOLVERS,
       useFactory: (
@@ -27,6 +29,10 @@ import { ServiceRequestPaymentSourceResolver } from './service-request-payment-s
       ],
     },
   ],
-  exports: [PaymentsService, PaymentSourceResolverRegistry],
+  exports: [
+    PaymentsService,
+    PaymentSourceResolverRegistry,
+    PlatformPaymentRecipientService,
+  ],
 })
 export class PaymentsModule {}
