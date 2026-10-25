@@ -203,8 +203,9 @@ describe('PaymentsService', () => {
       } as any;
       const service = new PaymentsService(prisma);
 
-      await expect(service.transitionIntent('intent-1', 'SUCCEEDED' as any))
-        .resolves.toMatchObject({ status: 'SUCCEEDED' });
+      await expect(
+        service.transitionIntent('intent-1', 'SUCCEEDED' as any)
+      ).resolves.toMatchObject({ status: 'SUCCEEDED' });
       expect(tx.externalPaymentCommission.updateMany).toHaveBeenCalledWith({
         where: { paymentIntentId: 'intent-1', status: 'PENDING' },
         data: { status: 'EARNED' },
