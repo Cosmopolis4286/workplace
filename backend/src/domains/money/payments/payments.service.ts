@@ -85,7 +85,7 @@ export class PaymentsService {
     }
 
     try {
-      return this.prisma.$transaction(async (tx) => {
+      return await this.prisma.$transaction(async (tx) => {
         const intent = await tx.externalPaymentIntent.create({
           data: {
             idempotencyKey: input.idempotencyKey,
