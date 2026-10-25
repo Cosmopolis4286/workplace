@@ -197,6 +197,12 @@ jobs:
             set +e
             trivy fs --scanners vuln,misconfig,secret --severity CRITICAL --exit-code 1 --no-progress --format json --output trivy-results.json .
             status=$?
+            if [ -s trivy-results.json ]; then
+              echo "=== Trivy findings with CRITICAL severity ==="
+              trivy convert --format table --severity CRITICAL trivy-results.json
+            else
+              echo "Trivy did not produce a JSON report; inspect the scanner logs above." >&2
+            fi
             exit "$status"
       - when:
           condition: always
