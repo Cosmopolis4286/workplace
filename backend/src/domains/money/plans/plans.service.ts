@@ -97,6 +97,7 @@ export class PlansService {
     });
   }
 
+  // Price changes must retain an explicit currency; never infer one from locale or history.
   async updatePlan(id: string, dto: UpdatePlanDto) {
     const plan = await this.findPlanById(id);
     if (dto.price !== undefined || dto.currency !== undefined) {
