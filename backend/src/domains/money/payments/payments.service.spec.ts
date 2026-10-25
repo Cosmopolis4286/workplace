@@ -110,6 +110,7 @@ describe('PaymentsService', () => {
     expect(created.sellerNetAmount.toFixed(2)).toBe('100.00');
   });
 
+  // Exercise state transitions with isolated mocks; no provider or funds are contacted.
   describe('payment lifecycle and webhook safety', () => {
     it('rejects late transitions from a terminal payment state', async () => {
       const prisma = {
