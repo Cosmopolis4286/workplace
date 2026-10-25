@@ -84,7 +84,7 @@ export class PlansService {
       dto.currency !== 'USD'
     ) {
       throw new BadRequestException(
-        'Los planes pagos requieren una moneda configurada (VES o USD)',
+        'Los planes pagos requieren una moneda configurada (VES o USD)'
       );
     }
 
@@ -201,7 +201,7 @@ export class PlansService {
       plan.currency !== 'USD'
     ) {
       throw new BadRequestException(
-        'El plan pago no tiene una moneda configurada (VES o USD)',
+        'El plan pago no tiene una moneda configurada (VES o USD)'
       );
     }
 
@@ -271,7 +271,7 @@ export class PlansService {
     if (isPositive(plan.price)) {
       if (plan.currency !== 'VES' && plan.currency !== 'USD') {
         throw new BadRequestException(
-          'El plan no tiene una moneda de pago configurada (VES o USD)',
+          'El plan no tiene una moneda de pago configurada (VES o USD)'
         );
       }
 
@@ -424,7 +424,7 @@ export class PlansService {
       plan.currency !== 'USD'
     ) {
       throw new BadRequestException(
-        'El plan pago no tiene una moneda configurada (VES o USD)',
+        'El plan pago no tiene una moneda configurada (VES o USD)'
       );
     }
 
@@ -553,7 +553,7 @@ export class PlansService {
       }
       if (subscription.currency !== subscription.plan.currency) {
         throw new ConflictException(
-          'La moneda de la solicitud no coincide con la del plan; debe generarse una nueva solicitud',
+          'La moneda de la solicitud no coincide con la del plan; debe generarse una nueva solicitud'
         );
       }
     }
