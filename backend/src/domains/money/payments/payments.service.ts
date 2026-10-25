@@ -31,6 +31,17 @@ export interface PreparePaymentIntentInput {
   metadata?: Prisma.InputJsonValue;
 }
 
+function isUniqueConstraintError(
+  error: unknown
+): error is Prisma.PrismaClientKnownRequestError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'P2002'
+  );
+}
+
 const FINAL_STATUSES = new Set<ExternalPaymentStatus>([
   ExternalPaymentStatus.FAILED,
   ExternalPaymentStatus.CANCELLED,
@@ -53,20 +64,7 @@ export class PaymentsService {
       include: { commission: true },
     });
     if (existing) {
-      const same =
-        existing.sourceType === input.sourceType &&
-        existing.sourceId === input.sourceId &&
-        existing.sellerUserId === input.sellerUserId &&
-        existing.provider === input.provider &&
-        existing.currency === input.currency &&
-        existing.baseAmount.equals(new Prisma.Decimal(input.baseAmount)) &&
-        existing.commissionRateBps === input.commissionRateBps &&
-        existing.commissionPayer === input.commissionPayer;
-      if (!same) {
-        throw new ConflictException(
-          'La clave de idempotencia ya se usó con otros datos'
-        );
-      }
+      this.assertIdempotencyMatch(existing, input);
       return existing;
     }
 
@@ -86,47 +84,63 @@ export class PaymentsService {
       throw new BadRequestException('La comisión supera el importe base');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const intent = await tx.externalPaymentIntent.create({
-        data: {
-          idempotencyKey: input.idempotencyKey,
-          sourceType: input.sourceType.trim(),
-          sourceId: input.sourceId.trim(),
-          payerUserId: input.payerUserId,
-          sellerUserId: input.sellerUserId,
-          provider: input.provider,
-          status: ExternalPaymentStatus.DRAFT,
-          currency: input.currency,
-          baseAmount: base,
-          amount,
-          commissionAmount: fee,
-          sellerNetAmount: sellerNet,
-          commissionRateBps: input.commissionRateBps,
-          commissionPayer: input.commissionPayer,
-          settlementMode: input.settlementMode,
-          collectionMode: input.collectionMode,
-          metadata: input.metadata,
-        },
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const intent = await tx.externalPaymentIntent.create({
+          data: {
+            idempotencyKey: input.idempotencyKey,
+            sourceType: input.sourceType.trim(),
+            sourceId: input.sourceId.trim(),
+            payerUserId: input.payerUserId,
+            sellerUserId: input.sellerUserId.trim(),
+            provider: input.provider,
+            status: ExternalPaymentStatus.DRAFT,
+            currency: input.currency,
+            baseAmount: base,
+            amount,
+            commissionAmount: fee,
+            sellerNetAmount: sellerNet,
+            commissionRateBps: input.commissionRateBps,
+            commissionPayer: input.commissionPayer,
+            settlementMode: input.settlementMode,
+            collectionMode: input.collectionMode,
+            metadata: input.metadata,
+          },
+        });
+        await tx.externalPaymentCommission.create({
+          data: {
+            paymentIntentId: intent.id,
+            sellerUserId: input.sellerUserId.trim(),
+            currency: input.currency,
+            baseAmount: base,
+            feeAmount: fee,
+            sellerNetAmount: sellerNet,
+            rateBps: input.commissionRateBps,
+            payer: input.commissionPayer,
+            collectionMode: input.collectionMode,
+            status: ExternalCommissionStatus.PENDING,
+          },
+        });
+        return tx.externalPaymentIntent.findUniqueOrThrow({
+          where: { id: intent.id },
+          include: { commission: true },
+        });
       });
-      await tx.externalPaymentCommission.create({
-        data: {
-          paymentIntentId: intent.id,
-          sellerUserId: input.sellerUserId,
-          currency: input.currency,
-          baseAmount: base,
-          feeAmount: fee,
-          sellerNetAmount: sellerNet,
-          rateBps: input.commissionRateBps,
-          payer: input.commissionPayer,
-          collectionMode: input.collectionMode,
-          status: ExternalCommissionStatus.PENDING,
-        },
-      });
-      return tx.externalPaymentIntent.findUniqueOrThrow({
-        where: { id: intent.id },
-        include: { commission: true },
-      });
-    });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        // A concurrent request may have inserted the same idempotency key after
+        // our initial read. Resolve that race to the same result, not a 500.
+        const concurrent = await this.prisma.externalPaymentIntent.findUnique({
+          where: { idempotencyKey: input.idempotencyKey },
+          include: { commission: true },
+        });
+        if (concurrent) {
+          this.assertIdempotencyMatch(concurrent, input);
+          return concurrent;
+        }
+      }
+      throw error;
+    }
   }
 
   async getIntentForUser(id: string, userId: string) {
@@ -161,10 +175,7 @@ export class PaymentsService {
         },
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (isUniqueConstraintError(error)) {
         return this.prisma.externalPaymentWebhookEvent.findUnique({
           where: {
             provider_providerEventId: {
@@ -304,6 +315,44 @@ export class PaymentsService {
       }
       return updated;
     });
+  }
+
+  // Reusing a key is safe only when all immutable quote inputs are unchanged.
+  private assertIdempotencyMatch(
+    existing: {
+      sourceType: string;
+      sourceId: string;
+      payerUserId: string | null;
+      sellerUserId: string;
+      provider: ExternalPaymentProvider;
+      currency: string;
+      baseAmount: Prisma.Decimal;
+      commissionRateBps: number;
+      commissionPayer: FeePayer;
+      settlementMode: ExternalSettlementMode;
+      collectionMode: ExternalCommissionCollectionMode;
+    },
+    input: PreparePaymentIntentInput
+  ) {
+    // An idempotency key is bound to the full immutable quote, not only its amount.
+    const same =
+      existing.sourceType === input.sourceType.trim() &&
+      existing.sourceId === input.sourceId.trim() &&
+      existing.payerUserId === (input.payerUserId ?? null) &&
+      existing.sellerUserId === input.sellerUserId.trim() &&
+      existing.provider === input.provider &&
+      existing.currency === input.currency &&
+      existing.baseAmount.equals(new Prisma.Decimal(input.baseAmount)) &&
+      existing.commissionRateBps === input.commissionRateBps &&
+      existing.commissionPayer === input.commissionPayer &&
+      existing.settlementMode === input.settlementMode &&
+      existing.collectionMode === input.collectionMode;
+
+    if (!same) {
+      throw new ConflictException(
+        'La clave de idempotencia ya se usó con otros datos'
+      );
+    }
   }
 
   private validateInput(input: PreparePaymentIntentInput) {
