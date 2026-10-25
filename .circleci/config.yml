@@ -167,24 +167,23 @@ jobs:
           command: docker build --pull --file frontend/Dockerfile.prod --target production --tag workplace-frontend:ci .
 
   security:
-    docker:
-      - image: cimg/node:22.14
+    machine:
+      image: ubuntu-2204:current
     working_directory: ~/workplace
     steps:
       - checkout
       - run:
-          name: Install pinned Trivy release
+          name: Scan source and dependencies with pinned Trivy
           command: |
-            set -eu
-            VERSION=0.64.1
-            mkdir -p "$HOME/.local/bin" /tmp/trivy
-            curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${VERSION}/trivy_${VERSION}_Linux-64bit.tar.gz" -o /tmp/trivy/trivy.tar.gz
-            tar -xzf /tmp/trivy/trivy.tar.gz -C /tmp/trivy trivy
-            install /tmp/trivy/trivy "$HOME/.local/bin/trivy"
-            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
-      - run:
-          name: Scan source and dependencies for critical vulnerabilities, secrets, and misconfiguration
-          command: trivy fs --scanners vuln,misconfig,secret --severity CRITICAL --exit-code 0 --no-progress .
+            mkdir -p "$HOME/.cache/trivy"
+            docker run --rm \
+              -v "$PWD:/work:ro" \
+              -v "$HOME/.cache/trivy:/root/.cache" \
+              aquasec/trivy:0.64.1 fs \
+              --scanners vuln,misconfig,secret \
+              --severity CRITICAL \
+              --exit-code 0 \
+              --no-progress /work
 
 workflows:
   validate-pull-request:
