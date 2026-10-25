@@ -1,0 +1,116 @@
+version: 2.1
+
+# CircleCI replacement for the GitHub Actions PR validation workflow.
+# Keep checks required; this pipeline does not deploy or change production.
+jobs:
+  backend-validation:
+    docker:
+      - image: cimg/node:22.14
+      - image: cimg/postgres:15.8
+        environment:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+    working_directory: ~/workplace
+    environment:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Enable pnpm
+          command: |
+            corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+      - restore_cache:
+          keys:
+            - pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-v1-
+      - run:
+          name: Install workspace dependencies
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+      - run:
+          name: Wait for PostgreSQL
+          command: |
+            for attempt in $(seq 1 30); do
+              if pg_isready -h 127.0.0.1 -p 5432 -U ci -d ci; then
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "PostgreSQL did not become ready" >&2
+            exit 1
+      - run:
+          name: Validate Prisma schema and generate client
+          command: cd backend && pnpm prisma validate && pnpm prisma generate
+      - run:
+          name: Type checking
+          command: cd backend && pnpm type-check
+      - run:
+          name: Lint
+          command: cd backend && pnpm lint:ci
+      - run:
+          name: Validate domain boundaries
+          command: cd backend && pnpm deps:check
+      - run:
+          name: Reject new Float fields in schema
+          command: cd backend && pnpm schema:float-check
+      - run:
+          name: Check formatting
+          command: cd backend && pnpm format:check
+      - run:
+          name: Audit critical dependency vulnerabilities
+          command: cd backend && pnpm audit --audit-level critical
+      - run:
+          name: Unit tests with coverage
+          command: cd backend && pnpm test:ci
+          no_output_timeout: 15m
+      - run:
+          name: Build backend
+          command: cd backend && pnpm build
+      - run:
+          name: Check Prisma migrations from an empty database
+          command: |
+            cd backend
+            pnpm prisma migrate deploy
+            pnpm prisma migrate diff \
+              --from-url "$DATABASE_URL" \
+              --to-schema-datamodel prisma/schema.prisma \
+              --exit-code
+
+  frontend-validation:
+    docker:
+      - image: cimg/node:22.14
+    working_directory: ~/workplace
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Enable pnpm
+          command: |
+            corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+      - restore_cache:
+          keys:
+            - pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-v1-
+      - run:
+          name: Install workspace dependencies
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+      - run:
+          name: Frontend type-check ratchet
+          command: cd frontend && pnpm type-check:ratchet
+
+workflows:
+  validate-pull-request:
+    jobs:
+      - backend-validation
+      - frontend-validation
