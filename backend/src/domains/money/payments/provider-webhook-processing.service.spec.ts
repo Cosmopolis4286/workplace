@@ -100,7 +100,7 @@ describe('ProviderWebhookProcessingService', () => {
     const result = await service.process(event);
 
     expect(
-      prisma.externalPaymentWebhookEvent.updateMany
+      prisma.externalPaymentWebhookEvent.updateMany,
     ).toHaveBeenCalledWith({
       where: {
         id: 'webhook-1',
