@@ -1,8 +1,5 @@
 import { ConflictException } from '@nestjs/common';
-import {
-  ExternalPaymentProvider,
-  ExternalPaymentStatus,
-} from '@prisma/client';
+import { ExternalPaymentProvider, ExternalPaymentStatus } from '@prisma/client';
 import { ProviderWebhookProcessingService } from './provider-webhook-processing.service';
 
 describe('ProviderWebhookProcessingService', () => {
