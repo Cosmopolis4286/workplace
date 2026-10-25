@@ -28,7 +28,7 @@ describe('PlatformPaymentRecipientService', () => {
     });
   });
 
-  it('resolves only the configured, enabled, verified destination', async () => {
+  it('resolves the configured, enabled, verified destination', async () => {
     await expect(
       service.resolve({
         provider: ExternalPaymentProvider.VEXPAY,
@@ -108,7 +108,7 @@ describe('PlatformPaymentRecipientService', () => {
   });
 
   it(
-    'rejects currencies outside the supported set without querying the database',
+    'rejects unsupported currencies without querying the database',
     async () => {
       await expect(
         service.resolve({
