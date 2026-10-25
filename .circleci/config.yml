@@ -178,7 +178,7 @@ jobs:
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
       - run:
           name: Scan source and dependencies
-          command: trivy fs --scanners vuln,misconfig,secret --severity CRITICAL --exit-code 0 --no-progress .
+          command: trivy fs --scanners vuln,misconfig,secret --severity CRITICAL --exit-code 1 --no-progress .
 
 workflows:
   validate-pull-request:
