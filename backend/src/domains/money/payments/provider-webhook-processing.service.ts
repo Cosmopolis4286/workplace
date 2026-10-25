@@ -68,31 +68,30 @@ export class ProviderWebhookProcessingService {
         },
       });
 
-    const lookup = this.buildIntentLookup(event);
-    if (!lookup) {
-      return markIgnored(
-        'El evento no contiene una referencia de pago reconocible'
-      );
-    }
-
-    const intent = await this.prisma.externalPaymentIntent.findFirst({
-      where: { provider: event.provider, ...lookup },
-    });
-    if (!intent) {
-      // Do not acknowledge an unknown event as a successful payment. Keep it
-      // auditable, but do not retry indefinitely for an unrelated reference.
-      return markIgnored(
-        'No existe un pago asociado a la referencia del evento'
-      );
-    }
-
-    if (!event.status) {
-      return markIgnored(
-        'El adaptador no pudo normalizar el estado del evento'
-      );
-    }
-
     try {
+      const lookup = this.buildIntentLookup(event);
+      if (!lookup) {
+        return await markIgnored(
+          'El evento no contiene una referencia de pago reconocible'
+        );
+      }
+
+      const intent = await this.prisma.externalPaymentIntent.findFirst({
+        where: { provider: event.provider, ...lookup },
+      });
+      if (!intent) {
+        // Keep unknown references auditable without acknowledging a payment.
+        return await markIgnored(
+          'No existe un pago asociado a la referencia del evento'
+        );
+      }
+
+      if (!event.status) {
+        return await markIgnored(
+          'El adaptador no pudo normalizar el estado del evento'
+        );
+      }
+
       await this.paymentsService.transitionIntent(
         intent.id,
         event.status,
@@ -108,8 +107,7 @@ export class ProviderWebhookProcessingService {
       });
     } catch (error) {
       if (error instanceof ConflictException) {
-        // Invalid/out-of-order transitions are not retried forever. The event
-        // remains in the audit trail for a reconciliation operator.
+        // Invalid/out-of-order transitions require reconciliation.
         return markIgnored(
           'Transición de pago no permitida; requiere reconciliación'
         );
