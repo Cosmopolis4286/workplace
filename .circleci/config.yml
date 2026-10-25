@@ -5,6 +5,11 @@ jobs:
   backend-validation:
     docker:
       - image: cimg/node:22.14
+      - image: cimg/postgres:15.8
+        environment:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
     working_directory: ~/workplace
     environment:
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
@@ -27,6 +32,17 @@ jobs:
           key: pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
           paths:
             - ~/.local/share/pnpm/store
+      - run:
+          name: Wait for PostgreSQL
+          command: |
+            for attempt in $(seq 1 30); do
+              if (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1; then
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "PostgreSQL did not become ready in time" >&2
+            exit 1
       - run:
           name: Validate Prisma schema and generate client
           command: |
