@@ -2613,6 +2613,9 @@ model Plan {
   description String?
   price       Decimal    @db.Decimal(20, 2)
   priceAnnual Decimal?   @db.Decimal(20, 2) // descuento anual (opcional)
+  // Moneda del precio del plan. Nullable para no atribuir una moneda inventada a planes existentes.
+  // Un plan sin currency configurada no debe habilitar un cobro automático.
+  currency    String?
   status      PlanStatus @default(ACTIVE)
   isPopular   Boolean    @default(false)
   color       String     @default("#3B82F6")
@@ -2666,8 +2669,10 @@ model Subscription {
   endAt     DateTime?
   trialEnds DateTime?
 
-  // Snapshot del precio al momento de suscribirse
+  // Snapshot del precio y la moneda al momento de suscribirse.
+  // Nullable solo para compatibilidad con suscripciones históricas; no usar para nuevos cobros.
   pricePaid Decimal @default(0) @db.Decimal(20, 2)
+  currency  String?
 
   // Quién asignó (superadmin o auto)
   assignedBy String? // userId del admin
@@ -3322,6 +3327,10 @@ enum ExternalPaymentProvider {
   BDV
   MANUAL
 }
+enum PlatformPaymentEnvironment {
+  SANDBOX
+  PRODUCTION
+}
 enum ExternalPaymentStatus {
   DRAFT
   REQUIRES_ACTION
@@ -3423,6 +3432,28 @@ model ExternalPaymentIntent {
   @@index([sellerUserId, createdAt(sort: Desc)])
   @@index([status, createdAt])
   @@map("external_payment_intents")
+}
+
+// Destino de cobro de la plataforma. recipientReference es una referencia opaca
+// del proveedor, nunca una credencial ni un secreto. El destino está deshabilitado
+// hasta que una verificación operacional explícita registre verifiedAt.
+model PlatformPaymentRecipient {
+  id                 String                     @id @default(uuid())
+  provider            ExternalPaymentProvider
+  currency            String
+  environment         PlatformPaymentEnvironment
+  recipientReference  String
+  displayName         String?
+  isEnabled           Boolean                    @default(false)
+  verifiedAt          DateTime?
+  createdById         String?
+  updatedById         String?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  @@unique([provider, currency, environment])
+  @@index([isEnabled, provider, currency])
+  @@map("platform_payment_recipients")
 }
 
 model ExternalPaymentCommission {
