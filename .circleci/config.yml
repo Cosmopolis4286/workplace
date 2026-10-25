@@ -37,7 +37,7 @@ jobs:
           command: pnpm --filter backend build
       - run:
           name: Run backend unit tests
-          command: pnpm --filter backend test:ci
+          command: pnpm --filter backend test:ci --runInBand
       - run:
           name: Lint backend
           command: pnpm --filter backend lint:ci
