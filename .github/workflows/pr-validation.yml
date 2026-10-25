@@ -1,8 +1,8 @@
 name: PR Validation
 
 on:
-  pull_request:
-    branches: [main, develop]
+  # CircleCI handles automatic PR validation while GitHub Actions quota is exhausted.
+  # Keep manual dispatch available for explicitly requested diagnostics.
   workflow_dispatch:
     inputs:
       force_approval:
