@@ -127,9 +127,7 @@ export class PaymentsService {
         });
       });
     } catch (error) {
-      if (
-        isUniqueConstraintError(error)
-      ) {
+      if (isUniqueConstraintError(error)) {
         // A concurrent request may have inserted the same idempotency key after
         // our initial read. Resolve that race to the same result, not a 500.
         const concurrent = await this.prisma.externalPaymentIntent.findUnique({
@@ -177,9 +175,7 @@ export class PaymentsService {
         },
       });
     } catch (error) {
-      if (
-        isUniqueConstraintError(error)
-      ) {
+      if (isUniqueConstraintError(error)) {
         return this.prisma.externalPaymentWebhookEvent.findUnique({
           where: {
             provider_providerEventId: {
