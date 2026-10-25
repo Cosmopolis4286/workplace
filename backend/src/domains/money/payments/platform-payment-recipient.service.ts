@@ -31,7 +31,7 @@ export class PlatformPaymentRecipientService {
       typeof input.currency === 'string' ? input.currency.toUpperCase() : '';
     if (currency !== 'VES' && currency !== 'USD') {
       throw new ServiceUnavailableException(
-        'No existe un destino de cobro habilitado para esta configuración',
+        'No existe un destino de cobro habilitado para esta configuración'
       );
     }
 
@@ -61,7 +61,7 @@ export class PlatformPaymentRecipientService {
       !recipient.recipientReference.trim()
     ) {
       throw new ServiceUnavailableException(
-        'No existe un destino de cobro habilitado para esta configuración',
+        'No existe un destino de cobro habilitado para esta configuración'
       );
     }
 
