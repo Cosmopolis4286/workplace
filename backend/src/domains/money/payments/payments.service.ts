@@ -328,6 +328,7 @@ export class PaymentsService {
     },
     input: PreparePaymentIntentInput
   ) {
+    // An idempotency key is bound to the full immutable quote, not only its amount.
     const same =
       existing.sourceType === input.sourceType.trim() &&
       existing.sourceId === input.sourceId.trim() &&
