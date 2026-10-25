@@ -6,6 +6,7 @@ import {
   IsArray,
   IsEnum,
   Min,
+  IsIn,
 } from 'class-validator';
 import { PlanStatus } from '@prisma/client';
 
@@ -25,6 +26,10 @@ export class CreatePlanDto {
   @IsNumber()
   @Min(0)
   priceAnnual?: number;
+
+  @IsOptional()
+  @IsIn(['VES', 'USD'])
+  currency?: 'VES' | 'USD';
 
   @IsOptional()
   @IsEnum(PlanStatus)
