@@ -312,6 +312,7 @@ export class PaymentsService {
     });
   }
 
+  // Reusing a key is safe only when all immutable quote inputs are unchanged.
   private assertIdempotencyMatch(
     existing: {
       sourceType: string;
