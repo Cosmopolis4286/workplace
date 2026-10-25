@@ -41,6 +41,23 @@ export class ProviderWebhookProcessingService {
       return recorded;
     }
 
+    // Atomically claim the event so concurrent deliveries cannot both apply it.
+    // FAILED events may be retried; PROCESSING events belong to another worker.
+    const claim = await this.prisma.externalPaymentWebhookEvent.updateMany({
+      where: {
+        id: recorded.id,
+        status: { in: ['RECEIVED', 'FAILED'] },
+      },
+      data: { status: 'PROCESSING', processingError: null },
+    });
+    if (claim.count !== 1) {
+      return (
+        (await this.prisma.externalPaymentWebhookEvent.findUnique({
+          where: { id: recorded.id },
+        })) ?? recorded
+      );
+    }
+
     const markIgnored = (reason: string) =>
       this.prisma.externalPaymentWebhookEvent.update({
         where: { id: recorded.id },
