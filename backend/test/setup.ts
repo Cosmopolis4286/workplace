@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client';
-import { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 
 let prisma: PrismaClient;
-let app: NestFastifyApplication;
+let app: NestExpressApplication;
 
 beforeAll(async () => {
   // Setup test database
