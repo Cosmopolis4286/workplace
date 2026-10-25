@@ -18,7 +18,9 @@ export class ProviderWebhookProcessingService {
 
   async process(event: VerifiedProviderEvent) {
     if (event.signatureVerified !== true) {
-      throw new ConflictException('El evento del proveedor no está verificado');
+      throw new ConflictException(
+        'El evento del proveedor no está verificado'
+      );
     }
     if (!event.providerEventId?.trim() || !event.eventType?.trim()) {
       throw new ConflictException('Evento de proveedor incompleto');
@@ -33,7 +35,9 @@ export class ProviderWebhookProcessingService {
     });
 
     if (!recorded) {
-      throw new ConflictException('No se pudo registrar el evento del proveedor');
+      throw new ConflictException(
+        'No se pudo registrar el evento del proveedor'
+      );
     }
     if (recorded.status === 'PROCESSED' || recorded.status === 'IGNORED') {
       return recorded;
@@ -51,7 +55,9 @@ export class ProviderWebhookProcessingService {
 
     const lookup = this.buildIntentLookup(event);
     if (!lookup) {
-      return markIgnored('El evento no contiene una referencia de pago reconocible');
+      return markIgnored(
+        'El evento no contiene una referencia de pago reconocible'
+      );
     }
 
     const intent = await this.prisma.externalPaymentIntent.findFirst({
@@ -60,11 +66,15 @@ export class ProviderWebhookProcessingService {
     if (!intent) {
       // Do not acknowledge an unknown event as a successful payment. Keep it
       // auditable, but do not retry indefinitely for an unrelated reference.
-      return markIgnored('No existe un pago asociado a la referencia del evento');
+      return markIgnored(
+        'No existe un pago asociado a la referencia del evento'
+      );
     }
 
     if (!event.status) {
-      return markIgnored('El adaptador no pudo normalizar el estado del evento');
+      return markIgnored(
+        'El adaptador no pudo normalizar el estado del evento'
+      );
     }
 
     try {
@@ -85,7 +95,9 @@ export class ProviderWebhookProcessingService {
       if (error instanceof ConflictException) {
         // Invalid/out-of-order transitions are not retried forever. The event
         // remains in the audit trail for a reconciliation operator.
-        return markIgnored('Transición de pago no permitida; requiere reconciliación');
+        return markIgnored(
+          'Transición de pago no permitida; requiere reconciliación'
+        );
       }
 
       await this.prisma.externalPaymentWebhookEvent.update({
