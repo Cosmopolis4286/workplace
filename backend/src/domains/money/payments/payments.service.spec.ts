@@ -138,7 +138,7 @@ describe('PaymentsService', () => {
   );
 
   it(
-    'rejects a split configuration that claims unsupported automatic collection',
+    'rejects unsupported automatic commission collection configuration',
     async () => {
       const prisma = {} as any;
       const service = new PaymentsService(prisma);
