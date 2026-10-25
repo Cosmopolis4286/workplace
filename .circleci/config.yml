@@ -1,0 +1,174 @@
+version: 2.1
+
+# CircleCI is the source of automatic PR validation.
+jobs:
+  backend-validation:
+    docker:
+      - image: cimg/node:22.14
+    working_directory: ~/workplace
+    environment:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+    resource_class: medium
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-v1-
+      - run:
+          name: Activate pnpm
+          command: |
+            corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+      - run:
+          name: Install workspace dependencies
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+      - run:
+          name: Validate Prisma schema and generate client
+          command: |
+            pnpm --filter backend exec prisma validate --schema=./prisma/schema.prisma
+            pnpm --filter backend prisma:generate
+      - run:
+          name: Backend type-check
+          command: pnpm --filter backend type-check
+      - run:
+          name: Backend lint
+          command: pnpm --filter backend lint:ci
+      - run:
+          name: Backend formatting
+          command: pnpm --filter backend format:check
+      - run:
+          name: Audit critical dependency vulnerabilities
+          command: cd backend && pnpm audit --audit-level critical
+          no_output_timeout: 5m
+      - run:
+          name: Build backend
+          command: pnpm --filter backend build
+      - run:
+          name: Run backend unit tests
+          command: pnpm --filter backend test:ci
+          no_output_timeout: 15m
+      - store_artifacts:
+          path: backend/coverage
+          destination: backend-coverage
+
+  frontend-validation:
+    docker:
+      - image: cimg/node:22.14
+    working_directory: ~/workplace
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-v1-
+      - run:
+          name: Activate pnpm
+          command: |
+            corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+      - run:
+          name: Install workspace dependencies
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+      - run:
+          name: Build frontend
+          command: pnpm --filter frontend build
+
+  migrations:
+    docker:
+      - image: cimg/node:22.14
+      - image: cimg/postgres:15.8
+        environment:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+    working_directory: ~/workplace
+    environment:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+    resource_class: medium
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-v1-
+      - run:
+          name: Activate pnpm
+          command: |
+            corepack enable
+            corepack prepare pnpm@9.15.0 --activate
+      - run:
+          name: Install workspace dependencies
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+      - run:
+          name: Wait for PostgreSQL
+          command: |
+            for attempt in $(seq 1 30); do
+              if (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1; then
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "PostgreSQL did not become ready in time" >&2
+            exit 1
+      - run:
+          name: Apply migrations to a clean database
+          command: pnpm --filter backend exec prisma migrate deploy --schema=./prisma/schema.prisma
+      - run:
+          name: Verify migrated database matches Prisma schema
+          command: |
+            pnpm --filter backend exec prisma migrate diff \
+              --from-url "$DATABASE_URL" \
+              --to-schema-datamodel ./prisma/schema.prisma \
+              --exit-code
+
+  docker-build:
+    machine:
+      image: ubuntu-2204:current
+    working_directory: ~/workplace
+    steps:
+      - checkout
+      - run:
+          name: Build backend production image
+          command: docker build --file backend/Dockerfile --target production --tag workplace-backend:ci .
+
+  security:
+    docker:
+      - image: cimg/node:22.14
+    working_directory: ~/workplace
+    steps:
+      - checkout
+      - run:
+          name: Install pinned Trivy release
+          command: |
+            set -eu
+            VERSION=0.76.1
+            mkdir -p "$HOME/.local/bin" /tmp/trivy
+            curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${VERSION}/trivy_${VERSION}_Linux-64bit.tar.gz" -o /tmp/trivy/trivy.tar.gz
+            tar -xzf /tmp/trivy/trivy.tar.gz -C /tmp/trivy trivy
+            install /tmp/trivy/trivy "$HOME/.local/bin/trivy"
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+      - run:
+          name: Scan source and dependencies
+          command: trivy fs --scanners vuln,misconfig,secret --severity CRITICAL --exit-code 0 --no-progress .
+
+workflows:
+  validate-pull-request:
+    jobs:
+      - backend-validation
+      - frontend-validation
+      - migrations
+      - docker-build
+      - security
