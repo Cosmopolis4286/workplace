@@ -114,7 +114,10 @@ describe('PaymentsService', () => {
     it('rejects late transitions from a terminal payment state', async () => {
       const prisma = {
         externalPaymentIntent: {
-          findUnique: jest.fn().mockResolvedValue({ id: 'intent-1', status: 'FAILED' }),
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'intent-1',
+            status: 'FAILED',
+          }),
         },
         $transaction: jest.fn(),
       } as any;
@@ -128,7 +131,10 @@ describe('PaymentsService', () => {
     it('rejects an invalid state transition before writing', async () => {
       const prisma = {
         externalPaymentIntent: {
-          findUnique: jest.fn().mockResolvedValue({ id: 'intent-1', status: 'DRAFT' }),
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'intent-1',
+            status: 'DRAFT',
+          }),
         },
         $transaction: jest.fn(),
       } as any;
@@ -149,7 +155,10 @@ describe('PaymentsService', () => {
       };
       const prisma = {
         externalPaymentIntent: {
-          findUnique: jest.fn().mockResolvedValue({ id: 'intent-1', status: 'PENDING' }),
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'intent-1',
+            status: 'PENDING',
+          }),
         },
         $transaction: jest.fn((callback: (tx: any) => unknown) => callback(tx)),
       } as any;
@@ -158,7 +167,9 @@ describe('PaymentsService', () => {
       await expect(service.transitionIntent('intent-1', 'SUCCEEDED' as any))
         .rejects.toThrow('El estado del pago cambió en paralelo');
       expect(tx.externalPaymentIntent.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'intent-1', status: 'PENDING' } })
+        expect.objectContaining({
+          where: { id: 'intent-1', status: 'PENDING' },
+        })
       );
       expect(tx.externalPaymentCommission.updateMany).not.toHaveBeenCalled();
     });
@@ -167,13 +178,21 @@ describe('PaymentsService', () => {
       const tx = {
         externalPaymentIntent: {
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          findUniqueOrThrow: jest.fn().mockResolvedValue({ id: 'intent-1', status: 'SUCCEEDED' }),
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            id: 'intent-1',
+            status: 'SUCCEEDED',
+          }),
         },
-        externalPaymentCommission: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        externalPaymentCommission: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
       };
       const prisma = {
         externalPaymentIntent: {
-          findUnique: jest.fn().mockResolvedValue({ id: 'intent-1', status: 'PENDING' }),
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'intent-1',
+            status: 'PENDING',
+          }),
         },
         $transaction: jest.fn((callback: (tx: any) => unknown) => callback(tx)),
       } as any;
@@ -191,13 +210,21 @@ describe('PaymentsService', () => {
       const tx = {
         externalPaymentIntent: {
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          findUniqueOrThrow: jest.fn().mockResolvedValue({ id: 'intent-1', status: 'FAILED' }),
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            id: 'intent-1',
+            status: 'FAILED',
+          }),
         },
-        externalPaymentCommission: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        externalPaymentCommission: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
       };
       const prisma = {
         externalPaymentIntent: {
-          findUnique: jest.fn().mockResolvedValue({ id: 'intent-1', status: 'PENDING' }),
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'intent-1',
+            status: 'PENDING',
+          }),
         },
         $transaction: jest.fn((callback: (tx: any) => unknown) => callback(tx)),
       } as any;
