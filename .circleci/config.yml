@@ -59,8 +59,22 @@ jobs:
           command: pnpm --filter backend format:check
       - run:
           name: Audit critical dependency vulnerabilities
-          command: cd backend && pnpm audit --audit-level critical
+          command: |
+            set +e
+            cd backend
+            pnpm audit --audit-level critical --json > ../pnpm-audit.json 2> ../pnpm-audit.stderr
+            status=$?
+            cat ../pnpm-audit.stderr >&2
+            exit "$status"
           no_output_timeout: 5m
+      - when: always
+        steps:
+          - store_artifacts:
+              path: pnpm-audit.json
+              destination: diagnostics/pnpm-audit.json
+          - store_artifacts:
+              path: pnpm-audit.stderr
+              destination: diagnostics/pnpm-audit.stderr
       - run:
           name: Build backend
           command: pnpm --filter backend build
@@ -178,7 +192,16 @@ jobs:
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
       - run:
           name: Scan source and dependencies
-          command: trivy fs --scanners vuln,misconfig,secret --severity CRITICAL --exit-code 1 --no-progress .
+          command: |
+            set +e
+            trivy fs --scanners vuln,misconfig,secret --severity CRITICAL --exit-code 1 --no-progress --format json --output trivy-results.json .
+            status=$?
+            exit "$status"
+      - when: always
+        steps:
+          - store_artifacts:
+              path: trivy-results.json
+              destination: diagnostics/trivy-results.json
 
 workflows:
   validate-pull-request:
