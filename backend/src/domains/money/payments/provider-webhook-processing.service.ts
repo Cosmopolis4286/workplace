@@ -1,5 +1,5 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { ExternalPaymentProvider, ExternalPaymentStatus, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { PaymentsService } from './payments.service';
 import { VerifiedProviderEvent } from './payment-provider.interface';
