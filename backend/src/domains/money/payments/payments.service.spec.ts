@@ -146,6 +146,7 @@ describe('PaymentsService', () => {
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
+    // A stale worker must not mutate the commission after losing the status race.
     it('uses compare-and-swap and rejects concurrent status changes', async () => {
       const tx = {
         externalPaymentIntent: {
