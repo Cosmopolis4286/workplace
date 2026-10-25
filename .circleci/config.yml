@@ -69,7 +69,7 @@ jobs:
           command: pnpm --filter frontend build
       - run:
           name: Run frontend tests
-          command: pnpm --filter frontend test --run --passWithNoTests
+          command: pnpm --filter frontend exec vitest run --passWithNoTests
       - run:
           name: Frontend type-check ratchet (existing CI check)
           command: pnpm --filter frontend type-check:ratchet
