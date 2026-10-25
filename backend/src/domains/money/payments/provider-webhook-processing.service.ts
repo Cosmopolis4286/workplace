@@ -18,9 +18,7 @@ export class ProviderWebhookProcessingService {
 
   async process(event: VerifiedProviderEvent) {
     if (event.signatureVerified !== true) {
-      throw new ConflictException(
-        'El evento del proveedor no está verificado'
-      );
+      throw new ConflictException('El evento del proveedor no está verificado');
     }
     if (!event.providerEventId?.trim() || !event.eventType?.trim()) {
       throw new ConflictException('Evento de proveedor incompleto');
