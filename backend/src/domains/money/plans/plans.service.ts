@@ -109,7 +109,7 @@ export class PlansService {
         effectiveCurrency !== 'USD'
       ) {
         throw new BadRequestException(
-          'Los planes pagos requieren una moneda configurada (VES o USD)',
+          'Los planes pagos requieren una moneda configurada (VES o USD)'
         );
       }
     }
@@ -548,7 +548,7 @@ export class PlansService {
         subscription.plan.currency !== 'USD'
       ) {
         throw new BadRequestException(
-          'El plan pago no tiene una moneda configurada (VES o USD)',
+          'El plan pago no tiene una moneda configurada (VES o USD)'
         );
       }
       if (subscription.currency !== subscription.plan.currency) {
