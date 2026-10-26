@@ -81,7 +81,9 @@ describe('ProviderWebhookProcessingService', () => {
 
   it('does not process an event already claimed by another worker', async () => {
     const { service, prisma, paymentsService, recorded } = setup();
-    prisma.externalPaymentWebhookEvent.updateMany.mockResolvedValue({ count: 0 });
+    prisma.externalPaymentWebhookEvent.updateMany.mockResolvedValue({
+      count: 0,
+    });
     prisma.externalPaymentWebhookEvent.findUnique.mockResolvedValue({
       ...recorded,
       status: 'PROCESSING',
