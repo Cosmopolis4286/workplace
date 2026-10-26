@@ -21,6 +21,8 @@ describe('ProviderWebhookProcessingService', () => {
     };
     const prisma = {
       externalPaymentWebhookEvent: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUnique: jest.fn().mockResolvedValue(recorded),
         update: jest.fn().mockImplementation(async ({ data }) => ({
           ...recorded,
           ...data,
@@ -75,6 +77,38 @@ describe('ProviderWebhookProcessingService', () => {
     expect(result.status).toBe('PROCESSED');
     expect(prisma.externalPaymentIntent.findFirst).not.toHaveBeenCalled();
     expect(paymentsService.transitionIntent).not.toHaveBeenCalled();
+  });
+
+  it('does not process an event already claimed by another worker', async () => {
+    const { service, prisma, paymentsService, recorded } = setup();
+    prisma.externalPaymentWebhookEvent.updateMany.mockResolvedValue({
+      count: 0,
+    });
+    prisma.externalPaymentWebhookEvent.findUnique.mockResolvedValue({
+      ...recorded,
+      status: 'PROCESSING',
+    });
+
+    const result = await service.process(event);
+
+    expect(result.status).toBe('PROCESSING');
+    expect(prisma.externalPaymentIntent.findFirst).not.toHaveBeenCalled();
+    expect(paymentsService.transitionIntent).not.toHaveBeenCalled();
+  });
+
+  it('reclaims a failed event for a retry', async () => {
+    const { service, prisma } = setup({ recorded: { status: 'FAILED' } });
+
+    const result = await service.process(event);
+
+    expect(prisma.externalPaymentWebhookEvent.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'webhook-1',
+        status: { in: ['RECEIVED', 'FAILED'] },
+      },
+      data: { status: 'PROCESSING', processingError: null },
+    });
+    expect(result.status).toBe('PROCESSED');
   });
 
   it('marks events without a matching payment as ignored', async () => {

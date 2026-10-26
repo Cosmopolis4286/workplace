@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+# Format staged backend TypeScript files before the commit is created.
+files=$(git diff --cached --name-only --diff-filter=ACMR -- 'backend/src/**/*.ts')
+[ -z "$files" ] && exit 0
+
+printf '%s\n' "$files" | while IFS= read -r file; do
+  [ -f "$file" ] || continue
+  (
+    cd backend
+    pnpm exec prettier --config .prettierrc --write "${file#backend/}"
+  )
+  git add "$file"
+done
