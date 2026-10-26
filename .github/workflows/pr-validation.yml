@@ -1,8 +1,7 @@
 name: PR Validation
 
 on:
-  pull_request:
-    branches: [main, develop]
+  # CircleCI is the sole automatic PR validator; keep this workflow manual-only.
   workflow_dispatch:
     inputs:
       force_approval:
