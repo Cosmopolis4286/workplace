@@ -1,8 +1,6 @@
 // Test environment setup
 // Set test environment variables directly without dotenv
 
-import path from 'path'
-
 // Set test environment variables directly
 const testEnvVars = {
   APP_ENV: 'test',
@@ -28,19 +26,29 @@ const testEnvVars = {
   // Google OAuth test variables
   GOOGLE_CLIENT_ID: 'test-google-client-id-for-testing',
   GOOGLE_CLIENT_SECRET: 'test-google-client-secret-for-testing',
-  GOOGLE_CALLBACK_URL: 'http://localhost:3001/auth/google/callback'
-}
+  GOOGLE_CALLBACK_URL: 'http://localhost:3001/auth/google/callback',
+};
 
 // Apply all environment variables
 Object.entries(testEnvVars).forEach(([key, value]) => {
-  process.env[key] = value
-})
+  process.env[key] = value;
+});
 
-console.log('✅ Test environment variables loaded')
-console.log(`🔧 APP_ENV: ${process.env.APP_ENV}`)
-console.log(`🔧 DATABASE_URL: ${process.env.DATABASE_URL?.replace(/\/\/.*@/, '//***:***@')}`)
-console.log(`🔧 REDIS_URL: ${process.env.REDIS_URL}`)
-console.log(`🔧 JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Set' : '❌ Missing'}`)
-console.log(`🔧 JWT_REFRESH_SECRET: ${process.env.JWT_REFRESH_SECRET ? '✅ Set' : '❌ Missing'}`)
-console.log(`🔧 GOOGLE_CLIENT_ID: ${process.env.GOOGLE_CLIENT_ID ? '✅ Set' : '❌ Missing'}`)
-console.log(`🔧 GOOGLE_CLIENT_SECRET: ${process.env.GOOGLE_CLIENT_SECRET ? '✅ Set' : '❌ Missing'}`)
+console.log('✅ Test environment variables loaded');
+console.log(`🔧 APP_ENV: ${process.env.APP_ENV}`);
+console.log(
+  `🔧 DATABASE_URL: ${process.env.DATABASE_URL?.replace(/\/\/.*@/, '//***:***@')}`
+);
+console.log(`🔧 REDIS_URL: ${process.env.REDIS_URL}`);
+console.log(
+  `🔧 JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Set' : '❌ Missing'}`
+);
+console.log(
+  `🔧 JWT_REFRESH_SECRET: ${process.env.JWT_REFRESH_SECRET ? '✅ Set' : '❌ Missing'}`
+);
+console.log(
+  `🔧 GOOGLE_CLIENT_ID: ${process.env.GOOGLE_CLIENT_ID ? '✅ Set' : '❌ Missing'}`
+);
+console.log(
+  `🔧 GOOGLE_CLIENT_SECRET: ${process.env.GOOGLE_CLIENT_SECRET ? '✅ Set' : '❌ Missing'}`
+);

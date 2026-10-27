@@ -1,10 +1,4 @@
-import {
-  IsEnum,
-  IsOptional,
-  IsString,
-  MaxLength,
-  ValidateIf,
-} from 'class-validator';
+import { IsEnum, IsString, MaxLength, ValidateIf } from 'class-validator';
 import { KycStatus } from '@prisma/client';
 
 export class ReviewVerificationDto {

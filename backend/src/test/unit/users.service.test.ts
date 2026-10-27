@@ -12,7 +12,6 @@ import { I18nService } from 'nestjs-i18n';
 
 describe('UsersService', () => {
   let service: UsersService;
-  let prismaService: PrismaService;
 
   const mockPrismaService: any = {
     user: {
@@ -105,7 +104,6 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   it('should be defined', () => {

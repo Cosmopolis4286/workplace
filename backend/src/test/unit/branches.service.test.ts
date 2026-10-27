@@ -5,13 +5,10 @@ import { CommerceResolverService } from '../../common/commerce-resolver/commerce
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade';
 import { CreateBranchDto } from '../../domains/commerce-core/branches/dto/create-branch.dto';
 import { UpdateBranchDto } from '../../domains/commerce-core/branches/dto/update-branch.dto';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 
 describe('BranchesService', () => {
   let service: BranchesService;
-  let prismaService: PrismaService;
-  let planLimitsService: typeof mockPlanLimitsService;
 
   const mockPrismaService = {
     branch: {
@@ -71,8 +68,6 @@ describe('BranchesService', () => {
     }).compile();
 
     service = module.get<BranchesService>(BranchesService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    planLimitsService = module.get(PLAN_LIMITS_FACADE);
   });
 
   it('should be defined', () => {
@@ -119,7 +114,6 @@ describe('BranchesService', () => {
     });
 
     it('should throw error if branch limit is reached', async () => {
-      const commerceId = 'commerce-123';
       const createBranchDto: CreateBranchDto = {
         name: 'Nueva Sucursal',
         address: 'Calle Nueva #456',

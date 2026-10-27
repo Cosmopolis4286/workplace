@@ -2,9 +2,9 @@
 
 ## Ramas y PRs
 
-- `main` → producción (despliega con `deploy.yml`). `develop` → entorno de desarrollo (`dev.yml`).
-- Trabajá en una rama propia y abrí el PR contra `develop` (o `main` para hotfixes).
-- Completá la plantilla del PR. `pr-validation.yml` tiene que quedar en verde.
+- `main` es la única rama de larga vida y es producción (despliega con `deploy.yml`).
+- Trabajá en una rama corta creada desde `main` y abrí el PR contra `main`.
+- Completá la plantilla del PR. Los checks de CircleCI tienen que quedar en verde.
 
 ## Commits
 

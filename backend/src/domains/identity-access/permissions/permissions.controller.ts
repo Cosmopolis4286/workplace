@@ -96,10 +96,7 @@ export class PermissionsController {
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  async remove(
-    @Param('id') id: string,
-    @CurrentUser() user: { id: string; role: Role }
-  ) {
+  async remove(@Param('id') id: string) {
     const isSystem = await this.permissionsService.isSystemPermission(id);
     if (isSystem) {
       throw new ForbiddenException('No puedes eliminar permisos de sistema');

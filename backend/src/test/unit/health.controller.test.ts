@@ -5,8 +5,6 @@ import { RedisService } from '../../redis/redis.service';
 
 describe('HealthController', () => {
   let controller: HealthController;
-  let prismaService: PrismaService;
-  let redisService: RedisService;
 
   const mockPrismaService = {
     $queryRaw: jest.fn(),
@@ -36,8 +34,6 @@ describe('HealthController', () => {
     }).compile();
 
     controller = module.get<HealthController>(HealthController);
-    prismaService = module.get<PrismaService>(PrismaService);
-    redisService = module.get<RedisService>(RedisService);
   });
 
   it('should be defined', () => {

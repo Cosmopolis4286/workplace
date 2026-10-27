@@ -15,11 +15,6 @@ import { AccountTypeResolver } from '../../common/account-type/account-type.reso
 
 describe('AuthService', () => {
   let service: AuthService;
-  let jwtService: JwtService;
-  let prismaService: PrismaService;
-  let usersService: UsersService;
-  let redisService: RedisService;
-  let mailService: MailService;
 
   const mockPrismaService = {
     user: {
@@ -156,11 +151,6 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    jwtService = module.get<JwtService>(JwtService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    usersService = module.get<UsersService>(UsersService);
-    redisService = module.get<RedisService>(RedisService);
-    mailService = module.get<MailService>(MailService);
   });
 
   it('should be defined', () => {

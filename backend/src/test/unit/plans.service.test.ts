@@ -6,15 +6,10 @@ import { RoleResolverService } from '../../common/account-type/role-resolver.ser
 import { AccountTypeResolver } from '../../common/account-type/account-type.resolver';
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service';
 import { CategoryScopeService } from '../../common/category-scope/category-scope.service';
-import {
-  BadRequestException,
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 
 describe('PlansService', () => {
   let service: PlansService;
-  let prismaService: PrismaService;
 
   const mockPrismaService = {
     plan: {
@@ -93,7 +88,6 @@ describe('PlansService', () => {
     }).compile();
 
     service = module.get<PlansService>(PlansService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   it('should be defined', () => {
@@ -268,8 +262,6 @@ describe('PlansService', () => {
     });
 
     it('should throw error if plan not found', async () => {
-      const planId = 'plan-123';
-
       mockPrismaService.plan.findUnique.mockResolvedValue(null);
     });
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Inject } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
