@@ -5,9 +5,11 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { createAdapter } from '@socket.io/redis-adapter';
+import Redis from 'ioredis';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import { join, posix } from 'path';
 import { AppModule } from './app.module';
 import { AuditInterceptor } from './domains/identity-access/audit/audit.interceptor';
 import { AuditService } from './domains/identity-access/audit/audit.service';
@@ -41,6 +43,29 @@ async function bootstrap() {
   );
 
   app.use(cookieParser());
+
+  // Archivos públicos subidos por usuarios (avatares, portadas, posts…).
+  // uploads/service-requests es privado: se corta aquí antes del estático y
+  // solo se sirve con auth en GET /api/services/requests/media/:filename.
+  // Se compara contra la ruta decodificada y normalizada, igual que la
+  // resolverá express.static (%2D, ./, // no deben saltarse el corte).
+  app.use('/uploads', (req: any, res: any, next: () => void) => {
+    let path: string;
+    try {
+      path = posix.normalize(decodeURIComponent(req.path)).toLowerCase();
+    } catch {
+      path = '';
+    }
+    if (!path || path.startsWith('/service-requests')) {
+      res.status(404).json({ statusCode: 404, message: 'Not Found' });
+      return;
+    }
+    next();
+  });
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+    index: false,
+  });
 
   // La app Android (Capacitor, androidScheme: 'https') sirve el WebView desde
   // el origen https://localhost, distinto del dominio del FRONTEND_URL web.
@@ -124,19 +149,19 @@ async function bootstrap() {
   const auditService = app.get(AuditService);
   app.useGlobalInterceptors(new AuditInterceptor(auditService));
 
-  // app.get() no dispara onModuleInit() — solo resuelve del contenedor DI.
-  // RedisService.client se asigna en su onModuleInit(), así que sin este
-  // init() explícito, duplicate() truena con "Cannot read properties of
-  // undefined" porque el client aún no existe (init real ocurre recién en
-  // app.listen(), varias líneas más abajo).
-  await app.init();
-
   // Adapter de Redis para Socket.IO: sin esto, las salas (user:*, commerce:*)
   // viven solo en memoria del proceso y un evento emitido desde una instancia
   // nunca llega a un cliente conectado a otra instancia. Necesario para poder
   // escalar el backend a más de un réplica.
-  const redisService = app.get(RedisService);
-  const pubClient = redisService.duplicate();
+  // Debe instalarse ANTES de app.init(): los gateways se enlazan al adapter
+  // en init y uno instalado después se ignora. Por eso usa conexiones propias
+  // en vez de RedisService, cuyo cliente nace en onModuleInit (dentro de init).
+  const pubClient = new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: Number(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD,
+    retryStrategy: (times) => Math.min(times * 50, 2000),
+  });
   const subClient = pubClient.duplicate();
 
   class RedisIoAdapter extends IoAdapter {
@@ -148,6 +173,9 @@ async function bootstrap() {
   }
 
   app.useWebSocketAdapter(new RedisIoAdapter(app));
+
+  await app.init();
+  const redisService = app.get(RedisService);
 
   // 🔥 Graceful shutdown setup
   const server = app.getHttpServer();

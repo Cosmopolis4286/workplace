@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import * as path from 'path';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { I18nService } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
@@ -1009,7 +1009,7 @@ export class AuthService {
     userId: string,
     email: string,
     role: Role,
-    refreshExpiresIn?: string | number
+    refreshExpiresIn?: JwtSignOptions['expiresIn']
   ) {
     const jti = uuidv4();
 

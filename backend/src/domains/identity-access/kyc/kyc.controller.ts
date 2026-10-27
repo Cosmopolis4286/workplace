@@ -31,7 +31,7 @@ import { KycService } from './kyc.service';
 import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import { ReviewVerificationDto } from './dto/review-verification.dto';
 
-// Fuera del árbol "uploads/" (montado públicamente por ServeStaticModule en
+// Fuera del árbol "uploads/" (montado públicamente con useStaticAssets en
 // app.module.ts) para que estas imágenes NUNCA sean accesibles sin pasar por
 // el endpoint autenticado de abajo, sin depender de un patrón "exclude".
 const KYC_UPLOADS_DIR = join(process.cwd(), 'private-uploads', 'kyc');

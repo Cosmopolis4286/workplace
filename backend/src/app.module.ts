@@ -3,7 +3,6 @@ import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ServeStaticModule } from '@nestjs/serve-static';
 import { I18nModule, AcceptLanguageResolver, QueryResolver } from 'nestjs-i18n';
 import { join } from 'path';
 import { SecurityContextMiddleware } from './common/middleware/security-context.middleware';
@@ -94,13 +93,6 @@ import { PaymentsModule } from './domains/money/payments/payments.module';
       ],
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
-    ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'uploads'),
-      serveRoot: '/uploads',
-      // service-requests contiene material privado del cliente/proveedor:
-      // se sirve solo vía GET /api/services/requests/media/:filename con auth + autorización.
-      exclude: ['/service-requests/(.*)'],
-    }),
     PrismaModule,
     RedisModule,
     RecaptchaModule,
@@ -175,6 +167,6 @@ import { PaymentsModule } from './domains/money/payments/payments.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(SecurityContextMiddleware).forRoutes('*'); // Aplicar a todas las rutas
+    consumer.apply(SecurityContextMiddleware).forRoutes('{*path}'); // Aplicar a todas las rutas
   }
 }
