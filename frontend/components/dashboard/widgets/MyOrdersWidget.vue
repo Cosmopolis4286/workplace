@@ -105,7 +105,7 @@ interface Order {
   createdAt: string
   items?: OrderItem[]
   itemCount?: number
-  commerce?: { name: string; avatar?: string | null }
+  commerce?: { name: string; avatar?: string | null } | null
 }
 
 const { getAssetUrl } = useAssetUrl()

@@ -188,6 +188,29 @@ const statusSummary = computed(() => [
   { key: 'NO_SHOW',   label: 'No show',     count: props.appointments.filter(a => a.status === 'NO_SHOW').length,    dot: 'bg-orange-400' },
 ])
 
+// Reservas agrupadas por día (se perdió al extraer este componente de la
+// página: sin esto la lista quedaba vacía).
+const groupedAppointments = computed(() => {
+  const map = new Map<string, { date: string; dateLabel: string; items: Appointment[] }>()
+  for (const appt of props.appointments) {
+    const dateKey = appt.date.slice(0, 10)
+    if (!map.has(dateKey)) {
+      map.set(dateKey, {
+        date: dateKey,
+        dateLabel: new Date(dateKey + 'T12:00:00').toLocaleDateString('es-MX', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }),
+        items: [],
+      })
+    }
+    map.get(dateKey)!.items.push(appt)
+  }
+  return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date))
+})
+
 const upcomingAppointments = computed(() => {
   const now = new Date()
   return props.appointments

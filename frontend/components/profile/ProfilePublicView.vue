@@ -339,7 +339,7 @@
             <div class="aspect-square bg-gray-100 relative overflow-hidden">
               <img
                 v-if="product.image"
-                :src="getAssetUrl(product.image)"
+                :src="getAssetUrl(product.image) ?? undefined"
                 :alt="product.name"
                 class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
               >
@@ -404,7 +404,7 @@
             <div class="h-16 w-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
               <img
                 v-if="srv.images?.[0]"
-                :src="getAssetUrl(srv.images[0])"
+                :src="getAssetUrl(srv.images[0]) ?? undefined"
                 :alt="srv.name"
                 class="h-full w-full object-cover"
               >
@@ -1276,11 +1276,11 @@ const {
   likePost, unlikePost, fetchComments, createComment, deleteComment, updateComment,
   follow, unfollow, fetchReviews, submitReview, deleteReview, updateProfileSettings,
   respondToReview, deleteReviewResponse, reportReview,
-  getFollowers, getFollowing,
 } = useProfiles()
 
 const { user: currentUser, isAuthenticated, uploadAvatar } = useAuth()
 const { getAssetUrl } = useAssetUrl()
+const toast = useToast()
 
 // SEO/compartir — igual limitación que /loja/:slug: sin SSR no indexa a
 // crawlers, pero sí mejora title tab y OG tags al compartir el link.
@@ -1319,7 +1319,7 @@ async function onCoverFileSelected(event: Event) {
     coverPreview.value = null
   } catch (err: any) {
     coverPreview.value = null
-    alert.error('No se pudo actualizar la portada', getApiErrorMessage(err, 'No se pudo actualizar la portada'))
+    toast.error('No se pudo actualizar la portada', getApiErrorMessage(err, 'No se pudo actualizar la portada'))
   } finally {
     uploadingCover.value = false
     if (coverFileInput.value) coverFileInput.value.value = ''
@@ -1383,8 +1383,10 @@ const roleLabel = computed(() => {
 const isOwnProfile = computed(() => currentUser.value?.id === profile.value?.id)
 const canPost = computed(() => ['PROFESIONAL', 'SUPERADMIN', 'ADMIN'].includes(currentUser.value?.role ?? ''))
 
+type ProfileTab = 'posts' | 'catalog' | 'services' | 'reviews'
+
 const tabs = computed(() => {
-  const t: { key: string; label: string }[] = [
+  const t: { key: ProfileTab; label: string }[] = [
     { key: 'posts', label: 'Publicaciones' },
   ]
   const ps = profile.value?.profileSettings ?? { showCatalog: true, showServices: true }
@@ -1418,7 +1420,7 @@ function starFill(i: number, rating: number): number {
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-const activeTab = ref<'posts' | 'catalog' | 'services' | 'reviews'>('posts')
+const activeTab = ref<ProfileTab>('posts')
 const followLoading = ref(false)
 
 // Post modal
@@ -1484,7 +1486,7 @@ async function handleToggleLike(post: ProfilePost) {
       }
     }
   } catch (err: any) {
-    alert.error('No se pudo procesar el like', getApiErrorMessage(err, 'No se pudo procesar el like'))
+    toast.error('No se pudo procesar el like', getApiErrorMessage(err, 'No se pudo procesar el like'))
   } finally {
     likingPostId.value = null
   }
@@ -1495,7 +1497,7 @@ async function loadComments(postId: string) {
   try {
     postComments.value = await fetchComments(postId)
   } catch (err: any) {
-    alert.error('No se pudieron cargar los comentarios', getApiErrorMessage(err, 'No se pudieron cargar los comentarios'))
+    toast.error('No se pudieron cargar los comentarios', getApiErrorMessage(err, 'No se pudieron cargar los comentarios'))
   } finally {
     loadingComments.value = false
   }
@@ -1512,7 +1514,7 @@ async function handleSendComment() {
       selectedPost.value = { ...selectedPost.value, commentsCount: selectedPost.value.commentsCount + 1 }
     }
   } catch (err: any) {
-    alert.error('No se pudo enviar el comentario', getApiErrorMessage(err, 'No se pudo enviar el comentario'))
+    toast.error('No se pudo enviar el comentario', getApiErrorMessage(err, 'No se pudo enviar el comentario'))
   } finally {
     sendingComment.value = false
   }
@@ -1527,7 +1529,7 @@ async function handleDeleteComment(comment: PostComment) {
       selectedPost.value = { ...selectedPost.value, commentsCount: Math.max(0, selectedPost.value.commentsCount - 1) }
     }
   } catch (err: any) {
-    alert.error('No se pudo eliminar el comentario', getApiErrorMessage(err, 'No se pudo eliminar el comentario'))
+    toast.error('No se pudo eliminar el comentario', getApiErrorMessage(err, 'No se pudo eliminar el comentario'))
   }
 }
 
@@ -1719,7 +1721,7 @@ async function handleFollow() {
   try {
     await follow(profile.value.username)
   } catch (err: any) {
-    alert.error('No se pudo seguir al usuario', getApiErrorMessage(err, 'No se pudo seguir al usuario'))
+    toast.error('No se pudo seguir al usuario', getApiErrorMessage(err, 'No se pudo seguir al usuario'))
   } finally {
     followLoading.value = false
   }
@@ -1731,7 +1733,7 @@ async function handleUnfollow() {
   try {
     await unfollow(profile.value.username)
   } catch (err: any) {
-    alert.error('No se pudo dejar de seguir al usuario', getApiErrorMessage(err, 'No se pudo dejar de seguir al usuario'))
+    toast.error('No se pudo dejar de seguir al usuario', getApiErrorMessage(err, 'No se pudo dejar de seguir al usuario'))
   } finally {
     followLoading.value = false
   }
@@ -1760,7 +1762,7 @@ async function confirmDeletePost(id: string) {
     await deletePost(id)
     if (selectedPost.value?.id === id) selectedPost.value = null
   } catch (err: any) {
-    alert.error('No se pudo eliminar la publicación', getApiErrorMessage(err, 'No se pudo eliminar la publicación'))
+    toast.error('No se pudo eliminar la publicación', getApiErrorMessage(err, 'No se pudo eliminar la publicación'))
   }
 }
 

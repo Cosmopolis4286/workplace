@@ -20,7 +20,7 @@
           class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden ring-2 transition-shadow duration-150 group-hover:ring-workplace-red/40"
           :class="dark ? 'bg-gray-700 ring-white/10' : 'bg-gray-100 ring-gray-200'"
         >
-          <img v-if="user?.avatar" :src="useAssetUrl().getAssetUrl(user.avatar)" class="w-full h-full object-cover" />
+          <img v-if="user?.avatar" :src="useAssetUrl().getAssetUrl(user.avatar) ?? undefined" class="w-full h-full object-cover" />
           <svg v-else class="w-4 h-4" :class="dark ? 'text-gray-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
           </svg>

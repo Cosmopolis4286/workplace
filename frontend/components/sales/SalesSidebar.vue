@@ -70,7 +70,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { PlusIcon, ChartBarIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
-import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, type Order, type OrderStatus } from '~/composables/catalog/useMerchantOrders'
+import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, type Order, type OrderStatus, type PaymentMethod } from '~/composables/catalog/useMerchantOrders'
 
 const props = defineProps<{
   orders: Order[]
@@ -105,7 +105,7 @@ const paymentBreakdown = computed(() => {
   const counts: Record<string, number> = {}
   props.orders.forEach(o => { counts[o.paymentMethod] = (counts[o.paymentMethod] ?? 0) + 1 })
   return Object.entries(counts)
-    .map(([key, count]) => ({ key, label: PAYMENT_METHOD_LABELS[key as any] ?? key, count }))
+    .map(([key, count]) => ({ key, label: PAYMENT_METHOD_LABELS[key as PaymentMethod] ?? key, count }))
     .sort((a, b) => b.count - a.count)
 })
 

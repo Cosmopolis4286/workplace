@@ -79,7 +79,12 @@ export function useQuickAccess() {
     saving.value = true
     error.value = null
     try {
-      const updated = await patch<{ showCatalog: boolean; showServices: boolean; quickAccessIds: string[] }>(
+      const updated = await patch<{
+        showCatalog: boolean
+        showServices: boolean
+        quickAccessIds: string[]
+        dashboardQuickActionIds: string[]
+      }>(
         '/profiles/settings',
         { quickAccessIds: ids },
       )
@@ -88,6 +93,9 @@ export function useQuickAccess() {
           showCatalog: updated.showCatalog,
           showServices: updated.showServices,
           quickAccessIds: updated.quickAccessIds,
+          // Sin esto se perdían las acciones rápidas del dashboard en el
+          // estado local hasta recargar la página.
+          dashboardQuickActionIds: updated.dashboardQuickActionIds,
         },
       })
     } catch (err: any) {

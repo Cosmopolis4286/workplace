@@ -10,7 +10,7 @@
     <div v-if="error" class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
       <ExclamationTriangleIcon class="h-5 w-5 text-red-500 flex-shrink-0" />
       <span class="text-sm text-red-700">{{ error }}</span>
-      <button class="ml-auto text-red-500 hover:text-red-700" @click="loadDashboard">Reintentar</button>
+      <button class="ml-auto text-red-500 hover:text-red-700" @click="loadDashboard()">Reintentar</button>
     </div>
 
     <!-- Toast -->
@@ -414,9 +414,11 @@ function closeDetail() {
 }
 
 // Status transitions
-async function handleStatusChange(payload: { id: string; status: string }) {
-  const { id, status } = payload
-  const ok = await updateOrderStatus(id, status as OrderStatus)
+// OrderCard (vía OrdersListWidget) y OrderDetailModal emiten (id, status[, cancelReason]).
+// Antes este handler esperaba un objeto { id, status }: recibía solo el id y
+// los botones de estado del dashboard no hacían nada.
+async function handleStatusChange(id: string, status: OrderStatus, cancelReason?: string) {
+  const ok = await updateOrderStatus(id, status, cancelReason)
   if (ok) {
     const labels: Record<OrderStatus, string> = {
       PENDING: 'Pendiente',
@@ -428,7 +430,7 @@ async function handleStatusChange(payload: { id: string; status: string }) {
       CANCELLED: 'Cancelado',
     }
     const type = status === 'CANCELLED' ? 'warning' : 'success'
-    showToast(type, `Pedido actualizado: ${labels[status as OrderStatus]}`)
+    showToast(type, `Pedido actualizado: ${labels[status]}`)
     if (selectedOrder.value?.id === id) closeDetail()
   } else {
     showToast('error', error.value ?? 'Error al actualizar pedido', 4000)

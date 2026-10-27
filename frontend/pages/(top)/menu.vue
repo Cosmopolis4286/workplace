@@ -239,7 +239,7 @@
     <!-- Product Modal -->
     <ProductModal
       :is-open="showProductModal"
-      :product="selectedProduct"
+      :product="selectedProduct ?? undefined"
       :categories="categories"
       @close="closeProductModal"
       @save="handleSaveProduct"
@@ -548,7 +548,8 @@ const handleUpdateCategory = async (id: string, data: { name?: string; color?: s
   savingCategory.value = false
 }
 
-const confirmDeleteCategory = async (category: Category) => {
+// Solo usa id/name: acepta también la Category local de CategoriesPanel.
+const confirmDeleteCategory = async (category: Pick<Category, 'id' | 'name'>) => {
   const productCount = categoriesWithProducts.value.find((c) => c.id === category.id)?.products.length ?? 0
   if (productCount > 0) {
     toast.warning('No se puede eliminar', `La categoría "${category.name}" tiene ${productCount} producto(s). Muévalos o elimínelos primero.`)

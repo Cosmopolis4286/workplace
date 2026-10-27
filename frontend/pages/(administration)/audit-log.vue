@@ -29,11 +29,11 @@
           class="input-field text-sm"
           @input="debouncedLoad"
         >
-        <select v-model="filters.module" class="input-field text-sm" @change="load">
+        <select v-model="filters.module" class="input-field text-sm" @change="load(1)">
           <option value="">Todos los módulos</option>
           <option v-for="m in MODULES" :key="m" :value="m">{{ m }}</option>
         </select>
-        <select v-model="filters.action" class="input-field text-sm" @change="load">
+        <select v-model="filters.action" class="input-field text-sm" @change="load(1)">
           <option value="">Todas las acciones</option>
           <option v-for="a in ACTIONS" :key="a" :value="a">{{ a }}</option>
         </select>
@@ -42,11 +42,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label class="block text-xs text-gray-500 mb-1">Fecha desde</label>
-          <input v-model="filters.dateFrom" type="date" class="input-field text-sm w-full" @change="load">
+          <input v-model="filters.dateFrom" type="date" class="input-field text-sm w-full" @change="load(1)">
         </div>
         <div>
           <label class="block text-xs text-gray-500 mb-1">Fecha hasta</label>
-          <input v-model="filters.dateTo" type="date" class="input-field text-sm w-full" @change="load">
+          <input v-model="filters.dateTo" type="date" class="input-field text-sm w-full" @change="load(1)">
         </div>
         <div class="flex items-end">
           <button class="text-xs text-gray-400 hover:text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 transition-colors w-full" @click="resetFilters">

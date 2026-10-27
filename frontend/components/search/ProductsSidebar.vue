@@ -128,7 +128,7 @@ import SortDropdown from '~/components/search/SortDropdown.vue'
 import type { CatalogCommerce, CatalogSortBy } from '~/composables/catalog/useCatalog'
 
 defineProps<{
-  commerces: CatalogCommerce[]
+  commerces: readonly CatalogCommerce[]
   activeCommerceId: string | null
   activeCategory: string | null
   total: number

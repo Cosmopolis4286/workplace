@@ -184,13 +184,15 @@ function closeModal() { showModal.value = false; editingRate.value = null }
 
 async function handleSubmit() {
   formTouched.value = true; formError.value = null
-  if (!form.value.code || !form.value.name || !form.value.symbol || !form.value.rateToUsd) {
+  const { rateToUsd } = form.value
+  if (!form.value.code || !form.value.name || !form.value.symbol || !rateToUsd) {
     formError.value = 'Completa todos los campos requeridos.'; return
   }
+  const payload = { ...form.value, rateToUsd }
   saving.value = true
   try {
-    if (editingRate.value) { await updateRate(editingRate.value.id, form.value); showToast('Moneda actualizada') }
-    else { await createRate(form.value); showToast('Moneda creada') }
+    if (editingRate.value) { await updateRate(editingRate.value.id, payload); showToast('Moneda actualizada') }
+    else { await createRate(payload); showToast('Moneda creada') }
     await fetchStats(); closeModal()
   } catch (e: any) { formError.value = getApiErrorMessage(e, 'No se pudo guardar la moneda') }
   finally { saving.value = false }

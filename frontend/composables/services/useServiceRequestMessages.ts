@@ -43,5 +43,18 @@ export function useServiceRequestMessages() {
     return get<{ count: number }>('/services/requests/messages/unread-count')
   }
 
-  return { sending, error, fetchMessages, sendMessage, markRead, fetchUnreadCount }
+  /** No leídos por solicitud: { [serviceRequestId]: count }. */
+  async function fetchUnreadCountByRequest() {
+    return get<Record<string, number>>('/services/requests/messages/unread-count-by-request')
+  }
+
+  return {
+    sending,
+    error,
+    fetchMessages,
+    sendMessage,
+    markRead,
+    fetchUnreadCount,
+    fetchUnreadCountByRequest,
+  }
 }

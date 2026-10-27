@@ -332,6 +332,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { CatalogProduct, CatalogSortBy } from '~/composables/catalog/useCatalog'
 import type { CatalogService, ServiceSortBy } from '~/composables/services/useServices'
 import type { Job, JobSortBy } from '~/composables/jobs/useJobs'
+import type { ProposedCategoryTarget } from '~/composables/admin/useProposedCategories'
 import { useJobs } from '~/composables/jobs/useJobs'
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useCart } from '~/composables/catalog/useCart'
@@ -511,10 +512,12 @@ const activeTabData = computed(() =>
 )
 
 const canProposeCategory = computed(() => user.value?.role === 'PROFESIONAL')
-const proposeCategoryTarget = computed<'PRODUCTO' | 'SERVICIO' | 'EMPLEO'>(() => {
-  if (activeTab.value === 'productos') return 'PRODUCTO'
-  if (activeTab.value === 'servicios') return 'SERVICIO'
-  return 'EMPLEO'
+// Valores del enum ProposedCategoryTarget del backend (@IsEnum): con
+// 'PRODUCTO'/'SERVICIO'/'EMPLEO' la propuesta respondía 400 siempre.
+const proposeCategoryTarget = computed<ProposedCategoryTarget>(() => {
+  if (activeTab.value === 'productos') return 'PRODUCT'
+  if (activeTab.value === 'servicios') return 'SERVICE'
+  return 'JOB'
 })
 function onProposeCategorySuccess() {
   categoryProposalToast.value = true

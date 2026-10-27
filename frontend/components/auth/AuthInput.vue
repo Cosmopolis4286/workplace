@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, type PropType } from 'vue'
 import {
   EyeIcon,
   EyeSlashIcon,
@@ -86,7 +86,9 @@ const props = defineProps({
   required: Boolean,
   showPasswordToggle: Boolean,
   autocomplete: String,
-  inputmode: String,
+  inputmode: String as PropType<
+    'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search'
+  >,
   showValid: { type: Boolean, default: false }
 })
 

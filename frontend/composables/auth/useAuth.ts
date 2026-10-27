@@ -225,14 +225,14 @@ export const useAuth = () => {
   // esta misma lógica para cada llamada de este archivo).
   async function authFetch<T>(url: string, options: Record<string, any> = {}): Promise<T> {
     try {
-      return await $fetch<T>(url, { ...options, headers: { ...getHeaders(), ...(options.headers ?? {}) } })
+      return (await $fetch<T>(url, { ...options, headers: { ...getHeaders(), ...(options.headers ?? {}) } })) as T
     } catch (err: unknown) {
       const status = (err as { status?: number; statusCode?: number })?.status
         ?? (err as { status?: number; statusCode?: number })?.statusCode
       if (status === 401) {
         const refreshed = await refreshAccessToken()
         if (!refreshed) throw err
-        return $fetch<T>(url, { ...options, headers: { ...getHeaders(), ...(options.headers ?? {}) } })
+        return (await $fetch<T>(url, { ...options, headers: { ...getHeaders(), ...(options.headers ?? {}) } })) as T
       }
       // JWT válido pero sesión en Redis expirada por inactividad (ver
       // jwt.strategy.ts) — el backend devuelve 403 con este mensaje

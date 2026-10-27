@@ -76,8 +76,10 @@
 <script setup lang="ts">
 const pwa = usePWA()
 
-const showInstallPrompt = computed(() => pwa?.showInstallPrompt.value ?? false)
-const needRefresh = computed(() => pwa?.needRefresh.value ?? false)
+// usePWA() devuelve un objeto reactive: sus campos ya son booleanos.
+// Con `.value` daban undefined y los avisos de instalar/actualizar nunca salían.
+const showInstallPrompt = computed(() => pwa?.showInstallPrompt ?? false)
+const needRefresh = computed(() => pwa?.needRefresh ?? false)
 
 function install() {
   pwa?.install()

@@ -17,6 +17,6 @@
 const { locale, locales, setLocale } = useI18n()
 
 const availableLocales = computed(() =>
-  (locales.value as Array<{ code: string; name?: string }>).map((l) => ({ code: l.code, name: l.name }))
+  (locales.value as Array<{ code: 'es' | 'en'; name?: string }>).map((l) => ({ code: l.code, name: l.name }))
 )
 </script>

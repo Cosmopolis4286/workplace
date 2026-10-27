@@ -110,7 +110,7 @@ export const copyAllCredentials = async (
   }
 
   playerCredentials.value.forEach((player) => {
-    allCreds.push(`${player.firstName}: ${player.email} / ${player.password}`)
+    allCreds.push(`${player.label}: ${player.email} / ${player.password}`)
   })
 
   const credentialsText = allCreds.join('\n')

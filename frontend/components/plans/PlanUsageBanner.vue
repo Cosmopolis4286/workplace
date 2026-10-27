@@ -51,13 +51,18 @@ const props = defineProps<{
 }>()
 
 const allItems = computed(() => {
-  if (!props.usage) return []
-  const { limits, usage } = props.usage
+  // usage es null para cuentas sin Commerce (p. ej. freelancer): no hay
+  // contadores que mostrar.
+  const { limits, usage } = props.usage ?? {}
+  if (!limits || !usage) return []
+  // -1 = ilimitado; 0 = no incluido en el plan (evita dividir por cero).
+  const pct = (used: number, max: number) =>
+    max <= 0 ? 0 : Math.round((used / max) * 100)
   return [
-    { key: 'products',  label: 'Productos',   used: usage.products,         max: limits.maxProducts,  pct: limits.maxProducts  === -1 ? 0 : Math.round((usage.products / limits.maxProducts) * 100) },
-    { key: 'employees', label: 'Empleados',    used: usage.employees,        max: limits.maxEmployees, pct: limits.maxEmployees === -1 ? 0 : Math.round((usage.employees / limits.maxEmployees) * 100) },
-    { key: 'branches',  label: 'Sucursales',   used: usage.branches,         max: limits.maxBranches,  pct: limits.maxBranches  === -1 ? 0 : Math.round((usage.branches / limits.maxBranches) * 100) },
-    { key: 'orders',    label: 'Pedidos/mes',  used: usage.ordersThisMonth,  max: limits.maxOrders,    pct: limits.maxOrders    === -1 ? 0 : Math.round((usage.ordersThisMonth / limits.maxOrders) * 100) },
+    { key: 'products',  label: 'Productos',   used: usage.products,         max: limits.maxProducts,  pct: pct(usage.products, limits.maxProducts) },
+    { key: 'employees', label: 'Empleados',    used: usage.employees,        max: limits.maxEmployees, pct: pct(usage.employees, limits.maxEmployees) },
+    { key: 'branches',  label: 'Sucursales',   used: usage.branches,         max: limits.maxBranches,  pct: pct(usage.branches, limits.maxBranches) },
+    { key: 'orders',    label: 'Pedidos/mes',  used: usage.ordersThisMonth,  max: limits.maxOrders,    pct: pct(usage.ordersThisMonth, limits.maxOrders) },
   ]
 })
 

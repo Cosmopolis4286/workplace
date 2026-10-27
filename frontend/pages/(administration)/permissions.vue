@@ -308,7 +308,7 @@ async function loadMatrix() {
   loading.value = true
   error.value = null
   try {
-    const data = await get('/permissions/matrix')
+    const data = await get<PermissionRow[]>('/permissions/matrix')
     permissions.value = data
 
     const matrix: Record<string, Record<Role, boolean>> = {}
@@ -327,7 +327,10 @@ async function loadMatrix() {
   }
 }
 
-function toggleLocal(permissionId: string, role: Role, granted: boolean) {
+// PermissionMatrixTable emite el rol como string (sirve también para la
+// matriz por perfil); en esta matriz siempre es uno de ROLES.
+function toggleLocal(permissionId: string, roleKey: string, granted: boolean) {
+  const role = roleKey as Role
   if (!localMatrix.value[permissionId]) return
   localMatrix.value[permissionId][role] = granted
 
@@ -362,7 +365,7 @@ async function saveAll() {
 async function loadProfileMatrix() {
   loadingProfileMatrix.value = true
   try {
-    const data = await get('/permissions/profile-matrix')
+    const data = await get<ProfilePermissionRow[]>('/permissions/profile-matrix')
     profilePermissions.value = data
 
     const matrix: Record<string, Record<string, boolean>> = {}
@@ -416,7 +419,7 @@ async function saveAllProfile() {
 
 async function loadPlans() {
   try {
-    const data = await get('/plans?includeInactive=false')
+    const data = await get<PlanInfo[]>('/plans?includeInactive=false')
     plans.value = data
   } catch { /* non-critical */ }
 }
@@ -424,7 +427,7 @@ async function loadPlans() {
 async function loadSystemModules() {
   loadingModules.value = true
   try {
-    systemModules.value = await get('/system-modules')
+    systemModules.value = await get<SystemModuleRow[]>('/system-modules')
   } catch { /* non-critical */ } finally {
     loadingModules.value = false
   }
@@ -436,7 +439,7 @@ async function toggleSystemModule(m: SystemModuleRow, enabled: boolean) {
   m.enabled = enabled // optimistic
   try {
     await patch('/system-modules/toggle', { module: m.module, enabled })
-    successMsg.value = `Módulo "${MODULE_LABELS[m.module] ?? m.module}" ${enabled ? 'activado' : 'desactivado'} para toda la plataforma.`
+    successMsg.value = `Módulo "${MODULE_LABELS.value[m.module] ?? m.module}" ${enabled ? 'activado' : 'desactivado'} para toda la plataforma.`
     setTimeout(() => { successMsg.value = null }, 4000)
   } catch (e: any) {
     m.enabled = previous // rollback
@@ -519,7 +522,7 @@ async function saveNewPerm() {
   }
 }
 
-async function confirmDelete(perm: PermissionRow) {
+async function confirmDelete(perm: Pick<PermissionRow, 'id' | 'key' | 'label'>) {
   const ok = await confirm({
     title: 'Eliminar permiso',
     message: `¿Eliminar el permiso "${perm.label}" (${perm.key})? Esta acción no se puede deshacer.`,

@@ -37,7 +37,7 @@
         :order="order"
         :readonly="readonly"
         @view-details="$emit('view-details', $event)"
-        @status-change="$emit('status-change', $event)"
+        @status-change="(id, status) => $emit('status-change', id, status)"
       />
     </div>
 
@@ -50,7 +50,7 @@
 <script setup lang="ts">
 import { ShoppingCartIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
 import OrderCard from '~/components/catalog/OrderCard.vue'
-import type { Order } from '~/composables/catalog/useMerchantOrders'
+import type { Order, OrderStatus } from '~/composables/catalog/useMerchantOrders'
 import { useRelativeTime } from '~/composables/core/useRelativeTime'
 
 interface Props {
@@ -70,7 +70,7 @@ withDefaults(defineProps<Props>(), {
 defineEmits<{
   refresh: []
   'view-details': [order: Order]
-  'status-change': [payload: { id: string; status: string }]
+  'status-change': [id: string, status: OrderStatus]
 }>()
 
 const { timeAgo } = useRelativeTime()

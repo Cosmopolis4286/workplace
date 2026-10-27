@@ -16,7 +16,9 @@ const config: CapacitorConfig = {
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",
       showSpinner: true,
-      spinnerStyle: "large",
+      // El plugin no tiene `spinnerStyle` (se ignoraba): son opciones por plataforma.
+      androidSpinnerStyle: "large",
+      iosSpinnerStyle: "large",
       spinnerColor: "#999999",
     }
   }
