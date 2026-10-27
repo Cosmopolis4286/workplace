@@ -79,7 +79,7 @@ jobs:
         fi
 
     - name: Subir coverage
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         files: ./backend/coverage/lcov.info
         flags: pr

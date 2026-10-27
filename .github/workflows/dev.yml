@@ -83,7 +83,7 @@ jobs:
         APP_ENV: test
 
     - name: Subir coverage
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         file: ./backend/coverage/lcov.info
         flags: develop
