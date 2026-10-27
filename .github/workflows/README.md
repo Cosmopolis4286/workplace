@@ -18,8 +18,7 @@ Este repositorio utiliza una arquitectura **híbrida YAML + Shell** para CI/CD e
 │   └── validate-environment/ github-deployment/ notify/
 ├── workflows/
 │   ├── deploy.yml            # Producción (push a main / release)
-│   ├── dev.yml               # Desarrollo (push a develop)
-│   ├── pr-validation.yml     # Validación de PRs a main/develop
+│   ├── pr-validation.yml     # Diagnóstico manual (la validación de PRs la hace CircleCI)
 │   └── README.md             # Esta documentación
 ├── ISSUE_TEMPLATE/           # Formularios de bug y propuesta
 ├── PULL_REQUEST_TEMPLATE.md
@@ -60,14 +59,9 @@ scripts/                      # Lógica de shell invocada por los workflows
 - 🏥 Health checks automáticos
 - 📦 Rollback automático si falla
 
-### 2. `dev.yml` - Desarrollo
-**Trigger**: Push a `develop`
-- ✅ Tests de desarrollo
-- ✅ Deploy a ambiente de desarrollo
-- ✅ Migraciones automáticas
-
-### 3. `pr-validation.yml` - Validación de PRs
-**Trigger**: Pull Requests
+### 2. `pr-validation.yml` - Validación de PRs
+**Trigger**: manual (`workflow_dispatch`). La validación automática de cada PR
+la hace CircleCI (`.circleci/config.yml`) con los mismos checks.
 - ✅ Type checking backend + trinquete de typecheck del frontend (bloqueante)
 - ✅ Linting
 - ✅ Security audit
@@ -157,17 +151,6 @@ git push origin main
 # ✅ Deploy con canary (YAML + Shell)
 # ✅ Health checks (Shell)
 # ✅ SLA monitoring (Shell)
-```
-
-### Desarrollo
-```bash
-# 1. Hacer push a develop
-git push origin develop
-
-# GitHub Actions ejecutará:
-# ✅ Tests de desarrollo
-# ✅ Deploy a dev
-# ✅ Migraciones
 ```
 
 ## 🧪 Testing Excellence
@@ -297,23 +280,17 @@ bash -x scripts/deploy/canary-traffic-split.sh
 
 ## 🎯 Best Practices
 
-### Branch Strategy
-- `main`: Producción (pipeline híbrido completo)
-- `develop`: Desarrollo
-- `feature/*`: Features nuevos
+### Branch Strategy (trunk-based)
+- `main`: única rama de larga vida; es producción.
+- Ramas cortas por cambio (`feat/*`, `fix/*`, `chore/*`), siempre desde `main`.
 
 ### PR Guidelines
-1. Crear PR desde feature a develop
-2. Esperar validación automática híbrida
-3. Revisión de código
-4. Merge a develop
-5. Deploy automático a desarrollo
+1. Crear PR desde la rama corta a `main`
+2. Esperar CircleCI en verde (lint, tipos, tests, migraciones, Docker, seguridad)
+3. Merge a `main` → `deploy.yml` despliega a producción
 
-### Release Process
-1. Merge develop → main
-2. Pipeline híbrido automático a producción
-3. Tag del release
-4. Notificaciones automáticas
+Si algún día hace falta staging, se recrea `develop` desde `main`
+(`git push origin main:develop`); no hay que reutilizar la antigua.
 
 ## 🔧 Development Local
 
