@@ -50,36 +50,30 @@ export class ExpensesService {
       59
     );
 
-    const [currentMonth, prevMonth, byStatus, byCategory, totalBudget] =
-      await Promise.all([
-        this.prisma.expense.aggregate({
-          where: { commerceId, date: { gte: startOfMonth } },
-          _sum: { amount: true },
-          _count: true,
-        }),
-        this.prisma.expense.aggregate({
-          where: {
-            commerceId,
-            date: { gte: startOfPrevMonth, lte: endOfPrevMonth },
-          },
-          _sum: { amount: true },
-        }),
-        this.prisma.expense.groupBy({
-          by: ['status'],
-          where: { commerceId },
-          _sum: { amount: true },
-          _count: true,
-        }),
-        this.prisma.expense.groupBy({
-          by: ['categoryId'],
-          where: { commerceId, date: { gte: startOfMonth } },
-          _sum: { amount: true },
-        }),
-        this.prisma.expenseCategory.aggregate({
-          where: { commerceId },
-          _sum: { budget: true },
-        }),
-      ]);
+    const [currentMonth, prevMonth, byStatus, totalBudget] = await Promise.all([
+      this.prisma.expense.aggregate({
+        where: { commerceId, date: { gte: startOfMonth } },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      this.prisma.expense.aggregate({
+        where: {
+          commerceId,
+          date: { gte: startOfPrevMonth, lte: endOfPrevMonth },
+        },
+        _sum: { amount: true },
+      }),
+      this.prisma.expense.groupBy({
+        by: ['status'],
+        where: { commerceId },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      this.prisma.expenseCategory.aggregate({
+        where: { commerceId },
+        _sum: { budget: true },
+      }),
+    ]);
 
     const statusMap = Object.fromEntries(
       byStatus.map((s) => [

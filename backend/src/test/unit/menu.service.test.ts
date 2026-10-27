@@ -5,9 +5,7 @@ import { CommerceResolverService } from '../../common/commerce-resolver/commerce
 import { PLAN_LIMITS_FACADE } from '../../domains/money/plans/plan-limits.facade';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { CreateCategoryDto } from '../../domains/commerce-core/menu/dto/create-category.dto';
-import { UpdateCategoryDto } from '../../domains/commerce-core/menu/dto/update-category.dto';
 import { CreateProductDto } from '../../domains/commerce-core/menu/dto/create-product.dto';
-import { UpdateProductDto } from '../../domains/commerce-core/menu/dto/update-product.dto';
 import { CreateBundleDto } from '../../domains/commerce-core/menu/dto/create-bundle.dto';
 import {
   UpdateStockDto,
@@ -17,9 +15,6 @@ import { I18nService } from 'nestjs-i18n';
 
 describe('MenuService', () => {
   let service: MenuService;
-  let prismaService: PrismaService;
-  let planLimitsService: typeof mockPlanLimitsService;
-  let notificationsService: NotificationsService;
 
   const mockPrismaService = {
     commerce: {
@@ -103,10 +98,6 @@ describe('MenuService', () => {
     }).compile();
 
     service = module.get<MenuService>(MenuService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    planLimitsService = module.get(PLAN_LIMITS_FACADE);
-    notificationsService =
-      module.get<NotificationsService>(NotificationsService);
   });
 
   it('should be defined', () => {

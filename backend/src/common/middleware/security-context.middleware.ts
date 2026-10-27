@@ -177,7 +177,7 @@ export class SecurityContextMiddleware implements NestMiddleware {
         await this.createSession(userId, securityContext);
       } else {
         // Actualizar última actividad
-        await this.updateSessionActivity(sessionKey, securityContext);
+        await this.updateSessionActivity(sessionKey);
       }
 
       // Verificar actividad sospechosa
@@ -239,10 +239,7 @@ export class SecurityContextMiddleware implements NestMiddleware {
     await this.redis.setex(sessionKey, 1800, JSON.stringify(sessionData));
   }
 
-  private async updateSessionActivity(
-    sessionKey: string,
-    securityContext: SecurityContext
-  ): Promise<void> {
+  private async updateSessionActivity(sessionKey: string): Promise<void> {
     const sessionData = await this.redis.get(sessionKey);
     if (sessionData) {
       const session = JSON.parse(sessionData);

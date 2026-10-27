@@ -10,7 +10,6 @@ import {
   Param,
   Query,
   UseGuards,
-  ParseBoolPipe,
   Inject,
 } from '@nestjs/common';
 import { PlansService } from './plans.service';

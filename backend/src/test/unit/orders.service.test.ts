@@ -11,16 +11,11 @@ import { ReceiptsService } from '../../domains/operations/receipts/receipts.serv
 import { CashService } from '../../domains/operations/cash/cash.service';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { CreateOrderDto } from '../../domains/operations/orders/dto/create-order.dto';
-import { UpdateOrderDto } from '../../domains/operations/orders/dto/update-order.dto';
-import { QueryOrdersDto } from '../../domains/operations/orders/dto/query-orders.dto';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { money } from '../money-matcher';
 
 describe('OrdersService', () => {
   let service: OrdersService;
-  let prismaService: PrismaService;
-  let notificationsService: NotificationsService;
-  let planLimitsService: typeof mockPlanLimitsService;
 
   const mockPrismaService = {
     order: {
@@ -132,10 +127,6 @@ describe('OrdersService', () => {
     }).compile();
 
     service = module.get<OrdersService>(OrdersService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    notificationsService =
-      module.get<NotificationsService>(NotificationsService);
-    planLimitsService = module.get(PLAN_LIMITS_FACADE);
   });
 
   it('should be defined', () => {

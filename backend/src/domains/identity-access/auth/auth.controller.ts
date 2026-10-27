@@ -17,10 +17,7 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
-import {
-  RateLimit,
-  RateLimitOptions,
-} from '../../../common/guards/rate-limit.guard';
+import { RateLimit } from '../../../common/guards/rate-limit.guard';
 import { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';

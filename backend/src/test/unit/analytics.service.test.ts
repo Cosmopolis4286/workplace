@@ -13,7 +13,6 @@ const ROLE = Role.PROFESIONAL;
 
 describe('AnalyticsService', () => {
   let service: AnalyticsService;
-  let prismaService: PrismaService;
 
   const mockPrismaService = {
     commerce: {
@@ -130,7 +129,6 @@ describe('AnalyticsService', () => {
     }).compile();
 
     service = module.get<AnalyticsService>(AnalyticsService);
-    prismaService = module.get<PrismaService>(PrismaService);
 
     defaultMocks();
   });

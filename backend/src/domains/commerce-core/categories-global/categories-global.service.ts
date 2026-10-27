@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
@@ -10,7 +9,6 @@ import {
   CreateSubcategoryDto,
   UpdateSubcategoryDto,
 } from './dto/subcategory.dto';
-import { Category, Subcategory } from '@prisma/client';
 
 @Injectable()
 export class CategoriesGlobalService {

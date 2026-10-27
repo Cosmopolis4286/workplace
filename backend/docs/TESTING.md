@@ -24,12 +24,6 @@ pnpm test:ci
 ./scripts/run-coverage.sh
 ```
 
-### Tests de Integración
-```bash
-# Ejecutar tests de integración
-pnpm test:integration
-```
-
 ## 📊 Cobertura Actual
 
 ### Umbral Mínimo

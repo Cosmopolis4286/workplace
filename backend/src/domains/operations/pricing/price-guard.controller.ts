@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Param,
-  Body,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { PriceGuardService } from './price-guard.service';
 import { SimulatePriceDto } from './dto/simulate-price.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
