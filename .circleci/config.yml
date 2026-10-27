@@ -50,16 +50,12 @@ jobs:
           command: pnpm --filter backend format:check
       - run:
           name: Audit critical dependency vulnerabilities
+          # `pnpm audit --json` ignora --audit-level en el código de salida:
+          # el JSON es solo diagnóstico y la puerta es la llamada normal.
           command: |
-            set +e
             cd backend
-            pnpm audit --audit-level critical --json > ../pnpm-audit.json 2> ../pnpm-audit.stderr
-            status=$?
-            cat ../pnpm-audit.stderr >&2
-            if [ "$status" -ne 0 ]; then
-              pnpm audit --audit-level critical || true
-            fi
-            exit "$status"
+            pnpm audit --json > ../pnpm-audit.json 2>/dev/null || true
+            pnpm audit --audit-level critical
           no_output_timeout: 5m
       - when:
           condition: always
