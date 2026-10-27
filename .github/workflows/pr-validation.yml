@@ -28,7 +28,7 @@ jobs:
       # variable exista. No se conecta a ninguna base.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - uses: ./.github/actions/setup-node-pnpm
       with:
@@ -112,7 +112,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - uses: ./.github/actions/setup-node-pnpm
       with:
@@ -134,7 +134,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - uses: ./.github/actions/setup-node-pnpm
       with:
@@ -153,7 +153,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - uses: docker/setup-buildx-action@v4
 
     - name: Build backend (sin push)
@@ -182,7 +182,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     # Tabla en el log: visible siempre, también en repos privados sin
     # GitHub Code Security (donde no se puede subir el SARIF).
@@ -220,7 +220,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request' && !github.event.repository.private }}
     timeout-minutes: 10
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - uses: actions/dependency-review-action@v5
       with:

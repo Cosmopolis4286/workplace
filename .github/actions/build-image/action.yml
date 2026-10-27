@@ -159,7 +159,7 @@ runs:
 
     - name: Subir resultados de seguridad
       if: inputs.enable-scan == 'true'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: trivy-${{ inputs.service }}-${{ github.run_number }}
         path: trivy-${{ inputs.service }}.sarif

@@ -21,6 +21,9 @@ updates:
       # Saltos de versión mayor se hacen a mano, con su propio PR de migración.
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # @sentry/capacitor fija @sentry/vue a una versión exacta como peer:
+      # se sube a mano junto con @sentry/capacitor.
+      - dependency-name: "@sentry/vue"
 
   - package-ecosystem: github-actions
     directory: /
