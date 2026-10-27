@@ -22,7 +22,7 @@ export interface CatalogProduct {
   calories?: number
   unit?: string
   status: string
-  tags?: string[]
+  tags?: readonly string[]
   isBundle?: boolean
   category: { id: string; name: string; color: string }
   commerce: { id: string; name: string; type: string | null; country?: string | null; state?: string | null; city?: string | null; user?: { username: string | null; rating: number | null; reviewsCount: number } }

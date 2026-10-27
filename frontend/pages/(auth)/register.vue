@@ -277,7 +277,7 @@ const validationSchema = {
 
 const runValidation = (): boolean => {
   const fields: Record<string, string> = {}
-  for (const k of Object.keys(validationSchema)) fields[k] = (form as Record<string, string>)[k] ?? ''
+  for (const k of Object.keys(validationSchema)) fields[k] = (form as unknown as Record<string, string>)[k] ?? ''
 
   const { errors: e } = validateAll(fields as Record<FormKey, string>, validationSchema as never)
 

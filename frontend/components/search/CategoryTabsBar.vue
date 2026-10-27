@@ -169,9 +169,9 @@ const props = defineProps<{
   canProposeCategory: boolean
 
   pActiveCategory: string | null
-  pCategories: CatalogCategory[]
+  pCategories: readonly CatalogCategory[]
   pLoadingCategories: boolean
-  pFavorites: string[]
+  pFavorites: readonly string[]
   pShowFavoritesOnly: boolean
 
   sActiveCategoryId: string | null

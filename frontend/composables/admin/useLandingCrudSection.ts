@@ -1,4 +1,4 @@
-import { ref, reactive } from 'vue'
+import { ref, reactive, type Ref } from 'vue'
 import { useApi } from '~/composables/core/useApi'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
@@ -9,9 +9,10 @@ import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 // formulario cambiando entre secciones.
 export function useLandingCrudSection<
   T extends { id: string },
-  F extends Record<string, unknown>,
+  F extends object,
 >(endpoint: string, emptyForm: () => F, options: { reorder?: boolean } = {}) {
-  const items = ref<T[]>([])
+  // `as Ref<T[]>`: con un T genérico, ref<T[]> se tipa como UnwrapRef<T>[].
+  const items = ref([]) as Ref<T[]>
   const loading = ref(false)
   const showModal = ref(false)
   const saving = ref(false)

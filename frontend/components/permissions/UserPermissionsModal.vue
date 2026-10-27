@@ -160,7 +160,7 @@ const activeAction = ref<{ permissionId: string; type: 'grant' | 'deny' } | null
 const actionReason = ref('')
 const actionExpiresAt = ref('')
 
-const filters = [
+const filters: { value: typeof activeFilter.value; label: string }[] = [
   { value: 'all', label: 'Todos' },
   { value: 'granted', label: 'Concedidos' },
   { value: 'denied', label: 'Denegados' },

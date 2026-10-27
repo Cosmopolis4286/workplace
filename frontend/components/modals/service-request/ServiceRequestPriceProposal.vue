@@ -228,7 +228,10 @@ async function submitProposeIncrease() {
   try {
     const items = proposalItemsInput.value
       .filter(i => i.description.trim() || i.notes.trim())
-      .map(i => ({ fields: i.description.trim() ? { descripción: i.description.trim() } : {}, notes: i.notes.trim() || undefined }))
+      .map((i): { fields: Record<string, string>; notes?: string } => ({
+        fields: i.description.trim() ? { descripción: i.description.trim() } : {},
+        notes: i.notes.trim() || undefined,
+      }))
     await propose(props.requestId, {
       proposedPrice: proposedPriceInput.value!,
       note: proposalNoteInput.value.trim() || undefined,

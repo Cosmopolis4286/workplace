@@ -604,7 +604,8 @@ async function doStatusChange(status: string) {
   try {
     const { patch } = useApi()
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}`, { status })
-    emit('updated', { ...props.req, status: status as ServiceRequest['status'], statusUpdatedAt: new Date().toISOString(), ...updated })
+    // La respuesta del backend (updated) ya trae el status y manda sobre el valor local.
+    emit('updated', { ...props.req, statusUpdatedAt: new Date().toISOString(), ...updated })
   } catch (e: any) {
     actionError.value = getApiErrorMessage(e, 'Error al actualizar el estado')
   } finally {

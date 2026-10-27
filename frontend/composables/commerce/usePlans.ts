@@ -110,7 +110,7 @@ export function usePlans() {
     loading.value = true
     error.value = null
     try {
-      const data = await apiFetch(`/plans?includeInactive=${includeInactive}`)
+      const data = await apiFetch<Plan[]>(`/plans?includeInactive=${includeInactive}`)
       plans.value = data
     } catch (e: any) {
       error.value = e.message
@@ -120,7 +120,7 @@ export function usePlans() {
   }
 
   async function createPlan(dto: Partial<Plan>) {
-    const data = await apiFetch('/plans', {
+    const data = await apiFetch<Plan>('/plans', {
       method: 'POST',
       body: JSON.stringify(dto),
     })
@@ -129,7 +129,7 @@ export function usePlans() {
   }
 
   async function updatePlan(id: string, dto: Partial<Plan>) {
-    const data = await apiFetch(`/plans/${id}`, {
+    const data = await apiFetch<Plan>(`/plans/${id}`, {
       method: 'PUT',
       body: JSON.stringify(dto),
     })
@@ -153,7 +153,9 @@ export function usePlans() {
       if (options.planId) params.set('planId', options.planId)
       params.set('page', String(options.page ?? 1))
       params.set('limit', '20')
-      const data = await apiFetch(`/plans/subscriptions?${params}`)
+      const data = await apiFetch<{ subscriptions: Subscription[]; total: number; page: number }>(
+        `/plans/subscriptions?${params}`,
+      )
       subscriptions.value = data.subscriptions
       totalSubs.value = data.total
       subPage.value = data.page
@@ -174,7 +176,7 @@ export function usePlans() {
     pricePaid?: number
     notes?: string
   }) {
-    const data = await apiFetch('/plans/subscriptions', {
+    const data = await apiFetch<Subscription>('/plans/subscriptions', {
       method: 'POST',
       body: JSON.stringify(dto),
     })
@@ -189,14 +191,17 @@ export function usePlans() {
   }
 
   async function approveSubscription(id: string) {
-    const data = await apiFetch(`/plans/subscriptions/${id}/approve`, { method: 'PATCH' })
+    const data = await apiFetch<{ subscription: Subscription; targetRole: string | null }>(
+      `/plans/subscriptions/${id}/approve`,
+      { method: 'PATCH' },
+    )
     const idx = subscriptions.value.findIndex((s: Subscription) => s.id === id)
     if (idx >= 0) subscriptions.value[idx] = data.subscription
     return data
   }
 
   async function rejectSubscription(id: string, reason?: string) {
-    const data = await apiFetch(`/plans/subscriptions/${id}/reject`, {
+    const data = await apiFetch<Subscription>(`/plans/subscriptions/${id}/reject`, {
       method: 'PATCH',
       body: JSON.stringify({ reason }),
     })
@@ -210,7 +215,7 @@ export function usePlans() {
   async function fetchStats() {
     loadingStats.value = true
     try {
-      stats.value = await apiFetch('/plans/stats')
+      stats.value = await apiFetch<PlanStats>('/plans/stats')
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -220,7 +225,7 @@ export function usePlans() {
 
   async function fetchUsage() {
     try {
-      const data = await apiFetch('/plans/usage')
+      const data = await apiFetch<PlanUsage | null>('/plans/usage')
       if (data?.limits) usage.value = data
     } catch {
       // non-critical
@@ -232,7 +237,12 @@ export function usePlans() {
   async function fetchMySubscription() {
     loading.value = true
     try {
-      const data = await apiFetch('/plans/my-subscription')
+      // GET /plans/my-subscription incluye el plan completo (include: { plan: true }).
+      const data = await apiFetch<{
+        subscription: (Subscription & { plan: Plan }) | null
+        pendingSubscription: (Subscription & { plan: Plan }) | null
+        trialAvailable: boolean
+      }>('/plans/my-subscription')
       mySubscription.value = data.subscription
       pendingSubscription.value = data.pendingSubscription ?? null
       trialAvailable.value = data.trialAvailable ?? false
@@ -260,7 +270,7 @@ export function usePlans() {
   async function fetchPublicPlans() {
     loading.value = true
     try {
-      const data = await apiFetch('/plans/public')
+      const data = await apiFetch<Plan[]>('/plans/public')
       plans.value = data
     } catch (e: any) {
       error.value = e.message

@@ -130,7 +130,7 @@
             <div class="aspect-square bg-gray-100 relative overflow-hidden">
               <img
                 v-if="product.image"
-                :src="getAssetUrl(product.image)"
+                :src="getAssetUrl(product.image) ?? undefined"
                 :alt="product.name"
                 class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
               >

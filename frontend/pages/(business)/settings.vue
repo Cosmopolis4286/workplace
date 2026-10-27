@@ -202,7 +202,7 @@ import UserPrivacyCard from '~/components/settings/UserPrivacyCard.vue'
 import LocationPreferenceCard from '~/components/settings/LocationPreferenceCard.vue'
 import LocalDataCard from '~/components/settings/LocalDataCard.vue'
 import AboutCard from '~/components/settings/AboutCard.vue'
-import CommerceInfoCard from '~/components/settings/CommerceInfoCard.vue'
+import CommerceInfoCard, { type CommerceInfoForm } from '~/components/settings/CommerceInfoCard.vue'
 import StoreSlugCard from '~/components/settings/StoreSlugCard.vue'
 import FreelancerProfileCard, { type FreelancerProfileForm } from '~/components/settings/FreelancerProfileCard.vue'
 import BusinessNotificationsCard from '~/components/settings/BusinessNotificationsCard.vue'
@@ -299,7 +299,7 @@ const freelancerSettings = computed(() =>
 // FreelancerSettings (aunque también tenga uno).
 const locationOwner = computed(() => (hasCommerce.value ? commerce.value : freelancerSettings.value))
 
-async function saveCommerceInfo(form: Record<string, unknown>) { await saveCommerceInfoApi(form) }
+async function saveCommerceInfo(form: CommerceInfoForm) { await saveCommerceInfoApi(form) }
 async function saveCommerceSlug(slug: string) { await saveCommerceSlugApi(slug) }
 async function saveFreelancerSlug(slug: string) { await saveFreelancerSlugApi(slug) }
 async function saveFreelancerProfile(form: FreelancerProfileForm) { await saveFreelancerProfileApi(form) }

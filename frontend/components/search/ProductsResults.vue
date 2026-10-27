@@ -113,14 +113,14 @@ defineProps<{
   currentPage: number
   activeCategory: string | null
   activeCommerceId: string | null
-  commerces: CatalogCommerce[]
+  commerces: readonly CatalogCommerce[]
   selectedSort: CatalogSortBy
   sortOptions: { value: CatalogSortBy; label: string }[]
   activeChips: FilterChip[]
   activeTag: string
   locationTierLabel: string | null
   recentlyViewedItems: RecentlyViewedItem[]
-  visibleProducts: CatalogProduct[]
+  visibleProducts: readonly CatalogProduct[]
   showFavoritesOnly: boolean
   searchInput: string
   isOwnProduct: (product: CatalogProduct) => boolean

@@ -32,7 +32,7 @@
           class="input-field text-sm"
           @input="debouncedLoad"
         >
-        <select v-model="filters.level" class="input-field text-sm" @change="load">
+        <select v-model="filters.level" class="input-field text-sm" @change="load(1)">
           <option value="">Todos los niveles</option>
           <option value="ERROR">ERROR</option>
           <option value="WARN">WARN</option>
@@ -40,8 +40,8 @@
           <option value="DEBUG">DEBUG</option>
         </select>
         <div class="flex gap-2">
-          <input v-model="filters.dateFrom" type="date" class="input-field text-sm flex-1" @change="load">
-          <input v-model="filters.dateTo" type="date" class="input-field text-sm flex-1" @change="load">
+          <input v-model="filters.dateFrom" type="date" class="input-field text-sm flex-1" @change="load(1)">
+          <input v-model="filters.dateTo" type="date" class="input-field text-sm flex-1" @change="load(1)">
         </div>
       </div>
       <div class="flex justify-between items-center mt-3">

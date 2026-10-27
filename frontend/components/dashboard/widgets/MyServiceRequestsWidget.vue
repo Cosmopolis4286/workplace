@@ -148,11 +148,11 @@ const MODALITY_LABELS: Record<string, string> = {
 }
 
 function statusLabel(status: string) {
-  return statusLabels[status] || status
+  return statusLabels[status as ServiceRequestStatus] || status
 }
 
 function statusClass(status: string) {
-  return statusClasses[status] || 'bg-gray-100 text-gray-700'
+  return statusClasses[status as ServiceRequestStatus] || 'bg-gray-100 text-gray-700'
 }
 
 function formatPrice(price: number) {

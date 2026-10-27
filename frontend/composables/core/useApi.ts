@@ -129,10 +129,14 @@ export function useApi() {
   }
 
   /**
-   * DELETE request simplificado
+   * DELETE request simplificado. `body` es opcional: algunos endpoints lo
+   * exigen (p. ej. DELETE /wallets/me/pin pide el PIN actual).
    */
-  async function del<T>(url: string): Promise<T> {
-    return apiFetch<T>(url, { method: 'DELETE' })
+  async function del<T>(url: string, body?: unknown): Promise<T> {
+    return apiFetch<T>(url, {
+      method: 'DELETE',
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    })
   }
 
   return {

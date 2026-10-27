@@ -129,7 +129,7 @@ export const useUsers = () => {
   }
 
   async function toggleUserStatus(id: string) {
-    return patch(`/users/${id}/toggle-status`)
+    return patch(`/users/${id}/toggle-status`, {})
   }
 
   async function deleteUser(id: string) {

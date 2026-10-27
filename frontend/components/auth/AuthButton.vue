@@ -27,10 +27,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type PropType } from 'vue'
 
 const props = defineProps({
-  type: { type: String, default: 'button' },
+  type: { type: String as PropType<'button' | 'submit' | 'reset'>, default: 'button' },
   variant: {
     type: String,
     default: 'primary',

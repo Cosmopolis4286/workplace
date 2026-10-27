@@ -139,7 +139,8 @@ interface PermissionRow {
   label: string
   description?: string
   isSystem: boolean
-  roles: Partial<Record<Role, boolean>>
+  // Sin roles/profiles: el estado de cada casilla viene de localMatrix, así
+  // las filas de ambas matrices (por Role y por perfil) encajan.
 }
 
 interface PlanInfo { id: string; name: string; color: string; enabledModules: string[] }

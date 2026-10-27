@@ -192,7 +192,7 @@ const emit = defineEmits<{
 
 const { user } = useAuth()
 
-const deliveryOptions = [
+const deliveryOptions: { value: 'HOME_DELIVERY' | 'PICKUP' | 'DIGITAL'; label: string; emoji: string }[] = [
   { value: 'HOME_DELIVERY', label: 'Domicilio', emoji: '🛵' },
   { value: 'PICKUP', label: 'Recoger', emoji: '🏪' },
   { value: 'DIGITAL', label: 'Digital', emoji: '💻' },

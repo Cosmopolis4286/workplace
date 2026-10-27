@@ -147,7 +147,14 @@ import { ref, watch, computed } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { CameraIcon } from '@heroicons/vue/24/outline'
 import { useCamera } from '~/composables/core/useCamera'
-import { useExpenses, type Expense, type ExpenseCategory } from '~/composables/commerce/useExpenses'
+import {
+  useExpenses,
+  type Expense,
+  type ExpenseCategory,
+  type ExpensePaymentMethod,
+  type ExpenseStatus,
+  type ExpenseType,
+} from '~/composables/commerce/useExpenses'
 
 const props = defineProps<{
   isOpen: boolean
@@ -171,9 +178,9 @@ const defaultForm = () => ({
   description:   '',
   amount:        0,
   date:          new Date().toISOString().split('T')[0],
-  type:          'OPERATIONAL' as const,
-  status:        'PENDING' as const,
-  paymentMethod: 'CASH' as const,
+  type:          'OPERATIONAL' as ExpenseType,
+  status:        'PENDING' as ExpenseStatus,
+  paymentMethod: 'CASH' as ExpensePaymentMethod,
   categoryId:    '',
   supplier:      '',
   receipt:       '',

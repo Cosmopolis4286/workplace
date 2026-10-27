@@ -155,8 +155,16 @@ export function useExchangeRates() {
     return data
   }
 
+  // El backend responde { success: true, rate, ... } o { success: false, message }.
   async function manualSync(code: string) {
-    return await post(`/exchange-rates/sync/${code}`, {})
+    return await post<{
+      success: boolean
+      code: string
+      rate?: number
+      source?: string
+      date?: string
+      message?: string
+    }>(`/exchange-rates/sync/${code}`, {})
   }
 
   async function syncAll() {

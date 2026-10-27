@@ -58,7 +58,7 @@
     <div class="flex items-center justify-between">
       <!-- readonly: vista de plataforma (SUPERADMIN/ADMIN) — un admin no
            gestiona pedidos de un comercio ajeno, solo los monitorea. -->
-      <span v-if="readonly" class="text-[11px] text-gray-300">Solo lectura</span>
+      <span v-if="props.readonly" class="text-[11px] text-gray-300">Solo lectura</span>
       <div v-else class="flex gap-1.5 flex-wrap">
         <button
           v-for="next in (NEXT_STATUS[order.status] ?? [])"

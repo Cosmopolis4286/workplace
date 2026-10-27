@@ -229,7 +229,9 @@ const emit = defineEmits<{
 // número (incluido 0) se preserva tal cual.
 function onNumberInput(event: 'update:cargoWeight' | 'update:declaredValue', e: Event) {
   const raw = (e.target as HTMLInputElement).value
-  emit(event, raw === '' ? null : Number(raw))
+  const value = raw === '' ? null : Number(raw)
+  if (event === 'update:cargoWeight') emit('update:cargoWeight', value)
+  else emit('update:declaredValue', value)
 }
 
 const serviceTypeOptions = [
