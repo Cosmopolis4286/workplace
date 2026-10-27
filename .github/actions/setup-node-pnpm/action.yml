@@ -7,15 +7,15 @@ inputs:
     required: false
     default: '22'
   pnpm-version:
-    description: 'pnpm version'
+    description: 'pnpm version (vacío = la de "packageManager" en package.json)'
     required: false
-    default: '9'
+    default: ''
 
 runs:
   using: composite
   steps:
     - name: Setup pnpm
-      uses: pnpm/action-setup@v3
+      uses: pnpm/action-setup@v6
       with:
         version: ${{ inputs.pnpm-version }}
 
