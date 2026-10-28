@@ -214,6 +214,20 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         order: 2,
         condition: { permission: 'reports:view', requiresModule: true },
       },
+      // Pagos directos que los clientes reportan (pago móvil, transferencia,
+      // Zelle) y el vendedor confirma. Sin permiso ni módulo: todo vendedor
+      // puede recibir pagos, venda productos o servicios.
+      {
+        id: 'payments-incoming',
+        to: '/payments/incoming',
+        label: 'Pagos recibidos',
+        icon: 'payments',
+        order: 3,
+        condition: {
+          permission: null,
+          requiresAnyCapability: ['HAS_COMMERCE', 'HAS_PROFESSIONAL_PROFILE'],
+        },
+      },
     ],
   },
   {

@@ -3,6 +3,7 @@ import type { Capability } from '../../../common/capabilities/capabilities.servi
 
 export type NavIconKey =
   | 'dashboard'
+  | 'payments'
   | 'menu'
   | 'inventory'
   | 'services'

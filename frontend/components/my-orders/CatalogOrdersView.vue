@@ -132,6 +132,18 @@
           <p class="text-xs text-gray-400">Pedido realizado {{ timeAgo(selectedOrder.createdAt) }}</p>
         </div>
 
+        <!-- Pago directo al comercio (sin garantía interna): mismas condiciones
+             que CatalogOrderPaymentSourceResolver -->
+        <div v-if="canPayDirect(selectedOrder)" class="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-3">
+          <p class="text-xs text-gray-600">Paga directo al comercio y reporta la referencia.</p>
+          <button
+            class="px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 flex-shrink-0"
+            @click="showPayModal = true"
+          >
+            Pagar al comercio
+          </button>
+        </div>
+
         <!-- Confirmar recepción: solo si el comercio ya contactó -->
         <div v-if="selectedOrder.status === 'CONTACTED'" class="p-4 border-t border-gray-100 bg-blue-50">
           <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -165,12 +177,21 @@
     entity-type="CATALOG_ORDER"
     :entity-id="selectedOrder.id"
   />
+  <PayToSellerModal
+    v-if="selectedOrder"
+    :show="showPayModal"
+    source-type="CATALOG_ORDER"
+    :source-id="selectedOrder.id"
+    :seller-name="selectedOrder.commerceName"
+    @close="showPayModal = false"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { ShoppingBagIcon, CurrencyDollarIcon, CalendarIcon, InformationCircleIcon } from '@heroicons/vue/24/outline'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
+import PayToSellerModal from '~/components/payments/PayToSellerModal.vue'
 import { useApi } from '~/composables/core/useApi'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 
@@ -194,18 +215,20 @@ interface CatalogOrder {
   address?: string
   city?: string
   notes?: string
-  status: 'PENDING' | 'SEEN' | 'CONTACTED' | 'CLOSED'
+  status: 'PENDING' | 'SEEN' | 'CONTACTED' | 'CLOSED' | 'CANCELLED'
+  escrowStatus?: 'NONE' | 'HELD' | 'PENDING_FUNDS' | 'RELEASED' | 'REFUNDED'
   createdAt: string
 }
 
 const STATUS_LABELS: Record<CatalogOrder['status'], string> = {
-  PENDING: 'Pendiente', SEEN: 'Visto', CONTACTED: 'Contactado', CLOSED: 'Completado',
+  PENDING: 'Pendiente', SEEN: 'Visto', CONTACTED: 'Contactado', CLOSED: 'Completado', CANCELLED: 'Cancelado',
 }
 const STATUS_CLASSES: Record<CatalogOrder['status'], string> = {
   PENDING:   'bg-yellow-100 text-yellow-800',
   SEEN:      'bg-gray-100 text-gray-600',
   CONTACTED: 'bg-blue-100 text-blue-700',
   CLOSED:    'bg-green-100 text-green-700',
+  CANCELLED: 'bg-red-100 text-red-700',
 }
 
 const catalogFilters = [
@@ -222,6 +245,17 @@ const loading = ref(false)
 const activeFilter = ref('ALL')
 const selectedOrder = ref<CatalogOrder | null>(null)
 const showReportModal = ref(false)
+const showPayModal = ref(false)
+
+// Mismas condiciones que CatalogOrderPaymentSourceResolver: pedido abierto,
+// con monto y sin garantía interna (escrow).
+function canPayDirect(order: CatalogOrder) {
+  return (
+    !['CLOSED', 'CANCELLED'].includes(order.status) &&
+    (order.escrowStatus ?? 'NONE') === 'NONE' &&
+    Number(order.totalEstimate ?? 0) > 0
+  )
+}
 const confirmingCompletion = ref(false)
 
 const filteredOrders = computed(() =>
@@ -247,6 +281,7 @@ function statusAvatarClass(status: CatalogOrder['status']) {
     SEEN:      'bg-gray-100 text-gray-600',
     CONTACTED: 'bg-blue-100 text-blue-700',
     CLOSED:    'bg-green-100 text-green-700',
+    CANCELLED: 'bg-red-100 text-red-700',
   }
   return map[status]
 }

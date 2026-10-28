@@ -58,6 +58,7 @@ model User {
   reviewedFreelancerApplications FreelancerApplication[] @relation("FreelancerApplicationReviewer")
 
   walletDepositRequests         WalletDepositRequest[] @relation("WalletDepositRequester")
+  sellerPaymentAccounts         SellerPaymentAccount[]
   reviewedWalletDepositRequests WalletDepositRequest[] @relation("WalletDepositRequestReviewer")
 
   termsAcceptedAt   DateTime?
@@ -3425,6 +3426,7 @@ model ExternalPaymentIntent {
   commission          ExternalPaymentCommission?
   refunds             ExternalPaymentRefund[]
   settlements         ExternalPaymentSettlement[]
+  manualReports       ManualPaymentReport[]
 
   @@unique([provider, providerPaymentId])
   @@index([sourceType, sourceId])
@@ -3580,4 +3582,80 @@ model ExternalPaymentReconciliationItem {
   @@index([runId, status])
   @@index([externalRef])
   @@map("external_payment_reconciliation_items")
+}
+
+// ─── Pago directo al vendedor ───────────────────────────────────────────────
+// El comprador paga a una cuenta PROPIA del vendedor (comercio o profesional)
+// y reporta la referencia; el vendedor confirma que el dinero llegó.
+// WorkPlace no recibe ni custodia ese dinero (ExternalSettlementMode
+// DIRECT_TO_SELLER, provider MANUAL): solo muestra los datos y concilia.
+
+enum SellerPaymentMethod {
+  PAGO_MOVIL
+  BANK_TRANSFER
+  ZELLE
+}
+
+model SellerPaymentAccount {
+  id             String                @id @default(uuid())
+  userId         String
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  method         SellerPaymentMethod
+  // VES para pago móvil y transferencia; USD para Zelle.
+  currency       String
+  // Código de banco de 4 dígitos (0102, 0134...). Obligatorio salvo Zelle.
+  bankCode       String?
+  bankName       String?
+  holderName     String
+  // Cédula o RIF del titular: V-12345678, J-123456789...
+  holderDocument String
+  phone          String?
+  accountNumber  String?
+  email          String?
+  isActive       Boolean               @default(true)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  reports        ManualPaymentReport[]
+
+  @@index([userId, isActive])
+  @@map("seller_payment_accounts")
+}
+
+enum ManualPaymentReportStatus {
+  SUBMITTED
+  CONFIRMED
+  REJECTED
+}
+
+model ManualPaymentReport {
+  id                     String                    @id @default(uuid())
+  paymentIntentId        String
+  paymentIntent          ExternalPaymentIntent     @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
+  sellerPaymentAccountId String?
+  sellerPaymentAccount   SellerPaymentAccount?     @relation(fields: [sellerPaymentAccountId], references: [id], onDelete: SetNull)
+  // Copia de los datos de la cuenta al momento del pago: si el vendedor la
+  // edita o borra después, el reporte sigue mostrando a dónde se pagó.
+  destination            Json
+  payerUserId            String
+  sellerUserId           String
+  // Referencia normalizada (sin espacios, en mayúsculas).
+  reference              String
+  payerBankCode          String?
+  paidAt                 DateTime
+  paidCurrency           String
+  paidAmount             Decimal                   @db.Decimal(20, 2)
+  // Unidades de paidCurrency por 1 unidad de la moneda del intent, tomada del
+  // servidor al reportar. null cuando ambas monedas coinciden.
+  exchangeRate           Decimal?                  @db.Decimal(20, 8)
+  status                 ManualPaymentReportStatus @default(SUBMITTED)
+  rejectionReason        String?
+  reviewedAt             DateTime?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+
+  @@index([sellerUserId, status, createdAt(sort: Desc)])
+  @@index([sellerUserId, reference])
+  @@index([payerUserId, createdAt(sort: Desc)])
+  @@index([paymentIntentId])
+  @@map("manual_payment_reports")
 }
