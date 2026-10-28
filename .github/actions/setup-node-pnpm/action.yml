@@ -27,6 +27,9 @@ runs:
       uses: pnpm/action-setup@v6
       with:
         version: ${{ inputs.pnpm-version }}
+        # Carpeta propia de cada runner: con varios runners en la misma
+        # máquina, el ~/setup-pnpm por defecto es compartido y se pisan.
+        dest: ${{ runner.temp }}/setup-pnpm
 
     - name: Setup Node.js con cache pnpm
       uses: actions/setup-node@v4

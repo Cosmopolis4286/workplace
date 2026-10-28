@@ -111,14 +111,17 @@ jobs:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
           POSTGRES_DB: ci
+        # Puerto del host libre, elegido por Docker: con varios runners en la
+        # misma máquina (o un Postgres local en 5432) un puerto fijo choca.
         ports:
-          - 5432:5432
+          - 5432
         options: >-
           --health-cmd "pg_isready -U ci -d ci"
           --health-interval 3s
           --health-timeout 2s
           --health-retries 10
     env:
+      # prisma generate (en setup-node-pnpm) exige que exista; no conecta.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
     - uses: actions/checkout@v7
@@ -128,9 +131,13 @@ jobs:
         node-version: '22'
 
     - name: Aplicar migraciones desde cero
+      env:
+        DATABASE_URL: postgresql://ci:ci@localhost:${{ job.services.postgres.ports['5432'] }}/ci
       run: cd backend && pnpm prisma migrate deploy
 
     - name: El resultado coincide con schema.prisma
+      env:
+        DATABASE_URL: postgresql://ci:ci@localhost:${{ job.services.postgres.ports['5432'] }}/ci
       run: |
         cd backend
         pnpm prisma migrate diff \
