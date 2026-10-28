@@ -163,7 +163,8 @@ jobs:
   docker-build-check:
     name: Verificar Build Docker
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
-    timeout-minutes: 15
+    # El primer build en un runner sin caché tarda más de 15 min.
+    timeout-minutes: 40
     steps:
     - uses: actions/checkout@v7
     - uses: docker/setup-buildx-action@v4

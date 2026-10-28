@@ -14,6 +14,15 @@ inputs:
 runs:
   using: composite
   steps:
+    # Node primero: el instalador de pnpm ejecuta `npm` del PATH. En un runner
+    # self-hosted sobre WSL, sin esto encuentra el npm de Windows (/mnt/c/...)
+    # y falla con rutas UNC. La caché de pnpm se configura más abajo, cuando
+    # pnpm ya existe.
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
     - name: Setup pnpm
       uses: pnpm/action-setup@v6
       with:

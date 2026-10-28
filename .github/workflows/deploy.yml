@@ -126,7 +126,7 @@ jobs:
     name: Build Backend
     runs-on: ${{ fromJSON(vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     needs: [validate, test-unit, test-e2e]
-    timeout-minutes: 10
+    timeout-minutes: 40
     permissions:
       contents: read
       packages: write
@@ -147,7 +147,7 @@ jobs:
     name: Build Frontend
     runs-on: ${{ fromJSON(vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     needs: [validate, test-unit, test-e2e]
-    timeout-minutes: 10
+    timeout-minutes: 40
     permissions:
       contents: read
       packages: write
