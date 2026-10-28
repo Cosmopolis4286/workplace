@@ -1,8 +1,12 @@
 name: PR Validation
 
+# Corre en el runner self-hosted (no consume minutos de GitHub Actions). La
+# etiqueta sale de CI_RUNNER_LABELS o, si no existe, de DEPLOY_RUNNER_LABELS
+# (JSON; por defecto ["self-hosted"]). El repo es privado: no habilitar este
+# trigger con un runner propio si el repo pasa a ser público (forks).
 on:
-  # CircleCI handles automatic PR validation while GitHub Actions quota is exhausted.
-  # Keep manual dispatch available for explicitly requested diagnostics.
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       force_approval:
@@ -10,6 +14,11 @@ on:
         required: false
         default: false
         type: boolean
+
+# Un solo runner: un push nuevo al PR cancela la validación anterior.
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -21,7 +30,7 @@ jobs:
   # ─── Validación de código ──────────────────────────────────────────────────
   validate:
     name: Validar Código
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     timeout-minutes: 20
     env:
       # prisma validate/generate solo leen el schema, pero exigen que la
@@ -53,9 +62,9 @@ jobs:
     - name: Format check
       run: cd backend && pnpm format:check
 
-    # Bloquea vulnerabilidades críticas (hoy 0). Quedan altas/moderadas que
-    # exigen saltos mayores (NestJS 10 -> 11, nodemailer 8 -> 10) o no tienen
-    # parche (braces, node-forge); bajar a --audit-level high al resolverlas.
+    # Bloquea vulnerabilidades críticas (hoy 0). Queda una alta sin parche en
+    # la cadena de build del frontend (node-forge); subir a --audit-level high
+    # cuando se resuelva.
     - name: Audit de dependencias
       run: cd backend && pnpm audit --audit-level critical
       timeout-minutes: 5
@@ -93,7 +102,7 @@ jobs:
   # una base de desarrollo con drift (ver 20260831004151_add_supplier).
   validate-migrations:
     name: Validar Migraciones
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     timeout-minutes: 10
     services:
       postgres:
@@ -131,7 +140,7 @@ jobs:
 
   validate-frontend:
     name: Validar Frontend
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     timeout-minutes: 20
     steps:
     - uses: actions/checkout@v7
@@ -147,10 +156,13 @@ jobs:
     - name: Type checking (trinquete)
       run: cd frontend && pnpm type-check:ratchet
 
+    - name: Tests del frontend
+      run: cd frontend && pnpm exec vitest run --passWithNoTests
+
   # ─── Build de verificación Docker ─────────────────────────────────────────
   docker-build-check:
     name: Verificar Build Docker
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v7
@@ -179,7 +191,7 @@ jobs:
   # ─── Escaneo de seguridad ──────────────────────────────────────────────────
   security-scan:
     name: Escaneo de Seguridad
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v7
@@ -216,7 +228,7 @@ jobs:
   # las vulnerabilidades de dependencias las cubre `pnpm audit` en validate.
   dependency-review:
     name: Revisión de Dependencias
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     if: ${{ github.event_name == 'pull_request' && !github.event.repository.private }}
     timeout-minutes: 10
     steps:
@@ -229,7 +241,7 @@ jobs:
   # ─── Comentario de estado en el PR ────────────────────────────────────────
   notify:
     name: Comentar Estado en PR
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     needs: [validate, validate-migrations, validate-frontend, docker-build-check, security-scan, dependency-review]
     if: always() && github.event_name == 'pull_request'
     steps:

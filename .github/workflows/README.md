@@ -18,7 +18,7 @@ Este repositorio utiliza una arquitectura **híbrida YAML + Shell** para CI/CD e
 │   └── validate-environment/ github-deployment/ notify/
 ├── workflows/
 │   ├── deploy.yml            # Producción (push a main / release)
-│   ├── pr-validation.yml     # Diagnóstico manual (la validación de PRs la hace CircleCI)
+│   ├── pr-validation.yml     # Validación de cada PR a main (runner self-hosted)
 │   └── README.md             # Esta documentación
 ├── ISSUE_TEMPLATE/           # Formularios de bug y propuesta
 ├── PULL_REQUEST_TEMPLATE.md
@@ -60,8 +60,8 @@ scripts/                      # Lógica de shell invocada por los workflows
 - 📦 Rollback automático si falla
 
 ### 2. `pr-validation.yml` - Validación de PRs
-**Trigger**: manual (`workflow_dispatch`). La validación automática de cada PR
-la hace CircleCI (`.circleci/config.yml`) con los mismos checks.
+**Trigger**: cada PR a `main` (y manual). Corre en el runner self-hosted
+(`CI_RUNNER_LABELS`, o `DEPLOY_RUNNER_LABELS` si no existe).
 - ✅ Type checking backend + trinquete de typecheck del frontend (bloqueante)
 - ✅ Linting
 - ✅ Security audit
@@ -305,7 +305,7 @@ bash -x scripts/deploy/canary-traffic-split.sh
 
 ### PR Guidelines
 1. Crear PR desde la rama corta a `main`
-2. Esperar CircleCI en verde (lint, tipos, tests, migraciones, Docker, seguridad)
+2. Esperar `PR Validation` en verde (lint, tipos, tests, migraciones, Docker, seguridad)
 3. Merge a `main` → `deploy.yml` despliega a producción
 
 Si algún día hace falta staging, se recrea `develop` desde `main`
