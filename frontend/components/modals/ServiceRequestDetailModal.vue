@@ -274,6 +274,14 @@
                 </p>
               </div>
               <button
+                v-if="canPayDirect"
+                class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-white text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50 flex-shrink-0"
+                @click="showPayModal = true"
+              >
+                <BanknotesIcon class="h-4 w-4" />
+                Pagar al proveedor
+              </button>
+              <button
                 :disabled="confirming"
                 class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex-shrink-0"
                 @click="confirmCompletion"
@@ -340,6 +348,13 @@
   />
 
   <ReportProblemModal v-model="showReportModal" entity-type="SERVICE_REQUEST" :entity-id="req.id" />
+  <PayToSellerModal
+    :show="showPayModal"
+    source-type="SERVICE_REQUEST"
+    :source-id="req.id"
+    :seller-name="req.providerName"
+    @close="showPayModal = false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -358,6 +373,7 @@ import {
   ShieldCheckIcon,
   ExclamationTriangleIcon,
   ArrowUturnLeftIcon,
+  BanknotesIcon,
 } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
@@ -365,6 +381,7 @@ import { useAuth } from '~/composables/auth/useAuth'
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
+import PayToSellerModal from '~/components/payments/PayToSellerModal.vue'
 import MediaLightbox, { type MediaEntry } from '~/components/modals/service-request/MediaLightbox.vue'
 import ServiceRequestTimeline from '~/components/modals/service-request/ServiceRequestTimeline.vue'
 import ServiceRequestChat from '~/components/modals/service-request/ServiceRequestChat.vue'
@@ -615,6 +632,12 @@ async function doStatusChange(status: string) {
 
 // Confirmación del cliente: marca la solicitud como CLOSED y habilita su reseña verificada
 const confirming = ref(false)
+// Pago directo al proveedor: con precio acordado y sin garantía interna
+// (escrow) — mismas condiciones que ServiceRequestPaymentSourceResolver.
+const showPayModal = ref(false)
+const canPayDirect = computed(
+  () => (props.req.escrowStatus ?? 'NONE') === 'NONE' && Number(props.req.price ?? 0) > 0,
+)
 const showReportModal = ref(false)
 
 async function confirmCompletion() {

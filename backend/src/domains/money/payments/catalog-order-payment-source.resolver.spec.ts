@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { CatalogOrderStatus, Prisma } from '@prisma/client';
+import { CatalogOrderStatus, EscrowStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CatalogOrderPaymentSourceResolver } from './catalog-order-payment-source.resolver';
 
@@ -11,6 +11,7 @@ describe('CatalogOrderPaymentSourceResolver', () => {
     commerceName: 'Tienda Uno',
     totalEstimate: new Prisma.Decimal('25.90'),
     status: CatalogOrderStatus.PENDING,
+    escrowStatus: EscrowStatus.NONE,
   };
   const prisma = {
     catalogOrder: { findUnique: jest.fn() },
@@ -39,6 +40,16 @@ describe('CatalogOrderPaymentSourceResolver', () => {
       description: 'Pedido de catálogo - Tienda Uno',
       quoteVersion: CatalogOrderStatus.PENDING,
     });
+  });
+
+  it('rejects an order already paid through the internal escrow', async () => {
+    (prisma.catalogOrder.findUnique as jest.Mock).mockResolvedValue({
+      ...order,
+      escrowStatus: EscrowStatus.HELD,
+    });
+    await expect(resolver.resolve('order-1', 'buyer-1')).rejects.toThrow(
+      'garantía interno'
+    );
   });
 
   it('rejects unknown orders', async () => {
