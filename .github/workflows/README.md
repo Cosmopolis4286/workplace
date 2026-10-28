@@ -89,6 +89,25 @@ la hace CircleCI (`.circleci/config.yml`) con los mismos checks.
 - **Scalability** - Fácil agregar nuevas features
 - **Enterprise-grade** - Pipeline 10/10
 
+## 🏃 Runner self-hosted (deploy.yml)
+
+Todos los jobs de `deploy.yml` corren en un runner propio. La etiqueta sale de
+la variable del repositorio `DEPLOY_RUNNER_LABELS` (JSON; por defecto
+`["self-hosted"]`). Para volver a los runners de GitHub:
+`DEPLOY_RUNNER_LABELS=["ubuntu-latest"]`.
+
+Requisitos de la máquina del runner:
+- Linux x64 con **Docker** y el plugin **docker compose** (tests E2E y build de imágenes), y el usuario del runner en el grupo `docker`.
+- `git`, `curl`, `ssh` y `bash`. Node y pnpm los instala cada job (`setup-node-pnpm`).
+- Acceso SSH a `PRODUCTION_HOST` con `SSH_PRIVATE_KEY` (aunque el runner esté en el mismo servidor, el deploy entra por SSH).
+- Memoria: el build del frontend y del backend necesita ~4 GB libres. Si el runner corre en el servidor de producción, compite con la app durante el build.
+- No registrar el runner en un repositorio público: un fork podría ejecutar código en esa máquina.
+
+Secrets que usa el workflow: `DOCKER_USERNAME`, `DOCKER_PASSWORD` (token de
+Docker Hub vigente), `SSH_PRIVATE_KEY`, `PRODUCTION_HOST`, `PRODUCTION_USER`,
+`PRODUCTION_DOMAIN`, `ACME_EMAIL`; opcionales `STAGING_HOST`/`STAGING_USER`,
+`SLACK_WEBHOOK`, `DISCORD_WEBHOOK`.
+
 ## 🔧 Setup de Secrets
 
 ### 1. Secrets de GitHub

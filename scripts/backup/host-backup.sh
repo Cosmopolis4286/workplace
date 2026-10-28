@@ -107,25 +107,32 @@ backup_redis() {
     log "✅ Redis: $(basename "$file").gz"
 }
 
-backup_uploads() {
-    log "📁 Backup Uploads..."
-    local be volume file
-    be=$(container_for backend)
-    # Volumen real montado en /app/uploads (Compose le antepone el proyecto:
-    # <proyecto>_uploads_data). Montar "uploads_data" a secas crea un volumen
-    # nuevo vacío y el backup sale vacío sin error.
-    volume=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/uploads"}}{{.Name}}{{end}}{{end}}' "$be")
-    [[ -n "$volume" ]] || error "❌ El backend no tiene un volumen montado en /app/uploads"
-    file="uploads_$(date +%Y%m%d_%H%M%S).tar.gz"
+# Respalda el volumen montado en <destino> del backend como <prefijo>_<fecha>.tar.gz.
+# Se busca por destino porque Compose antepone el proyecto al nombre del
+# volumen (<proyecto>_uploads_data): montar "uploads_data" a secas crearía uno
+# nuevo vacío y el backup saldría vacío sin error.
+backup_volume_at() {
+    local be=$1 dest=$2 prefix=$3 volume file
+    volume=$(docker inspect -f "{{range .Mounts}}{{if eq .Destination \"$dest\"}}{{.Name}}{{end}}{{end}}" "$be")
+    [[ -n "$volume" ]] || error "❌ El backend no tiene un volumen montado en $dest"
+    file="${prefix}_$(date +%Y%m%d_%H%M%S).tar.gz"
 
     docker run --rm \
         -v "${volume}:/source:ro" \
         -v "$BACKUP_DIR/uploads:/backup" \
         alpine:3 \
-        tar czf "/backup/${file}" -C /source . || error "❌ Falló backup de uploads"
+        tar czf "/backup/${file}" -C /source . || error "❌ Falló backup de $dest"
 
-    gzip -t "$BACKUP_DIR/uploads/$file" || error "❌ Backup de uploads corrupto"
-    log "✅ Uploads: $file ($(tar tzf "$BACKUP_DIR/uploads/$file" | grep -vc '/$') archivos)"
+    gzip -t "$BACKUP_DIR/uploads/$file" || error "❌ Backup de $dest corrupto"
+    log "✅ $prefix: $file ($(tar tzf "$BACKUP_DIR/uploads/$file" | grep -vc '/$') archivos)"
+}
+
+backup_uploads() {
+    log "📁 Backup Uploads (públicos y privados: KYC, comprobantes)..."
+    local be
+    be=$(container_for backend)
+    backup_volume_at "$be" /app/backend/uploads uploads
+    backup_volume_at "$be" /app/backend/private-uploads private-uploads
 }
 
 latest_postgres_backup() {
@@ -142,7 +149,7 @@ cleanup_old() {
         ! -path "${keep:-/nonexistent}" -delete 2>/dev/null || true
     find "$BACKUP_DIR/postgres" -name '*.partial' -mmin +60 -delete 2>/dev/null || true
     find "$BACKUP_DIR/redis" -name 'redis_*.rdb.gz' -mtime +"${RETENTION_DAYS}" -delete 2>/dev/null || true
-    find "$BACKUP_DIR/uploads" -name 'uploads_*.tar.gz' -mtime +"${RETENTION_DAYS}" -delete 2>/dev/null || true
+    find "$BACKUP_DIR/uploads" \( -name 'uploads_*.tar.gz' -o -name 'private-uploads_*.tar.gz' \) -mtime +"${RETENTION_DAYS}" -delete 2>/dev/null || true
     log "✅ Limpieza completada"
 }
 
@@ -221,7 +228,7 @@ install_crontab() {
 # >>> workplace-backups (gestionado por host-backup.sh install)
 0 2 * * * DEPLOY_PATH=$DEPLOY_PATH $script postgres >> $LOG_FILE 2>&1
 0 3 * * * DEPLOY_PATH=$DEPLOY_PATH $script redis >> $LOG_FILE 2>&1
-0 4 * * 0 DEPLOY_PATH=$DEPLOY_PATH $script uploads >> $LOG_FILE 2>&1
+0 4 * * * DEPLOY_PATH=$DEPLOY_PATH $script uploads >> $LOG_FILE 2>&1
 30 4 * * 0 DEPLOY_PATH=$DEPLOY_PATH $script verify >> $LOG_FILE 2>&1
 0 5 * * * DEPLOY_PATH=$DEPLOY_PATH $script cleanup >> $LOG_FILE 2>&1
 0 9 * * * DEPLOY_PATH=$DEPLOY_PATH $script check >> $LOG_FILE 2>&1
