@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Sex } from '@prisma/client';
 import { AuthController } from '../../domains/identity-access/auth/auth.controller';
+import { AccountDeletionService } from '../../domains/identity-access/users/account-deletion.service';
 import { AuthService } from '../../domains/identity-access/auth/auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -41,6 +42,10 @@ describe('AuthController', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: AccountDeletionService,
+          useValue: { getBlockers: jest.fn(), deleteAccount: jest.fn() },
         },
         JwtService,
       ],
