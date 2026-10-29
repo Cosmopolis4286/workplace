@@ -174,7 +174,12 @@ jobs:
     timeout-minutes: 40
     steps:
     - uses: actions/checkout@v7
+    # Runner propio: driver "docker" = el daemon local y su caché de capas,
+    # que persiste entre ejecuciones. En runners de GitHub, caché en GitHub
+    # (el driver docker no admite exportar caché, por eso va condicionada).
     - uses: docker/setup-buildx-action@v4
+      with:
+        driver: ${{ runner.environment == 'github-hosted' && 'docker-container' || 'docker' }}
 
     - name: Build backend (sin push)
       uses: docker/build-push-action@v7
@@ -183,8 +188,8 @@ jobs:
         file: ./backend/Dockerfile.prod
         target: production
         push: false
-        cache-from: type=gha,scope=pr-backend
-        cache-to: type=gha,mode=max,scope=pr-backend
+        cache-from: ${{ runner.environment == 'github-hosted' && 'type=gha,scope=pr-backend' || '' }}
+        cache-to: ${{ runner.environment == 'github-hosted' && 'type=gha,mode=max,scope=pr-backend' || '' }}
 
     - name: Build frontend (sin push)
       uses: docker/build-push-action@v7
@@ -193,16 +198,22 @@ jobs:
         file: ./frontend/Dockerfile.prod
         target: production
         push: false
-        cache-from: type=gha,scope=pr-frontend
-        cache-to: type=gha,mode=max,scope=pr-frontend
+        cache-from: ${{ runner.environment == 'github-hosted' && 'type=gha,scope=pr-frontend' || '' }}
+        cache-to: ${{ runner.environment == 'github-hosted' && 'type=gha,mode=max,scope=pr-frontend' || '' }}
 
   # ─── Escaneo de seguridad ──────────────────────────────────────────────────
   security-scan:
     name: Escaneo de Seguridad
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
-    timeout-minutes: 15
+    # La primera descarga de la base de Trivy en un runner propio es lenta;
+    # después queda en ~/.cache/trivy.
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v7
+
+    - name: Caché local de Trivy (runner propio)
+      if: ${{ runner.environment != 'github-hosted' }}
+      run: echo "TRIVY_CACHE_DIR=$HOME/.cache/trivy" >> "$GITHUB_ENV"
 
     # Tabla en el log: visible siempre, también en repos privados sin
     # GitHub Code Security (donde no se puede subir el SARIF).
@@ -212,6 +223,7 @@ jobs:
         scan-type: fs
         scan-ref: .
         format: table
+        cache: ${{ runner.environment == 'github-hosted' }}
 
     - name: Trivy — reporte SARIF
       if: ${{ !github.event.repository.private }}
@@ -251,7 +263,8 @@ jobs:
     name: Comentar Estado en PR
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     needs: [validate, validate-migrations, validate-frontend, docker-build-check, security-scan, dependency-review]
-    if: always() && github.event_name == 'pull_request'
+    # Sin comentario si el run se canceló (p.ej. lo reemplazó un push nuevo).
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     steps:
     - name: Comentar resultado en PR
       uses: actions/github-script@v9

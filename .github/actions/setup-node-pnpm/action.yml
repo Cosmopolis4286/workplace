@@ -31,11 +31,14 @@ runs:
         # máquina, el ~/setup-pnpm por defecto es compartido y se pisan.
         dest: ${{ runner.temp }}/setup-pnpm
 
+    # En runners de GitHub la caché del store de pnpm se guarda en GitHub. En
+    # un runner propio el store ya persiste en disco y subirlo (~1 GB) desde
+    # una conexión doméstica tarda más que reinstalar.
     - name: Setup Node.js con cache pnpm
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
-        cache: pnpm
+        cache: ${{ runner.environment == 'github-hosted' && 'pnpm' || '' }}
 
     - name: Instalar dependencias
       shell: bash
