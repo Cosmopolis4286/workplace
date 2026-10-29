@@ -13,6 +13,7 @@
     "src/domains/money/bnpl/bnpl.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
     "src/domains/money/bnpl/bnpl.service.ts -> src/domains/engagement/telegram/telegram.service.ts",
     "src/domains/money/payments/manual/manual-payments.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
+    "src/domains/money/seller-billing/seller-billing.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
     "src/domains/money/platform-fees/platform-fees.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
     "src/domains/operations/delivery/delivery.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
     "src/domains/operations/delivery/delivery.service.ts -> src/domains/engagement/telegram/telegram.service.ts",

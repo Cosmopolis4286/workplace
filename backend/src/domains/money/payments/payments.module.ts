@@ -40,6 +40,7 @@ import { ManualPaymentsController } from './manual/manual-payments.controller';
   ],
   exports: [
     PaymentsService,
+    SellerPaymentAccountsService,
     PaymentSourceResolverRegistry,
     PlatformPaymentRecipientService,
     ProviderWebhookProcessingService,

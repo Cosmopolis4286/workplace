@@ -7,15 +7,8 @@ describe('PlatformFeesService', () => {
     platformFeeOverride: { findFirst: jest.fn() },
     subscription: { findFirst: jest.fn() },
   };
-  const wallets = { chargePlatformFee: jest.fn() };
-  const notifications = {
-    notifyPlatformFeeCharged: jest.fn().mockResolvedValue(undefined),
-  };
-  const service = new PlatformFeesService(
-    prisma as any,
-    wallets as any,
-    notifications as any
-  );
+  const billing = { recordCharge: jest.fn().mockResolvedValue({ id: 'c1' }) };
+  const service = new PlatformFeesService(prisma as any, billing as any);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -44,6 +37,45 @@ describe('PlatformFeesService', () => {
       expect(
         service.calculateFee(100, { rate: 0, payer: 'CLIENT' }).feeAmount
       ).toBe(0);
+    });
+  });
+
+  describe('chargeProviderFee', () => {
+    it('registra la comisión en el estado de cuenta en vez de debitar la billetera', async () => {
+      await service.chargeProviderFee('ORDER', 'u1', 4.5, 'FEE-ORDER-1', {
+        orderId: '1',
+      });
+      expect(billing.recordCharge).toHaveBeenCalledWith({
+        type: 'ORDER',
+        sellerUserId: 'u1',
+        amount: 4.5,
+        reference: 'FEE-ORDER-1',
+        metadata: { orderId: '1' },
+        collected: undefined,
+      });
+    });
+
+    it('marca como cobrada la comisión retenida de una garantía', async () => {
+      await service.chargeProviderFee(
+        'SERVICE_REQUEST',
+        'u1',
+        2,
+        'FEE-SVC-1',
+        {},
+        {
+          collected: true,
+        }
+      );
+      expect(billing.recordCharge).toHaveBeenCalledWith(
+        expect.objectContaining({ collected: true })
+      );
+    });
+
+    it('una comisión en 0 no registra nada', async () => {
+      await expect(
+        service.chargeProviderFee('RIDE', 'u1', 0, 'FEE-RIDE-1', {})
+      ).resolves.toBeNull();
+      expect(billing.recordCharge).not.toHaveBeenCalled();
     });
   });
 

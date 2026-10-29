@@ -57,101 +57,16 @@
             </p>
 
             <!-- Pagar y reportar -->
-            <template v-if="canReport">
-              <div>
-                <p class="text-xs font-medium text-gray-700 mb-2">1. Elige cómo pagar y copia los datos</p>
-                <div class="space-y-2">
-                  <label
-                    v-for="acc in session.accounts"
-                    :key="acc.id"
-                    class="block p-3 rounded-xl border-2 transition-colors"
-                    :class="[
-                      selectedId === acc.id ? 'border-emerald-500 bg-emerald-50/40' : 'border-gray-200',
-                      acc.amount === null ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-                    ]"
-                  >
-                    <div class="flex items-start justify-between gap-3">
-                      <div class="flex items-start gap-2 min-w-0">
-                        <input
-                          v-model="selectedId"
-                          type="radio"
-                          :value="acc.id"
-                          :disabled="acc.amount === null"
-                          class="mt-1 text-emerald-600 focus:ring-emerald-500"
-                        />
-                        <div class="min-w-0">
-                          <p class="text-sm font-semibold text-gray-900">
-                            {{ DIRECT_PAYMENT_METHOD_LABELS[acc.method] }}
-                            <span v-if="acc.bankName" class="font-normal text-gray-500">· {{ acc.bankName }}</span>
-                          </p>
-                          <p v-if="acc.amount === null" class="text-xs text-amber-600">Sin tasa de cambio vigente</p>
-                        </div>
-                      </div>
-                      <p class="text-base font-black text-gray-900 flex-shrink-0">
-                        {{ formatPaymentAmount(acc.amount, acc.currency) }}
-                      </p>
-                    </div>
-
-                    <dl v-if="selectedId === acc.id" class="mt-3 space-y-1.5">
-                      <div v-for="field in fieldsOf(acc)" :key="field.label" class="flex items-center justify-between gap-2 text-sm">
-                        <dt class="text-gray-500">{{ field.label }}</dt>
-                        <dd class="flex items-center gap-1.5 min-w-0">
-                          <span class="font-mono text-gray-900 truncate">{{ field.value }}</span>
-                          <button
-                            type="button"
-                            class="p-1 rounded hover:bg-white text-gray-400 hover:text-emerald-600"
-                            :aria-label="`Copiar ${field.label}`"
-                            @click.prevent="copy(field.value, field.label)"
-                          >
-                            <CheckIcon v-if="copied === field.label" class="h-4 w-4 text-emerald-600" />
-                            <ClipboardDocumentIcon v-else class="h-4 w-4" />
-                          </button>
-                        </dd>
-                      </div>
-                      <p v-if="acc.exchangeRate" class="text-[11px] text-gray-400 pt-1">
-                        Equivale a {{ formatPaymentAmount(session.intent.amount, session.intent.currency) }}
-                        a {{ Number(acc.exchangeRate).toLocaleString('es-VE', { maximumFractionDigits: 4 }) }} {{ acc.currency }} por {{ session.intent.currency }}.
-                      </p>
-                    </dl>
-                  </label>
-                </div>
-              </div>
-
-              <form class="space-y-3" novalidate @submit.prevent="submit">
-                <p class="text-xs font-medium text-gray-700">2. Cuando hayas pagado, reporta la referencia</p>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">Número de referencia *</label>
-                    <input
-                      v-model="form.reference"
-                      type="text"
-                      inputmode="numeric"
-                      maxlength="30"
-                      placeholder="Ej. 00123456"
-                      class="input-field font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">Fecha del pago *</label>
-                    <input v-model="form.paidAt" type="date" :max="today" :min="minDate" class="input-field" />
-                  </div>
-                </div>
-                <div v-if="selectedAccount && selectedAccount.method !== 'ZELLE'">
-                  <label class="block text-xs text-gray-500 mb-1">Banco desde el que pagaste</label>
-                  <select v-model="form.payerBankCode" class="input-field bg-white">
-                    <option value="">Prefiero no indicarlo</option>
-                    <option v-for="bank in banks" :key="bank.code" :value="bank.code">{{ bank.code }} · {{ bank.name }}</option>
-                  </select>
-                </div>
-                <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
-                <button type="submit" class="btn-primary w-full" :disabled="submitting || !selectedId">
-                  {{ submitting ? 'Enviando…' : 'Reportar pago' }}
-                </button>
-                <p class="text-[11px] text-gray-400 text-center">
-                  Reportar una referencia falsa puede suspender tu cuenta.
-                </p>
-              </form>
-            </template>
+            <PaymentReportForm
+              v-if="canReport"
+              :accounts="session.accounts"
+              :base-amount="session.intent.amount"
+              :base-currency="session.intent.currency"
+              :banks="banks"
+              :submitting="submitting"
+              :error="formError"
+              @submit="submit"
+            />
           </template>
         </div>
       </div>
@@ -163,19 +78,16 @@
 import { ref, computed, watch } from 'vue'
 import {
   CheckCircleIcon,
-  CheckIcon,
-  ClipboardDocumentIcon,
   ClockIcon,
   ExclamationTriangleIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
+import PaymentReportForm, { type PaymentReportPayload } from './PaymentReportForm.vue'
 import {
   useDirectPayments,
   formatPaymentAmount,
-  DIRECT_PAYMENT_METHOD_LABELS,
   type DirectPaymentSession,
   type DirectPaymentSourceType,
-  type PayableSellerAccount,
 } from '~/composables/payments/useDirectPayments'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
@@ -194,43 +106,10 @@ const loading = ref(false)
 const loadError = ref<string | null>(null)
 const submitting = ref(false)
 const formError = ref<string | null>(null)
-const selectedId = ref('')
-const copied = ref<string | null>(null)
-
-// Fecha local (no UTC): en Venezuela, de noche, toISOString ya marca el día siguiente.
-const toDateInput = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-const today = toDateInput(new Date())
-// Mismo límite que el backend (PAID_AT_MAX_AGE_DAYS).
-const minDate = toDateInput(new Date(Date.now() - 30 * 24 * 3600 * 1000))
-const form = ref({ reference: '', paidAt: today, payerBankCode: '' })
 
 const status = computed(() => session.value?.intent.status)
 const canReport = computed(() => ['REQUIRES_ACTION', 'REQUIRES_RECONCILIATION'].includes(status.value ?? ''))
 const lastReport = computed(() => session.value?.reports[0] ?? null)
-const selectedAccount = computed(() => session.value?.accounts.find(a => a.id === selectedId.value) ?? null)
-
-function fieldsOf(acc: PayableSellerAccount) {
-  const fields: { label: string; value: string }[] = []
-  if (acc.method === 'ZELLE') fields.push({ label: 'Correo', value: acc.email ?? '' })
-  if (acc.method === 'PAGO_MOVIL') fields.push({ label: 'Teléfono', value: acc.phone ?? '' })
-  if (acc.method === 'BANK_TRANSFER') fields.push({ label: 'Cuenta', value: acc.accountNumber ?? '' })
-  if (acc.bankCode) fields.push({ label: 'Banco', value: acc.bankCode })
-  fields.push({ label: 'Cédula/RIF', value: acc.holderDocument })
-  fields.push({ label: 'Titular', value: acc.holderName })
-  if (acc.amount !== null) fields.push({ label: 'Monto', value: Number(acc.amount).toFixed(2) })
-  return fields
-}
-
-async function copy(value: string, label: string) {
-  try {
-    await navigator.clipboard.writeText(value)
-    copied.value = label
-    setTimeout(() => { if (copied.value === label) copied.value = null }, 1500)
-  } catch {
-    // Sin permiso de portapapeles: el dato sigue visible para copiarlo a mano.
-  }
-}
 
 async function load() {
   loading.value = true
@@ -239,7 +118,6 @@ async function load() {
   try {
     const [data] = await Promise.all([startPayment(props.sourceType, props.sourceId), loadBanks().catch(() => [])])
     session.value = data
-    selectedId.value = data.accounts.find(a => a.amount !== null)?.id ?? ''
   } catch (e) {
     loadError.value = getApiErrorMessage(e, 'No se pudo preparar el pago')
   } finally {
@@ -247,28 +125,16 @@ async function load() {
   }
 }
 
-async function submit() {
+async function submit(payload: PaymentReportPayload) {
+  if (!session.value) return
   formError.value = null
-  const reference = form.value.reference.replace(/\s+/g, '')
-  if (!/^[A-Za-z0-9-]{4,30}$/.test(reference)) {
-    formError.value = 'Escribe la referencia tal como aparece en tu comprobante (4 a 30 caracteres).'
-    return
-  }
-  if (!form.value.paidAt) {
-    formError.value = 'Indica la fecha del pago.'
-    return
-  }
-  if (!session.value || !selectedId.value) return
   submitting.value = true
   try {
-    // Mediodía local: evita que la zona horaria corra la fecha un día.
-    const paidAt = new Date(`${form.value.paidAt}T12:00:00`)
-    const effective = paidAt.getTime() > Date.now() ? new Date() : paidAt
     await reportPayment(session.value.intent.id, {
-      sellerPaymentAccountId: selectedId.value,
-      reference,
-      paidAt: effective.toISOString(),
-      payerBankCode: form.value.payerBankCode || undefined,
+      sellerPaymentAccountId: payload.accountId,
+      reference: payload.reference,
+      paidAt: payload.paidAt,
+      payerBankCode: payload.payerBankCode,
     })
     emit('reported')
     await load()
@@ -281,7 +147,6 @@ async function submit() {
 
 watch(() => props.show, (visible) => {
   if (!visible) return
-  form.value = { reference: '', paidAt: today, payerBankCode: '' }
   formError.value = null
   load()
 }, { immediate: true })

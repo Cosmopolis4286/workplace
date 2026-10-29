@@ -15,6 +15,7 @@ describe('PlanLimitsService', () => {
     userCategory: { findUnique: jest.fn() },
     commerce: { findUnique: jest.fn() },
     product: { count: jest.fn() },
+    sellerStatement: { count: jest.fn().mockResolvedValue(0) },
     employee: { count: jest.fn() },
     branch: { count: jest.fn() },
     order: { count: jest.fn() },
@@ -439,6 +440,20 @@ describe('PlanLimitsService', () => {
       );
       expect(limits.effectiveModules).not.toContain('menu');
       expect(limits.effectiveModules).not.toContain('orders');
+    });
+  });
+
+  describe('estado de cuenta vencido', () => {
+    it('bloquea crear productos y activar servicios hasta pagar', async () => {
+      mockPrismaService.sellerStatement.count.mockResolvedValueOnce(1);
+      await expect(service.assertProductLimit('u1', 'c1')).rejects.toThrow(
+        'estado de cuenta vencido'
+      );
+      mockPrismaService.sellerStatement.count.mockResolvedValueOnce(1);
+      await expect(service.assertServiceLimit('u1')).rejects.toThrow(
+        'estado de cuenta vencido'
+      );
+      expect(mockPrismaService.product.count).not.toHaveBeenCalled();
     });
   });
 
