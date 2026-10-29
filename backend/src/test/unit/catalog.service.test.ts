@@ -620,7 +620,9 @@ describe('CatalogService', () => {
         'owner-1',
         8,
         'FEE-CATALOG-order-1',
-        { catalogOrderId: 'order-1' }
+        { catalogOrderId: 'order-1' },
+        // Retenida de la garantía: ya cobrada, no va al estado de cuenta.
+        { collected: true }
       );
       expect(mockEscrowService.release).toHaveBeenCalledWith(
         expect.objectContaining({ amount: money(92) })

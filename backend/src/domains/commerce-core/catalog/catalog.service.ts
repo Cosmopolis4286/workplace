@@ -985,12 +985,15 @@ export class CatalogService {
             toNumber(order.escrowAmount),
             feeConfig
           );
+          // Se descuenta de lo liberado: queda cobrada (COLLECTED), no va al
+          // estado de cuenta del comercio.
           await this.platformFees.chargeProviderFee(
             'CATALOG_ORDER',
             commerce.userId,
             feeAmount,
             `FEE-CATALOG-${id}`,
-            { catalogOrderId: id }
+            { catalogOrderId: id },
+            { collected: true }
           );
           releaseAmount = sub(order.escrowAmount, feeAmount);
           update.platformFeeRate = feeConfig.rate;

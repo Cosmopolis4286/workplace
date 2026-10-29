@@ -3,11 +3,10 @@ import { PlatformFeesController } from './platform-fees.controller';
 import { PlatformFeesService } from './platform-fees.service';
 import { PLATFORM_FEES_FACADE } from './platform-fees.facade';
 import { PrismaModule } from '../../../prisma/prisma.module';
-import { WalletsModule } from '../wallets/wallets.module';
-import { NotificationsModule } from '../../engagement/notifications/notifications.module';
+import { SellerBillingModule } from '../seller-billing/seller-billing.module';
 
 @Module({
-  imports: [PrismaModule, WalletsModule, NotificationsModule],
+  imports: [PrismaModule, SellerBillingModule],
   controllers: [PlatformFeesController],
   providers: [
     PlatformFeesService,

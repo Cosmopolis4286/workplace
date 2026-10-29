@@ -74,6 +74,7 @@ import { GroupBuyingModule } from './domains/commerce-core/group-buying/group-bu
 import { MatchingModule } from './domains/commerce-core/matching/matching.module';
 import { EscrowModule } from './domains/money/escrow/escrow.module';
 import { PaymentsModule } from './domains/money/payments/payments.module';
+import { SellerBillingModule } from './domains/money/seller-billing/seller-billing.module';
 
 @Module({
   imports: [
@@ -158,6 +159,7 @@ import { PaymentsModule } from './domains/money/payments/payments.module';
     MatchingModule,
     EscrowModule,
     PaymentsModule,
+    SellerBillingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },

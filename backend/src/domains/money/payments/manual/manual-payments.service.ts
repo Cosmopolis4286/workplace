@@ -28,6 +28,12 @@ import { PaymentSourceResolverRegistry } from '../payment-source-resolver.regist
 import type { PaymentSourceType } from '../payment-source-resolver.interface';
 import { ReportManualPaymentDto } from '../dto/manual-payment.dto';
 import { SellerPaymentAccountsService } from './seller-payment-accounts.service';
+import {
+  normalizeReference,
+  parsePaidAt,
+  snapshotAccount,
+  withPayableAmounts,
+} from './payable-accounts';
 
 // Un intent manual "vivo" es uno que todavía puede pagarse o ya se pagó.
 const OPEN_STATUSES: ExternalPaymentStatus[] = [
@@ -42,7 +48,6 @@ const REPORTABLE: ExternalPaymentStatus[] = [
   ExternalPaymentStatus.REQUIRES_ACTION,
   ExternalPaymentStatus.REQUIRES_RECONCILIATION,
 ];
-const PAID_AT_MAX_AGE_DAYS = 30;
 
 const PAYER_LINK: Record<string, string> = {
   SERVICE_REQUEST: '/service-requests',
@@ -196,8 +201,8 @@ export class ManualPaymentsService {
       throw new BadRequestException('La cuenta de destino no está disponible');
     }
 
-    const reference = dto.reference.toUpperCase().replace(/\s+/g, '');
-    if (!/^[A-Z0-9-]{4,30}$/.test(reference)) {
+    const reference = normalizeReference(dto.reference);
+    if (!reference) {
       throw new BadRequestException(
         'Referencia inválida: usa entre 4 y 30 letras o números'
       );
@@ -240,7 +245,7 @@ export class ManualPaymentsService {
           data: {
             paymentIntentId: intent.id,
             sellerPaymentAccountId: account.id,
-            destination: this.snapshot(account),
+            destination: snapshotAccount(account),
             payerUserId,
             sellerUserId: intent.sellerUserId,
             reference,
@@ -417,74 +422,17 @@ export class ManualPaymentsService {
     return report;
   }
 
-  /**
-   * Monto a pagar en la moneda de cada cuenta. Si difiere de la del intent se
-   * convierte con la tasa vigente del servidor (rateToUsd = unidades de la
-   * moneda por 1 USD); sin tasa, amount queda null y esa cuenta no se puede
-   * usar.
-   */
-  private async withAmounts(
+  private withAmounts(
     accounts: SellerPaymentAccount[],
-    intentCurrency: string,
-    intentAmount: Prisma.Decimal
+    currency: string,
+    amount: Prisma.Decimal
   ) {
-    const rateCache = new Map<string, Prisma.Decimal | null>();
-    const rateOf = async (code: string) => {
-      if (code === 'USD') return new Prisma.Decimal(1);
-      if (!rateCache.has(code)) {
-        const r = await this.rates.resolveRateToUsd(code);
-        rateCache.set(code, r && r.rateToUsd.gt(0) ? r.rateToUsd : null);
-      }
-      return rateCache.get(code)!;
-    };
-
-    return Promise.all(
-      accounts.map(async (account) => {
-        if (account.currency === intentCurrency) {
-          return { ...account, amount: intentAmount, exchangeRate: null };
-        }
-        const from = await rateOf(intentCurrency);
-        const to = await rateOf(account.currency);
-        if (!from || !to) {
-          return { ...account, amount: null, exchangeRate: null };
-        }
-        const exchangeRate = to.div(from).toDecimalPlaces(8);
-        const amount = intentAmount
-          .mul(exchangeRate)
-          .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-        return { ...account, amount, exchangeRate };
-      })
-    );
-  }
-
-  private snapshot(account: SellerPaymentAccount): Prisma.InputJsonValue {
-    return {
-      method: account.method,
-      currency: account.currency,
-      bankCode: account.bankCode,
-      bankName: account.bankName,
-      holderName: account.holderName,
-      holderDocument: account.holderDocument,
-      phone: account.phone,
-      accountNumber: account.accountNumber,
-      email: account.email,
-    };
+    return withPayableAmounts(this.rates, accounts, currency, amount);
   }
 
   private validatePaidAt(value: string) {
-    const paidAt = new Date(value);
-    const now = Date.now();
-    if (
-      Number.isNaN(paidAt.getTime()) ||
-      paidAt.getTime() > now + 60 * 60 * 1000
-    ) {
-      throw new BadRequestException('La fecha del pago no puede ser futura');
-    }
-    if (now - paidAt.getTime() > PAID_AT_MAX_AGE_DAYS * 24 * 60 * 60 * 1000) {
-      throw new BadRequestException(
-        `La fecha del pago no puede tener más de ${PAID_AT_MAX_AGE_DAYS} días`
-      );
-    }
+    const paidAt = parsePaidAt(value);
+    if (typeof paidAt === 'string') throw new BadRequestException(paidAt);
     return paidAt;
   }
 
