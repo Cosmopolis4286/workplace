@@ -6,12 +6,12 @@
           <BanknotesIcon class="h-6 w-6 text-white" />
         </div>
         <div>
-          <h3 class="text-xl font-bold text-gray-900">Cuentas de cobro</h3>
-          <p class="text-xs text-gray-500">Tus clientes te pagan directo a estas cuentas y reportan la referencia</p>
+          <h3 class="text-xl font-bold text-gray-900">{{ copy.title }}</h3>
+          <p class="text-xs text-gray-500">{{ copy.subtitle }}</p>
         </div>
       </div>
       <button
-        v-if="!showForm && activeCount < MAX_ACTIVE"
+        v-if="!showForm && (scope === 'platform' || activeCount < MAX_ACTIVE)"
         type="button"
         class="btn-secondary text-sm flex items-center gap-1.5 flex-shrink-0"
         @click="openForm"
@@ -77,7 +77,7 @@
 
       <p class="text-xs text-gray-400">
         {{ form.method === 'ZELLE' ? 'Se cobra en dólares.' : 'Se cobra en bolívares, a la tasa BCV del día del pedido.' }}
-        El titular debe ser tuyo o de tu negocio.
+        {{ copy.holderHint }}
       </p>
 
       <div class="flex gap-2 justify-end">
@@ -91,8 +91,8 @@
       <div v-for="i in 2" :key="i" class="skeleton h-16 rounded-xl" />
     </div>
     <div v-else-if="accounts.length === 0 && !showForm" class="text-center py-6">
-      <p class="text-sm text-gray-600 font-medium">Todavía no tienes cuentas de cobro</p>
-      <p class="text-xs text-gray-400 mt-1">Sin una cuenta, tus clientes no pueden pagarte desde la app.</p>
+      <p class="text-sm text-gray-600 font-medium">{{ copy.emptyTitle }}</p>
+      <p class="text-xs text-gray-400 mt-1">{{ copy.emptyHint }}</p>
     </div>
     <ul v-else class="space-y-2">
       <li
@@ -145,14 +145,53 @@ import {
   type DirectPaymentMethod,
 } from '~/composables/payments/useDirectPayments'
 import { useConfirm } from '~/composables/ui/useConfirm'
+import { useSellerBilling } from '~/composables/payments/useSellerBilling'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
+// scope="platform": cuentas donde la PLATAFORMA cobra los estados de cuenta
+// de los vendedores (admin). Mismo formulario y validaciones, otros endpoints.
+const props = withDefaults(defineProps<{ scope?: 'seller' | 'platform' }>(), { scope: 'seller' })
 const emit = defineEmits<{ saved: [message: string] }>()
 
-// Mismo límite que SellerPaymentAccountsService.
+const COPY = {
+  seller: {
+    title: 'Cuentas de cobro',
+    subtitle: 'Tus clientes te pagan directo a estas cuentas y reportan la referencia',
+    holderHint: 'El titular debe ser tuyo o de tu negocio.',
+    emptyTitle: 'Todavía no tienes cuentas de cobro',
+    emptyHint: 'Sin una cuenta, tus clientes no pueden pagarte desde la app.',
+  },
+  platform: {
+    title: 'Cuentas de cobro de la plataforma',
+    subtitle: 'Donde los vendedores pagan su estado de cuenta semanal',
+    holderHint: 'Debe ser una cuenta de la empresa que opera WorkPlace.',
+    emptyTitle: 'No hay cuentas de cobro de la plataforma',
+    emptyHint: 'Sin una cuenta activa, los vendedores no pueden pagar su estado de cuenta.',
+  },
+}
+const copy = computed(() => COPY[props.scope])
+
+// Mismo límite que SellerPaymentAccountsService (solo cuentas del vendedor).
 const MAX_ACTIVE = 5
 
-const { banks, loadBanks, listMyAccounts, createAccount, setAccountActive, removeAccount } = useDirectPayments()
+const direct = useDirectPayments()
+const billing = useSellerBilling()
+const { banks, loadBanks } = direct
+const api = computed(() =>
+  props.scope === 'platform'
+    ? {
+        list: billing.listCollectionAccounts,
+        create: billing.createCollectionAccount,
+        setActive: billing.setCollectionAccountActive,
+        remove: billing.removeCollectionAccount,
+      }
+    : {
+        list: direct.listMyAccounts,
+        create: direct.createAccount,
+        setActive: direct.setAccountActive,
+        remove: direct.removeAccount,
+      },
+)
 const { confirm } = useConfirm()
 
 const accounts = ref<SellerPaymentAccount[]>([])
@@ -185,7 +224,7 @@ function accountDetail(acc: SellerPaymentAccount) {
 async function load() {
   loading.value = true
   try {
-    accounts.value = await listMyAccounts()
+    accounts.value = await api.value.list()
   } catch (e) {
     error.value = getApiErrorMessage(e, 'No se pudieron cargar tus cuentas de cobro')
   } finally {
@@ -219,7 +258,7 @@ async function save() {
   }
   saving.value = true
   try {
-    await createAccount(payload)
+    await api.value.create(payload)
     showForm.value = false
     await load()
     emit('saved', 'Cuenta de cobro guardada')
@@ -234,7 +273,7 @@ async function toggle(acc: SellerPaymentAccount) {
   busyId.value = acc.id
   error.value = null
   try {
-    await setAccountActive(acc.id, !acc.isActive)
+    await api.value.setActive(acc.id, !acc.isActive)
     await load()
   } catch (e) {
     error.value = getApiErrorMessage(e, 'No se pudo actualizar la cuenta')
@@ -246,12 +285,12 @@ async function toggle(acc: SellerPaymentAccount) {
 async function remove(acc: SellerPaymentAccount) {
   await confirm({
     title: 'Eliminar cuenta de cobro',
-    message: 'Tus clientes ya no verán esta cuenta para pagarte. Si ya recibiste pagos en ella, quedará pausada para conservar el historial.',
+    message: 'Esta cuenta dejará de mostrarse para pagar. Si ya recibió pagos, quedará pausada para conservar el historial.',
     confirmText: 'Eliminar',
     variant: 'danger',
     onConfirm: async () => {
       try {
-        const res = await removeAccount(acc.id)
+        const res = await api.value.remove(acc.id)
         await load()
         emit('saved', res.deleted ? 'Cuenta eliminada' : 'La cuenta tiene pagos registrados: quedó pausada')
       } catch (e) {

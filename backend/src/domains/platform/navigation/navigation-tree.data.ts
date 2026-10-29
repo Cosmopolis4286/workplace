@@ -525,6 +525,17 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         order: 2,
         condition: { permission: 'platform_fees:view' },
       },
+      {
+        id: 'admin-billing',
+        to: '/billing-admin',
+        label: 'Cobros a vendedores',
+        icon: 'billing',
+        order: 3,
+        condition: {
+          permission: null,
+          rolesOnly: [Role.SUPERADMIN, Role.ADMIN],
+        },
+      },
     ],
   },
   {
@@ -625,6 +636,23 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         condition: {
           permission: null,
           requiresAnyCapability: [
+            'HAS_BUSINESS_PROFILE',
+            'HAS_PROFESSIONAL_PROFILE',
+          ],
+        },
+      },
+      // Comisiones semanales de la plataforma: todo vendedor (con o sin
+      // Commerce) las tiene, igual que Mi Plan.
+      {
+        id: 'billing',
+        to: '/billing',
+        label: 'Estado de cuenta',
+        icon: 'billing',
+        order: 2,
+        condition: {
+          permission: null,
+          requiresAnyCapability: [
+            'HAS_COMMERCE',
             'HAS_BUSINESS_PROFILE',
             'HAS_PROFESSIONAL_PROFILE',
           ],

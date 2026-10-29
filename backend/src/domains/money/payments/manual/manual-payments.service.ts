@@ -59,10 +59,10 @@ const PAYER_LINK: Record<string, string> = {
  * paga a una cuenta PROPIA del vendedor, reporta la referencia y el vendedor
  * confirma que el dinero llegó. WorkPlace no recibe ni custodia fondos.
  *
- * La comisión de la plataforma NO se registra aquí (rate 0): hoy se cobra al
- * completar la solicitud/pedido (PlatformFeesService.chargeProviderFee) y
- * registrarla también acá la duplicaría. Pasará a este flujo con el estado de
- * cuenta del vendedor (paso 2).
+ * La comisión de la plataforma NO se registra aquí (rate 0): se registra al
+ * completar la solicitud/pedido (PlatformFeesService.chargeProviderFee) en el
+ * estado de cuenta semanal del vendedor (SellerBillingService); registrarla
+ * también acá la duplicaría.
  */
 @Injectable()
 export class ManualPaymentsService {
