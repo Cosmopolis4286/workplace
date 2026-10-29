@@ -117,9 +117,9 @@
                   v-if="!isProvider && req.escrowStatus === 'PENDING_FUNDS'"
                   type="button"
                   class="mt-2.5 w-full text-xs font-semibold py-1.5 rounded-lg bg-white/70 hover:bg-white transition-colors"
-                  @click="goToWallet"
+                  @click="showEscrowFunding = true"
                 >
-                  Ir a cargar saldo
+                  Pagar garantía
                 </button>
               </div>
 
@@ -348,6 +348,12 @@
   />
 
   <ReportProblemModal v-model="showReportModal" entity-type="SERVICE_REQUEST" :entity-id="req.id" />
+  <EscrowFundingModal
+    v-if="showEscrowFunding"
+    :request-id="req.id"
+    @close="showEscrowFunding = false"
+    @held="onEscrowHeld"
+  />
   <PayToSellerModal
     :show="showPayModal"
     source-type="SERVICE_REQUEST"
@@ -382,6 +388,7 @@ import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 import PayToSellerModal from '~/components/payments/PayToSellerModal.vue'
+import EscrowFundingModal from '~/components/payments/EscrowFundingModal.vue'
 import MediaLightbox, { type MediaEntry } from '~/components/modals/service-request/MediaLightbox.vue'
 import ServiceRequestTimeline from '~/components/modals/service-request/ServiceRequestTimeline.vue'
 import ServiceRequestChat from '~/components/modals/service-request/ServiceRequestChat.vue'
@@ -536,7 +543,7 @@ const MODALITY_LABELS: Record<string, string> = {
 
 const ESCROW_LABELS: Record<string, string> = {
   HELD: 'Garantía retenida',
-  PENDING_FUNDS: 'Pendiente de saldo',
+  PENDING_FUNDS: 'Garantía por pagar',
   RELEASED: 'Garantía liberada',
   REFUNDED: 'Garantía reembolsada',
 }
@@ -557,29 +564,28 @@ const escrowDescription = computed(() => {
   switch (props.req.escrowStatus) {
     case 'HELD':
       return isProvider
-        ? 'La plataforma retiene el pago del cliente y te lo liberará al confirmar la finalización.'
-        : 'Se retuvo el monto de tu billetera como garantía. Se liberará al proveedor cuando confirmes que el servicio se completó.'
+        ? 'La plataforma retiene el pago del cliente y te lo pagará al confirmar la finalización.'
+        : 'La plataforma retiene tu pago como garantía. Se le paga al proveedor cuando confirmes que el servicio se completó.'
     case 'PENDING_FUNDS':
       return isProvider
-        ? 'El cliente todavía no tiene saldo suficiente para cubrir la garantía. Se reintentará automáticamente.'
-        : 'No tenías saldo suficiente para la garantía. Carga saldo y se retendrá automáticamente.'
+        ? 'El cliente todavía no paga la garantía a la plataforma. Te avisaremos cuando quede retenida.'
+        : 'Paga la garantía a una cuenta de la plataforma y reporta la referencia: queda protegida hasta que confirmes el servicio.'
     case 'RELEASED':
       return isProvider
-        ? 'La garantía ya fue liberada a tu billetera.'
+        ? 'La garantía ya fue liberada a tu billetera; puedes retirarla a tu banco.'
         : 'La garantía fue liberada al proveedor.'
     case 'REFUNDED':
       return isProvider
         ? 'La garantía fue reembolsada al cliente.'
-        : 'La garantía fue reembolsada a tu billetera.'
+        : 'La garantía fue reembolsada a tu billetera; puedes retirarla a tu banco.'
     default:
       return ''
   }
 })
 
-const router = useRouter()
-function goToWallet() {
-  emit('close')
-  router.push('/wallet')
+const showEscrowFunding = ref(false)
+function onEscrowHeld() {
+  emit('updated', { ...props.req, escrowStatus: 'HELD' })
 }
 
 if (!defaultRate.value) fetchRates(false, true)

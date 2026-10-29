@@ -54,14 +54,8 @@
         </div>
 
         <div v-if="wallet.status === 'ACTIVE'" class="relative mt-6 flex gap-3 flex-wrap">
-          <button class="flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-lg text-sm font-medium transition-colors" @click="$emit('open-modal', 'deposit')">
-            <ArrowDownTrayIcon class="h-4 w-4" />Depositar
-          </button>
-          <button class="flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-lg text-sm font-medium transition-colors" @click="$emit('open-modal', 'withdraw')">
-            <ArrowUpTrayIcon class="h-4 w-4" />Retirar
-          </button>
-          <button class="flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-lg text-sm font-medium transition-colors" @click="$emit('open-modal', 'transfer')">
-            <ArrowsRightLeftIcon class="h-4 w-4" />Transferir
+          <button class="flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-lg text-sm font-medium transition-colors" @click="$emit('withdraw')">
+            <ArrowUpTrayIcon class="h-4 w-4" />Retirar a mi banco
           </button>
           <button class="flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-lg text-sm font-medium transition-colors" @click="$emit('open-modal', 'pin')">
             <LockClosedIcon class="h-4 w-4" />
@@ -77,7 +71,7 @@
         <WalletIcon class="h-7 w-7 text-workplace-red" />
       </div>
       <h3 class="text-base font-semibold text-gray-900 mb-1">Todavía no tienes billetera</h3>
-      <p class="text-sm text-gray-500 mb-5">Crea una wallet para habilitar saldo y movimientos.</p>
+      <p class="text-sm text-gray-500 mb-5">Aquí recibes devoluciones y cobros de Pago Protegido, y los retiras a tu banco.</p>
       <button class="btn-primary inline-flex items-center gap-2" @click="$emit('create')">
         <PlusIcon class="h-5 w-5" />Crear mi billetera
       </button>
@@ -87,9 +81,7 @@
 
 <script setup lang="ts">
 import {
-  ArrowDownTrayIcon,
   ArrowUpTrayIcon,
-  ArrowsRightLeftIcon,
   LockClosedIcon,
   LockOpenIcon,
   PlusIcon,
@@ -107,7 +99,8 @@ defineProps<{
 }>()
 
 defineEmits<{
-  'open-modal': [type: 'deposit' | 'withdraw' | 'transfer' | 'pin']
+  'open-modal': [type: 'pin']
+  withdraw: []
   create: []
 }>()
 </script>

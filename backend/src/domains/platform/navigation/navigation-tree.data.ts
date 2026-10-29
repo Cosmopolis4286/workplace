@@ -528,7 +528,7 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
       {
         id: 'admin-billing',
         to: '/billing-admin',
-        label: 'Cobros a vendedores',
+        label: 'Cobros y pagos',
         icon: 'billing',
         order: 3,
         condition: {

@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Billetera"
-      description="Gestiona tu saldo y movimientos digitales"
+      description="Tu saldo de devoluciones y cobros de Pago Protegido. Retíralo a tu banco cuando quieras."
       :icon="WalletIcon"
       :breadcrumb="[{ label: 'Billetera' }]"
       :stats="headerStats"
@@ -12,14 +12,8 @@
           Crear billetera
         </HeaderActionButton>
         <template v-if="wallet && wallet.status === 'ACTIVE'">
-          <HeaderActionButton variant="primary" :icon="ArrowDownTrayIcon" @click="openModal('deposit')">
-            Depositar
-          </HeaderActionButton>
-          <HeaderActionButton :icon="ArrowUpTrayIcon" @click="openModal('withdraw')">
-            Retirar
-          </HeaderActionButton>
-          <HeaderActionButton :icon="ArrowsRightLeftIcon" @click="openModal('transfer')">
-            Transferir
+          <HeaderActionButton variant="primary" :icon="ArrowUpTrayIcon" @click="openWithdrawal">
+            Retirar a mi banco
           </HeaderActionButton>
         </template>
         <HeaderActionButton :icon="ArrowPathIcon" :loading="loading" :disabled="loading" @click="reload">
@@ -47,6 +41,16 @@
       </div>
     </Transition>
 
+    <!-- La billetera ya no se recarga -->
+    <div class="mb-6 p-4 rounded-xl border border-blue-100 bg-blue-50 flex gap-3 text-sm text-blue-900">
+      <InformationCircleIcon class="h-5 w-5 flex-shrink-0 text-blue-600" />
+      <p>
+        La billetera ya no se recarga ni transfiere entre usuarios. Pagas directo al vendedor, y si usas
+        <strong>Pago Protegido</strong>, pagas la garantía de cada solicitud a una cuenta de la plataforma.
+        Lo que quede aquí (devoluciones o cobros) lo puedes retirar a tu banco.
+      </p>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- ── Main ─────────────────────────────────────────────────────────── -->
       <section class="lg:col-span-2 space-y-6">
@@ -58,8 +62,31 @@
           :status-labels="STATUS_LABELS"
           :status-classes="STATUS_CLASSES"
           @open-modal="openModal"
+          @withdraw="openWithdrawal"
           @create="handleCreate"
         />
+
+        <!-- Retiros -->
+        <section v-if="withdrawals.length" class="card p-5">
+          <h2 class="text-sm font-bold text-gray-900 mb-3">Mis retiros</h2>
+          <ul class="divide-y divide-gray-100">
+            <li v-for="w in withdrawals" :key="w.id" class="py-3 flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-900">
+                  {{ formatMoney(Number(w.amount), 'USD') }}
+                  <span class="font-normal text-gray-500">→ {{ formatPaymentAmount(Number(w.payoutAmount), w.payoutCurrency) }}</span>
+                </p>
+                <p class="text-xs text-gray-500 truncate">
+                  {{ DIRECT_PAYMENT_METHOD_LABELS[w.destination.method] }} · {{ w.destination.bankName ?? w.destination.email }}
+                  · {{ formatDate(w.createdAt) }}
+                </p>
+                <p v-if="w.payoutReference" class="text-xs text-gray-500">Ref. <span class="font-mono">{{ w.payoutReference }}</span></p>
+                <p v-if="w.rejectionReason" class="text-xs text-red-600">"{{ w.rejectionReason }}" — el monto volvió a tu billetera</p>
+              </div>
+              <span class="badge" :class="WITHDRAWAL_STATUS_CLASSES[w.status]">{{ WITHDRAWAL_STATUS_LABELS[w.status] }}</span>
+            </li>
+          </ul>
+        </section>
 
         <WalletTransactionsList
           :transactions="transactions"
@@ -89,17 +116,19 @@
     </div>
 
     <WalletModals
-      ref="modalsRef"
       :active-modal="activeModal"
       :wallet="wallet"
       :loading="loading"
       :modal-error="modalError"
-      :format-money="formatMoney"
       @close="closeModal"
-      @deposit-request="handleDepositRequest"
-      @withdraw="handleWithdraw"
-      @transfer="handleTransfer"
       @pin-submit="handlePin"
+    />
+
+    <WithdrawalRequestModal
+      v-if="showWithdrawal && wallet"
+      :balance="Number(wallet.balance)"
+      @close="showWithdrawal = false"
+      @created="onWithdrawalCreated"
     />
   </div>
 </template>
@@ -107,11 +136,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import {
-  ArrowDownTrayIcon,
   ArrowPathIcon,
   ArrowUpTrayIcon,
-  ArrowsRightLeftIcon,
   CheckCircleIcon,
+  InformationCircleIcon,
   PlusIcon,
   WalletIcon,
   XCircleIcon,
@@ -122,10 +150,16 @@ import WalletCard from '~/components/wallet/WalletCard.vue'
 import WalletTransactionsList from '~/components/wallet/WalletTransactionsList.vue'
 import WalletSidebar from '~/components/wallet/WalletSidebar.vue'
 import WalletModals from '~/components/wallet/WalletModals.vue'
+import WithdrawalRequestModal from '~/components/wallet/WithdrawalRequestModal.vue'
 import { useWallets, type WalletTransactionType } from '~/composables/wallets/useWallets'
-import { useWalletDepositRequests } from '~/composables/wallets/useWalletDepositRequests'
+import {
+  useWalletWithdrawals,
+  WITHDRAWAL_STATUS_CLASSES,
+  WITHDRAWAL_STATUS_LABELS,
+  type WalletWithdrawal,
+} from '~/composables/wallets/useWalletWithdrawals'
+import { DIRECT_PAYMENT_METHOD_LABELS, formatPaymentAmount } from '~/composables/payments/useDirectPayments'
 import { useDateFormat } from '~/composables/core/useDateFormat'
-import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 definePageMeta({ layout: 'default', middleware: ['auth'] })
 
@@ -135,12 +169,32 @@ const {
   loading, loadingTx, error,
   fetchMyWallet, createMyWallet, fetchMyTransactions, fetchMyLimits,
   setPin, changePin,
-  withdraw, transfer,
   formatMoney,
   STATUS_LABELS, STATUS_CLASSES, TYPE_LABELS, TYPE_CLASSES,
 } = useWallets()
 
-const { create: createDepositRequest } = useWalletDepositRequests()
+const { listMine: listMyWithdrawals } = useWalletWithdrawals()
+const withdrawals = ref<WalletWithdrawal[]>([])
+const showWithdrawal = ref(false)
+
+function openWithdrawal() {
+  if (!wallet.value?.hasPin) {
+    showToast('error', 'Configura el PIN de tu billetera antes de retirar')
+    openModal('pin')
+    return
+  }
+  showWithdrawal.value = true
+}
+
+async function onWithdrawalCreated() {
+  showWithdrawal.value = false
+  showToast('success', 'Retiro solicitado. Te avisaremos cuando se haga la transferencia.')
+  await reload()
+}
+
+async function loadWithdrawals() {
+  try { withdrawals.value = await listMyWithdrawals() } catch { withdrawals.value = [] }
+}
 
 // ── Filters ──────────────────────────────────────────────────────────────────────
 const txFilters: { label: string; value: WalletTransactionType | undefined }[] = [
@@ -189,51 +243,14 @@ function showToast(type: 'success' | 'error', message: string) {
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────────
-type ModalType = 'deposit' | 'withdraw' | 'transfer' | 'pin'
+type ModalType = 'pin'
 const activeModal = ref<ModalType | null>(null)
 const modalError  = ref<string | null>(null)
-const modalsRef = ref<InstanceType<typeof WalletModals> | null>(null)
 
 function openModal(type: ModalType) {
   activeModal.value = type; modalError.value = null
 }
 function closeModal() { activeModal.value = null; modalError.value = null }
-
-async function handleDepositRequest(payload: { amount: number; paymentMethod: string; reference: string; proofImage: File }) {
-  modalError.value = null
-  try {
-    await createDepositRequest({
-      amount: payload.amount,
-      paymentMethod: payload.paymentMethod,
-      reference: payload.reference || undefined,
-      proofImage: payload.proofImage,
-    })
-    closeModal()
-    showToast('success', 'Solicitud enviada. Un admin verificará tu comprobante y acreditará el saldo.')
-  } catch (e: any) { modalError.value = getApiErrorMessage(e, 'Error al enviar la solicitud') }
-}
-
-async function handleWithdraw(payload: { amount: number; pin: string; description: string }) {
-  modalError.value = null
-  try {
-    await withdraw({ amount: payload.amount, pin: payload.pin, description: payload.description || undefined })
-    closeModal(); showToast('success', `Retiro de ${formatMoney(payload.amount, wallet.value?.currency)} realizado`)
-  } catch (e: any) {
-    modalError.value = e?.message ?? 'Error al retirar'
-    modalsRef.value?.resetConfirm()
-  }
-}
-
-async function handleTransfer(payload: { recipientUserId: string; amount: number; pin: string; description: string }) {
-  modalError.value = null
-  try {
-    await transfer({ recipientUserId: payload.recipientUserId, amount: payload.amount, pin: payload.pin, description: payload.description || undefined })
-    closeModal(); showToast('success', `Transferencia de ${formatMoney(payload.amount, wallet.value?.currency)} enviada`)
-  } catch (e: any) {
-    modalError.value = e?.message ?? 'Error al transferir'
-    modalsRef.value?.resetConfirm()
-  }
-}
 
 async function handlePin(payload: { pin: string; pinConfirm: string; currentPin: string }) {
   if (!payload.pin || payload.pin !== payload.pinConfirm) {
@@ -255,7 +272,7 @@ async function handlePin(payload: { pin: string; pinConfirm: string; currentPin:
 // ── Lifecycle ─────────────────────────────────────────────────────────────────────
 async function reload() {
   const w = await fetchMyWallet()
-  if (w) await Promise.allSettled([fetchMyTransactions(1, 20, txFilter.value), fetchMyLimits()])
+  if (w) await Promise.allSettled([fetchMyTransactions(1, 20, txFilter.value), fetchMyLimits(), loadWithdrawals()])
 }
 async function handleCreate() { await createMyWallet('USD'); await fetchMyTransactions() }
 
