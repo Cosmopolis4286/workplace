@@ -198,7 +198,15 @@ export class WalletsService {
 
   // ─── Financial operations ─────────────────────────────────────────────────────
 
-  async deposit(userId: string, role: Role, dto: DepositDto) {
+  // `retryEscrows: false`: quien acredita decide a qué garantía va el dinero
+  // (pago de garantía por operación), así que no se dispara el reintento
+  // general que retendría primero la solicitud pendiente más antigua.
+  async deposit(
+    userId: string,
+    role: Role,
+    dto: DepositDto,
+    options: { retryEscrows?: boolean } = {}
+  ) {
     if (dto.idempotencyKey) {
       const cached = await this.getIdempotent(
         dto.idempotencyKey,
@@ -259,9 +267,11 @@ export class WalletsService {
     // la retención ahora en vez de esperar al cron de respaldo (hasta 1h).
     // Resuelto por nombre de clase (token implícito de Nest) vía ModuleRef en
     // vez de inyección normal — ver comentario en el constructor.
-    this.getServicesService()
-      .retryPendingEscrowsForClient(userId)
-      .catch(() => {});
+    if (options.retryEscrows !== false) {
+      this.getServicesService()
+        .retryPendingEscrowsForClient(userId)
+        .catch(() => {});
+    }
 
     return result;
   }

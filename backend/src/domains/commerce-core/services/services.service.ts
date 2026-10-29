@@ -1534,6 +1534,12 @@ export class ServicesService {
     return true;
   }
 
+  // Reintento de UNA solicitud: lo usa el pago de garantía por operación
+  // (money/escrow-funding), donde el dinero acreditado es para esa solicitud.
+  retryPendingEscrowForRequest(requestId: string) {
+    return this.retryPendingEscrow(requestId);
+  }
+
   // Llamado fire-and-forget desde WalletsService tras un depósito exitoso.
   // Reintenta las solicitudes pendientes del mismo cliente, más antigua primero,
   // deteniéndose en el primer saldo insuficiente (las siguientes tampoco alcanzarían).

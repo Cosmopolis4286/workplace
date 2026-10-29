@@ -482,9 +482,9 @@ export class NotificationsService {
   ) {
     return this.createForUser(clientId, {
       type: NotificationType.SYSTEM,
-      title: '⚠️ Carga saldo para continuar',
-      message: `${providerName} fijó el precio de "${serviceName}" en $${amount.toFixed(2)}. Carga saldo a tu billetera para retener la garantía y continuar.`,
-      link: '/wallet',
+      title: '⚠️ Paga la garantía para continuar',
+      message: `${providerName} fijó el precio de "${serviceName}" en $${amount.toFixed(2)}. Paga la garantía de Pago Protegido desde la solicitud para continuar.`,
+      link: '/service-requests',
       metadata: { providerName, serviceName, amount },
     });
   }
@@ -498,8 +498,8 @@ export class NotificationsService {
     return this.createForUser(clientId, {
       type: NotificationType.SYSTEM,
       title: '✅ Garantía retenida',
-      message: `Se retuvo $${amount.toFixed(2)} de tu billetera como garantía para "${serviceName}" con ${providerName}. Se liberará al confirmar la finalización del servicio.`,
-      link: '/wallet',
+      message: `La plataforma retiene $${amount.toFixed(2)} como garantía para "${serviceName}" con ${providerName}. Se liberará al confirmar la finalización del servicio.`,
+      link: '/service-requests',
       metadata: { providerName, serviceName, amount },
     });
   }
@@ -584,9 +584,9 @@ export class NotificationsService {
   ) {
     return this.createForUser(clientId, {
       type: NotificationType.SYSTEM,
-      title: '⚠️ Carga saldo para completar el aumento aprobado',
-      message: `Aprobaste un aumento de $${deltaAmount.toFixed(2)} para "${serviceName}" pero no hay saldo suficiente en tu billetera. Carga saldo para retener la garantía.`,
-      link: '/wallet',
+      title: '⚠️ Paga la garantía del aumento aprobado',
+      message: `Aprobaste un aumento de $${deltaAmount.toFixed(2)} para "${serviceName}". Paga la garantía de ese monto desde la solicitud para retenerla.`,
+      link: '/service-requests',
       metadata: { providerName, serviceName, deltaAmount },
     });
   }
