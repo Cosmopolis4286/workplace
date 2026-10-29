@@ -211,9 +211,17 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - name: Caché local de Trivy (runner propio)
+    # Runner propio: base de Trivy persistente en ~/.cache/trivy, y una
+    # config de Docker vacía. La de Docker Desktop (credsStore desktop.exe)
+    # hace fallar la descarga de la base pública porque el servicio del
+    # runner no ve el ejecutable de Windows.
+    - name: Entorno de Trivy (runner propio)
       if: ${{ runner.environment != 'github-hosted' }}
-      run: echo "TRIVY_CACHE_DIR=$HOME/.cache/trivy" >> "$GITHUB_ENV"
+      run: |
+        mkdir -p "$RUNNER_TEMP/trivy-docker-config"
+        echo '{}' > "$RUNNER_TEMP/trivy-docker-config/config.json"
+        echo "DOCKER_CONFIG=$RUNNER_TEMP/trivy-docker-config" >> "$GITHUB_ENV"
+        echo "TRIVY_LOCAL_CACHE=$HOME/.cache/trivy" >> "$GITHUB_ENV"
 
     # Tabla en el log: visible siempre, también en repos privados sin
     # GitHub Code Security (donde no se puede subir el SARIF).
@@ -224,6 +232,7 @@ jobs:
         scan-ref: .
         format: table
         cache: ${{ runner.environment == 'github-hosted' }}
+        cache-dir: ${{ env.TRIVY_LOCAL_CACHE || format('{0}/.cache/trivy', github.workspace) }}
 
     - name: Trivy — reporte SARIF
       if: ${{ !github.event.repository.private }}
