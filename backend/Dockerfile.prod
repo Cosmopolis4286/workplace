@@ -75,7 +75,10 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 RUN pnpm prisma generate
 
 # Permisos y usuario no root
-RUN addgroup -S -g 1001 app && \
+# uploads/ (público) y private-uploads/ (KYC, comprobantes) se crean aquí para
+# que los volúmenes nombrados nuevos hereden el dueño `app` al montarse.
+RUN mkdir -p uploads private-uploads && \
+    addgroup -S -g 1001 app && \
     adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G app app && \
     chown -R app:app /app && \
     # Asegurar permisos correctos para seed.js

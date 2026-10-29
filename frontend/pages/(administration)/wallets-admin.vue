@@ -109,7 +109,8 @@
             </button>
           </div>
 
-          <div class="border-t border-gray-100 pt-4 space-y-3">
+          <!-- Crear saldo es crear dinero retirable: solo SUPERADMIN y nunca sobre su propia billetera. -->
+          <div v-if="isSuperAdmin && selected.userId !== user?.id" class="border-t border-gray-100 pt-4 space-y-3">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ajuste manual de saldo</p>
             <div class="flex gap-2">
               <select v-model="adjustType" class="input flex-shrink-0 w-28">
@@ -162,6 +163,7 @@ import { ref, computed, onMounted } from 'vue'
 import { BanknotesIcon, XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { useWallets, type Wallet, type EscrowReconciliation } from '~/composables/wallets/useWallets'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
+import { useAuth } from '~/composables/auth/useAuth'
 import PageHeader from '~/components/ui/PageHeader.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
@@ -170,6 +172,8 @@ const {
   fetchEscrowReconciliation,
   formatMoney, STATUS_LABELS, STATUS_CLASSES,
 } = useWallets()
+const { user } = useAuth()
+const isSuperAdmin = computed(() => user.value?.role === 'SUPERADMIN')
 
 const items = ref<Wallet[]>([])
 const loading = ref(true)

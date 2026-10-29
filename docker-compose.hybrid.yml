@@ -71,6 +71,7 @@ services:
       - ./backend:/app/backend
       - /app/backend/node_modules
       - uploads_data:/app/backend/uploads
+      - private_uploads_data:/app/backend/private-uploads
     ports:
       - "3001:3001"
     networks:
@@ -183,6 +184,7 @@ volumes:
   postgres_data:
   redis_data:
   uploads_data:
+  private_uploads_data:
 
 networks:
   public_network:

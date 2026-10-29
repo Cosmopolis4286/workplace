@@ -86,6 +86,6 @@ export class WalletDepositRequestsController {
     @CurrentUser() user: any,
     @Body() dto: ReviewDepositRequestDto
   ) {
-    return this.service.review(id, user.id, dto);
+    return this.service.review(id, user.id, user.role, dto);
   }
 }

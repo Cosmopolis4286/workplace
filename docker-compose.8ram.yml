@@ -116,6 +116,7 @@ services:
         condition: service_healthy
     volumes:
       - uploads_data:/app/backend/uploads
+      - private_uploads_data:/app/backend/private-uploads
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${NODE_PORT:-3001}/api/ready || exit 1"]
       interval: 15s
@@ -403,6 +404,7 @@ services:
       - ./scripts/backup:/scripts:ro
       - ./backups:/opt/workplace/backups
       - uploads_data:/source/uploads:ro
+      - private_uploads_data:/source/private-uploads:ro
       - grafana_data:/source/grafana:ro
       - prometheus_data:/source/prometheus:ro
     depends_on:
@@ -698,6 +700,7 @@ volumes:
   postgres_data:
   redis_data:
   uploads_data:
+  private_uploads_data:
   prometheus_data:
   grafana_data:
   loki_data:

@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { WalletDepositRequestsService } from '../../domains/money/wallet-deposit-requests/wallet-deposit-requests.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -39,6 +43,10 @@ describe('WalletDepositRequestsService', () => {
           .mockImplementation(({ data }: any) =>
             Promise.resolve({ ...pendingRequest(), ...data })
           ),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest
+          .fn()
+          .mockResolvedValue({ ...pendingRequest(), status: 'REJECTED' }),
       },
       user: {
         findUnique: jest.fn(),
@@ -63,7 +71,9 @@ describe('WalletDepositRequestsService', () => {
   });
 
   describe('review — aprobación', () => {
-    it('acredita el saldo real vía WalletsService.deposit() y marca la solicitud como APPROVED', async () => {
+    const SUPER = Role.SUPERADMIN;
+
+    it('reclama la solicitud de forma atómica, acredita vía deposit() y guarda la transacción', async () => {
       mockPrismaService.walletDepositRequest.findUnique.mockResolvedValue(
         pendingRequest()
       );
@@ -71,10 +81,21 @@ describe('WalletDepositRequestsService', () => {
         role: Role.NORMAL,
       });
 
-      const result = await service.review(REQUEST_ID, ADMIN_ID, {
+      const result = await service.review(REQUEST_ID, ADMIN_ID, SUPER, {
         status: 'APPROVED',
       } as any);
 
+      expect(
+        mockPrismaService.walletDepositRequest.updateMany
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: REQUEST_ID, status: 'PENDING' },
+          data: expect.objectContaining({
+            status: 'APPROVED',
+            reviewedBy: ADMIN_ID,
+          }),
+        })
+      );
       expect(mockWalletsService.deposit).toHaveBeenCalledWith(
         USER_ID,
         Role.NORMAL,
@@ -83,33 +104,56 @@ describe('WalletDepositRequestsService', () => {
           reference: `DEPOSIT-REQ-${REQUEST_ID}`,
         })
       );
-      expect(
-        mockPrismaService.walletDepositRequest.update
-      ).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: 'APPROVED',
-            resultingTransactionId: 'tx-1',
-            reviewedBy: ADMIN_ID,
-          }),
-        })
-      );
-      expect(result.status).toBe('APPROVED');
+      expect(result.resultingTransactionId).toBe('tx-1');
     });
 
-    it('no llama a deposit() si la solicitud es rechazada', async () => {
+    it('dos aprobaciones simultáneas: la que pierde el reclamo no acredita (evita doble acreditación)', async () => {
+      mockPrismaService.walletDepositRequest.findUnique.mockResolvedValue(
+        pendingRequest()
+      );
+      mockPrismaService.walletDepositRequest.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(
+        service.review(REQUEST_ID, ADMIN_ID, SUPER, {
+          status: 'APPROVED',
+        } as any)
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockWalletsService.deposit).not.toHaveBeenCalled();
+    });
+
+    it('nadie puede aprobar su propia solicitud', async () => {
+      mockPrismaService.walletDepositRequest.findUnique.mockResolvedValue(
+        pendingRequest({ userId: ADMIN_ID })
+      );
+
+      await expect(
+        service.review(REQUEST_ID, ADMIN_ID, SUPER, {
+          status: 'APPROVED',
+        } as any)
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockWalletsService.deposit).not.toHaveBeenCalled();
+    });
+
+    it('un ADMIN puede rechazar pero no aprobar', async () => {
       mockPrismaService.walletDepositRequest.findUnique.mockResolvedValue(
         pendingRequest()
       );
 
-      await service.review(REQUEST_ID, ADMIN_ID, {
+      await expect(
+        service.review(REQUEST_ID, ADMIN_ID, Role.ADMIN, {
+          status: 'APPROVED',
+        } as any)
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      await service.review(REQUEST_ID, ADMIN_ID, Role.ADMIN, {
         status: 'REJECTED',
         rejectionReason: 'Comprobante ilegible',
       } as any);
-
       expect(mockWalletsService.deposit).not.toHaveBeenCalled();
       expect(
-        mockPrismaService.walletDepositRequest.update
+        mockPrismaService.walletDepositRequest.updateMany
       ).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -120,22 +164,38 @@ describe('WalletDepositRequestsService', () => {
       );
     });
 
-    it('rechaza revisar una solicitud que ya no está PENDING (evita doble-acreditación)', async () => {
+    it('si deposit() falla la solicitud vuelve a PENDING', async () => {
       mockPrismaService.walletDepositRequest.findUnique.mockResolvedValue(
-        pendingRequest({ status: 'APPROVED' })
+        pendingRequest()
+      );
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: Role.NORMAL,
+      });
+      (mockWalletsService.deposit as jest.Mock).mockRejectedValue(
+        new BadRequestException('límite')
       );
 
       await expect(
-        service.review(REQUEST_ID, ADMIN_ID, { status: 'APPROVED' } as any)
+        service.review(REQUEST_ID, ADMIN_ID, SUPER, {
+          status: 'APPROVED',
+        } as any)
       ).rejects.toBeInstanceOf(BadRequestException);
-      expect(mockWalletsService.deposit).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.walletDepositRequest.update
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'PENDING' }),
+        })
+      );
     });
 
     it('lanza NotFoundException si la solicitud no existe', async () => {
       mockPrismaService.walletDepositRequest.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.review(REQUEST_ID, ADMIN_ID, { status: 'APPROVED' } as any)
+        service.review(REQUEST_ID, ADMIN_ID, SUPER, {
+          status: 'APPROVED',
+        } as any)
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });

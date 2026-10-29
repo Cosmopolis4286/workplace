@@ -94,6 +94,8 @@ main() {
     
     # Backup critical volumes
     backup_volume "uploads_data" "workplace-frontend-1" "uploads_data"
+    # KYC y comprobantes de pago: sin esto, perder el volumen pierde los documentos.
+    backup_volume "private_uploads_data" "workplace-backend-1" "private_uploads_data"
     
     if docker ps | grep -q grafana; then
         backup_grafana

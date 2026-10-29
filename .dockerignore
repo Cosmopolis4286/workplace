@@ -97,6 +97,7 @@ junit.xml
 # Runtime
 # ================================
 uploads/
+private-uploads/
 storage/
 
 # ================================

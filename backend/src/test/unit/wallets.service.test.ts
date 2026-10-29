@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { WalletsService } from '../../domains/money/wallets/wallets.service';
 import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallet.errors';
@@ -176,15 +176,20 @@ describe('WalletsService — escrow', () => {
       ).rejects.toBeInstanceOf(InsufficientEscrowFundsError);
     });
 
-    it('propaga NotFoundException si el cliente no tiene wallet — NO la convierte en PENDING_FUNDS', async () => {
-      mockPrismaService.wallet.findUnique.mockResolvedValue(null);
+    it('crea la wallet del cliente que no tiene y la deja en PENDING_FUNDS (saldo 0), sin fallar la transición', async () => {
+      // La billetera ya no se crea para recargar: sin billetera = saldo 0 y la
+      // garantía se paga por operación (money/escrow-funding).
+      mockPrismaService.wallet.findUnique.mockResolvedValue(
+        wallet({ userId: CLIENT_ID, balance: 0 })
+      );
 
       await expect(
         service.holdEscrow(CLIENT_ID, 50, REQUEST_ID)
-      ).rejects.toBeInstanceOf(NotFoundException);
-      await expect(
-        service.holdEscrow(CLIENT_ID, 50, REQUEST_ID)
-      ).rejects.not.toBeInstanceOf(InsufficientEscrowFundsError);
+      ).rejects.toBeInstanceOf(InsufficientEscrowFundsError);
+      expect(mockPrismaService.wallet.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: CLIENT_ID } })
+      );
+      expect(mockPrismaService.walletTransaction.create).not.toHaveBeenCalled();
     });
 
     it('propaga BadRequestException si la wallet del cliente está congelada — NO la convierte en PENDING_FUNDS', async () => {
@@ -327,28 +332,28 @@ describe('WalletsService — escrow', () => {
   describe('adjust', () => {
     const TARGET_ID = 'target-1';
     const ADMIN_ID = 'admin-1';
+    const SUPER = Role.SUPERADMIN;
 
-    it('rechaza si el motivo (description) viene vacío', async () => {
+    beforeEach(() => {
       mockPrismaService.wallet.findUnique.mockResolvedValue(
         wallet({ userId: TARGET_ID, balance: 100 })
       );
+    });
 
+    it('rechaza si el motivo (description) viene vacío', async () => {
+      mockPrismaService.$queryRaw = jest.fn();
       await expect(
-        service.adjust(TARGET_ID, ADMIN_ID, Role.ADMIN, {
+        service.adjust(TARGET_ID, ADMIN_ID, SUPER, {
           type: 'CREDIT',
           amount: 10,
         } as any)
       ).rejects.toBeInstanceOf(BadRequestException);
-      expect(mockPrismaService.wallet.update).not.toHaveBeenCalled();
+      expect(mockPrismaService.$queryRaw).not.toHaveBeenCalled();
     });
 
     it('rechaza si el motivo es solo espacios en blanco', async () => {
-      mockPrismaService.wallet.findUnique.mockResolvedValue(
-        wallet({ userId: TARGET_ID, balance: 100 })
-      );
-
       await expect(
-        service.adjust(TARGET_ID, ADMIN_ID, Role.ADMIN, {
+        service.adjust(TARGET_ID, ADMIN_ID, SUPER, {
           type: 'CREDIT',
           amount: 10,
           description: '   ',
@@ -356,64 +361,74 @@ describe('WalletsService — escrow', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('rechaza a un actor que no es admin', async () => {
+    it.each([Role.ADMIN, Role.PROFESIONAL])(
+      'solo SUPERADMIN puede ajustar (rechaza %s)',
+      async (role) => {
+        await expect(
+          service.adjust(TARGET_ID, ADMIN_ID, role, {
+            type: 'CREDIT',
+            amount: 10,
+            description: 'motivo',
+          } as any)
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      }
+    );
+
+    it('nadie puede ajustar su propia billetera', async () => {
       await expect(
-        service.adjust(TARGET_ID, ADMIN_ID, Role.PROFESIONAL, {
+        service.adjust(ADMIN_ID, ADMIN_ID, SUPER, {
           type: 'CREDIT',
           amount: 10,
           description: 'motivo',
         } as any)
-      ).rejects.toThrow();
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it('aplica el ajuste con motivo válido, recortando espacios', async () => {
-      mockPrismaService.wallet.findUnique.mockResolvedValue(
-        wallet({ userId: TARGET_ID, balance: 100 })
-      );
+    it('aplica el ajuste con un UPDATE atómico relativo al saldo y recorta el motivo', async () => {
+      mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { new_balance: 110 },
+      ]);
 
-      const result = await service.adjust(TARGET_ID, ADMIN_ID, Role.ADMIN, {
+      const result = await service.adjust(TARGET_ID, ADMIN_ID, SUPER, {
         type: 'CREDIT',
         amount: 10,
         description: '  ajuste de prueba  ',
       } as any);
 
       expect(result.transaction.description).toBe('ajuste de prueba');
-      // El saldo se calcula con Decimal (common/money): se compara el valor,
-      // no el tipo.
-      const [updateArgs] = mockPrismaService.wallet.update.mock.calls[0];
-      expect(updateArgs.where).toEqual({
-        id: wallet({ userId: TARGET_ID }).id,
-      });
-      expect(updateArgs.data.balance.toString()).toBe('110');
+      expect(result.wallet.balance).toBe(110);
+      // balance + delta (no un saldo calculado afuera y sobrescrito)
+      const [, delta] = mockPrismaService.$queryRaw.mock.calls[0];
+      expect(delta).toBe('10');
+      expect(mockPrismaService.wallet.update).not.toHaveBeenCalled();
     });
 
-    it('ajusta sin error de coma flotante (Float daba 0.30000000000000004)', async () => {
-      mockPrismaService.wallet.findUnique.mockResolvedValue(
-        wallet({ userId: TARGET_ID, balance: 0.1 })
-      );
+    it('un débito usa delta negativo (sin coma flotante)', async () => {
+      mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { new_balance: 99.7 },
+      ]);
 
-      await service.adjust(TARGET_ID, ADMIN_ID, Role.ADMIN, {
-        type: 'CREDIT',
-        amount: 0.2,
+      await service.adjust(TARGET_ID, ADMIN_ID, SUPER, {
+        type: 'DEBIT',
+        amount: 0.3,
         description: 'motivo',
       } as any);
 
-      const [updateArgs] = mockPrismaService.wallet.update.mock.calls[0];
-      expect(updateArgs.data.balance.toString()).toBe('0.3');
+      const [, delta] = mockPrismaService.$queryRaw.mock.calls[0];
+      expect(delta).toBe('-0.3');
     });
 
-    it('rechaza si el débito dejaría el saldo en negativo', async () => {
-      mockPrismaService.wallet.findUnique.mockResolvedValue(
-        wallet({ userId: TARGET_ID, balance: 5 })
-      );
+    it('rechaza si el débito dejaría el saldo en negativo (el UPDATE no afecta filas)', async () => {
+      mockPrismaService.$queryRaw = makeQueryRawSequence([null]);
 
       await expect(
-        service.adjust(TARGET_ID, ADMIN_ID, Role.ADMIN, {
+        service.adjust(TARGET_ID, ADMIN_ID, SUPER, {
           type: 'DEBIT',
-          amount: 10,
+          amount: 1000,
           description: 'motivo',
         } as any)
       ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrismaService.walletTransaction.create).not.toHaveBeenCalled();
     });
   });
 });

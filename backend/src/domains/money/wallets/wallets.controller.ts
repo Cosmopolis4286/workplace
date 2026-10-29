@@ -213,7 +213,7 @@ export class WalletsController {
   }
 
   @Post('users/:userId/adjust')
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Roles(Role.SUPERADMIN)
   @RateLimit({
     windowMs: 60_000,
     maxRequests: 10,
