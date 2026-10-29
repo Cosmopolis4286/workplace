@@ -14,7 +14,7 @@ import {
   PLATFORM_FEES_FACADE,
 } from '../../money/platform-fees/platform-fees.facade';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
-import { isPositive } from '../../../common/money/money';
+import { isPositive, toNumber } from '../../../common/money/money';
 
 const PRICE_PER_KM: Record<RideVehicleType, number> = {
   MOTORCYCLE: 8,
@@ -346,6 +346,20 @@ export class RidesService {
           extra.platformFeeAmount = feeAmount;
           extra.platformFeePayer = 'PROVIDER';
         }
+      } else if (
+        ride.platformFeePayer === 'CLIENT' &&
+        isPositive(ride.platformFeeAmount) &&
+        ride.driverId
+      ) {
+        // El pasajero pagó la comisión dentro del precio, directo al
+        // conductor: el conductor la debe a la plataforma (estado de cuenta).
+        await this.platformFees.chargeProviderFee(
+          'RIDE',
+          ride.driverId,
+          toNumber(ride.platformFeeAmount),
+          `FEE-RIDE-${rideId}`,
+          { rideId, payer: 'CLIENT' }
+        );
       }
     }
 

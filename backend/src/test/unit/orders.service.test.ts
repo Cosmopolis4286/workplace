@@ -616,6 +616,39 @@ describe('OrdersService', () => {
 
       expect(mockPrismaService.order.update).toHaveBeenCalled();
     });
+
+    it('al entregar, registra al comercio la comisión que pagó el cliente', async () => {
+      const existingOrder = {
+        id: 'order-123',
+        orderNumber: 'ORD-2026-0001',
+        status: 'READY',
+        commerceId: 'commerce-123',
+        customerId: null,
+        total: 44,
+        paymentMethod: 'CARD',
+        platformFeePayer: 'CLIENT',
+        platformFeeAmount: 4,
+        items: [],
+      };
+      mockPrismaService.order.findFirst.mockResolvedValue(existingOrder);
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        userId: 'owner-1',
+      });
+      mockPrismaService.order.update.mockResolvedValue({
+        ...existingOrder,
+        status: 'DELIVERED',
+      });
+
+      await service.updateStatus('order-123', 'commerce-123', 'DELIVERED');
+
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
+        'ORDER',
+        'owner-1',
+        4,
+        'FEE-ORDER-order-123',
+        { orderId: 'order-123', payer: 'CLIENT' }
+      );
+    });
   });
 
   describe('findAll', () => {

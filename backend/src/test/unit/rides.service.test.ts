@@ -313,13 +313,38 @@ describe('RidesService', () => {
       );
     });
 
-    it('no vuelve a cobrar comisión si platformFeePayer ya estaba fijado', async () => {
+    it('al completar, registra al conductor la comisión que pagó el pasajero', async () => {
+      mockPrismaService.ride.findUnique.mockResolvedValue(
+        baseRide({
+          status: RideStatus.IN_PROGRESS,
+          driverId: DRIVER_ID,
+          price: 55,
+          platformFeePayer: 'CLIENT',
+          platformFeeAmount: 5,
+        })
+      );
+      mockPrismaService.ride.update.mockResolvedValue(
+        baseRide({ status: RideStatus.COMPLETED, driverId: DRIVER_ID })
+      );
+
+      await service.updateStatus(DRIVER_ID, RIDE_ID, RideStatus.COMPLETED);
+
+      expect(mockPlatformFees.chargeProviderFee).toHaveBeenCalledWith(
+        'RIDE',
+        DRIVER_ID,
+        5,
+        `FEE-RIDE-${RIDE_ID}`,
+        { rideId: RIDE_ID, payer: 'CLIENT' }
+      );
+    });
+
+    it('no vuelve a cobrar comisión si ya se cobró al conductor', async () => {
       mockPrismaService.ride.findUnique.mockResolvedValue(
         baseRide({
           status: RideStatus.IN_PROGRESS,
           driverId: DRIVER_ID,
           price: 50,
-          platformFeePayer: 'CLIENT',
+          platformFeePayer: 'PROVIDER',
         })
       );
       mockPrismaService.ride.update.mockResolvedValue(

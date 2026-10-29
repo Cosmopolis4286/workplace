@@ -312,6 +312,57 @@ describe('ServicesService — service request status transitions', () => {
       });
     });
 
+    it('registra al proveedor la comisión que pagó el cliente (sin garantía, va al estado de cuenta)', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({
+          status: 'CONTACTED',
+          price: 55,
+          platformFeePayer: 'CLIENT',
+          platformFeeAmount: 5,
+          escrowStatus: 'NONE',
+        })
+      );
+
+      await service.confirmServiceRequestCompletion('req-1', 'client-1');
+
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
+        'SERVICE_REQUEST',
+        'provider-1',
+        5,
+        'FEE-SVC-req-1',
+        { serviceRequestId: 'req-1', payer: 'CLIENT' },
+        { collected: false }
+      );
+      expect(mockEscrowService.release).not.toHaveBeenCalled();
+    });
+
+    it('con garantía, descuenta de lo liberado la comisión que pagó el cliente', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({
+          status: 'CONTACTED',
+          price: 55,
+          platformFeePayer: 'CLIENT',
+          platformFeeAmount: 5,
+          escrowStatus: 'HELD',
+          escrowAmount: 55,
+        })
+      );
+
+      await service.confirmServiceRequestCompletion('req-1', 'client-1');
+
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
+        'SERVICE_REQUEST',
+        'provider-1',
+        5,
+        'FEE-SVC-req-1',
+        { serviceRequestId: 'req-1', payer: 'CLIENT' },
+        { collected: true }
+      );
+      const released = (mockEscrowService.release as jest.Mock).mock
+        .calls[0][0];
+      expect(Number(released.amount)).toBe(50);
+    });
+
     it('rejects confirmation when the request is not CONTACTED', async () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
         baseRequest({ status: 'PENDING' })

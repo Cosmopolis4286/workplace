@@ -561,7 +561,7 @@ describe('CatalogService', () => {
       };
     });
 
-    it('releases the full escrow to the commerce when the fee was already charged to the buyer at creation', async () => {
+    it('withholds the buyer-paid fee from the release and records it as collected', async () => {
       mockPrismaService.catalogOrder.findUnique.mockResolvedValue(
         baseOrder({
           escrowStatus: 'HELD',
@@ -582,13 +582,19 @@ describe('CatalogService', () => {
         REQUESTER_ID
       );
 
-      expect(mockPlatformFeesService.chargeProviderFee).not.toHaveBeenCalled();
-      expect(mockEscrowService.release).toHaveBeenCalledWith({
-        entityType: 'CATALOG_ORDER',
-        entityId: 'order-1',
-        payeeId: 'owner-1',
-        amount: 55,
-      });
+      // Antes se liberaban los 55 completos y la plataforma nunca cobraba
+      // la comisión que pagó el comprador.
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
+        'CATALOG_ORDER',
+        'owner-1',
+        5,
+        'FEE-CATALOG-order-1',
+        { catalogOrderId: 'order-1', payer: 'CLIENT' },
+        { collected: true }
+      );
+      expect(mockEscrowService.release).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: money(50) })
+      );
       expect(result.data.status).toBe('CLOSED');
       expect(result.data.escrowStatus).toBe('RELEASED');
     });

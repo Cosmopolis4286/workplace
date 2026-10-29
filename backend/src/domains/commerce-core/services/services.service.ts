@@ -1263,13 +1263,34 @@ export class ServicesService {
       );
     }
 
-    // Libera el escrow al proveedor, neto de la comisión cuando el proveedor
-    // la paga (feeData): esa retención ES el cobro (registrado arriba como
-    // COLLECTED), no se factura de nuevo en su estado de cuenta.
-    if (req.escrowStatus === 'HELD' && isPositive(req.escrowAmount)) {
-      const releaseAmount = feeData
-        ? sub(req.escrowAmount, feeData.feeAmount)
-        : req.escrowAmount;
+    // Comisión que pagó el cliente (ya incluida en el precio): el proveedor
+    // la recibió junto con el pago, así que se le registra a él. Con garantía
+    // se descuenta de lo liberado (COLLECTED); sin garantía va a su estado de
+    // cuenta. Antes no se registraba en ningún lado y la plataforma nunca la
+    // cobraba.
+    const escrowHeld =
+      req.escrowStatus === 'HELD' && isPositive(req.escrowAmount);
+    const clientFee =
+      req.platformFeePayer === 'CLIENT' && isPositive(req.platformFeeAmount)
+        ? req.platformFeeAmount
+        : null;
+    if (clientFee) {
+      await this.platformFees.chargeProviderFee(
+        'SERVICE_REQUEST',
+        req.providerId,
+        toNumber(clientFee),
+        `FEE-SVC-${id}`,
+        { serviceRequestId: id, payer: 'CLIENT' },
+        { collected: escrowHeld }
+      );
+    }
+
+    // Libera el escrow al proveedor, neto de la comisión (la paguen el
+    // proveedor o el cliente): esa retención ES el cobro (registrado arriba
+    // como COLLECTED), no se factura de nuevo en su estado de cuenta.
+    if (escrowHeld) {
+      const feeWithheld = feeData?.feeAmount ?? clientFee ?? 0;
+      const releaseAmount = sub(req.escrowAmount!, feeWithheld);
       if (gt(releaseAmount, 0)) {
         await this.escrow.release({
           entityType: 'SERVICE_REQUEST',
