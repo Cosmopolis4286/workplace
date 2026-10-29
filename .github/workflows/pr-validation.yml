@@ -233,6 +233,9 @@ jobs:
         format: table
         cache: ${{ runner.environment == 'github-hosted' }}
         cache-dir: ${{ env.TRIVY_LOCAL_CACHE || format('{0}/.cache/trivy', github.workspace) }}
+        # El análisis tiene 5 min por defecto; en un runner propio no alcanza.
+        timeout: 15m
+        skip-dirs: node_modules,backend/node_modules,frontend/node_modules,frontend/.nuxt,frontend/.output,backend/dist,.cache
 
     - name: Trivy — reporte SARIF
       if: ${{ !github.event.repository.private }}
