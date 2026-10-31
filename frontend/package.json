@@ -44,6 +44,7 @@
     "leaflet": "^1.9.4",
     "lucide-vue-next": "^0.540.0",
     "nuxt": "^3.21.11",
+    "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
     "qrcode": "^1.5.4",
     "socket.io-client": "^4.8.3",
