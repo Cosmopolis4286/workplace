@@ -1248,18 +1248,24 @@ export class ServicesService {
 
     // Charge fee and update status atomically — if fee charge fails, status stays CONTACTED
     if (feeData) {
+      // Con garantía retenida, la comisión se descuenta de lo que se libera
+      // (abajo): ya queda cobrada y no va al estado de cuenta.
       await this.platformFees.chargeProviderFee(
         'SERVICE_REQUEST',
         req.providerId,
         feeData.feeAmount,
         `FEE-SVC-${id}`,
-        { serviceRequestId: id }
+        { serviceRequestId: id },
+        {
+          collected:
+            req.escrowStatus === 'HELD' && isPositive(req.escrowAmount),
+        }
       );
     }
 
-    // Libera el escrow al proveedor. El monto liberado ya viene neto de la
-    // comisión cuando el proveedor la paga (feeData) — la comisión en sí ya se
-    // cobró arriba vía chargeProviderFee, así que acá no se duplica.
+    // Libera el escrow al proveedor, neto de la comisión cuando el proveedor
+    // la paga (feeData): esa retención ES el cobro (registrado arriba como
+    // COLLECTED), no se factura de nuevo en su estado de cuenta.
     if (req.escrowStatus === 'HELD' && isPositive(req.escrowAmount)) {
       const releaseAmount = feeData
         ? sub(req.escrowAmount, feeData.feeAmount)

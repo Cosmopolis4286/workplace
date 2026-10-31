@@ -163,6 +163,10 @@
           @save="saveLocation"
         />
 
+        <!-- Cuentas donde sus clientes le pagan directo (pago móvil,
+             transferencia, Zelle): todo vendedor, con o sin Commerce. -->
+        <SellerPaymentAccountsCard v-if="isSeller" @saved="showUserToast" />
+
         <!-- Financiamiento (Cashea / Krece) — /bnpl/settings exige HAS_COMMERCE;
              antes se montaba para todos (admins y freelancers recibían 403) -->
         <BnplSettingsSection v-if="hasCommerce" />
@@ -212,6 +216,7 @@ import PriceGuardSettingsCard from '~/components/settings/PriceGuardSettingsCard
 import LocationSettingsCard from '~/components/settings/LocationSettingsCard.vue'
 import AlertRulesSettingsCard from '~/components/settings/AlertRulesSettingsCard.vue'
 import AppLockCard from '~/components/settings/AppLockCard.vue'
+import SellerPaymentAccountsCard from '~/components/settings/SellerPaymentAccountsCard.vue'
 import { useSettings, type CommerceSettings, type FreelancerSettingsData } from '~/composables/commerce/useSettings'
 import { useAuth } from '~/composables/auth/useAuth'
 import { usePermissions } from '~/composables/users/usePermissions'
@@ -236,6 +241,8 @@ const hasCommerce = computed(() => hasCapability('HAS_COMMERCE'))
 // accountType === 'FREELANCER', y un híbrido con perfil BUSINESS no veía su
 // URL /pro/:slug aunque tuviera FreelancerSettings.
 const showProfessionalSlug = computed(() => hasCapability('HAS_PROFESSIONAL_PROFILE'))
+// Vende algo (productos o servicios): puede recibir pagos directos.
+const isSeller = computed(() => hasCommerce.value || hasCapability('HAS_PROFESSIONAL_PROFILE'))
 // Sin Commerce los settings son siempre FreelancerSettings; con Commerce,
 // solo si además tiene perfil profesional (híbrido) — mismo criterio que
 // SettingsService.getSettings/updateNotificationSettings.

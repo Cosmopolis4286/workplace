@@ -74,6 +74,7 @@ import { GroupBuyingModule } from './domains/commerce-core/group-buying/group-bu
 import { MatchingModule } from './domains/commerce-core/matching/matching.module';
 import { EscrowModule } from './domains/money/escrow/escrow.module';
 import { PaymentsModule } from './domains/money/payments/payments.module';
+import { SellerBillingModule } from './domains/money/seller-billing/seller-billing.module';
 
 @Module({
   imports: [
@@ -92,7 +93,10 @@ import { PaymentsModule } from './domains/money/payments/payments.module';
         AcceptLanguageResolver,
       ],
     }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
+    // Límite general por usuario (o por IP sin sesión, ver
+    // SpanishThrottlerGuard.getTracker). Login, registro y 2FA tienen sus
+    // propios @Throttle más estrictos.
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 300 }]),
     PrismaModule,
     RedisModule,
     RecaptchaModule,
@@ -158,6 +162,7 @@ import { PaymentsModule } from './domains/money/payments/payments.module';
     MatchingModule,
     EscrowModule,
     PaymentsModule,
+    SellerBillingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },

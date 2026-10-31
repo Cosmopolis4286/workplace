@@ -9,8 +9,7 @@ import {
   toNumber,
   type MoneyInput,
 } from '../../../common/money/money';
-import { WalletsService } from '../wallets/wallets.service';
-import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import { SellerBillingService } from '../seller-billing/seller-billing.service';
 import { PlatformFeesFacade, FeeConfig } from './platform-fees.facade';
 
 export type { FeeConfig };
@@ -32,8 +31,7 @@ export interface CreateOverrideDto {
 export class PlatformFeesService implements PlatformFeesFacade {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly wallets: WalletsService,
-    private readonly notifications: NotificationsService
+    private readonly billing: SellerBillingService
   ) {}
 
   // ─── Resolución de la tasa efectiva ──────────────────────────────────────────
@@ -98,25 +96,28 @@ export class PlatformFeesService implements PlatformFeesFacade {
     return { feeAmount: toNumber(feeAmount) };
   }
 
-  // Débito automático al proveedor/comercio/conductor cuando payer=PROVIDER.
+  // Comisión a cargo del proveedor/comercio/conductor (payer=PROVIDER). Ya no
+  // se debita de su billetera: se registra en su estado de cuenta semanal
+  // (SellerBillingService), que paga directo a la plataforma. Con
+  // `collected` la comisión ya se retuvo de una garantía (escrow) al
+  // liberarla y no se vuelve a facturar.
   async chargeProviderFee(
     type: FeeTransactionType,
     userId: string,
     feeAmount: number,
     reference: string,
-    metadata: Record<string, unknown>
+    metadata: Record<string, unknown>,
+    options?: { collected?: boolean }
   ) {
     if (feeAmount <= 0) return null;
-    const result = await this.wallets.chargePlatformFee(
-      userId,
-      feeAmount,
+    return this.billing.recordCharge({
+      type,
+      sellerUserId: userId,
+      amount: feeAmount,
       reference,
-      metadata
-    );
-    this.notifications
-      .notifyPlatformFeeCharged(userId, type, feeAmount)
-      .catch(() => {});
-    return result;
+      metadata,
+      collected: options?.collected,
+    });
   }
 
   // ─── Administración (SUPERADMIN) ─────────────────────────────────────────────

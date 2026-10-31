@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CatalogOrderStatus } from '@prisma/client';
+import { CatalogOrderStatus, EscrowStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   PaymentSourceResolver,
@@ -29,6 +29,7 @@ export class CatalogOrderPaymentSourceResolver implements PaymentSourceResolver 
         commerceName: true,
         totalEstimate: true,
         status: true,
+        escrowStatus: true,
       },
     });
 
@@ -45,6 +46,13 @@ export class CatalogOrderPaymentSourceResolver implements PaymentSourceResolver 
       order.status === CatalogOrderStatus.CLOSED
     ) {
       throw new BadRequestException('El pedido no admite pagos');
+    }
+    // Igual que ServiceRequestPaymentSourceResolver: un pedido que ya usa la
+    // garantía interna (escrow) ya fue cobrado; pagarlo aparte lo cobraría dos veces.
+    if (order.escrowStatus !== EscrowStatus.NONE) {
+      throw new BadRequestException(
+        'El pedido ya utiliza o utilizó el sistema de garantía interno'
+      );
     }
     if (!order.totalEstimate || !order.totalEstimate.gt(0)) {
       throw new BadRequestException(

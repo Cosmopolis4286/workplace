@@ -76,7 +76,7 @@ runs:
         DEPLOY_PATH="${{ inputs.deploy-path }}"
         
         echo "🌱 Ejecutando prisma db seed..."
-        ssh "$REMOTE" "cd $DEPLOY_PATH && docker compose exec -T backend npm run seed" || {
+        ssh "$REMOTE" "cd $DEPLOY_PATH && docker compose exec -T backend node prisma/seed.js --production" || {
           echo "⚠️  Seed falló - puede ser por datos existentes o error de schema"
           echo "   Verificar logs: docker logs \$(docker ps --format '{{.Names}}' | grep backend | head -1)"
           exit 1
