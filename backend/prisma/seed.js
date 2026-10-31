@@ -7,6 +7,24 @@ const { DEMO_PASSWORDS } = require('./data/demo-passwords.js')
 
 const prisma = new PrismaClient()
 
+// `node prisma/seed.js --production` (pnpm seed:prod): solo datos de
+// referencia que la plataforma necesita para funcionar — permisos, catálogos,
+// ubicaciones, planes y comisiones — sin usuarios demo. Planes y comisiones se
+// crean solo si no existen: en producción los edita un admin y el seed no
+// debe pisarlos. El primer SUPERADMIN sale de SUPERADMIN_EMAIL/PASSWORD.
+const PRODUCTION_SEED =
+  process.argv.includes('--production') || process.env.SEED_MODE === 'production'
+
+// El seed demo crea superadmin@demo.com y otros usuarios con contraseñas que
+// están en este repositorio (y resetea las existentes): jamás en producción.
+if (!PRODUCTION_SEED && process.env.APP_ENV === 'production') {
+  console.error(
+    '❌ El seed demo no puede correr con APP_ENV=production: crea usuarios con contraseñas públicas.\n' +
+      '   Usa `pnpm seed:prod` (node prisma/seed.js --production).'
+  )
+  process.exit(1)
+}
+
 const DEMO_USERS = [
   {
     role: Role.SUPERADMIN,
@@ -175,7 +193,7 @@ async function seedPermissions() {
 
 // SEED_RESET_PERMISSIONS=1 → vuelve a imponer los defaults sobre filas ya
 // existentes (pisa ajustes de admin). Solo para desarrollo local.
-const RESET_PERMISSION_MATRIX = process.env.SEED_RESET_PERMISSIONS === '1'
+const RESET_PERMISSION_MATRIX = process.env.SEED_RESET_PERMISSIONS === '1' && !PRODUCTION_SEED
 
 async function seedProfilePermissions() {
   console.log('\n🔐 Seeding profile permission matrix...\n')
@@ -209,7 +227,7 @@ async function seedProfilePermissions() {
   console.log('\n✨ Profile permission matrix seeded.')
 }
 
-async function seedPlans() {
+async function seedPlans({ createOnly = false } = {}) {
   console.log('\n📦 Seeding plans...\n')
 
   const plans = [
@@ -298,6 +316,10 @@ async function seedPlans() {
 
   for (const plan of plans) {
     const existing = await prisma.plan.findFirst({ where: { name: plan.name } })
+    if (existing && createOnly) {
+      console.log(`  ⏭️  Plan "${plan.name}" ya existe, no se modifica.`)
+      continue
+    }
     if (existing) {
       await prisma.plan.update({ where: { id: existing.id }, data: plan })
     } else {
@@ -1110,13 +1132,17 @@ async function seedVeLocations() {
 // resolveFeeConfig() devuelve null y la plataforma no cobra comisión a nadie
 // (platform-fees.service.ts:37-64). Prioridad de resolución: override por
 // userId > override por planId > tasa global.
-async function seedPlatformFees() {
+async function seedPlatformFees({ createOnly = false } = {}) {
   console.log('\n💰 Seeding platform fee rates...\n')
 
   const globalRates = [{ type: 'SERVICE_REQUEST', rate: 10, payer: 'PROVIDER' }]
 
   for (const rate of globalRates) {
     const existing = await prisma.platformFeeRate.findFirst({ where: { type: rate.type, isActive: true } })
+    if (existing && createOnly) {
+      console.log(`  ⏭️  Tasa global ${rate.type} ya existe (${existing.rate}%), no se modifica.`)
+      continue
+    }
     if (existing) {
       await prisma.platformFeeRate.update({ where: { id: existing.id }, data: rate })
     } else {
@@ -1143,6 +1169,10 @@ async function seedPlatformFees() {
       where: { type: 'SERVICE_REQUEST', planId: plan.id, isActive: true },
     })
     const data = { type: 'SERVICE_REQUEST', rate: ov.rate, payer: ov.payer, planId: plan.id }
+    if (existing && createOnly) {
+      console.log(`  ⏭️  Override ${ov.planName} ya existe, no se modifica.`)
+      continue
+    }
     if (existing) {
       await prisma.platformFeeOverride.update({ where: { id: existing.id }, data })
     } else {
@@ -1180,6 +1210,66 @@ async function upsertDemoUserProfile(userId, demo, categoryId, subcategoryId) {
   // corridas (KycApprovedGuard en POST /rides/:id/accept) y el dashboard le
   // pedía verificar identidad a un perfil ya activo.
   await prisma.user.update({ where: { id: userId }, data: { kycStatus: KycStatus.APPROVED } })
+}
+
+// Crea el primer SUPERADMIN de producción desde el entorno. No hace nada si
+// ya existe alguno, y nunca cambia contraseñas de usuarios existentes.
+async function bootstrapSuperadmin() {
+  console.log('\n👑 SUPERADMIN inicial...\n')
+  const existing = await prisma.user.findFirst({ where: { role: Role.SUPERADMIN } })
+  if (existing) {
+    console.log(`  ⏭️  Ya existe un SUPERADMIN (${existing.email}), no se crea otro.`)
+    return
+  }
+
+  const email = (process.env.SUPERADMIN_EMAIL || '').trim().toLowerCase()
+  const password = process.env.SUPERADMIN_PASSWORD || ''
+  if (!email || !password) {
+    console.log('  ⚠️  No hay SUPERADMIN: define SUPERADMIN_EMAIL y SUPERADMIN_PASSWORD y vuelve a correr el seed.')
+    return
+  }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw new Error('SUPERADMIN_EMAIL no es un email válido')
+  }
+  if (password.length < 12 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
+    throw new Error('SUPERADMIN_PASSWORD debe tener al menos 12 caracteres, con mayúsculas, minúsculas y números')
+  }
+  if (Object.values(DEMO_PASSWORDS).includes(password)) {
+    throw new Error('SUPERADMIN_PASSWORD no puede ser una contraseña demo del repositorio')
+  }
+
+  const taken = await prisma.user.findUnique({ where: { email } })
+  if (taken) {
+    throw new Error(`${email} ya pertenece a otro usuario; usa otro email o asígnale el rol desde la base`)
+  }
+
+  await prisma.user.create({
+    data: {
+      email,
+      password: await bcrypt.hash(password, 12),
+      firstName: process.env.SUPERADMIN_FIRST_NAME || 'Super',
+      lastName: process.env.SUPERADMIN_LAST_NAME || 'Admin',
+      role: Role.SUPERADMIN,
+      userType: 'APP',
+      emailVerified: true,
+    },
+  })
+  console.log(`  ✅ SUPERADMIN creado: ${email}. Quita SUPERADMIN_PASSWORD del .env del servidor.`)
+}
+
+async function productionSeed() {
+  console.log('🏭 Seed de producción (sin usuarios demo)\n')
+  await seedCategories()
+  await seedServiceModalities()
+  await seedUserCategories()
+  await seedServiceAndJobCategories()
+  await seedPermissions()
+  await seedProfilePermissions()
+  await seedPlans({ createOnly: true })
+  await seedSearchTabs()
+  await seedVeLocations()
+  await seedPlatformFees({ createOnly: true })
+  await bootstrapSuperadmin()
 }
 
 async function main() {
@@ -1427,7 +1517,7 @@ async function invalidatePermissionCaches() {
   console.log('\n✨ Cache invalidation done.')
 }
 
-main()
+;(PRODUCTION_SEED ? productionSeed() : main())
   .then(() => invalidatePermissionCaches())
   .catch((e) => {
     console.error('❌ Seed failed:', e)

@@ -18,7 +18,7 @@ Este repositorio utiliza una arquitectura **híbrida YAML + Shell** para CI/CD e
 │   └── validate-environment/ github-deployment/ notify/
 ├── workflows/
 │   ├── deploy.yml            # Producción (push a main / release)
-│   ├── pr-validation.yml     # Diagnóstico manual (la validación de PRs la hace CircleCI)
+│   ├── pr-validation.yml     # Validación de cada PR a main (runner self-hosted)
 │   └── README.md             # Esta documentación
 ├── ISSUE_TEMPLATE/           # Formularios de bug y propuesta
 ├── PULL_REQUEST_TEMPLATE.md
@@ -60,8 +60,8 @@ scripts/                      # Lógica de shell invocada por los workflows
 - 📦 Rollback automático si falla
 
 ### 2. `pr-validation.yml` - Validación de PRs
-**Trigger**: manual (`workflow_dispatch`). La validación automática de cada PR
-la hace CircleCI (`.circleci/config.yml`) con los mismos checks.
+**Trigger**: cada PR a `main` (y manual). Corre en el runner self-hosted
+(`CI_RUNNER_LABELS`, o `DEPLOY_RUNNER_LABELS` si no existe).
 - ✅ Type checking backend + trinquete de typecheck del frontend (bloqueante)
 - ✅ Linting
 - ✅ Security audit
@@ -88,6 +88,25 @@ la hace CircleCI (`.circleci/config.yml`) con los mismos checks.
 - **Maintenibilidad** - Cada script con responsabilidad clara
 - **Scalability** - Fácil agregar nuevas features
 - **Enterprise-grade** - Pipeline 10/10
+
+## 🏃 Runner self-hosted (deploy.yml)
+
+Todos los jobs de `deploy.yml` corren en un runner propio. La etiqueta sale de
+la variable del repositorio `DEPLOY_RUNNER_LABELS` (JSON; por defecto
+`["self-hosted"]`). Para volver a los runners de GitHub:
+`DEPLOY_RUNNER_LABELS=["ubuntu-latest"]`.
+
+Requisitos de la máquina del runner:
+- Linux x64 con **Docker** y el plugin **docker compose** (tests E2E y build de imágenes), y el usuario del runner en el grupo `docker`.
+- `git`, `curl`, `ssh` y `bash`. Node y pnpm los instala cada job (`setup-node-pnpm`).
+- Acceso SSH a `PRODUCTION_HOST` con `SSH_PRIVATE_KEY` (aunque el runner esté en el mismo servidor, el deploy entra por SSH).
+- Memoria: el build del frontend y del backend necesita ~4 GB libres. Si el runner corre en el servidor de producción, compite con la app durante el build.
+- No registrar el runner en un repositorio público: un fork podría ejecutar código en esa máquina.
+
+Secrets que usa el workflow: `DOCKER_USERNAME`, `DOCKER_PASSWORD` (token de
+Docker Hub vigente), `SSH_PRIVATE_KEY`, `PRODUCTION_HOST`, `PRODUCTION_USER`,
+`PRODUCTION_DOMAIN`, `ACME_EMAIL`; opcionales `STAGING_HOST`/`STAGING_USER`,
+`SLACK_WEBHOOK`, `DISCORD_WEBHOOK`.
 
 ## 🔧 Setup de Secrets
 
@@ -286,7 +305,7 @@ bash -x scripts/deploy/canary-traffic-split.sh
 
 ### PR Guidelines
 1. Crear PR desde la rama corta a `main`
-2. Esperar CircleCI en verde (lint, tipos, tests, migraciones, Docker, seguridad)
+2. Esperar `PR Validation` en verde (lint, tipos, tests, migraciones, Docker, seguridad)
 3. Merge a `main` → `deploy.yml` despliega a producción
 
 Si algún día hace falta staging, se recrea `develop` desde `main`

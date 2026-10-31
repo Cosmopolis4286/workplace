@@ -57,15 +57,20 @@ docker exec traefik ls -la /letsencrypt/acme.json
 ```
 
 ### 3. Backups Esenciales
+Los backups los hace `scripts/backup/host-backup.sh` desde el cron del host
+(`host-backup.sh install`; requiere `apt install cron`) y antes de cada deploy:
+
 ```bash
-# Backup PostgreSQL (diario)
-docker exec postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB > backup.sql
+# Postgres (diario 02:00), Redis (03:00) y archivos subidos (04:00):
+# públicos (uploads_*) y privados — KYC y comprobantes — (private-uploads_*)
+/opt/workplace/scripts/backup/host-backup.sh all
+/opt/workplace/scripts/backup/host-backup.sh status
 
-# Backup Redis (semanal)
-docker exec redis redis-cli --rdb /data/dump.rdb
-
-# Backup Uploads (semanal)
-docker run --rm -v uploads_data:/data -v $(pwd):/backup alpine tar czf /backup/uploads.tar.gz -C /data .
+# Restaurar archivos subidos (con el backend detenido):
+docker run --rm -v workplace_uploads_data:/target -v /opt/workplace/backups/uploads:/backup alpine:3 \
+  sh -c 'tar xzf /backup/uploads_<fecha>.tar.gz -C /target'
+docker run --rm -v workplace_private_uploads_data:/target -v /opt/workplace/backups/uploads:/backup alpine:3 \
+  sh -c 'tar xzf /backup/private-uploads_<fecha>.tar.gz -C /target'
 ```
 
 ## 📈 Monitoreo Básico

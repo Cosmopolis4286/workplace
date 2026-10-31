@@ -8,10 +8,15 @@ import { CatalogOrderPaymentSourceResolver } from './catalog-order-payment-sourc
 import { ServiceRequestPaymentSourceResolver } from './service-request-payment-source.resolver';
 import { PlatformPaymentRecipientService } from './platform-payment-recipient.service';
 import { ProviderWebhookProcessingService } from './provider-webhook-processing.service';
+import { NotificationsModule } from '../../engagement/notifications/notifications.module';
+import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
+import { SellerPaymentAccountsService } from './manual/seller-payment-accounts.service';
+import { ManualPaymentsService } from './manual/manual-payments.service';
+import { ManualPaymentsController } from './manual/manual-payments.controller';
 
 @Module({
-  imports: [PrismaModule],
-  controllers: [PaymentsController],
+  imports: [PrismaModule, NotificationsModule, ExchangeRatesModule],
+  controllers: [PaymentsController, ManualPaymentsController],
   providers: [
     PaymentsService,
     PaymentSourceResolverRegistry,
@@ -19,6 +24,8 @@ import { ProviderWebhookProcessingService } from './provider-webhook-processing.
     ServiceRequestPaymentSourceResolver,
     PlatformPaymentRecipientService,
     ProviderWebhookProcessingService,
+    SellerPaymentAccountsService,
+    ManualPaymentsService,
     {
       provide: PAYMENT_SOURCE_RESOLVERS,
       useFactory: (
@@ -33,6 +40,7 @@ import { ProviderWebhookProcessingService } from './provider-webhook-processing.
   ],
   exports: [
     PaymentsService,
+    SellerPaymentAccountsService,
     PaymentSourceResolverRegistry,
     PlatformPaymentRecipientService,
     ProviderWebhookProcessingService,

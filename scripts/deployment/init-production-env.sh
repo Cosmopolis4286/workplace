@@ -66,9 +66,9 @@ fi
 if [ ! -f "$WORKPLACE_DIR/docker-compose.env" ]; then
   echo "📝 Creando docker-compose.env..."
   cat > "$WORKPLACE_DIR/docker-compose.env" << 'EOF'
-# Variables para docker-compose.prod.yml
+# Variables para docker-compose.lite.yml
 COMPOSE_PROJECT_NAME=workplace
-COMPOSE_FILE=docker-compose.prod.yml
+COMPOSE_FILE=docker-compose.lite.yml
 
 # Database
 POSTGRES_DB=workplace_prod
@@ -142,7 +142,7 @@ done
 
 # Verificar archivos críticos
 echo "📄 Verificando archivos críticos..."
-for file in "$WORKPLACE_DIR/.env" "$WORKPLACE_DIR/docker-compose.prod.yml"; do
+for file in "$WORKPLACE_DIR/.env" "$WORKPLACE_DIR/docker-compose.lite.yml"; do
   if [ -f "$file" ]; then
     echo "✅ $file existe"
   else
@@ -208,7 +208,7 @@ echo "✅ Entorno de producción inicializado exitosamente"
 echo ""
 echo "📝 Próximos pasos:"
 echo "1. Actualizar contraseñas en $WORKPLACE_DIR/.env"
-echo "2. Copiar docker-compose.prod.yml al servidor"
+echo "2. Copiar docker-compose.lite.yml al servidor"
 echo "3. Ejecutar: cd $WORKPLACE_DIR && docker-compose up -d"
 echo ""
 echo "⚠️ IMPORTANTE: Cambia las contraseñas y secrets antes de producción!"
