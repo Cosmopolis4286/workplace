@@ -440,6 +440,25 @@ export const useAuth = () => {
     })
   }
 
+  // Qué impide hoy borrar la cuenta (saldo, pagos protegidos, depósitos…).
+  async function getAccountDeletionBlockers(): Promise<string[]> {
+    const res = await authFetch<{ blockers: string[] }>(`${apiUrl}/auth/me/deletion-check`, {
+      credentials: 'include',
+    })
+    return res.blockers
+  }
+
+  // Elimina la cuenta (anonimiza y desactiva en el backend) y cierra la
+  // sesión local: el backend ya borró las cookies y revocó los tokens.
+  async function deleteAccount(): Promise<void> {
+    await authFetch(`${apiUrl}/auth/me`, {
+      method: 'DELETE',
+      credentials: 'include',
+      body: { confirmation: 'ELIMINAR' },
+    })
+    clearSession()
+  }
+
   async function checkUsername(username: string): Promise<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }> {
     return authFetch<{ available: boolean; canChange: boolean; daysLeft: number; nextChangeAt: string | null }>(
       `${apiUrl}/auth/check-username?username=${encodeURIComponent(username)}`,
@@ -492,6 +511,8 @@ export const useAuth = () => {
     updateLocalUser,
     saveProfile,
     changePassword,
+    getAccountDeletionBlockers,
+    deleteAccount,
     getSessions,
     revokeSession,
     uploadAvatar,

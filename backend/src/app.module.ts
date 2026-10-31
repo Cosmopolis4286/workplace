@@ -93,7 +93,10 @@ import { SellerBillingModule } from './domains/money/seller-billing/seller-billi
         AcceptLanguageResolver,
       ],
     }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
+    // Límite general por usuario (o por IP sin sesión, ver
+    // SpanishThrottlerGuard.getTracker). Login, registro y 2FA tienen sus
+    // propios @Throttle más estrictos.
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 300 }]),
     PrismaModule,
     RedisModule,
     RecaptchaModule,

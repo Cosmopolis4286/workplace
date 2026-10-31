@@ -37,11 +37,13 @@ http:
         burst: 20
 
     # Rate Limiting general
+    # Escudo contra abuso por IP. Holgado a propósito: muchos usuarios móviles
+    # comparten IP (CGNAT). El límite por usuario lo aplica el backend.
     rate-limit:
       rateLimit:
-        average: 100
+        average: 600
         period: "1m"
-        burst: 50
+        burst: 300
 
     # Compression
     compression:
