@@ -89,7 +89,7 @@ jobs:
         node-version: '22'
     - uses: ./.github/actions/run-tests
       with:
-        coverage-threshold: '5'
+        coverage-threshold: '33'
 
   test-e2e:
     name: Tests E2E

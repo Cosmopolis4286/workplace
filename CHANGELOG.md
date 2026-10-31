@@ -4,6 +4,27 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Preparación de la v1.0.0 (2026-10-27 → 2026-10-31)
+
+- **Infraestructura**
+  - NestJS unificado en v11 (Express 5).
+  - Validación de PRs y deploy en un runner self-hosted (GitHub Actions); se elimina CircleCI.
+  - Uploads públicos y privados persistentes, con backup diario.
+  - Límite de peticiones de 300/min por usuario (antes 20/min por IP).
+- **Seguridad**
+  - Seed de producción sin usuarios demo, con el primer SUPERADMIN tomado del entorno; el seed demo no corre con `APP_ENV=production`.
+  - `uploads/service-requests` deja de ser público.
+  - multer ≥ 2.5 (DoS).
+  - Aviso al arrancar en producción si falta la configuración SMTP.
+- **Cuenta**
+  - Borrado de cuenta desde Mi perfil y página pública `/account-deletion` (Google Play). Anonimiza, conserva los registros financieros y bloquea si hay saldo o pagos abiertos.
+- **Calidad**
+  - Umbral de cobertura del backend como trinquete (33 % líneas).
+  - Fuera el código muerto (`src/database`, `guards`, `interceptors` y `decorators` de pool) y los tests duplicados que nunca corrían.
+- **Dependencias**
+  - `@pinia/nuxt` 0.11 y pinia 3, class-validator 0.15, pdfkit 0.20, nodemailer 10.2, chart.js 4.6.
+
+
 ### Added — Menú de siguiente nivel (2026-10-05 → 2026-10-17)
 
 - **Búsqueda y filtro por estado** en `/menu` (client-side sobre el catálogo agrupado), con empty-state distinto para "sin resultados" y "sin productos".
