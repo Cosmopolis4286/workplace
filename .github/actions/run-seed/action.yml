@@ -1,5 +1,5 @@
 name: 'Run Database Seed'
-description: 'Ejecuta prisma db seed en el contenedor backend del servidor'
+description: 'Ejecuta el seed de producción (sin usuarios demo) en el contenedor backend del servidor'
 
 inputs:
   ssh-user:
@@ -35,6 +35,7 @@ runs:
             fi
             echo "ℹ️  Usando contenedor: $CONTAINER"
           fi
-          docker exec "$CONTAINER" pnpm prisma db seed
+          # Seed de producción: permisos y catálogos, sin usuarios demo.
+          docker exec "$CONTAINER" node prisma/seed.js --production
         ENDSSH
         echo "✅ Seed ejecutado correctamente"

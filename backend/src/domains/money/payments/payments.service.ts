@@ -195,7 +195,10 @@ export class PaymentsService {
     nextStatus: ExternalPaymentStatus,
     providerStatus?: string,
     failureCode?: string,
-    failureMessage?: string
+    failureMessage?: string,
+    // Escrituras que deben confirmarse junto con la transición (ej. el estado
+    // del reporte de un pago manual). Si fallan, la transición se revierte.
+    afterTransition?: (tx: Prisma.TransactionClient) => Promise<void>
   ) {
     const current = await this.prisma.externalPaymentIntent.findUnique({
       where: { id },
@@ -289,6 +292,7 @@ export class PaymentsService {
       const updated = await tx.externalPaymentIntent.findUniqueOrThrow({
         where: { id },
       });
+      if (afterTransition) await afterTransition(tx);
       if (nextStatus === ExternalPaymentStatus.SUCCEEDED) {
         await tx.externalPaymentCommission.updateMany({
           where: {

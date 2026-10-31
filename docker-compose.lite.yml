@@ -65,8 +65,12 @@ services:
       DB_NAME: ${POSTGRES_DB}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       UV_THREADPOOL_SIZE: 4
+    # El backend corre en /app/backend (WORKDIR) y escribe en process.cwd():
+    # los volúmenes deben estar ahí. Con read_only: true, cualquier ruta sin
+    # volumen hace fallar el upload.
     volumes:
-      - uploads_data:/app/uploads
+      - uploads_data:/app/backend/uploads
+      - private_uploads_data:/app/backend/private-uploads
     networks:
       - public_network
       - private_network
@@ -243,6 +247,7 @@ volumes:
   postgres_data:
   redis_data:
   uploads_data:
+  private_uploads_data:
   traefik_letsencrypt:
 
 networks:

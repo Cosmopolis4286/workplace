@@ -19,6 +19,8 @@ import {
 } from '@nestjs/common';
 import { RateLimit } from '../../../common/guards/rate-limit.guard';
 import { Response } from 'express';
+import { DeleteAccountDto } from './dto/delete-account.dto';
+import { AccountDeletionService } from '../users/account-deletion.service';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -48,7 +50,8 @@ import {
 export class AuthController {
   constructor(
     private authService: AuthService,
-    private config: ConfigService
+    private config: ConfigService,
+    private accountDeletion: AccountDeletionService
   ) {}
 
   // ─── Google OAuth ────────────────────────────────────────────────────────────
@@ -214,6 +217,34 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async updateProfile(@CurrentUser() user: any, @Body() dto: UpdateProfileDto) {
     return this.authService.updateProfile(user.id, dto);
+  }
+
+  // Qué impide hoy borrar la cuenta (saldo, pagos protegidos abiertos,
+  // depósitos pendientes…). Vacío = se puede borrar.
+  @Get('me/deletion-check')
+  @UseGuards(JwtAuthGuard)
+  async getDeletionBlockers(@CurrentUser() user: any) {
+    return { blockers: await this.accountDeletion.getBlockers(user.id) };
+  }
+
+  // Borrado de cuenta a pedido del usuario (Google Play lo exige dentro de
+  // la app). Anonimiza y desactiva; ver AccountDeletionService.
+  @Delete('me')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  async deleteAccount(
+    @CurrentUser() user: any,
+    @Body() _dto: DeleteAccountDto,
+    @Request() req: any,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    await this.accountDeletion.deleteAccount(user.id, {
+      ip: req.ip,
+      userAgent: req.headers?.['user-agent'],
+    });
+    clearAuthCookies(res, this.config);
+    return { message: 'Tu cuenta fue eliminada' };
   }
 
   @Get('check-username')

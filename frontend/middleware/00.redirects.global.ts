@@ -10,6 +10,7 @@ const ROUTE_REDIRECTS: Record<string, string> = {
   '/terminos': '/terms',
   '/soporte': '/support',
   '/privacidad': '/privacy',
+  '/eliminar-cuenta': '/account-deletion',
   '/verificacion': '/verification',
   '/comisiones': '/commissions',
   '/auditoria': '/audit-log',

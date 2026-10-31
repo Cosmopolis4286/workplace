@@ -298,7 +298,7 @@ las notificaciones push ya funcionan. Documentado explícitamente para que no se
       trabajo en el mismo repo), así que no queda un migration file por feature; verificar con
       `npx prisma migrate status` que la base de datos de destino no tenga drift antes de
       desplegar, no asumir que cada ítem de este documento tiene su propia migración con nombre
-- [ ] **Seed de permisos (`node prisma/seed.js`) corrido en producción** para que `FREELANCER`
+- [ ] **Seed de producción (`node prisma/seed.js --production`, nunca el seed demo) corrido en producción** para que `FREELANCER`
       tenga `corridas:manage` — sin esto, la corrección del ítem 15 no tiene efecto real
 - [ ] Prueba manual end-to-end del chat interno por ServiceRequest (ver ítem 13)
 - [ ] Prueba manual del endpoint de reconciliación de escrow con datos reales (ver ítem 14)

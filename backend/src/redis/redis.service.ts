@@ -66,6 +66,24 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // SCAN en lugar de KEYS: no bloquea Redis aunque el keyspace sea grande.
+  async deleteByPattern(pattern: string): Promise<number> {
+    let cursor = '0';
+    let deleted = 0;
+    do {
+      const [next, keys] = await this.client.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        200
+      );
+      cursor = next;
+      if (keys.length > 0) deleted += await this.client.del(...keys);
+    } while (cursor !== '0');
+    return deleted;
+  }
+
   async keys(pattern: string): Promise<string[]> {
     return await this.client.keys(pattern);
   }
