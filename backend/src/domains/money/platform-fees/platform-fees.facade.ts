@@ -29,7 +29,9 @@ export interface PlatformFeesFacade {
     userId: string,
     feeAmount: number,
     reference: string,
-    metadata: Record<string, unknown>
+    metadata: Record<string, unknown>,
+    // true: la comisión ya se retuvo de una garantía (escrow) al liberarla.
+    options?: { collected?: boolean }
   ): Promise<unknown>;
 }
 

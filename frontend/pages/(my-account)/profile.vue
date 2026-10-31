@@ -81,6 +81,8 @@
 
         <ProfileQuickActionsCard />
 
+        <ProfileDeleteAccountCard id="delete-account" @error="showError" />
+
       </div>
     </div>
   </div>
@@ -107,6 +109,7 @@ import ProfileActivationsCard from '~/components/profile/ProfileActivationsCard.
 import ProfileSessionsCard from '~/components/profile/ProfileSessionsCard.vue'
 import ProfileQuickAccessCard from '~/components/profile/ProfileQuickAccessCard.vue'
 import ProfileQuickActionsCard from '~/components/profile/ProfileQuickActionsCard.vue'
+import ProfileDeleteAccountCard from '~/components/profile/ProfileDeleteAccountCard.vue'
 import { useAuth } from '~/composables/auth/useAuth'
 import { useCamera } from '~/composables/core/useCamera'
 import { useKyc } from '~/composables/kyc/useKyc'
@@ -219,7 +222,7 @@ onMounted(async () => {
   }
 
   const targetTab = useRoute().query.tab
-  if (targetTab === 'quick-access' || targetTab === 'quick-actions') {
+  if (targetTab === 'quick-access' || targetTab === 'quick-actions' || targetTab === 'delete-account') {
     nextTick(() => {
       document.getElementById(targetTab as string)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })

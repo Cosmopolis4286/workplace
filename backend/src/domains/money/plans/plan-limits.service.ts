@@ -1,6 +1,11 @@
 import { Inject, Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { Role, ServiceStatus, JobStatus } from '@prisma/client';
+import {
+  Role,
+  ServiceStatus,
+  JobStatus,
+  SellerStatementStatus,
+} from '@prisma/client';
 import {
   SystemModulesFacade,
   SYSTEM_MODULES_FACADE,
@@ -294,7 +299,27 @@ export class PlanLimitsService implements PlanLimitsFacade {
 
   // ─── Resource limits ────────────────────────────────────────────────────────
 
+  // Estado de cuenta vencido (OVERDUE) o suspendido: no puede publicar ni
+  // activar nada nuevo hasta pagar (ver SellerBillingService). Va en los
+  // mismos puntos que ya controlan "¿puede publicar más?": servicios y productos.
+  private async assertNoOverdueStatement(userId: string) {
+    const overdue = await this.prisma.sellerStatement.count({
+      where: {
+        sellerUserId: userId,
+        status: {
+          in: [SellerStatementStatus.OVERDUE, SellerStatementStatus.SUSPENDED],
+        },
+      },
+    });
+    if (overdue > 0) {
+      throw new ForbiddenException(
+        'Tienes un estado de cuenta vencido. Págalo en "Estado de cuenta" para volver a publicar.'
+      );
+    }
+  }
+
   async assertProductLimit(userId: string, commerceId: string) {
+    await this.assertNoOverdueStatement(userId);
     const limits = await this.getPlanLimits(userId);
     if (limits.maxProducts === -1) return;
     const count = await this.prisma.product.count({ where: { commerceId } });
@@ -353,6 +378,7 @@ export class PlanLimitsService implements PlanLimitsFacade {
   }
 
   async assertServiceLimit(userId: string) {
+    await this.assertNoOverdueStatement(userId);
     const limits = await this.getPlanLimits(userId);
     if (limits.maxServices === -1) return;
     const count = await this.prisma.service.count({

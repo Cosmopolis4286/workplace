@@ -76,6 +76,10 @@ docker compose --env-file .env.dev -f docker-compose.hybrid.yml up -d
 #    vacía, corre el seed automáticamente. Para re-sembrar a mano:
 docker exec backend-hybrid sh -c "cd /app/backend && node prisma/seed.js"
 
+# Producción: solo permisos y catálogos, sin usuarios demo (el seed demo
+# se niega a correr con APP_ENV=production). Ver .env.local.prod.example.
+docker compose exec backend node prisma/seed.js --production
+
 # 5. Frontend en el host
 pnpm dev:frontend
 ```
@@ -101,6 +105,7 @@ El seed es idempotente: crea catálogos (categorías de usuario, servicios, empl
 | `pnpm migrate`          | `prisma migrate dev`                           |
 | `pnpm migrate:deploy`   | `prisma migrate deploy`                        |
 | `pnpm seed`             | Ejecuta `prisma/seed.js`                       |
+| `pnpm seed:prod`        | Seed de producción: permisos/catálogos, sin demo |
 
 | Comando (backend)       | Descripción                                    |
 |-------------------------|------------------------------------------------|
