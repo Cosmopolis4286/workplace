@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { warnMissingMail } from './mail-warning';
 
 const envSchema = z.object({
   // App
@@ -56,6 +57,15 @@ const envSchema = z.object({
   DEMO_EMAIL: z.string().email().optional(),
   DEMO_PASSWORD: z.string().optional(),
   DEMO_COMMERCE: z.string().optional(),
+
+  // Correo (verificación de email y recuperación de contraseña). Opcional:
+  // sin él la app arranca, pero en producción se avisa (ver warnMissingMail).
+  MAIL_HOST: z.string().optional(),
+  MAIL_PORT: z.coerce.number().int().positive().optional(),
+  MAIL_SECURE: z.enum(['true', 'false']).optional(),
+  MAIL_USER: z.string().optional(),
+  MAIL_PASS: z.string().optional(),
+  MAIL_FROM_NAME: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -72,6 +82,7 @@ function validateEnv(): Env {
     process.exit(1);
   }
 
+  warnMissingMail(result.data);
   return result.data;
 }
 

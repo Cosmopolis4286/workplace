@@ -119,8 +119,7 @@ const sections = [
     items: [
       'Acceder a todos tus datos en cualquier momento desde Configuración.',
       'Solicitar corrección de datos incorrectos.',
-      'Exportar tu información en formato JSON.',
-      'Eliminar tu cuenta y todos los datos asociados contactándonos.',
+      'Eliminar tu cuenta desde Mi perfil → Eliminar cuenta (instrucciones en /account-deletion).',
     ],
   },
   {

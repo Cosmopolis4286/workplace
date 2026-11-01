@@ -5,7 +5,7 @@ export const PUBLIC_ROUTES: string[] = [
   '/', '/pricing', '/login', '/register',
   '/recover-password', '/reset-password',
   '/verify-email', '/auth/google/callback', '/auth/2fa-verify',
-  '/privacy', '/terms', '/support',
+  '/privacy', '/terms', '/support', '/account-deletion',
 ]
 
 export function isPublicRoute(path: string): boolean {

@@ -294,11 +294,12 @@ las notificaciones push ya funcionan. Documentado explícitamente para que no se
 - [ ] `NUXT_PUBLIC_API_URL` de producción confirmado apuntando a la URL pública real (no
       `localhost`) en el pipeline de build del APK — ver `CAPACITOR_MOBILE_APP.md`
 - [ ] Todas las migraciones de Prisma aplicadas en la base de datos de producción — **nota**: el
-      historial de migraciones fue squasheado a un único `..._init` en esta sesión (otra rama de
-      trabajo en el mismo repo), así que no queda un migration file por feature; verificar con
-      `npx prisma migrate status` que la base de datos de destino no tenga drift antes de
+      el repositorio conserva 56 directorios de migración Prisma (verificado el 2026-10-31);
+      no está squasheado a una única migración `..._init`. CI valida la cadena desde una base
+      vacía, pero eso no acredita el estado de la base real: ejecutar `npx prisma migrate status`
+      contra la base de destino y confirmar que no haya migraciones pendientes ni drift antes de
       desplegar, no asumir que cada ítem de este documento tiene su propia migración con nombre
-- [ ] **Seed de permisos (`node prisma/seed.js`) corrido en producción** para que `FREELANCER`
+- [ ] **Seed de producción (`node prisma/seed.js --production`, nunca el seed demo) corrido en producción** para que `FREELANCER`
       tenga `corridas:manage` — sin esto, la corrección del ítem 15 no tiene efecto real
 - [ ] Prueba manual end-to-end del chat interno por ServiceRequest (ver ítem 13)
 - [ ] Prueba manual del endpoint de reconciliación de escrow con datos reales (ver ítem 14)

@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.workplace.app',
-  appName: 'workplace-app',
+  appName: 'WorkPlace',
   webDir: '.output/public',
   server: {
     androidScheme: 'https',
