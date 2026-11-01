@@ -424,6 +424,14 @@ export class ServicesController {
     return this.servicesService.confirmServiceRequestCompletion(id, user.id);
   }
 
+  // El proveedor avisa que terminó: el cliente tiene 72 h para confirmar o
+  // reportar un problema; si no, se cierra solo.
+  @Patch('requests/:id/mark-done')
+  @UseGuards(JwtAuthGuard)
+  markDone(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.servicesService.markServiceRequestDone(id, user.id);
+  }
+
   @Patch('requests/:id/cancel')
   @UseGuards(JwtAuthGuard)
   cancelRequest(@Param('id') id: string, @CurrentUser() user: any) {

@@ -2377,6 +2377,9 @@ model ServiceRequest {
   // Marca cuándo se envió el recordatorio automático por falta de respuesta del
   // proveedor (cron); evita reenviarlo en cada corrida del scheduler.
   reminderSentAt       DateTime?
+  // El proveedor marcó el trabajo como terminado: el cliente tiene 72 h para
+  // confirmar o reportar un problema; si no responde, se cierra solo (cron).
+  providerCompletedAt  DateTime?
   requesterId          String?
   requester            User?                               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   items                ServiceRequestItem[]
@@ -2396,6 +2399,8 @@ model ServiceRequest {
   @@index([providerId, status])
   // Acelera getSuggestedPrice: WHERE serviceId=X AND providerId=Y AND status='CLOSED'
   @@index([serviceId, providerId, status])
+  // Acelera el cierre automático: WHERE status='CONTACTED' AND providerCompletedAt<=X
+  @@index([status, providerCompletedAt])
   // Acelera el cron de reintento de escrow: WHERE escrowStatus='PENDING_FUNDS'
   @@index([escrowStatus])
   @@index([requesterId])

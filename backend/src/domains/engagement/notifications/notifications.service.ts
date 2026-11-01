@@ -165,6 +165,42 @@ export class NotificationsService {
     );
   }
 
+  async notifyServiceRequestProviderCompleted(
+    clientId: string,
+    providerName: string,
+    serviceName: string,
+    serviceRequestId: string,
+    hoursToRespond: number
+  ) {
+    return this.createForUser(
+      clientId,
+      {
+        type: NotificationType.ORDER,
+        title: '🏁 Trabajo terminado: confírmalo',
+        message: `${providerName} marcó "${serviceName}" como terminado. Confírmalo o reporta un problema en las próximas ${hoursToRespond} horas; si no respondes, se cerrará automáticamente.`,
+        link: `/service-requests?open=${serviceRequestId}`,
+        metadata: { providerName, serviceName, serviceRequestId },
+      },
+      { email: true }
+    );
+  }
+
+  async notifyServiceRequestAutoClosed(
+    providerId: string,
+    clientId: string | null,
+    serviceName: string
+  ) {
+    const dto = {
+      type: NotificationType.ORDER,
+      title: '✅ Solicitud cerrada automáticamente',
+      message: `"${serviceName}" se cerró porque el cliente no respondió a tiempo después de que el trabajo se marcó como terminado.`,
+      link: '/service-requests',
+      metadata: { serviceName },
+    };
+    await this.createForUser(providerId, dto);
+    if (clientId) await this.createForUser(clientId, dto);
+  }
+
   async notifyServiceRequestCancelled(
     providerId: string,
     clientName: string,

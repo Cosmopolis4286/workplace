@@ -250,9 +250,29 @@
 
           <!-- Footer esperando confirmación del cliente — proveedor (CONTACTED) -->
           <div v-else-if="isProvider && req.status === 'CONTACTED'" class="p-4 border-t border-gray-100 bg-blue-50">
-            <div class="flex items-center gap-2">
-              <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0" />
-              <p class="text-xs text-blue-700">Esperando que el cliente confirme la finalización del servicio.</p>
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <div class="flex items-start gap-2">
+                <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p v-if="req.providerCompletedAt" class="text-xs text-blue-700">
+                  Marcaste el trabajo como terminado. Si el cliente no confirma ni reporta un problema,
+                  se cerrará automáticamente el <strong>{{ autoCloseAt }}</strong>.
+                </p>
+                <p v-else-if="req.escrowStatus === 'PENDING_FUNDS'" class="text-xs text-blue-700">
+                  Espera a que el cliente pague la garantía antes de hacer el trabajo.
+                </p>
+                <p v-else class="text-xs text-blue-700">
+                  Cuando termines el trabajo, márcalo: el cliente tendrá {{ AUTO_CLOSE_HOURS }} horas para confirmar o reportar un problema.
+                </p>
+              </div>
+              <button
+                v-if="!req.providerCompletedAt && !['PENDING_FUNDS', 'DISPUTED'].includes(req.escrowStatus ?? 'NONE')"
+                :disabled="markingDone"
+                class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex-shrink-0"
+                @click="markDone"
+              >
+                <CheckCircleIcon class="h-4 w-4" />
+                {{ markingDone ? 'Guardando…' : 'Marcar como terminado' }}
+              </button>
             </div>
           </div>
 
@@ -269,7 +289,11 @@
             <div class="flex items-center justify-between gap-3 flex-wrap">
               <div class="flex items-start gap-2">
                 <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                <p class="text-xs text-blue-700">
+                <p v-if="req.providerCompletedAt" class="text-xs text-blue-700">
+                  {{ req.providerName }} marcó el trabajo como terminado. Confírmalo o reporta un problema antes del
+                  <strong>{{ autoCloseAt }}</strong>; si no respondes, se cerrará automáticamente.
+                </p>
+                <p v-else class="text-xs text-blue-700">
                   El proveedor ya se contactó contigo. Cuando recibas el servicio, confirma para poder dejar tu reseña.
                 </p>
               </div>
@@ -435,7 +459,8 @@ interface ServiceRequest {
   platformFeeRate?: number | null
   platformFeeAmount?: number | null
   platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
-  escrowStatus?: 'NONE' | 'HELD' | 'PENDING_FUNDS' | 'RELEASED' | 'REFUNDED'
+  escrowStatus?: 'NONE' | 'HELD' | 'PENDING_FUNDS' | 'RELEASED' | 'REFUNDED' | 'DISPUTED'
+  providerCompletedAt?: string | null
   escrowAmount?: number | null
   escrowHeldAt?: string | null
   providerAvatar?: string | null
@@ -658,6 +683,31 @@ async function confirmCompletion() {
     actionError.value = getApiErrorMessage(e, 'Error al confirmar la finalización')
   } finally {
     confirming.value = false
+  }
+}
+
+// El proveedor marca terminado; el cliente tiene AUTO_CLOSE_HOURS para
+// confirmar o reportar un problema (backend: AUTO_CLOSE_AFTER_MS).
+const AUTO_CLOSE_HOURS = 72
+const markingDone = ref(false)
+const autoCloseAt = computed(() => {
+  if (!props.req.providerCompletedAt) return ''
+  const at = new Date(new Date(props.req.providerCompletedAt).getTime() + AUTO_CLOSE_HOURS * 3600 * 1000)
+  return at.toLocaleString('es-VE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Caracas' })
+})
+
+async function markDone() {
+  if (markingDone.value) return
+  markingDone.value = true
+  clearError()
+  try {
+    const { patch } = useApi()
+    const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/mark-done`, {})
+    emit('updated', { ...props.req, providerCompletedAt: updated.providerCompletedAt ?? new Date().toISOString() })
+  } catch (e: any) {
+    actionError.value = getApiErrorMessage(e, 'No se pudo marcar como terminado')
+  } finally {
+    markingDone.value = false
   }
 }
 

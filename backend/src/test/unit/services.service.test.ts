@@ -51,6 +51,7 @@ describe('ServicesService — service request status transitions', () => {
     mockPrismaService = {
       serviceRequest: {
         findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         update: jest
           .fn()
           .mockImplementation(({ data }) => Promise.resolve({ ...data })),
@@ -94,6 +95,10 @@ describe('ServicesService — service request status transitions', () => {
         .fn()
         .mockResolvedValue(undefined),
       notifyEscrowDisputeOpened: jest.fn().mockResolvedValue(undefined),
+      notifyServiceRequestProviderCompleted: jest
+        .fn()
+        .mockResolvedValue(undefined),
+      notifyServiceRequestAutoClosed: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     mockPlatformFeesService = {
@@ -759,6 +764,131 @@ describe('ServicesService — service request status transitions', () => {
       expect(
         mockNotificationsService.notifyPriceChangeProposalInvalidated
       ).toHaveBeenCalledWith('provider-1', 'Servicio Uno');
+    });
+  });
+  describe('terminado por el proveedor y cierre automático', () => {
+    it('el proveedor marca terminado y el cliente recibe el aviso con el plazo', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({ status: 'CONTACTED', escrowStatus: 'HELD' })
+      );
+
+      const res = await service.markServiceRequestDone('req-1', 'provider-1');
+
+      expect(res.providerCompletedAt).toBeInstanceOf(Date);
+      expect(
+        mockNotificationsService.notifyServiceRequestProviderCompleted
+      ).toHaveBeenCalledWith(
+        'client-1',
+        'Proveedor Uno',
+        'Servicio Uno',
+        'req-1',
+        72
+      );
+    });
+
+    it('no se marca terminado con la garantía sin pagar ni con disputa abierta', async () => {
+      for (const escrowStatus of ['PENDING_FUNDS', 'DISPUTED']) {
+        mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+          baseRequest({ status: 'CONTACTED', escrowStatus })
+        );
+        await expect(
+          service.markServiceRequestDone('req-1', 'provider-1')
+        ).rejects.toThrow();
+      }
+      expect(mockPrismaService.serviceRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('solo el proveedor de la solicitud puede marcarla terminada', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({ status: 'CONTACTED' })
+      );
+      await expect(
+        service.markServiceRequestDone('req-1', 'client-1')
+      ).rejects.toThrow('No tienes permiso');
+    });
+
+    it('cierra solo las vencidas y sin disputa, cobra la comisión y libera la garantía', async () => {
+      const done = new Date(Date.now() - 73 * 3600 * 1000);
+      mockPrismaService.serviceRequest.findMany.mockResolvedValue([
+        {
+          id: 'req-1',
+          providerId: 'provider-1',
+          requesterId: 'client-1',
+          serviceName: 'Servicio Uno',
+        },
+      ]);
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({
+          status: 'CONTACTED',
+          price: 50,
+          escrowStatus: 'HELD',
+          escrowAmount: 50,
+          providerCompletedAt: done,
+        })
+      );
+      (mockPlatformFeesService.resolveFeeConfig as jest.Mock).mockResolvedValue(
+        { payer: 'PROVIDER', rate: 0.1 }
+      );
+      (mockPlatformFeesService.calculateFee as jest.Mock).mockReturnValue({
+        feeAmount: 5,
+      });
+
+      const res = await service.closeUnconfirmedCompletions();
+
+      expect(res).toEqual({ checked: 1, closed: 1 });
+      const [where] = mockPrismaService.serviceRequest.findMany.mock.calls[0];
+      expect(where.where.escrowStatus).toEqual({
+        notIn: ['DISPUTED', 'PENDING_FUNDS'],
+      });
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalled();
+      expect(mockEscrowService.release).toHaveBeenCalledWith(
+        expect.objectContaining({ payeeId: 'provider-1' })
+      );
+      expect(
+        mockPrismaService.serviceRequestStatusHistory.create
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            changedBy: null,
+            newStatus: 'CLOSED',
+          }),
+        })
+      );
+      expect(
+        mockNotificationsService.notifyServiceRequestAutoClosed
+      ).toHaveBeenCalledWith('provider-1', 'client-1', 'Servicio Uno');
+    });
+
+    it('el cierre automático se niega si la solicitud entró en disputa entre tanto', async () => {
+      mockPrismaService.serviceRequest.findMany.mockResolvedValue([
+        {
+          id: 'req-1',
+          providerId: 'provider-1',
+          requesterId: 'client-1',
+          serviceName: 'S',
+        },
+      ]);
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({
+          status: 'CONTACTED',
+          escrowStatus: 'DISPUTED',
+          providerCompletedAt: new Date(0),
+        })
+      );
+
+      const res = await service.closeUnconfirmedCompletions();
+
+      expect(res).toEqual({ checked: 1, closed: 0 });
+      expect(mockPrismaService.serviceRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('sin cierre automático, nadie más que el cliente puede confirmar', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({ status: 'CONTACTED' })
+      );
+      await expect(
+        service.confirmServiceRequestCompletion('req-1', 'provider-1')
+      ).rejects.toThrow('No tienes permiso');
     });
   });
 });

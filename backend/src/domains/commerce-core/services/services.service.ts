@@ -4,6 +4,8 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ServiceStatus, ServiceEventType, Prisma, Role } from '@prisma/client';
@@ -48,6 +50,10 @@ import {
   toNumber,
   type MoneyInput,
 } from '../../../common/money/money';
+
+// Plazo del cliente para confirmar o disputar después de que el proveedor
+// marca el trabajo terminado; luego se cierra solo.
+export const AUTO_CLOSE_AFTER_MS = 72 * 60 * 60 * 1000;
 
 const SERVICE_SELECT = {
   id: true,
@@ -100,6 +106,8 @@ function attachRating<
 
 @Injectable()
 export class ServicesService {
+  private readonly logger = new Logger(ServicesService.name);
+
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
@@ -1220,15 +1228,35 @@ export class ServicesService {
   // El cliente (requester) confirma que el servicio se completó realmente.
   // Solo desde CONTACTED, para evitar que se cierre algo que nunca avanzó,
   // y habilita la reseña verificada del proveedor.
-  async confirmServiceRequestCompletion(id: string, userId: string) {
+  /**
+   * Cierra la solicitud: cobra la comisión y libera la garantía. La confirma el
+   * cliente (`userId`) o, con `auto`, el cierre automático cuando el proveedor
+   * marcó el trabajo terminado y el cliente no respondió en
+   * AUTO_CLOSE_AFTER_MS (ver closeUnconfirmedCompletions).
+   */
+  async confirmServiceRequestCompletion(
+    id: string,
+    userId: string | null,
+    options: { auto?: boolean } = {}
+  ) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
-    if (req.requesterId !== userId)
+    if (!options.auto && (!userId || req.requesterId !== userId))
       throw new ForbiddenException('No tienes permiso');
     if (req.status !== 'CONTACTED')
       throw new ForbiddenException(
         'Solo puedes confirmar una solicitud que ya fue contactada por el proveedor'
       );
+    if (
+      options.auto &&
+      (!req.providerCompletedAt ||
+        req.escrowStatus === 'DISPUTED' ||
+        req.escrowStatus === 'PENDING_FUNDS')
+    ) {
+      throw new ConflictException(
+        'La solicitud no se puede cerrar automáticamente'
+      );
+    }
 
     // Resolve fee before starting any write so we don't mark CLOSED on a fee error
     let feeData: { feeAmount: number; feeConfig: any } | null = null;
@@ -1334,13 +1362,17 @@ export class ServicesService {
         serviceRequestId: id,
         previousStatus: req.status,
         newStatus: 'CLOSED',
-        changedBy: userId,
+        // null = cierre automático (ver el modelo).
+        changedBy: options.auto ? null : userId,
       },
     });
 
-    this.sendReviewReminder(userId, req.providerId, req.providerName).catch(
-      () => {}
-    );
+    const clientId = options.auto ? req.requesterId : userId;
+    if (clientId) {
+      this.sendReviewReminder(clientId, req.providerId, req.providerName).catch(
+        () => {}
+      );
+    }
 
     return updated;
   }
@@ -1405,6 +1437,94 @@ export class ServicesService {
   // reembolso automáticos hasta que un admin la resuelva. Solo tiene sentido
   // desde CONTACTED (ya hay precio fijado y trabajo en curso); antes de eso
   // no hay nada que disputar todavía.
+  // El proveedor avisa que terminó el trabajo. Antes solo el cliente podía
+  // cerrar: si no confirmaba, la solicitud quedaba abierta para siempre (sin
+  // comisión, sin reseña y con la garantía retenida). Ahora el cliente tiene
+  // AUTO_CLOSE_AFTER_MS para confirmar o reportar un problema; si no hace
+  // nada, se cierra solo.
+  async markServiceRequestDone(id: string, providerId: string) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (req.providerId !== providerId)
+      throw new ForbiddenException('No tienes permiso');
+    if (req.status !== 'CONTACTED') {
+      throw new BadRequestException(
+        'Solo puedes marcar como terminada una solicitud en curso'
+      );
+    }
+    if (req.escrowStatus === 'PENDING_FUNDS') {
+      throw new BadRequestException(
+        'El cliente todavía no pagó la garantía: espera a que quede retenida'
+      );
+    }
+    if (req.escrowStatus === 'DISPUTED') {
+      throw new BadRequestException(
+        'Hay una disputa abierta: soporte la está revisando'
+      );
+    }
+    if (req.providerCompletedAt) return req;
+
+    const updated = await this.prisma.serviceRequest.update({
+      where: { id },
+      data: { providerCompletedAt: new Date() },
+    });
+    if (req.requesterId) {
+      this.notifications
+        .notifyServiceRequestProviderCompleted(
+          req.requesterId,
+          req.providerName,
+          req.serviceName,
+          id,
+          AUTO_CLOSE_AFTER_MS / 3_600_000
+        )
+        .catch(() => {});
+    }
+    return updated;
+  }
+
+  // Cron: cierra las solicitudes que el proveedor marcó terminadas y el
+  // cliente no confirmó ni disputó a tiempo. Una por una: un fallo (ej. al
+  // liberar la garantía) no frena a las demás y se reintenta en la próxima
+  // corrida.
+  async closeUnconfirmedCompletions(now = new Date()) {
+    const due = await this.prisma.serviceRequest.findMany({
+      where: {
+        status: 'CONTACTED',
+        providerCompletedAt: {
+          lte: new Date(now.getTime() - AUTO_CLOSE_AFTER_MS),
+        },
+        escrowStatus: { notIn: ['DISPUTED', 'PENDING_FUNDS'] },
+      },
+      select: {
+        id: true,
+        providerId: true,
+        requesterId: true,
+        serviceName: true,
+      },
+      take: 200,
+    });
+    let closed = 0;
+    for (const req of due) {
+      const { id } = req;
+      try {
+        await this.confirmServiceRequestCompletion(id, null, { auto: true });
+        closed++;
+        this.notifications
+          .notifyServiceRequestAutoClosed(
+            req.providerId,
+            req.requesterId,
+            req.serviceName
+          )
+          .catch(() => {});
+      } catch (err) {
+        this.logger.warn(
+          `Cierre automático de la solicitud ${id} falló: ${(err as Error).message}`
+        );
+      }
+    }
+    return { checked: due.length, closed };
+  }
+
   async disputeServiceRequest(id: string, userId: string, reason: string) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
