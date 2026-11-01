@@ -83,8 +83,13 @@
     </div>
 
     <!-- TAB: Corridas Disponibles (conductor) -->
-    <AvailableRidesTab
+    <DriverProfileCard
       v-if="activeTab === 'available' && canViewAvailableCorridas"
+      class="mb-4"
+      @status="driverStatus = $event"
+    />
+    <AvailableRidesTab
+      v-if="activeTab === 'available' && canViewAvailableCorridas && driverStatus === 'APPROVED'"
       :rides="availableCorridas"
       :loading="loading"
       :accepting-id="acceptingId"
@@ -103,6 +108,7 @@
       @refresh="refreshHistory"
       @cancel="corridaToCancelId = $event; showCancelModal = true"
       @update-status="handleUpdateStatus"
+      @driver-cancel="openDriverCancel"
     />
 
     <!-- Toast -->
@@ -132,9 +138,45 @@
       :show="showCancelModal"
       :elapsed-time="elapsedTime"
       :cancelling="cancelling"
+      :needs-reason="cancelTargetStatus === 'ACCEPTED'"
       @close="showCancelModal = false"
-      @confirm="handleCancel(corridaToCancelId!)"
+      @confirm="handleCancel(corridaToCancelId!, $event)"
     />
+
+    <!-- Conductor: soltar una corrida aceptada o cancelarla (pasajero no apareció) -->
+    <Teleport to="body">
+      <div v-if="driverCancelId" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50" @click="driverCancelId = null" />
+        <form class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-3" @submit.prevent="submitDriverCancel">
+          <h3 class="font-semibold text-gray-900">Soltar la corrida</h3>
+          <label class="flex items-start gap-2 text-sm">
+            <input v-model="driverCancelNoShow" type="checkbox" class="mt-0.5" />
+            <span>El pasajero no apareció (la corrida se cancela). Si no, vuelve a estar disponible para otro conductor.</span>
+          </label>
+          <textarea v-model="driverCancelReason" rows="2" maxlength="300" class="input-field resize-none" placeholder="Ej. Esperé 15 minutos y no contesta" />
+          <div class="flex justify-end gap-2">
+            <button type="button" class="btn-secondary text-sm" @click="driverCancelId = null">Volver</button>
+            <button type="submit" class="btn-primary text-sm" :disabled="updatingId === driverCancelId || driverCancelReason.trim().length < 5">Confirmar</button>
+          </div>
+        </form>
+      </div>
+    </Teleport>
+
+    <!-- Conductor: código de entrega al completar un envío -->
+    <Teleport to="body">
+      <div v-if="codeRideId" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50" @click="codeRideId = null" />
+        <form class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-3" @submit.prevent="submitDeliveryCode">
+          <h3 class="font-semibold text-gray-900">Código de entrega</h3>
+          <p class="text-sm text-gray-500">Pídele a quien recibe el envío su código de 4 dígitos.</p>
+          <input v-model="deliveryCodeInput" inputmode="numeric" maxlength="4" class="input-field font-mono text-center text-2xl tracking-[0.4em]" placeholder="0000" />
+          <div class="flex justify-end gap-2">
+            <button type="button" class="btn-secondary text-sm" @click="codeRideId = null">Volver</button>
+            <button type="submit" class="btn-primary text-sm" :disabled="updatingId === codeRideId || !/^\d{4}$/.test(deliveryCodeInput)">Completar envío</button>
+          </div>
+        </form>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -147,6 +189,8 @@ import ActiveRideSidebar from '~/components/rides/ActiveRideSidebar.vue'
 import AvailableRidesTab from '~/components/rides/AvailableRidesTab.vue'
 import RideHistoryTab from '~/components/rides/RideHistoryTab.vue'
 import CancelRideModal from '~/components/rides/CancelRideModal.vue'
+import DriverProfileCard from '~/components/rides/DriverProfileCard.vue'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import type { PlaceSuggestion } from '~/composables/location/useNominatim'
 import type { Ride } from '~/composables/delivery/useRides'
 import { useKyc } from '~/composables/kyc/useKyc'
@@ -158,7 +202,7 @@ const {
   corridas, myCorridas, activeCorrida, loading, error,
   hasActiveCorrida, canRequestCorrida, canManageCorridas,
   fetchAvailableCorridas, fetchMyCorridas, fetchDriverCorridas,
-  createCorrida, acceptCorrida, updateCorridaStatus, cancelCorrida,
+  createCorrida, acceptCorrida, updateCorridaStatus, cancelCorrida, driverCancelCorrida,
   calculatePrice, clearError,
 } = useRides()
 
@@ -341,10 +385,10 @@ async function handleSubmitRequest() {
 }
 
 // ─── Acciones ─────────────────────────────────────────────────────────────────
-async function handleCancel(id: string) {
+async function handleCancel(id: string, reason?: string) {
   cancelling.value = true
   try {
-    await cancelCorrida(id)
+    await cancelCorrida(id, reason)
     showCancelModal.value = false; corridaToCancelId.value = null
     showToast('success', 'Viaje cancelado correctamente')
     await refreshHistory()
@@ -361,10 +405,60 @@ async function handleAccept(id: string) {
   } finally { acceptingId.value = null }
 }
 
-async function handleUpdateStatus(id: string, status: 'IN_PROGRESS' | 'COMPLETED') {
+async function handleUpdateStatus(id: string, status: 'IN_PROGRESS' | 'COMPLETED', deliveryCode?: string) {
+  // Envío: completar exige el código de quien recibe.
+  const ride = historyList.value.find(r => r.id === id)
+  if (status === 'COMPLETED' && ride?.hasDeliveryCode && !deliveryCode) {
+    codeRideId.value = id
+    deliveryCodeInput.value = ''
+    return
+  }
   updatingId.value = id
-  try { await updateCorridaStatus(id, status); await refreshHistory() }
-  finally { updatingId.value = null }
+  try {
+    await updateCorridaStatus(id, status, deliveryCode)
+    codeRideId.value = null
+    await refreshHistory()
+  } catch (e) {
+    showToast('error', getApiErrorMessage(e, 'No se pudo actualizar la corrida'))
+  } finally { updatingId.value = null }
+}
+
+// ─── Perfil de conductor, cancelación del conductor y código de entrega ─────
+const driverStatus = ref<'PENDING' | 'APPROVED' | 'REJECTED' | null>(null)
+const cancelTargetStatus = computed(() =>
+  corridaToCancelId.value
+    ? (historyList.value.find(r => r.id === corridaToCancelId.value)?.status
+      ?? (activeCorrida.value?.id === corridaToCancelId.value ? activeCorrida.value?.status : undefined))
+    : undefined,
+)
+const driverCancelId = ref<string | null>(null)
+const driverCancelReason = ref('')
+const driverCancelNoShow = ref(false)
+const codeRideId = ref<string | null>(null)
+const deliveryCodeInput = ref('')
+
+function openDriverCancel(id: string) {
+  driverCancelId.value = id
+  driverCancelReason.value = ''
+  driverCancelNoShow.value = false
+}
+
+async function submitDriverCancel() {
+  const id = driverCancelId.value
+  if (!id) return
+  updatingId.value = id
+  try {
+    const res = await driverCancelCorrida(id, driverCancelReason.value.trim(), driverCancelNoShow.value)
+    driverCancelId.value = null
+    showToast('success', res.requeued ? 'Soltaste la corrida: queda disponible para otro conductor' : 'Corrida cancelada')
+    await Promise.all([refreshHistory(), refreshAvailable()])
+  } catch (e) {
+    showToast('error', getApiErrorMessage(e, 'No se pudo cancelar la corrida'))
+  } finally { updatingId.value = null }
+}
+
+function submitDeliveryCode() {
+  if (codeRideId.value) handleUpdateStatus(codeRideId.value, 'COMPLETED', deliveryCodeInput.value)
 }
 
 async function refreshAvailable() { try { await fetchAvailableCorridas() } catch {} }

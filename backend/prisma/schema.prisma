@@ -62,6 +62,7 @@ model User {
   sellerCommissionCharges       SellerCommissionCharge[]
   sellerStatements              SellerStatement[]
   walletWithdrawalRequests      WalletWithdrawalRequest[]
+  rideDriverProfile             RideDriverProfile?
   escrowFundingReports          EscrowFundingReport[]
   reviewedWalletDepositRequests WalletDepositRequest[] @relation("WalletDepositRequestReviewer")
 
@@ -2940,6 +2941,12 @@ model Ride {
   cargoDescription  String?
   cargoWeight       Float? // kg aproximados
   declaredValue     Decimal?        @db.Decimal(20, 2) // valor declarado de la carga para responsabilidad
+  // Envíos (FREIGHT): código de 4 dígitos que el remitente le pasa al
+  // destinatario; el conductor lo pide al entregar. Solo lo ve el remitente.
+  deliveryCode      String?
+  // Quién canceló (pasajero/remitente o conductor) y por qué.
+  cancelledById     String?
+  cancelReason      String?
   acceptedAt        DateTime?
   startedAt         DateTime?
   completedAt       DateTime?
@@ -2958,6 +2965,35 @@ model Ride {
   @@index([status])
   @@index([serviceType])
   @@map("rides")
+}
+
+enum RideDriverProfileStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Habilitación como conductor de corridas/envíos. Antes cualquier perfil
+// profesional podía aceptar pasajeros; ahora hace falta este perfil aprobado
+// por un admin (además del KYC) y solo se aceptan corridas de su vehículo.
+model RideDriverProfile {
+  id              String                  @id @default(uuid())
+  userId          String                  @unique
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleType     RideVehicleType
+  vehiclePlate    String
+  vehicleModel    String
+  vehicleColor    String?
+  licenseNumber   String
+  status          RideDriverProfileStatus @default(PENDING)
+  rejectionReason String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@index([status])
+  @@map("ride_driver_profiles")
 }
 
 // ─── Exchange Rates ───────────────────────────────────────────────────────────

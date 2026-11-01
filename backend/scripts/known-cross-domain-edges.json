@@ -30,7 +30,8 @@
     "src/domains/operations/suppliers/suppliers.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
     "src/domains/platform/jobs/jobs.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
     "src/domains/money/wallet-withdrawals/wallet-withdrawals.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
-    "src/domains/money/escrow-funding/escrow-funding.service.ts -> src/domains/engagement/notifications/notifications.service.ts"
+    "src/domains/money/escrow-funding/escrow-funding.service.ts -> src/domains/engagement/notifications/notifications.service.ts",
+    "src/domains/operations/rides/driver-profiles/ride-driver-profiles.service.ts -> src/domains/engagement/notifications/notifications.service.ts"
   ],
   "debt": []
 }

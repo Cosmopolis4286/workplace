@@ -547,6 +547,17 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
           rolesOnly: [Role.SUPERADMIN, Role.ADMIN],
         },
       },
+      {
+        id: 'admin-ride-drivers',
+        to: '/ride-drivers-admin',
+        label: 'Conductores',
+        icon: 'rides',
+        order: 5,
+        condition: {
+          permission: null,
+          rolesOnly: [Role.SUPERADMIN, Role.ADMIN],
+        },
+      },
     ],
   },
   {

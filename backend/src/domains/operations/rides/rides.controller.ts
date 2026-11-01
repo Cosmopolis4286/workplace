@@ -20,11 +20,40 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CreateRideDto } from './dto/create-ride.dto';
 import { CalculatePriceDto } from './dto/calculate-price.dto';
 import { RideStatus, RideServiceType } from '@prisma/client';
-import { IsEnum } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 
 class UpdateRideStatusDto {
   @IsEnum(RideStatus)
   status: RideStatus;
+
+  // Envíos: código que el destinatario le da al conductor al recibir.
+  @IsOptional()
+  @Matches(/^\d{4}$/, { message: 'El código de entrega tiene 4 dígitos' })
+  deliveryCode?: string;
+}
+
+class CancelRideDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  reason?: string;
+}
+
+class DriverCancelRideDto {
+  @IsString()
+  @MaxLength(300)
+  reason: string;
+
+  @IsOptional()
+  @IsBoolean()
+  noShow?: boolean;
 }
 
 @Controller('rides')
@@ -43,8 +72,11 @@ export class RidesController {
   // GET /api/rides/available — PENDING rides for drivers
   @Get('available')
   @RequirePermission('corridas:manage')
-  findAvailable(@Query('serviceType') serviceType?: RideServiceType) {
-    return this.ridesService.findAvailable(serviceType);
+  findAvailable(
+    @CurrentUser() user: { id: string },
+    @Query('serviceType') serviceType?: RideServiceType
+  ) {
+    return this.ridesService.findAvailable(user.id, serviceType);
   }
 
   // GET /api/rides/mine — passenger's own rides
@@ -107,7 +139,12 @@ export class RidesController {
     @Param('id') id: string,
     @Body() dto: UpdateRideStatusDto
   ) {
-    return this.ridesService.updateStatus(user.id, id, dto.status);
+    return this.ridesService.updateStatus(
+      user.id,
+      id,
+      dto.status,
+      dto.deliveryCode
+    );
   }
 
   // POST /api/rides/:id/cancel — passenger cancels PENDING
@@ -118,7 +155,28 @@ export class RidesController {
     maxRequests: 10,
     keyGenerator: (req) => `rides:cancel:${(req as any).user?.id}`,
   })
-  cancel(@CurrentUser() user: { id: string }, @Param('id') id: string) {
-    return this.ridesService.cancel(user.id, id);
+  cancel(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() dto: CancelRideDto
+  ) {
+    return this.ridesService.cancel(user.id, id, dto?.reason);
+  }
+
+  // POST /api/rides/:id/driver-cancel — el conductor suelta una corrida
+  // aceptada (vuelve al pool) o la cancela si el pasajero no apareció.
+  @Post(':id/driver-cancel')
+  @RequirePermission('corridas:manage')
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 10,
+    keyGenerator: (req) => `rides:driver-cancel:${(req as any).user?.id}`,
+  })
+  driverCancel(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() dto: DriverCancelRideDto
+  ) {
+    return this.ridesService.driverCancel(user.id, id, dto);
   }
 }

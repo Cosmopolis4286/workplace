@@ -339,6 +339,53 @@ export class NotificationsService {
     );
   }
 
+  async notifyRideCancelledByOther(
+    recipientId: string,
+    who: string,
+    reason: string | null,
+    requeued: boolean
+  ) {
+    return this.createForUser(
+      recipientId,
+      {
+        type: NotificationType.SYSTEM,
+        title: requeued
+          ? '🔄 Tu conductor canceló: buscamos otro'
+          : '🚫 Corrida cancelada',
+        message: requeued
+          ? `${who} canceló${reason ? ` ("${reason}")` : ''}. Tu solicitud volvió a estar disponible para otros conductores.`
+          : `${who} canceló la corrida${reason ? `: "${reason}"` : '.'}`,
+        link: '/rides',
+        metadata: { reason, requeued },
+      },
+      { email: true }
+    );
+  }
+
+  async notifyRideDriverProfileReviewed(
+    userId: string,
+    status: 'APPROVED' | 'REJECTED',
+    reason?: string
+  ) {
+    return this.createForUser(
+      userId,
+      {
+        type: NotificationType.SYSTEM,
+        title:
+          status === 'APPROVED'
+            ? '🚗 ¡Ya puedes aceptar corridas!'
+            : '❌ Perfil de conductor rechazado',
+        message:
+          status === 'APPROVED'
+            ? 'Aprobamos tu vehículo y licencia. Ya puedes aceptar corridas y envíos.'
+            : `No aprobamos tu perfil de conductor: ${reason}. Corrige los datos y envíalo de nuevo.`,
+        link: '/rides',
+        metadata: { status, reason },
+      },
+      { email: true }
+    );
+  }
+
   async notifyRideStatusChanged(
     passengerId: string,
     driverName: string,
