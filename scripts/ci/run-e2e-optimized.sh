@@ -36,8 +36,8 @@ main() {
     # to the runner so the next checkout can clean the workspace safely.
     export HOST_UID="$(id -u)"
     export HOST_GID="$(id -g)"
-    mkdir -p playwright-report test-results
-    chmod u+rwx,g+rwx playwright-report test-results
+    mkdir -p playwright-report
+    chmod u+rwx,g+rwx playwright-report
 
     trap cleanup EXIT
 
