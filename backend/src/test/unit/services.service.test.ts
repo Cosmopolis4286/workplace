@@ -52,10 +52,12 @@ describe('ServicesService — service request status transitions', () => {
       serviceRequest: {
         findUnique: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         update: jest
           .fn()
           .mockImplementation(({ data }) => Promise.resolve({ ...data })),
       },
+      escrowFundingReport: { findMany: jest.fn().mockResolvedValue([]) },
       serviceRequestStatusHistory: {
         create: jest.fn().mockResolvedValue({}),
       },
@@ -103,6 +105,7 @@ describe('ServicesService — service request status transitions', () => {
         .fn()
         .mockResolvedValue(undefined),
       notifyServiceRequestAutoClosed: jest.fn().mockResolvedValue(undefined),
+      notifyGuaranteeExpired: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     mockPlatformFeesService = {
@@ -992,6 +995,94 @@ describe('ServicesService — service request status transitions', () => {
         })
       ).rejects.toThrow('Disputa no encontrada');
       expect(mockEscrowService.resolveDispute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('garantías sin pagar', () => {
+    const stale = () =>
+      baseRequest({
+        status: 'CONTACTED',
+        escrowStatus: 'PENDING_FUNDS',
+        statusUpdatedAt: new Date(Date.now() - 80 * 3600 * 1000),
+      });
+
+    it('cancela la solicitud cuya garantía inicial no se pagó en 72 h', async () => {
+      mockPrismaService.serviceRequest.findMany.mockResolvedValue([stale()]);
+
+      const res = await service.expireUnpaidGuarantees();
+
+      expect(res).toEqual({ cancelled: 1, increasesExpired: 0 });
+      expect(mockPrismaService.serviceRequest.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'req-1',
+            status: 'CONTACTED',
+            escrowStatus: 'PENDING_FUNDS',
+          },
+          data: expect.objectContaining({
+            status: 'CANCELLED',
+            escrowStatus: 'NONE',
+          }),
+        })
+      );
+      expect(
+        mockNotificationsService.notifyGuaranteeExpired
+      ).toHaveBeenCalledWith(
+        'provider-1',
+        'client-1',
+        'Servicio Uno',
+        'request'
+      );
+    });
+
+    it('no toca las que tienen un pago reportado en revisión', async () => {
+      mockPrismaService.escrowFundingReport.findMany.mockResolvedValue([
+        { sourceId: 'req-1' },
+      ]);
+      mockPrismaService.serviceRequest.findMany.mockResolvedValue([stale()]);
+
+      const res = await service.expireUnpaidGuarantees();
+
+      expect(res.cancelled).toBe(0);
+      expect(
+        mockPrismaService.serviceRequest.updateMany
+      ).not.toHaveBeenCalled();
+    });
+
+    it('un aumento aprobado sin pagar caduca y la garantía original sigue retenida', async () => {
+      mockPrismaService.serviceRequestPriceChangeProposal.findMany.mockResolvedValue(
+        [
+          {
+            id: 'prop-1',
+            serviceRequest: baseRequest({
+              status: 'CONTACTED',
+              escrowStatus: 'PENDING_FUNDS',
+            }),
+          },
+        ]
+      );
+
+      const res = await service.expireUnpaidGuarantees();
+
+      expect(res).toEqual({ cancelled: 0, increasesExpired: 1 });
+      expect(
+        mockPrismaService.serviceRequestPriceChangeProposal.update
+      ).toHaveBeenCalledWith({
+        where: { id: 'prop-1' },
+        data: { status: 'INVALIDATED' },
+      });
+      expect(mockPrismaService.serviceRequest.update).toHaveBeenCalledWith({
+        where: { id: 'req-1' },
+        data: { escrowStatus: 'HELD' },
+      });
+    });
+
+    it('la búsqueda de garantías iniciales excluye las que esperan un aumento', async () => {
+      await service.expireUnpaidGuarantees();
+      const [args] = mockPrismaService.serviceRequest.findMany.mock.calls[0];
+      expect(args.where.priceChangeProposals).toEqual({
+        none: { status: 'APPROVED_PENDING_FUNDS' },
+      });
     });
   });
 });

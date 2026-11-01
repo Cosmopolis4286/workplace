@@ -624,6 +624,17 @@ const ESCROW_CLASSES: Record<string, string> = {
   RELEASED: 'bg-emerald-50 border-emerald-100 text-emerald-800',
   REFUNDED: 'bg-gray-50 border-gray-200 text-gray-700',
 }
+// Plazo para pagar la garantía inicial (backend: GUARANTEE_PAYMENT_WINDOW_MS,
+// contado desde que el proveedor fijó el precio). Con escrowHeldAt la garantía
+// original ya está retenida y lo pendiente es un aumento: si no se paga, el
+// aumento caduca pero la solicitud NO se cancela, así que no se muestra.
+const guaranteeDeadline = computed(() => {
+  const since = props.req.statusUpdatedAt ?? props.req.createdAt
+  if (props.req.escrowStatus !== 'PENDING_FUNDS' || props.req.escrowHeldAt || !since) return ''
+  return new Date(new Date(since).getTime() + 72 * 3600 * 1000).toLocaleString('es-VE', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Caracas',
+  })
+})
 const escrowDescription = computed(() => {
   const isProvider = props.isProvider
   switch (props.req.escrowStatus) {
@@ -633,8 +644,8 @@ const escrowDescription = computed(() => {
         : 'La plataforma retiene tu pago como garantía. Se le paga al proveedor cuando confirmes que el servicio se completó.'
     case 'PENDING_FUNDS':
       return isProvider
-        ? 'El cliente todavía no paga la garantía a la plataforma. Te avisaremos cuando quede retenida.'
-        : 'Paga la garantía a una cuenta de la plataforma y reporta la referencia: queda protegida hasta que confirmes el servicio.'
+        ? `El cliente todavía no paga la garantía a la plataforma. Te avisaremos cuando quede retenida.${guaranteeDeadline.value ? ` Si no la paga antes del ${guaranteeDeadline.value}, la solicitud se cancela.` : ''}`
+        : `Paga la garantía a una cuenta de la plataforma y reporta la referencia: queda protegida hasta que confirmes el servicio.${guaranteeDeadline.value ? ` Si no la pagas antes del ${guaranteeDeadline.value}, la solicitud se cancela.` : ''}`
     case 'DISPUTED':
       return 'Hay una disputa abierta: la garantía queda congelada hasta que soporte la resuelva.'
     case 'RELEASED':

@@ -201,6 +201,32 @@ export class NotificationsService {
     if (clientId) await this.createForUser(clientId, dto);
   }
 
+  async notifyGuaranteeExpired(
+    providerId: string,
+    clientId: string | null,
+    serviceName: string,
+    kind: 'request' | 'increase'
+  ) {
+    const dto =
+      kind === 'request'
+        ? {
+            type: NotificationType.ORDER,
+            title: '⌛ Solicitud cancelada: garantía sin pagar',
+            message: `La garantía de Pago Protegido de "${serviceName}" no se pagó a tiempo, así que la solicitud se canceló.`,
+            link: '/service-requests',
+            metadata: { serviceName, kind },
+          }
+        : {
+            type: NotificationType.ORDER,
+            title: '⌛ Aumento de precio vencido',
+            message: `El aumento aprobado para "${serviceName}" no se pagó a tiempo y quedó sin efecto. La solicitud sigue con el precio y la garantía originales.`,
+            link: '/service-requests',
+            metadata: { serviceName, kind },
+          };
+    await this.createForUser(providerId, dto, { email: true });
+    if (clientId) await this.createForUser(clientId, dto, { email: true });
+  }
+
   async notifyServiceRequestCancelled(
     providerId: string,
     clientName: string,

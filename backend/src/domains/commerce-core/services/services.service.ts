@@ -54,6 +54,8 @@ import {
 // Plazo del cliente para confirmar o disputar después de que el proveedor
 // marca el trabajo terminado; luego se cierra solo.
 export const AUTO_CLOSE_AFTER_MS = 72 * 60 * 60 * 1000;
+// Plazo para pagar una garantía pendiente (Pago Protegido por operación).
+export const GUARANTEE_PAYMENT_WINDOW_MS = 72 * 60 * 60 * 1000;
 
 const SERVICE_SELECT = {
   id: true,
@@ -1523,6 +1525,108 @@ export class ServicesService {
       }
     }
     return { checked: due.length, closed };
+  }
+
+  // Cron: garantías que nadie pagó a tiempo. Sin esto la solicitud quedaba
+  // esperando para siempre y el proveedor no podía hacer nada.
+  // - Garantía inicial sin pagar: la solicitud se cancela (no hay dinero
+  //   retenido que devolver).
+  // - Aumento de precio aprobado sin pagar: la propuesta caduca y la
+  //   solicitud sigue con la garantía original (que sigue retenida).
+  // Las que tienen un pago reportado en revisión no se tocan.
+  async expireUnpaidGuarantees(now = new Date()) {
+    const cutoff = new Date(now.getTime() - GUARANTEE_PAYMENT_WINDOW_MS);
+    const inReview = await this.prisma.escrowFundingReport.findMany({
+      where: { sourceType: 'SERVICE_REQUEST', status: 'SUBMITTED' },
+      select: { sourceId: true },
+    });
+    const reviewing = new Set(inReview.map((r) => r.sourceId));
+
+    // Aumentos aprobados sin fondos.
+    const staleIncreases =
+      await this.prisma.serviceRequestPriceChangeProposal.findMany({
+        where: {
+          status: 'APPROVED_PENDING_FUNDS',
+          resolvedAt: { lte: cutoff },
+        },
+        include: { serviceRequest: true },
+        take: 200,
+      });
+    let increasesExpired = 0;
+    for (const p of staleIncreases) {
+      const req = p.serviceRequest;
+      if (reviewing.has(req.id) || req.escrowStatus !== 'PENDING_FUNDS')
+        continue;
+      await this.prisma.$transaction([
+        this.prisma.serviceRequestPriceChangeProposal.update({
+          where: { id: p.id },
+          data: { status: 'INVALIDATED' },
+        }),
+        this.prisma.serviceRequest.update({
+          where: { id: req.id },
+          data: { escrowStatus: 'HELD' },
+        }),
+      ]);
+      increasesExpired++;
+      this.notifications
+        .notifyGuaranteeExpired(
+          req.providerId,
+          req.requesterId,
+          req.serviceName,
+          'increase'
+        )
+        .catch(() => {});
+    }
+
+    // Garantía inicial sin pagar.
+    const stale = await this.prisma.serviceRequest.findMany({
+      where: {
+        status: 'CONTACTED',
+        escrowStatus: 'PENDING_FUNDS',
+        OR: [
+          { statusUpdatedAt: { lte: cutoff } },
+          { statusUpdatedAt: null, createdAt: { lte: cutoff } },
+        ],
+        priceChangeProposals: { none: { status: 'APPROVED_PENDING_FUNDS' } },
+      },
+      take: 200,
+    });
+    let cancelled = 0;
+    for (const req of stale) {
+      if (reviewing.has(req.id)) continue;
+      const changed = await this.prisma.serviceRequest.updateMany({
+        where: {
+          id: req.id,
+          status: 'CONTACTED',
+          escrowStatus: 'PENDING_FUNDS',
+        },
+        data: {
+          status: 'CANCELLED',
+          statusUpdatedAt: now,
+          escrowStatus: 'NONE',
+          escrowAmount: null,
+        },
+      });
+      if (changed.count !== 1) continue;
+      await this.prisma.serviceRequestStatusHistory.create({
+        data: {
+          serviceRequestId: req.id,
+          previousStatus: 'CONTACTED',
+          newStatus: 'CANCELLED',
+          changedBy: null,
+        },
+      });
+      cancelled++;
+      this.notifications
+        .notifyGuaranteeExpired(
+          req.providerId,
+          req.requesterId,
+          req.serviceName,
+          'request'
+        )
+        .catch(() => {});
+    }
+    return { cancelled, increasesExpired };
   }
 
   async disputeServiceRequest(id: string, userId: string, reason: string) {
