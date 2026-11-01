@@ -114,6 +114,9 @@ services:
       BASE_URL: http://test-frontend:3000
       API_URL: http://test-backend:3001
       CI: true
+      HOST_UID: ${HOST_UID:-1000}
+      HOST_GID: ${HOST_GID:-1000}
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     depends_on:
       test-backend:
         condition: service_healthy
@@ -123,6 +126,7 @@ services:
       - workplace-test-network
     volumes:
       - ./playwright-report:/app/playwright-report
+      - ./test-results:/app/test-results
     command: ["sh", "-c", "npx playwright test --reporter=html"]
     restart: "no"
 
