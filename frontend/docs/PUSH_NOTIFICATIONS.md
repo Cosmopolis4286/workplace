@@ -1,24 +1,43 @@
-# Plan: Push Notifications (Firebase Cloud Messaging)
+# Push Notifications (Firebase Cloud Messaging)
 
-> Estado: **cliente y backend (sin FCM) implementados**. Lo único pendiente es
-> la sección 3 (credenciales Firebase + envío real). El resto de este documento
-> describe lo ya implementado y lo que falta.
+> Estado: **implementado en código (app y backend)**. Solo falta configurar
+> Firebase (sección "Pasos para activarlo"). Sin credenciales el backend no
+> envía push y todo lo demás funciona igual.
 
-## Implementado (sin credenciales Firebase)
+## Cómo funciona
 
-- **Backend**: modelo `DeviceToken` (migración `20260612180000_add_device_tokens`),
-  endpoints `POST /api/notifications/device-token` (upsert por token) y
-  `DELETE /api/notifications/device-token` en `notifications.controller.ts` /
-  `notifications.service.ts`. `NotificationsService.create()` y `.createForUser()`
-  llaman a un stub privado `sendPush()` (no-op) — punto de integración listo para
-  cuando exista `firebase-admin`.
-- **Frontend**: `@capacitor/push-notifications` instalado;
-  `frontend/plugins/push-notifications.client.ts` — solo corre en nativo
-  (`Capacitor.isNativePlatform()`), pide permisos, registra el token FCM del
-  dispositivo vía `POST /notifications/device-token` cuando el usuario está
-  autenticado, navega via `pushNotificationActionPerformed` usando
-  `notification.data.link`, y elimina el token (`DELETE /notifications/device-token`)
-  al hacer logout (`watch(isAuthenticated)` dentro del propio plugin).
+- **App (APK)**: `frontend/plugins/push-notifications.client.ts` pide permiso,
+  crea el canal Android `default` (prioridad alta, con sonido), registra el token
+  del dispositivo en `POST /api/notifications/device-token` y, al tocar la
+  notificación, navega a `data.link`. Al cerrar sesión borra el token.
+- **Backend**: toda notificación de usuario (`NotificationsService.createForUser`)
+  y de comercio (`create`, al dueño) sale también por push vía
+  `PushService` (`backend/src/domains/engagement/notifications/push.service.ts`,
+  `firebase-admin`). Envía a todos los dispositivos del usuario y borra los
+  tokens que FCM ya no acepta (app desinstalada, token rotado).
+- **Email**: las notificaciones que piden una acción de la otra parte (solicitud
+  nueva, cambios de estado, garantía por pagar, disputas, aumento de precio,
+  corrida aceptada, perfil revisado) además se envían por correo.
+
+## Pasos para activarlo
+
+1. Crear un proyecto en [Firebase Console](https://console.firebase.google.com/)
+   y agregar una **app Android** con el `appId` de `capacitor.config.ts`.
+2. Descargar `google-services.json` y copiarlo en
+   `frontend/android/app/google-services.json` (la carpeta `android/` se genera
+   con `npx cap add android` y no se versiona). Recompilar la APK.
+3. En Firebase: *Configuración del proyecto → Cuentas de servicio → Generar nueva
+   clave privada*. Descarga un JSON.
+4. En el `.env` del backend (servidor), una de las dos opciones:
+   - `FIREBASE_SERVICE_ACCOUNT_JSON` con el contenido completo del JSON en una
+     sola línea; o
+   - `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` y `FIREBASE_PRIVATE_KEY`
+     (con los saltos de línea como `\n`).
+5. Reiniciar el backend. En el log debe aparecer `Push FCM activado`.
+6. Probar: iniciar sesión en la APK, cerrarla, y desde otra cuenta crear una
+   solicitud de servicio. Debe llegar la notificación y abrir `/service-requests`.
+
+## Historial del plan original
 
 ## Objetivo
 

@@ -1,40 +1,59 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verifica tu correo - WorkPlace Manager</title>
-  <style>
-    body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f3f4f6; }
-    .container { max-width: 480px; margin: 0 auto; background-color: #ffffff; padding: 32px; border-radius: 8px; }
-    h2 { color: #1f2937; margin-bottom: 16px; }
-    p { color: #4b5563; line-height: 1.6; margin-bottom: 16px; }
-    .button {
-      display: inline-block;
-      padding: 12px 24px;
-      background: #f97316;
-      color: #fff;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: 600;
-      margin: 16px 0;
-    }
-    .footer {
-      margin-top: 24px;
-      color: #6b7280;
-      font-size: 14px;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h2>Hola, {{firstName}}</h2>
-    <p>Gracias por registrarte en <strong>WorkPlace Manager</strong>.</p>
-    <p>Confirma tu correo electrónico haciendo clic en el botón. El enlace expira en <strong>24 horas</strong>.</p>
-    <a href="{{verifyUrl}}" class="button">Verificar correo</a>
-    <p class="footer">
-      Si no creaste esta cuenta, ignora este correo.
-    </p>
-  </div>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verifica tu correo - WorkPlace Manager</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f3f4f6;
+      }
+      .container {
+        max-width: 480px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        padding: 32px;
+        border-radius: 8px;
+      }
+      h2 {
+        color: #1f2937;
+        margin-bottom: 16px;
+      }
+      p {
+        color: #4b5563;
+        line-height: 1.6;
+        margin-bottom: 16px;
+      }
+      .button {
+        display: inline-block;
+        padding: 12px 24px;
+        background: #f97316;
+        color: #fff;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        margin: 16px 0;
+      }
+      .footer {
+        margin-top: 24px;
+        color: #6b7280;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Hola, {{firstName}}</h2>
+      <p>Gracias por registrarte en <strong>WorkPlace Manager</strong>.</p>
+      <p>
+        Confirma tu correo electrónico haciendo clic en el botón. El enlace
+        expira en <strong>24 horas</strong>.
+      </p>
+      <a href="{{verifyUrl}}" class="button">Verificar correo</a>
+      <p class="footer">Si no creaste esta cuenta, ignora este correo.</p>
+    </div>
+  </body>
 </html>

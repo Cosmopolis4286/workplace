@@ -38,6 +38,20 @@ export default defineNuxtPlugin(() => {
     const permission = await PushNotifications.requestPermissions()
     if (permission.receive !== 'granted') return
 
+    // Android 8+: el backend envía al canal "default" (prioridad alta, con
+    // sonido). Sin canal creado, Android lo muestra como silencioso.
+    if (Capacitor.getPlatform() === 'android') {
+      await PushNotifications.createChannel({
+        id: 'default',
+        name: 'Notificaciones',
+        description: 'Solicitudes, pagos y avisos de WorkPlace',
+        importance: 5,
+        visibility: 1,
+        sound: 'default',
+        vibration: true,
+      }).catch(() => {})
+    }
+
     await PushNotifications.register()
   }
 

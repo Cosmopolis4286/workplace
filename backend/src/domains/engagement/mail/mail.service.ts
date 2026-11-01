@@ -314,4 +314,41 @@ export class MailService {
       );
     }
   }
+
+  // Copia por email de una notificación importante (solicitud nueva, cambio de
+  // estado, disputa...): sin push real todavía, es la única forma de enterarse
+  // con la app cerrada. `link` es la ruta del frontend (ej. /service-requests).
+  async sendNotificationEmail(
+    email: string,
+    firstName: string,
+    title: string,
+    message: string,
+    link?: string
+  ) {
+    const base = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const url = link
+      ? `${base}${link.startsWith('/') ? '' : '/'}${link}`
+      : base;
+    try {
+      await this.transporter.sendMail({
+        from: this.fromAddress,
+        to: email,
+        subject: `${title} — WorkPlace Manager`,
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+            <h2>Hola, ${escapeHtml(firstName)}</h2>
+            <p style="font-size:16px"><strong>${escapeHtml(title)}</strong></p>
+            <p>${escapeHtml(message)}</p>
+            <p style="margin:24px 0">
+              <a href="${escapeHtml(url)}" style="background:#dc2626;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Ver en WorkPlace</a>
+            </p>
+          </div>
+        `,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Could not send notification email to ${email}: ${err.message}`
+      );
+    }
+  }
 }

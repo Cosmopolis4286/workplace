@@ -4,12 +4,20 @@ import { NotificationType } from '@prisma/client';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { RegisterDeviceTokenDto } from './dto/register-device-token.dto';
 import { NotificationsGateway } from './notifications.gateway';
+import { MailService } from '../mail/mail.service';
+import { PushService } from './push.service';
+
+// Notificaciones que además se mandan por email: las que exigen una acción
+// de la otra parte (sin push real, la app cerrada no se entera).
+type NotifyOptions = { email?: boolean };
 
 @Injectable()
 export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly gateway: NotificationsGateway
+    private readonly gateway: NotificationsGateway,
+    private readonly mail: MailService,
+    private readonly push: PushService
   ) {}
 
   // ── Create & broadcast ────────────────────────────────────────────────────
@@ -42,7 +50,11 @@ export class NotificationsService {
     return notification;
   }
 
-  async createForUser(userId: string, dto: CreateNotificationDto) {
+  async createForUser(
+    userId: string,
+    dto: CreateNotificationDto,
+    options: NotifyOptions = {}
+  ) {
     const notification = await this.prisma.notification.create({
       data: {
         userId,
@@ -57,7 +69,27 @@ export class NotificationsService {
     });
     this.gateway.broadcastToUser(userId, notification);
     await this.sendPush(userId, notification);
+    if (options.email) {
+      // Sin await: el SMTP no debe frenar la operación que notifica.
+      this.sendEmailCopy(userId, dto).catch(() => {});
+    }
     return notification;
+  }
+
+  private async sendEmailCopy(userId: string, dto: CreateNotificationDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, firstName: true, isActive: true },
+    });
+    // Cuentas desactivadas o eliminadas (email anonimizado *.invalid): nada.
+    if (!user || !user.isActive || user.email.endsWith('.invalid')) return;
+    await this.mail.sendNotificationEmail(
+      user.email,
+      user.firstName,
+      dto.title,
+      dto.message,
+      dto.link
+    );
   }
 
   async notifyNewServiceRequest(
@@ -65,13 +97,17 @@ export class NotificationsService {
     clientName: string,
     serviceName: string
   ) {
-    return this.createForUser(providerId, {
-      type: NotificationType.ORDER,
-      title: '📋 Nueva solicitud de servicio',
-      message: `${clientName} solicitó "${serviceName}"`,
-      link: '/service-requests',
-      metadata: { clientName, serviceName },
-    });
+    return this.createForUser(
+      providerId,
+      {
+        type: NotificationType.ORDER,
+        title: '📋 Nueva solicitud de servicio',
+        message: `${clientName} solicitó "${serviceName}"`,
+        link: '/service-requests',
+        metadata: { clientName, serviceName },
+      },
+      { email: true }
+    );
   }
 
   async notifyNewServiceRequestMessage(
@@ -116,13 +152,17 @@ export class NotificationsService {
       },
     };
     const copy = STATUS_COPY[status];
-    return this.createForUser(clientId, {
-      type: NotificationType.ORDER,
-      title: `${copy.icon} ${copy.title}`,
-      message: copy.message,
-      link: '/service-requests',
-      metadata: { providerName, serviceName, status },
-    });
+    return this.createForUser(
+      clientId,
+      {
+        type: NotificationType.ORDER,
+        title: `${copy.icon} ${copy.title}`,
+        message: copy.message,
+        link: '/service-requests',
+        metadata: { providerName, serviceName, status },
+      },
+      { email: true }
+    );
   }
 
   async notifyServiceRequestCancelled(
@@ -130,13 +170,17 @@ export class NotificationsService {
     clientName: string,
     serviceName: string
   ) {
-    return this.createForUser(providerId, {
-      type: NotificationType.ORDER,
-      title: '🚫 Solicitud cancelada',
-      message: `${clientName} canceló su solicitud de "${serviceName}"`,
-      link: '/service-requests',
-      metadata: { clientName, serviceName },
-    });
+    return this.createForUser(
+      providerId,
+      {
+        type: NotificationType.ORDER,
+        title: '🚫 Solicitud cancelada',
+        message: `${clientName} canceló su solicitud de "${serviceName}"`,
+        link: '/service-requests',
+        metadata: { clientName, serviceName },
+      },
+      { email: true }
+    );
   }
 
   // Standalone en vez de una variante más de notifyServiceRequestStatusChanged: a diferencia
@@ -147,13 +191,17 @@ export class NotificationsService {
     providerName: string,
     serviceName: string
   ) {
-    return this.createForUser(clientId, {
-      type: NotificationType.ORDER,
-      title: '❌ Solicitud rechazada',
-      message: `${providerName} no podrá atender tu solicitud de "${serviceName}". Puedes buscar otro proveedor.`,
-      link: '/service-requests',
-      metadata: { providerName, serviceName },
-    });
+    return this.createForUser(
+      clientId,
+      {
+        type: NotificationType.ORDER,
+        title: '❌ Solicitud rechazada',
+        message: `${providerName} no podrá atender tu solicitud de "${serviceName}". Puedes buscar otro proveedor.`,
+        link: '/service-requests',
+        metadata: { providerName, serviceName },
+      },
+      { email: true }
+    );
   }
 
   async notifyServiceRequestNoResponse(
@@ -216,13 +264,17 @@ export class NotificationsService {
   }
 
   async notifyRideAccepted(passengerId: string, driverName: string) {
-    return this.createForUser(passengerId, {
-      type: NotificationType.ORDER,
-      title: '🚗 Conductor asignado',
-      message: `${driverName} aceptó tu corrida y va en camino.`,
-      link: '/rides',
-      metadata: { driverName },
-    });
+    return this.createForUser(
+      passengerId,
+      {
+        type: NotificationType.ORDER,
+        title: '🚗 Conductor asignado',
+        message: `${driverName} aceptó tu corrida y va en camino.`,
+        link: '/rides',
+        metadata: { driverName },
+      },
+      { email: true }
+    );
   }
 
   async notifyRideStatusChanged(
@@ -480,13 +532,17 @@ export class NotificationsService {
     serviceName: string,
     amount: number
   ) {
-    return this.createForUser(clientId, {
-      type: NotificationType.SYSTEM,
-      title: '⚠️ Paga la garantía para continuar',
-      message: `${providerName} fijó el precio de "${serviceName}" en $${amount.toFixed(2)}. Paga la garantía de Pago Protegido desde la solicitud para continuar.`,
-      link: '/service-requests',
-      metadata: { providerName, serviceName, amount },
-    });
+    return this.createForUser(
+      clientId,
+      {
+        type: NotificationType.SYSTEM,
+        title: '⚠️ Paga la garantía para continuar',
+        message: `${providerName} fijó el precio de "${serviceName}" en $${amount.toFixed(2)}. Paga la garantía de Pago Protegido desde la solicitud para continuar.`,
+        link: '/service-requests',
+        metadata: { providerName, serviceName, amount },
+      },
+      { email: true }
+    );
   }
 
   async notifyEscrowHeld(
@@ -507,13 +563,17 @@ export class NotificationsService {
   // Notifica a la CONTRAPARTE (no a quien abrió la disputa) que la
   // transacción quedó congelada hasta que un admin la resuelva.
   async notifyEscrowDisputeOpened(counterpartyId: string, entityName: string) {
-    return this.createForUser(counterpartyId, {
-      type: NotificationType.SYSTEM,
-      title: '⚠️ Disputa abierta',
-      message: `Se abrió una disputa sobre "${entityName}" — la garantía retenida queda congelada hasta que el equipo de soporte la revise.`,
-      link: '/wallet',
-      metadata: { entityName },
-    });
+    return this.createForUser(
+      counterpartyId,
+      {
+        type: NotificationType.SYSTEM,
+        title: '⚠️ Disputa abierta',
+        message: `Se abrió una disputa sobre "${entityName}" — la garantía retenida queda congelada hasta que el equipo de soporte la revise.`,
+        link: '/wallet',
+        metadata: { entityName },
+      },
+      { email: true }
+    );
   }
 
   async notifyEscrowDisputeResolved(
@@ -521,13 +581,17 @@ export class NotificationsService {
     entityName: string,
     amount: number
   ) {
-    return this.createForUser(userId, {
-      type: NotificationType.SYSTEM,
-      title: '⚖️ Disputa resuelta',
-      message: `La disputa sobre "${entityName}" fue resuelta: se te acreditaron $${amount.toFixed(2)}.`,
-      link: '/wallet',
-      metadata: { entityName, amount },
-    });
+    return this.createForUser(
+      userId,
+      {
+        type: NotificationType.SYSTEM,
+        title: '⚖️ Disputa resuelta',
+        message: `La disputa sobre "${entityName}" fue resuelta: se te acreditaron $${amount.toFixed(2)}.`,
+        link: '/wallet',
+        metadata: { entityName, amount },
+      },
+      { email: true }
+    );
   }
 
   async notifyPriceChangeProposed(
@@ -536,13 +600,17 @@ export class NotificationsService {
     serviceName: string,
     deltaAmount: number
   ) {
-    return this.createForUser(clientId, {
-      type: NotificationType.SYSTEM,
-      title: '📋 Nueva propuesta de aumento de precio',
-      message: `${providerName} propuso agregar ítems a "${serviceName}" por un aumento de $${deltaAmount.toFixed(2)}. Revisa y aprueba o rechaza la propuesta.`,
-      link: '/service-requests',
-      metadata: { providerName, serviceName, deltaAmount },
-    });
+    return this.createForUser(
+      clientId,
+      {
+        type: NotificationType.SYSTEM,
+        title: '📋 Nueva propuesta de aumento de precio',
+        message: `${providerName} propuso agregar ítems a "${serviceName}" por un aumento de $${deltaAmount.toFixed(2)}. Revisa y aprueba o rechaza la propuesta.`,
+        link: '/service-requests',
+        metadata: { providerName, serviceName, deltaAmount },
+      },
+      { email: true }
+    );
   }
 
   async notifyPriceChangeApproved(
@@ -582,13 +650,17 @@ export class NotificationsService {
     serviceName: string,
     deltaAmount: number
   ) {
-    return this.createForUser(clientId, {
-      type: NotificationType.SYSTEM,
-      title: '⚠️ Paga la garantía del aumento aprobado',
-      message: `Aprobaste un aumento de $${deltaAmount.toFixed(2)} para "${serviceName}". Paga la garantía de ese monto desde la solicitud para retenerla.`,
-      link: '/service-requests',
-      metadata: { providerName, serviceName, deltaAmount },
-    });
+    return this.createForUser(
+      clientId,
+      {
+        type: NotificationType.SYSTEM,
+        title: '⚠️ Paga la garantía del aumento aprobado',
+        message: `Aprobaste un aumento de $${deltaAmount.toFixed(2)} para "${serviceName}". Paga la garantía de ese monto desde la solicitud para retenerla.`,
+        link: '/service-requests',
+        metadata: { providerName, serviceName, deltaAmount },
+      },
+      { email: true }
+    );
   }
 
   async notifyPriceChangeProposalInvalidated(
@@ -637,23 +709,31 @@ export class NotificationsService {
     rejectionReason?: string
   ) {
     if (status === 'ACTIVE') {
-      return this.createForUser(userId, {
-        type: NotificationType.SYSTEM,
-        title: `🎉 ¡Nuevo perfil activado: ${profileTypeLabel}!`,
-        message: `Tu solicitud para activar el perfil de ${profileTypeLabel} fue aprobada.`,
-        link: '/profile',
-        metadata: { status },
-      });
+      return this.createForUser(
+        userId,
+        {
+          type: NotificationType.SYSTEM,
+          title: `🎉 ¡Nuevo perfil activado: ${profileTypeLabel}!`,
+          message: `Tu solicitud para activar el perfil de ${profileTypeLabel} fue aprobada.`,
+          link: '/profile',
+          metadata: { status },
+        },
+        { email: true }
+      );
     }
-    return this.createForUser(userId, {
-      type: NotificationType.SYSTEM,
-      title: `❌ Solicitud de perfil ${profileTypeLabel} rechazada`,
-      message: rejectionReason
-        ? `Tu solicitud para activar el perfil de ${profileTypeLabel} fue rechazada: ${rejectionReason}`
-        : `Tu solicitud para activar el perfil de ${profileTypeLabel} fue rechazada.`,
-      link: '/profile',
-      metadata: { status, rejectionReason },
-    });
+    return this.createForUser(
+      userId,
+      {
+        type: NotificationType.SYSTEM,
+        title: `❌ Solicitud de perfil ${profileTypeLabel} rechazada`,
+        message: rejectionReason
+          ? `Tu solicitud para activar el perfil de ${profileTypeLabel} fue rechazada: ${rejectionReason}`
+          : `Tu solicitud para activar el perfil de ${profileTypeLabel} fue rechazada.`,
+        link: '/profile',
+        metadata: { status, rejectionReason },
+      },
+      { email: true }
+    );
   }
 
   async notifyNewReview(
@@ -817,15 +897,25 @@ export class NotificationsService {
     return { message: 'Token de dispositivo eliminado' };
   }
 
-  /**
-   * Envío real vía FCM pendiente de credenciales Firebase
-   * (ver frontend/docs/PUSH_NOTIFICATIONS.md). No-op por ahora.
-   */
+  // Push nativo (APK en segundo plano). Sin await: FCM no debe frenar la
+  // operación que notifica; PushService es un no-op sin credenciales Firebase.
   private async sendPush(
-    _userId: string,
-    _notification: { title: string; message: string }
+    userId: string,
+    notification: {
+      title: string;
+      message: string;
+      link?: string | null;
+      type?: string;
+    }
   ) {
-    return;
+    this.push
+      .sendToUser(userId, {
+        title: notification.title,
+        message: notification.message,
+        link: notification.link,
+        type: notification.type,
+      })
+      .catch(() => {});
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
