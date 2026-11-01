@@ -4,7 +4,7 @@
 
 - `main` es la única rama de larga vida y es producción (despliega con `deploy.yml`).
 - Trabajá en una rama corta creada desde `main` y abrí el PR contra `main`.
-- Completá la plantilla del PR. Los checks de `PR Validation` (runner self-hosted) tienen que quedar en verde.
+- Completá la plantilla del PR. Los checks de `PR Validation` (runners de GitHub) tienen que quedar en verde.
 
 ## Commits
 

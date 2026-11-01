@@ -18,7 +18,7 @@ Este repositorio utiliza una arquitectura **híbrida YAML + Shell** para CI/CD e
 │   └── validate-environment/ github-deployment/ notify/
 ├── workflows/
 │   ├── deploy.yml            # Producción (push a main / release)
-│   ├── pr-validation.yml     # Validación de cada PR a main (runner self-hosted)
+│   ├── pr-validation.yml     # Validación de cada PR a main (GitHub-hosted)
 │   └── README.md             # Esta documentación
 ├── ISSUE_TEMPLATE/           # Formularios de bug y propuesta
 ├── PULL_REQUEST_TEMPLATE.md
@@ -60,8 +60,8 @@ scripts/                      # Lógica de shell invocada por los workflows
 - 📦 Rollback automático si falla
 
 ### 2. `pr-validation.yml` - Validación de PRs
-**Trigger**: cada PR a `main` (y manual). Corre en el runner self-hosted
-(`CI_RUNNER_LABELS`, o `DEPLOY_RUNNER_LABELS` si no existe).
+**Trigger**: cada PR a `main` (y manual). Corre en runners de GitHub
+(`ubuntu-latest`); el runner self-hosted solo se usa en el deploy.
 - ✅ Type checking backend + trinquete de typecheck del frontend (bloqueante)
 - ✅ Linting
 - ✅ Security audit

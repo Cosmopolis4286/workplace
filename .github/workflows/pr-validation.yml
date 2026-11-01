@@ -1,9 +1,8 @@
 name: PR Validation
 
-# Corre en el runner self-hosted (no consume minutos de GitHub Actions). La
-# etiqueta sale de CI_RUNNER_LABELS o, si no existe, de DEPLOY_RUNNER_LABELS
-# (JSON; por defecto ["self-hosted"]). El repo es privado: no habilitar este
-# trigger con un runner propio si el repo pasa a ser público (forks).
+# Corre en runners hospedados por GitHub (ubuntu-latest): no depende de que
+# el runner propio esté encendido. El runner self-hosted queda solo para el
+# deploy (deploy.yml).
 on:
   pull_request:
     branches: [main]
@@ -30,23 +29,13 @@ jobs:
   # ─── Validación de código ──────────────────────────────────────────────────
   validate:
     name: Validar Código
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       # prisma validate/generate solo leen el schema, pero exigen que la
       # variable exista. No se conecta a ninguna base.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
-    - name: Recuperar permisos del workspace (runner self-hosted)
-      # Los contenedores de E2E pueden dejar archivos de root en el workspace
-      # y actions/checkout no podría borrarlos (EACCES).
-      if: runner.environment == 'self-hosted'
-      shell: bash
-      run: |
-        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
-          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
-            chown -R "$(id -u):$(id -g)" /w || true
-        fi
     - uses: actions/checkout@v7
 
     - uses: ./.github/actions/setup-node-pnpm
@@ -112,7 +101,7 @@ jobs:
   # una base de desarrollo con drift (ver 20260831004151_add_supplier).
   validate-migrations:
     name: Validar Migraciones
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
       postgres:
@@ -134,16 +123,6 @@ jobs:
       # prisma generate (en setup-node-pnpm) exige que exista; no conecta.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
-    - name: Recuperar permisos del workspace (runner self-hosted)
-      # Los contenedores de E2E pueden dejar archivos de root en el workspace
-      # y actions/checkout no podría borrarlos (EACCES).
-      if: runner.environment == 'self-hosted'
-      shell: bash
-      run: |
-        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
-          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
-            chown -R "$(id -u):$(id -g)" /w || true
-        fi
     - uses: actions/checkout@v7
 
     - uses: ./.github/actions/setup-node-pnpm
@@ -167,19 +146,9 @@ jobs:
 
   validate-frontend:
     name: Validar Frontend
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-    - name: Recuperar permisos del workspace (runner self-hosted)
-      # Los contenedores de E2E pueden dejar archivos de root en el workspace
-      # y actions/checkout no podría borrarlos (EACCES).
-      if: runner.environment == 'self-hosted'
-      shell: bash
-      run: |
-        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
-          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
-            chown -R "$(id -u):$(id -g)" /w || true
-        fi
     - uses: actions/checkout@v7
 
     - uses: ./.github/actions/setup-node-pnpm
@@ -199,20 +168,10 @@ jobs:
   # ─── Build de verificación Docker ─────────────────────────────────────────
   docker-build-check:
     name: Verificar Build Docker
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
+    runs-on: ubuntu-latest
     # El primer build en un runner sin caché tarda más de 15 min.
     timeout-minutes: 40
     steps:
-    - name: Recuperar permisos del workspace (runner self-hosted)
-      # Los contenedores de E2E pueden dejar archivos de root en el workspace
-      # y actions/checkout no podría borrarlos (EACCES).
-      if: runner.environment == 'self-hosted'
-      shell: bash
-      run: |
-        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
-          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
-            chown -R "$(id -u):$(id -g)" /w || true
-        fi
     - uses: actions/checkout@v7
     # Runner propio: driver "docker" = el daemon local y su caché de capas,
     # que persiste entre ejecuciones. En runners de GitHub, caché en GitHub
@@ -244,21 +203,11 @@ jobs:
   # ─── Escaneo de seguridad ──────────────────────────────────────────────────
   security-scan:
     name: Escaneo de Seguridad
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
+    runs-on: ubuntu-latest
     # La primera descarga de la base de Trivy en un runner propio es lenta;
     # después queda en ~/.cache/trivy.
     timeout-minutes: 30
     steps:
-    - name: Recuperar permisos del workspace (runner self-hosted)
-      # Los contenedores de E2E pueden dejar archivos de root en el workspace
-      # y actions/checkout no podría borrarlos (EACCES).
-      if: runner.environment == 'self-hosted'
-      shell: bash
-      run: |
-        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
-          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
-            chown -R "$(id -u):$(id -g)" /w || true
-        fi
     - uses: actions/checkout@v7
 
     # Runner propio: base de Trivy persistente en ~/.cache/trivy, y una
@@ -310,20 +259,10 @@ jobs:
   # las vulnerabilidades de dependencias las cubre `pnpm audit` en validate.
   dependency-review:
     name: Revisión de Dependencias
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
+    runs-on: ubuntu-latest
     if: ${{ github.event_name == 'pull_request' && !github.event.repository.private }}
     timeout-minutes: 10
     steps:
-    - name: Recuperar permisos del workspace (runner self-hosted)
-      # Los contenedores de E2E pueden dejar archivos de root en el workspace
-      # y actions/checkout no podría borrarlos (EACCES).
-      if: runner.environment == 'self-hosted'
-      shell: bash
-      run: |
-        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
-          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
-            chown -R "$(id -u):$(id -g)" /w || true
-        fi
     - uses: actions/checkout@v7
 
     - uses: actions/dependency-review-action@v5
@@ -333,7 +272,7 @@ jobs:
   # ─── Comentario de estado en el PR ────────────────────────────────────────
   notify:
     name: Comentar Estado en PR
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
+    runs-on: ubuntu-latest
     needs: [validate, validate-migrations, validate-frontend, docker-build-check, security-scan, dependency-review]
     # Sin comentario si el run se canceló (p.ej. lo reemplazó un push nuevo).
     if: ${{ !cancelled() && github.event_name == 'pull_request' }}
