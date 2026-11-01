@@ -37,6 +37,16 @@ jobs:
       # variable exista. No se conecta a ninguna base.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
 
     - uses: ./.github/actions/setup-node-pnpm
@@ -124,6 +134,16 @@ jobs:
       # prisma generate (en setup-node-pnpm) exige que exista; no conecta.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
 
     - uses: ./.github/actions/setup-node-pnpm
@@ -150,6 +170,16 @@ jobs:
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || vars.DEPLOY_RUNNER_LABELS || '["self-hosted"]') }}
     timeout-minutes: 20
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
 
     - uses: ./.github/actions/setup-node-pnpm
@@ -173,6 +203,16 @@ jobs:
     # El primer build en un runner sin caché tarda más de 15 min.
     timeout-minutes: 40
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     # Runner propio: driver "docker" = el daemon local y su caché de capas,
     # que persiste entre ejecuciones. En runners de GitHub, caché en GitHub
@@ -209,6 +249,16 @@ jobs:
     # después queda en ~/.cache/trivy.
     timeout-minutes: 30
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
 
     # Runner propio: base de Trivy persistente en ~/.cache/trivy, y una
@@ -264,6 +314,16 @@ jobs:
     if: ${{ github.event_name == 'pull_request' && !github.event.repository.private }}
     timeout-minutes: 10
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
 
     - uses: actions/dependency-review-action@v5

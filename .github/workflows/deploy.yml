@@ -60,6 +60,16 @@ jobs:
       production-ready: ${{ steps.validate.outputs.production-ready }}
       base-valid: ${{ steps.validate.outputs.base-secrets-valid }}
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - uses: ./.github/actions/validate-environment
       id: validate
@@ -83,6 +93,16 @@ jobs:
     # En el runner propio instalar dependencias ya lleva ~8 min.
     timeout-minutes: 30
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - uses: ./.github/actions/setup-tests
       with:
@@ -98,6 +118,16 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     timeout-minutes: 40
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - uses: ./.github/actions/setup-node-pnpm
       with:
@@ -133,6 +163,16 @@ jobs:
       packages: write
       security-events: write
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - uses: ./.github/actions/build-image
       with:
@@ -154,6 +194,16 @@ jobs:
       packages: write
       security-events: write
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - uses: ./.github/actions/build-image
       with:
@@ -184,6 +234,16 @@ jobs:
     environment:
       name: staging
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - uses: ./.github/actions/setup-ssh
       with:
@@ -217,6 +277,16 @@ jobs:
     if: needs.deploy-staging.result == 'success'
     timeout-minutes: 10
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - uses: ./.github/actions/smoke-test
       with:
@@ -247,6 +317,16 @@ jobs:
     outputs:
       deployment-id: ${{ steps.gh-deploy.outputs.deployment-id }}
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     
     - uses: ./.github/actions/github-deployment
@@ -310,6 +390,16 @@ jobs:
     if: always() && needs.deploy-prod.result == 'success'
     timeout-minutes: 10
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - uses: ./.github/actions/smoke-test
       with:
@@ -333,6 +423,16 @@ jobs:
       (needs.smoke-prod.result == 'success' || needs.smoke-prod.result == 'skipped')
     timeout-minutes: 10
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - uses: ./.github/actions/setup-ssh
       with:
@@ -353,6 +453,16 @@ jobs:
        (needs.deploy-prod.result == 'failure' && needs.smoke-prod.result == 'skipped'))
     timeout-minutes: 15
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - uses: ./.github/actions/setup-ssh
       with:
@@ -372,6 +482,16 @@ jobs:
     needs: [deploy-staging, smoke-staging, deploy-prod, smoke-prod, rollback-auto, rollback-manual]
     if: always()
     steps:
+    - name: Recuperar permisos del workspace (runner self-hosted)
+      # Los contenedores de E2E pueden dejar archivos de root en el workspace
+      # y actions/checkout no podría borrarlos (EACCES).
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        if [ -d "$GITHUB_WORKSPACE" ] && command -v docker >/dev/null 2>&1; then
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" alpine:3.20 \
+            chown -R "$(id -u):$(id -g)" /w || true
+        fi
     - uses: actions/checkout@v7
     - name: Calcular estado
       id: status

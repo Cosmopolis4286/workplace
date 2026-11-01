@@ -116,6 +116,8 @@ services:
       CI: true
       HOST_UID: ${HOST_UID:-1000}
       HOST_GID: ${HOST_GID:-1000}
+      # El UID del runner puede no existir en la imagen: HOME escribible.
+      HOME: /tmp
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     depends_on:
       test-backend:

@@ -2,11 +2,11 @@
 set -Eeuo pipefail
 
 # Colors for output
-RED='\\033[0;31m'
-GREEN='\\033[0;32m'
-YELLOW='\\033[1;33m'
-BLUE='\\033[0;34m'
-NC='\\033[0m' # No Color
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
 log() {
     echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')] CI-E2E:${NC} $1"
@@ -42,9 +42,9 @@ main() {
     trap cleanup EXIT
 
     log "🔧 Building optimized test images..."
-    docker build -t workplace-backend:test -f backend/Dockerfile.prod --target production .
-    docker build -t workplace-frontend:test -f frontend/Dockerfile.prod --target production .
-    docker build -t test-runner -f e2e-tests/Dockerfile.test ./e2e-tests
+    docker build -t workplace-backend:test -f ../backend/Dockerfile.prod --target production ..
+    docker build -t workplace-frontend:test -f ../frontend/Dockerfile.prod --target production ..
+    docker build -t test-runner -f Dockerfile.test .
 
     log "🌐 Setting up ultra-lightweight test environment..."
     docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 120 || {
