@@ -128,7 +128,6 @@ services:
       - workplace-test-network
     volumes:
       - ./playwright-report:/app/playwright-report
-      - ./test-results:/app/test-results
     command: ["sh", "-c", "npx playwright test --reporter=html"]
     restart: "no"
 
