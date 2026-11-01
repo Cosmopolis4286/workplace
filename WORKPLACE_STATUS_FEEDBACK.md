@@ -188,7 +188,7 @@ Primeros dos módulos del roadmap "WorkPlace Business Shield" (ver `WORKPLACE_VI
 
 - Sin reporte financiero exportable.
 - Paginación en memoria en 4 módulos (no en DB).
-- Archivos `.env` trackeados en git (riesgo de secretos versionados).
+- **Entorno:** en el árbol Git actual solo aparecen plantillas `.env.dev.example`, `.env.local.prod.example` y `backend/.env.test.example`; no aparecen archivos `.env` reales trackeados. Mantener la regla y comprobar con secret scanning que las plantillas no contengan credenciales reales.
 - Sin Sentry/logging estructurado en backend.
 - Sin backup de base de datos automatizado.
 - La FK real `Commerce.userId` sigue siendo 1:1 estricta (un usuario tiene como máximo un comercio). No se migra sin un caso de uso real de multi-ownership.
