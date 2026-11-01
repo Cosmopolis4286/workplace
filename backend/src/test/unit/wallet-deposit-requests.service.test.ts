@@ -34,6 +34,7 @@ describe('WalletDepositRequestsService', () => {
         findMany: jest.fn(),
         count: jest.fn(),
         create: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         update: jest
           .fn()
           .mockImplementation(({ data }: any) =>
@@ -84,17 +85,21 @@ describe('WalletDepositRequestsService', () => {
         })
       );
       expect(
+        mockPrismaService.walletDepositRequest.updateMany
+      ).toHaveBeenCalledWith({
+        where: { id: REQUEST_ID, status: 'PENDING' },
+        data: expect.objectContaining({
+          status: 'APPROVED',
+          reviewedBy: ADMIN_ID,
+        }),
+      });
+      expect(
         mockPrismaService.walletDepositRequest.update
-      ).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: 'APPROVED',
-            resultingTransactionId: 'tx-1',
-            reviewedBy: ADMIN_ID,
-          }),
-        })
-      );
-      expect(result.status).toBe('APPROVED');
+      ).toHaveBeenCalledWith({
+        where: { id: REQUEST_ID },
+        data: { resultingTransactionId: 'tx-1' },
+      });
+      expect(result!.resultingTransactionId).toBe('tx-1');
     });
 
     it('no llama a deposit() si la solicitud es rechazada', async () => {
@@ -109,15 +114,55 @@ describe('WalletDepositRequestsService', () => {
 
       expect(mockWalletsService.deposit).not.toHaveBeenCalled();
       expect(
-        mockPrismaService.walletDepositRequest.update
-      ).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: 'REJECTED',
-            rejectionReason: 'Comprobante ilegible',
-          }),
-        })
+        mockPrismaService.walletDepositRequest.updateMany
+      ).toHaveBeenCalledWith({
+        where: { id: REQUEST_ID, status: 'PENDING' },
+        data: expect.objectContaining({
+          status: 'REJECTED',
+          rejectionReason: 'Comprobante ilegible',
+        }),
+      });
+    });
+
+    it('dos aprobaciones simultáneas: solo una acredita', async () => {
+      mockPrismaService.walletDepositRequest.findUnique.mockResolvedValue(
+        pendingRequest()
       );
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.NORMAL });
+      mockPrismaService.walletDepositRequest.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+
+      const results = await Promise.allSettled([
+        service.review(REQUEST_ID, ADMIN_ID, { status: 'APPROVED' } as any),
+        service.review(REQUEST_ID, 'admin-2', { status: 'APPROVED' } as any),
+      ]);
+
+      expect(results.map((r) => r.status).sort()).toEqual([
+        'fulfilled',
+        'rejected',
+      ]);
+      expect(mockWalletsService.deposit).toHaveBeenCalledTimes(1);
+    });
+
+    it('si el depósito falla (tope de saldo), la solicitud vuelve a PENDING', async () => {
+      mockPrismaService.walletDepositRequest.findUnique.mockResolvedValue(
+        pendingRequest()
+      );
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.NORMAL });
+      (mockWalletsService.deposit as jest.Mock).mockRejectedValue(
+        new BadRequestException('La operación superaría el límite de saldo permitido')
+      );
+
+      await expect(
+        service.review(REQUEST_ID, ADMIN_ID, { status: 'APPROVED' } as any)
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(
+        mockPrismaService.walletDepositRequest.updateMany
+      ).toHaveBeenLastCalledWith({
+        where: { id: REQUEST_ID, status: 'APPROVED', resultingTransactionId: null },
+        data: { status: 'PENDING', reviewedBy: null, reviewedAt: null },
+      });
     });
 
     it('rechaza revisar una solicitud que ya no está PENDING (evita doble-acreditación)', async () => {

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { ProfileStatus, ProfileType, Role } from '@prisma/client';
 import { RedisService } from '../../../redis/redis.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 export interface WalletLimits {
   maxSingleTx: number; // Max per single transaction
@@ -10,8 +11,18 @@ export interface WalletLimits {
   dailyTransfers: number; // Max number of transfers per day
 }
 
-// Limits per role — admins get effectively unlimited
-const LIMITS_BY_ROLE: Record<string, WalletLimits> = {
+// Límites por tipo de cuenta — admins sin límite práctico. COMMERCE y
+// FREELANCER no son valores de Role: se deducen del perfil (ver
+// resolveTier). Antes se buscaban por Role y nunca coincidían, así que
+// comercios y profesionales quedaban con los límites de un cliente.
+export type WalletLimitTier =
+  | 'NORMAL'
+  | 'FREELANCER'
+  | 'COMMERCE'
+  | 'ADMIN'
+  | 'SUPERADMIN';
+
+const LIMITS_BY_ROLE: Record<WalletLimitTier, WalletLimits> = {
   NORMAL: {
     maxSingleTx: 500,
     dailyDebit: 1_000,
@@ -51,14 +62,45 @@ const LIMITS_BY_ROLE: Record<string, WalletLimits> = {
 
 @Injectable()
 export class WalletLimitsService {
-  constructor(private readonly redis: RedisService) {}
+  constructor(
+    private readonly redis: RedisService,
+    private readonly prisma: PrismaService
+  ) {}
 
-  getLimitsForRole(role: Role): WalletLimits {
-    return LIMITS_BY_ROLE[role] ?? LIMITS_BY_ROLE.NORMAL;
+  /**
+   * Tipo de cuenta para límites: admins por rol; dueño de comercio →
+   * COMMERCE; rol PROFESIONAL o perfil profesional activo → FREELANCER;
+   * el resto, NORMAL.
+   */
+  async resolveTier(userId: string, role: Role): Promise<WalletLimitTier> {
+    if (role === Role.SUPERADMIN || role === Role.ADMIN) return role;
+    const [commerce, professional] = await Promise.all([
+      this.prisma.commerce.findUnique({
+        where: { userId },
+        select: { id: true },
+      }),
+      role === Role.PROFESIONAL
+        ? Promise.resolve({ id: 'role' })
+        : this.prisma.userProfile.findFirst({
+            where: {
+              userId,
+              type: ProfileType.PROFESSIONAL,
+              status: ProfileStatus.ACTIVE,
+            },
+            select: { id: true },
+          }),
+    ]);
+    if (commerce) return 'COMMERCE';
+    if (professional) return 'FREELANCER';
+    return 'NORMAL';
+  }
+
+  async getLimitsFor(userId: string, role: Role): Promise<WalletLimits> {
+    return LIMITS_BY_ROLE[await this.resolveTier(userId, role)];
   }
 
   async assertSingleTxLimit(userId: string, role: Role, amount: number) {
-    const { maxSingleTx } = this.getLimitsForRole(role);
+    const { maxSingleTx } = await this.getLimitsFor(userId, role);
     if (amount > maxSingleTx) {
       throw new BadRequestException(
         `El monto máximo por transacción es ${maxSingleTx} para tu tipo de cuenta`
@@ -67,7 +109,7 @@ export class WalletLimitsService {
   }
 
   async assertDailyDebitLimit(userId: string, role: Role, amount: number) {
-    const { dailyDebit } = this.getLimitsForRole(role);
+    const { dailyDebit } = await this.getLimitsFor(userId, role);
     const used = await this.getDailyDebitUsed(userId);
     if (used + amount > dailyDebit) {
       throw new BadRequestException(
@@ -77,7 +119,7 @@ export class WalletLimitsService {
   }
 
   async assertMonthlyDebitLimit(userId: string, role: Role, amount: number) {
-    const { monthlyDebit } = this.getLimitsForRole(role);
+    const { monthlyDebit } = await this.getLimitsFor(userId, role);
     const used = await this.getMonthlyDebitUsed(userId);
     if (used + amount > monthlyDebit) {
       throw new BadRequestException(
@@ -87,7 +129,7 @@ export class WalletLimitsService {
   }
 
   async assertBalanceLimit(userId: string, role: Role, newBalance: number) {
-    const { maxBalance } = this.getLimitsForRole(role);
+    const { maxBalance } = await this.getLimitsFor(userId, role);
     if (newBalance > maxBalance) {
       throw new BadRequestException(
         `El saldo no puede superar ${maxBalance} para tu tipo de cuenta`
@@ -96,7 +138,7 @@ export class WalletLimitsService {
   }
 
   async assertDailyTransferLimit(userId: string, role: Role) {
-    const { dailyTransfers } = this.getLimitsForRole(role);
+    const { dailyTransfers } = await this.getLimitsFor(userId, role);
     const used = await this.getDailyTransferCount(userId);
     if (used >= dailyTransfers) {
       throw new BadRequestException(
@@ -129,7 +171,7 @@ export class WalletLimitsService {
   }
 
   async getLimitsStatus(userId: string, role: Role) {
-    const limits = this.getLimitsForRole(role);
+    const limits = await this.getLimitsFor(userId, role);
     const [dailyDebitUsed, monthlyDebitUsed, dailyTransferCount] =
       await Promise.all([
         this.getDailyDebitUsed(userId),

@@ -211,7 +211,7 @@ export class WalletsService {
     this.assertPositiveAmount(dto.amount);
 
     // Balance ceiling check against current balance (pre-transaction check; atomic guard inside tx)
-    const limits = await this.limitsService.getLimitsForRole(role);
+    const limits = await this.limitsService.getLimitsFor(userId, role);
     await this.limitsService.assertBalanceLimit(
       userId,
       role,
