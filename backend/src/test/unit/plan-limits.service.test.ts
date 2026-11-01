@@ -16,6 +16,7 @@ describe('PlanLimitsService', () => {
     commerce: { findUnique: jest.fn() },
     product: { count: jest.fn() },
     sellerStatement: { count: jest.fn().mockResolvedValue(0) },
+    sellerPaymentAccount: { count: jest.fn().mockResolvedValue(1) },
     employee: { count: jest.fn() },
     branch: { count: jest.fn() },
     order: { count: jest.fn() },
@@ -454,6 +455,30 @@ describe('PlanLimitsService', () => {
         'estado de cuenta vencido'
       );
       expect(mockPrismaService.product.count).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cuenta de cobro', () => {
+    it('no deja publicar ni reactivar servicios sin una cuenta de cobro activa', async () => {
+      mockPrismaService.sellerPaymentAccount.count.mockResolvedValueOnce(0);
+      await expect(service.assertServiceLimit('u1')).rejects.toThrow(
+        'Agrega una cuenta de cobro'
+      );
+      expect(mockPrismaService.sellerPaymentAccount.count).toHaveBeenCalledWith(
+        { where: { userId: 'u1', isActive: true } }
+      );
+    });
+
+    it('los productos (inventario del comercio) no la exigen', async () => {
+      mockPrismaService.sellerPaymentAccount.count.mockResolvedValue(0);
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: Role.NORMAL,
+        categoryId: null,
+      });
+      await expect(
+        service.assertProductLimit('u1', 'c1')
+      ).resolves.toBeUndefined();
+      mockPrismaService.sellerPaymentAccount.count.mockResolvedValue(1);
     });
   });
 
