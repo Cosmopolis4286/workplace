@@ -75,6 +75,15 @@
           @filter="setTxFilter"
           @page="goTxPage"
         />
+
+        <WalletWithdrawalsList
+          v-if="wallet"
+          :withdrawals="withdrawals"
+          :format-money="formatMoney"
+          :format-date-time="formatDateTime"
+        />
+
+        <SellerPaymentAccountsCard v-if="wallet" scope="payout" @saved="onAccountsSaved" />
       </section>
 
       <WalletSidebar
@@ -95,6 +104,7 @@
       :loading="loading"
       :modal-error="modalError"
       :format-money="formatMoney"
+      :payout-accounts="payoutAccounts"
       @close="closeModal"
       @deposit-request="handleDepositRequest"
       @withdraw="handleWithdraw"
@@ -122,6 +132,10 @@ import WalletCard from '~/components/wallet/WalletCard.vue'
 import WalletTransactionsList from '~/components/wallet/WalletTransactionsList.vue'
 import WalletSidebar from '~/components/wallet/WalletSidebar.vue'
 import WalletModals from '~/components/wallet/WalletModals.vue'
+import WalletWithdrawalsList from '~/components/wallet/WalletWithdrawalsList.vue'
+import SellerPaymentAccountsCard from '~/components/settings/SellerPaymentAccountsCard.vue'
+import { useWalletWithdrawals, type WalletWithdrawal } from '~/composables/wallets/useWalletWithdrawals'
+import { useDirectPayments, type SellerPaymentAccount } from '~/composables/payments/useDirectPayments'
 import { useWallets, type WalletTransactionType } from '~/composables/wallets/useWallets'
 import { useWalletDepositRequests } from '~/composables/wallets/useWalletDepositRequests'
 import { useDateFormat } from '~/composables/core/useDateFormat'
@@ -141,6 +155,23 @@ const {
 } = useWallets()
 
 const { create: createDepositRequest } = useWalletDepositRequests()
+const withdrawalsApi = useWalletWithdrawals()
+const directPayments = useDirectPayments()
+const withdrawals = ref<WalletWithdrawal[]>([])
+const payoutAccounts = ref<SellerPaymentAccount[]>([])
+
+async function loadWithdrawals() {
+  try { withdrawals.value = await withdrawalsApi.listMine() } catch { withdrawals.value = [] }
+}
+async function loadPayoutAccounts() {
+  try {
+    payoutAccounts.value = (await directPayments.listMyAccounts()).filter(a => a.isActive)
+  } catch { payoutAccounts.value = [] }
+}
+function onAccountsSaved(message: string) {
+  showToast('success', message)
+  loadPayoutAccounts()
+}
 
 // ── Filters ──────────────────────────────────────────────────────────────────────
 const txFilters: { label: string; value: WalletTransactionType | undefined }[] = [
@@ -213,11 +244,17 @@ async function handleDepositRequest(payload: { amount: number; paymentMethod: st
   } catch (e: any) { modalError.value = getApiErrorMessage(e, 'Error al enviar la solicitud') }
 }
 
-async function handleWithdraw(payload: { amount: number; pin: string; description: string }) {
+async function handleWithdraw(payload: { amount: number; pin: string; description: string; payoutAccountId: string }) {
   modalError.value = null
   try {
-    await withdraw({ amount: payload.amount, pin: payload.pin, description: payload.description || undefined })
-    closeModal(); showToast('success', `Retiro de ${formatMoney(payload.amount, wallet.value?.currency)} realizado`)
+    await withdraw({
+      amount: payload.amount,
+      pin: payload.pin,
+      description: payload.description || undefined,
+      payoutAccountId: payload.payoutAccountId,
+    })
+    await loadWithdrawals()
+    closeModal(); showToast('success', `Retiro de ${formatMoney(payload.amount, wallet.value?.currency)} solicitado. Te avisaremos cuando se transfiera.`)
   } catch (e: any) {
     modalError.value = e?.message ?? 'Error al retirar'
     modalsRef.value?.resetConfirm()
@@ -255,7 +292,7 @@ async function handlePin(payload: { pin: string; pinConfirm: string; currentPin:
 // ── Lifecycle ─────────────────────────────────────────────────────────────────────
 async function reload() {
   const w = await fetchMyWallet()
-  if (w) await Promise.allSettled([fetchMyTransactions(1, 20, txFilter.value), fetchMyLimits()])
+  if (w) await Promise.allSettled([fetchMyTransactions(1, 20, txFilter.value), fetchMyLimits(), loadWithdrawals(), loadPayoutAccounts()])
 }
 async function handleCreate() { await createMyWallet('USD'); await fetchMyTransactions() }
 

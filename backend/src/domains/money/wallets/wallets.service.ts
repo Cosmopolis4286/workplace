@@ -22,7 +22,6 @@ import { QueryWalletTransactionsDto } from './dto/query-wallet-transactions.dto'
 import { DepositDto } from './dto/deposit.dto';
 import { WithdrawDto } from './dto/withdraw.dto';
 import { TransferDto } from './dto/transfer.dto';
-import { PaymentDto } from './dto/payment.dto';
 import { AdjustDto } from './dto/adjust.dto';
 import { SetPinDto, ChangePinDto } from './dto/set-pin.dto';
 import { ESCROW_SYSTEM_USER_EMAIL } from './escrow-system-user.const';
@@ -270,6 +269,10 @@ export class WalletsService {
     return this.moduleRef.get(SERVICES_FACADE, { strict: false });
   }
 
+  // Solicita un retiro: descuenta el saldo y deja la solicitud PENDING para
+  // que un admin transfiera a la cuenta elegida (WalletWithdrawalsService).
+  // Antes solo se debitaba "Retiro" y el dinero desaparecía del libro sin que
+  // nadie supiera que había que pagarlo.
   async withdraw(userId: string, role: Role, dto: WithdrawDto) {
     // Idempotency before PIN so a replay doesn't consume another PIN attempt
     if (dto.idempotencyKey) {
@@ -287,11 +290,32 @@ export class WalletsService {
     this.assertPositiveAmount(dto.amount);
     this.assertSufficientFunds(wallet.balance, dto.amount);
 
+    const account = await this.prisma.sellerPaymentAccount.findFirst({
+      where: { id: dto.payoutAccountId, userId, isActive: true },
+    });
+    if (!account) {
+      throw new BadRequestException(
+        'Elige una cuenta de cobro activa para recibir el retiro'
+      );
+    }
+
     await Promise.all([
       this.limitsService.assertSingleTxLimit(userId, role, dto.amount),
       this.limitsService.assertDailyDebitLimit(userId, role, dto.amount),
       this.limitsService.assertMonthlyDebitLimit(userId, role, dto.amount),
     ]);
+
+    const destination = {
+      method: account.method,
+      currency: account.currency,
+      bankCode: account.bankCode,
+      bankName: account.bankName,
+      holderName: account.holderName,
+      holderDocument: account.holderDocument,
+      phone: account.phone,
+      accountNumber: account.accountNumber,
+      email: account.email,
+    };
 
     const result = await this.prisma.$transaction(async (tx) => {
       // Atomic debit: WHERE balance >= amount prevents double-spend race
@@ -305,6 +329,7 @@ export class WalletsService {
       `;
       if (!row) throw new BadRequestException('Saldo insuficiente');
 
+      const withdrawalId = uuidv4();
       const transaction = await tx.walletTransaction.create({
         data: {
           walletId: wallet.id,
@@ -313,12 +338,28 @@ export class WalletsService {
           status: WalletTransactionStatus.COMPLETED,
           amount: dto.amount,
           balanceAfter: row.new_balance,
-          description: dto.description ?? 'Retiro',
-          reference: dto.reference ?? dto.idempotencyKey,
-          metadata: dto.metadata,
+          description: dto.description ?? 'Retiro solicitado',
+          reference: `WITHDRAWAL-${withdrawalId}`,
+          metadata: { ...dto.metadata, withdrawalId },
         },
       });
-      return { wallet: { ...wallet, balance: row.new_balance }, transaction };
+      const withdrawal = await tx.walletWithdrawalRequest.create({
+        data: {
+          id: withdrawalId,
+          userId,
+          walletId: wallet.id,
+          amount: dto.amount,
+          currency: wallet.currency,
+          payoutAccountId: account.id,
+          destination,
+          debitTransactionId: transaction.id,
+        },
+      });
+      return {
+        wallet: { ...wallet, balance: row.new_balance },
+        transaction,
+        withdrawal,
+      };
     });
 
     // Record limits after commit — best-effort; loss is acceptable (limits are soft caps)
@@ -446,73 +487,6 @@ export class WalletsService {
         'transfer',
         result
       );
-    }
-    return result;
-  }
-
-  async payment(userId: string, role: Role, dto: PaymentDto) {
-    // Idempotency before PIN so a replay doesn't consume another PIN attempt
-    if (dto.idempotencyKey) {
-      const cached = await this.getIdempotent(
-        dto.idempotencyKey,
-        userId,
-        'payment'
-      );
-      if (cached) return cached;
-    }
-
-    await this.pinService.verifyPin(userId, dto.pin);
-
-    const { wallet } = await this.getActiveWallet(userId);
-    this.assertPositiveAmount(dto.amount);
-    this.assertSufficientFunds(wallet.balance, dto.amount);
-
-    await Promise.all([
-      this.limitsService.assertSingleTxLimit(userId, role, dto.amount),
-      this.limitsService.assertDailyDebitLimit(userId, role, dto.amount),
-    ]);
-
-    const ref = dto.orderId
-      ? `PAY-ORDER-${dto.orderId}`
-      : dto.serviceRequestId
-        ? `PAY-SVC-${dto.serviceRequestId}`
-        : `PAY-${Date.now()}`;
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const [row] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
-        UPDATE "wallets"
-        SET balance = balance - ${sqlNumeric(dto.amount)}::numeric,
-            "updatedAt" = NOW()
-        WHERE id = ${wallet.id}
-          AND balance >= ${sqlNumeric(dto.amount)}::numeric
-        RETURNING balance AS new_balance
-      `;
-      if (!row) throw new BadRequestException('Saldo insuficiente');
-
-      const transaction = await tx.walletTransaction.create({
-        data: {
-          walletId: wallet.id,
-          userId,
-          type: WalletTransactionType.DEBIT,
-          status: WalletTransactionStatus.COMPLETED,
-          amount: dto.amount,
-          balanceAfter: row.new_balance,
-          description: dto.description ?? 'Pago con billetera',
-          reference: ref,
-          metadata: {
-            orderId: dto.orderId,
-            serviceRequestId: dto.serviceRequestId,
-            ...dto.metadata,
-          },
-        },
-      });
-      return { wallet: { ...wallet, balance: row.new_balance }, transaction };
-    });
-
-    await this.limitsService.recordDebit(userId, dto.amount);
-
-    if (dto.idempotencyKey) {
-      await this.setIdempotent(dto.idempotencyKey, userId, 'payment', result);
     }
     return result;
   }

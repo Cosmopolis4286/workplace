@@ -19,13 +19,13 @@ export class WithdrawDto {
   @Matches(/^\d{6}$/, { message: 'El PIN debe ser de 6 dígitos numéricos' })
   pin: string;
 
-  @IsOptional()
-  @IsString()
-  description?: string;
+  // Cuenta propia (SellerPaymentAccount activa) a la que el admin transferirá.
+  @IsUUID()
+  payoutAccountId: string;
 
   @IsOptional()
   @IsString()
-  reference?: string;
+  description?: string;
 
   @IsOptional()
   @IsUUID()

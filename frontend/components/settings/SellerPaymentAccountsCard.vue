@@ -150,7 +150,7 @@ import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 // scope="platform": cuentas donde la PLATAFORMA cobra los estados de cuenta
 // de los vendedores (admin). Mismo formulario y validaciones, otros endpoints.
-const props = withDefaults(defineProps<{ scope?: 'seller' | 'platform' }>(), { scope: 'seller' })
+const props = withDefaults(defineProps<{ scope?: 'seller' | 'platform' | 'payout' }>(), { scope: 'seller' })
 const emit = defineEmits<{ saved: [message: string] }>()
 
 const COPY = {
@@ -160,6 +160,13 @@ const COPY = {
     holderHint: 'El titular debe ser tuyo o de tu negocio.',
     emptyTitle: 'Todavía no tienes cuentas de cobro',
     emptyHint: 'Sin una cuenta, tus clientes no pueden pagarte desde la app.',
+  },
+  payout: {
+    title: 'Cuentas para retiros',
+    subtitle: 'Cuentas propias donde recibes el dinero que retiras de tu billetera',
+    holderHint: 'El titular debe ser tuyo (mismo documento de tu verificación de identidad).',
+    emptyTitle: 'Todavía no tienes cuentas para retiros',
+    emptyHint: 'Agrega una para poder retirar saldo de tu billetera.',
   },
   platform: {
     title: 'Cuentas de cobro de la plataforma',

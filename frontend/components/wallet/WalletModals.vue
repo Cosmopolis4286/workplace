@@ -44,12 +44,20 @@
             </ModalHeader>
             <form class="space-y-4" @submit.prevent="confirmingWithdraw = true">
               <AmountField v-model="form.amount" :currency="wallet?.currency" :max="wallet?.balance" />
+              <div>
+                <label class="field-label">Cuenta donde recibes el retiro</label>
+                <select v-if="payoutAccounts.length" v-model="form.payoutAccountId" class="input" required>
+                  <option value="" disabled>Elige una cuenta</option>
+                  <option v-for="a in payoutAccounts" :key="a.id" :value="a.id">{{ accountLabel(a) }}</option>
+                </select>
+                <p v-else class="text-xs text-amber-700">Primero agrega una cuenta en «Cuentas para retiros», más abajo en esta página.</p>
+              </div>
               <div><label class="field-label">Descripción</label><input v-model="form.description" type="text" class="input" placeholder="Ej. Retiro a cuenta bancaria" /></div>
               <PinField v-model="form.pin" />
               <div v-if="confirmingWithdraw" class="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2">
                 <p class="text-xs text-amber-800 font-medium">
                   ¿Confirmas retirar <strong>{{ formatMoney(form.amount ?? 0, wallet?.currency) }}</strong>?
-                  Esta acción no se puede deshacer.
+                  Se descuenta de tu saldo ahora y un admin lo transfiere a tu cuenta. Si no se puede pagar, vuelve a tu billetera.
                 </p>
                 <div class="flex justify-end gap-2">
                   <button type="button" class="btn-secondary text-xs py-1.5 px-3" :disabled="loading" @click="confirmingWithdraw = false">Cancelar</button>
@@ -131,6 +139,7 @@ import PinField from '~/components/wallet/modal-fields/PinField.vue'
 import ModalError from '~/components/wallet/modal-fields/ModalError.vue'
 import ModalActions from '~/components/wallet/modal-fields/ModalActions.vue'
 import type { Wallet } from '~/composables/wallets/useWallets'
+import { DIRECT_PAYMENT_METHOD_LABELS, type SellerPaymentAccount } from '~/composables/payments/useDirectPayments'
 
 type ModalType = 'deposit' | 'withdraw' | 'transfer' | 'pin'
 
@@ -140,12 +149,13 @@ const props = defineProps<{
   loading: boolean
   modalError: string | null
   formatMoney: (amount: number, currency?: string) => string
+  payoutAccounts: SellerPaymentAccount[]
 }>()
 
 const emit = defineEmits<{
   close: []
   'deposit-request': [payload: { amount: number; paymentMethod: string; reference: string; proofImage: File }]
-  withdraw: [payload: { amount: number; pin: string; description: string }]
+  withdraw: [payload: { amount: number; pin: string; description: string; payoutAccountId: string }]
   transfer: [payload: { recipientUserId: string; amount: number; pin: string; description: string }]
   'pin-submit': [payload: { pin: string; pinConfirm: string; currentPin: string }]
 }>()
@@ -154,7 +164,7 @@ const emptyForm = () => ({
   amount: undefined as number | undefined,
   description: '', reference: '', paymentMethod: '',
   pin: '', pinConfirm: '', currentPin: '',
-  recipientUserId: '',
+  recipientUserId: '', payoutAccountId: '',
 })
 
 const form = ref(emptyForm())
@@ -184,9 +194,19 @@ function submitDeposit() {
   })
 }
 
+function accountLabel(a: SellerPaymentAccount) {
+  const where = a.method === 'ZELLE' ? a.email : a.method === 'PAGO_MOVIL' ? a.phone : a.accountNumber
+  return `${DIRECT_PAYMENT_METHOD_LABELS[a.method]} · ${a.bankName ?? ''} ${where ?? ''} · ${a.holderName}`.replace(/\s+/g, ' ')
+}
+
 function submitWithdraw() {
-  if (!form.value.amount || !form.value.pin || props.loading) return
-  emit('withdraw', { amount: form.value.amount, pin: form.value.pin, description: form.value.description })
+  if (!form.value.amount || !form.value.pin || !form.value.payoutAccountId || props.loading) return
+  emit('withdraw', {
+    amount: form.value.amount,
+    pin: form.value.pin,
+    description: form.value.description,
+    payoutAccountId: form.value.payoutAccountId,
+  })
 }
 
 function submitTransfer() {

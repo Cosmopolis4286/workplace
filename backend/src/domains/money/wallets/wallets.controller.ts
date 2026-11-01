@@ -27,7 +27,6 @@ import { CreateWalletDto } from './dto/create-wallet.dto';
 import { QueryWalletTransactionsDto } from './dto/query-wallet-transactions.dto';
 import { WithdrawDto } from './dto/withdraw.dto';
 import { TransferDto } from './dto/transfer.dto';
-import { PaymentDto } from './dto/payment.dto';
 import { AdjustDto } from './dto/adjust.dto';
 import { SetPinDto, ChangePinDto } from './dto/set-pin.dto';
 
@@ -148,18 +147,6 @@ export class WalletsController {
   })
   transfer(@CurrentUser() user: any, @Body() dto: TransferDto) {
     return this.walletsService.transfer(user.id, user.role, dto);
-  }
-
-  @Post('me/payment')
-  @RequirePermission('wallets:use')
-  @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
-  @RateLimit({
-    windowMs: 60_000,
-    maxRequests: 10,
-    keyGenerator: (req) => `wallet:payment:${(req as any).user?.id}`,
-  })
-  payment(@CurrentUser() user: any, @Body() dto: PaymentDto) {
-    return this.walletsService.payment(user.id, user.role, dto);
   }
 
   // ─── Admin – all wallets ──────────────────────────────────────────────────────

@@ -82,8 +82,8 @@ export interface DepositPayload {
 export interface WithdrawPayload {
   amount: number
   pin: string
+  payoutAccountId: string
   description?: string
-  reference?: string
   idempotencyKey?: string
 }
 
@@ -91,15 +91,6 @@ export interface TransferPayload {
   recipientUserId: string
   amount: number
   pin: string
-  description?: string
-  idempotencyKey?: string
-}
-
-export interface PaymentPayload {
-  amount: number
-  pin: string
-  orderId?: string
-  serviceRequestId?: string
   description?: string
   idempotencyKey?: string
 }
@@ -259,19 +250,6 @@ export function useWallets() {
     } finally { loading.value = false }
   }
 
-  async function payment(payload: PaymentPayload) {
-    loading.value = true; error.value = null
-    try {
-      const result = await post<{ wallet: Wallet; transaction: WalletTransaction }>('/wallets/me/payment', payload)
-      wallet.value = { ...wallet.value!, ...result.wallet }
-      transactions.value = [result.transaction, ...transactions.value]
-      transactionsMeta.value.total++
-      return result
-    } catch (e: any) {
-      error.value = e?.message ?? 'No se pudo procesar el pago'; throw e
-    } finally { loading.value = false }
-  }
-
   async function fetchWallets(page = 1, limit = 20) {
     const res = await get<Paginated<Wallet>>(`/wallets?page=${page}&limit=${limit}`)
     wallets.value = res.data
@@ -330,7 +308,6 @@ export function useWallets() {
     removePin,
     withdraw,
     transfer,
-    payment,
     fetchWallets,
     fetchEscrowReconciliation,
     createUserWallet,

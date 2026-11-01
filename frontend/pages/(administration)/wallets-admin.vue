@@ -9,6 +9,8 @@
       :stats="headerStats"
     />
 
+    <AdminWithdrawalsQueue />
+
     <!-- Reconciliación de escrow: saldo real de la wallet de plataforma vs. lo
          que debería haber retenido según las solicitudes con garantía activa -->
     <div
@@ -163,6 +165,7 @@ import { BanknotesIcon, XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon } fr
 import { useWallets, type Wallet, type EscrowReconciliation } from '~/composables/wallets/useWallets'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import AdminWithdrawalsQueue from '~/components/wallet/AdminWithdrawalsQueue.vue'
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
 const {
