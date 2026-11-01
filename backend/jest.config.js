@@ -21,12 +21,14 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
+  // Trinquete: justo por debajo de la cobertura actual (oct-2026: 35% líneas,
+  // 37% ramas, 29% funciones). Subirlo cuando suba la cobertura, nunca bajarlo.
   coverageThreshold: {
     global: {
-      branches: 3,
-      functions: 3.5,
-      lines: 5,
-      statements: 5,
+      branches: 35,
+      functions: 27,
+      lines: 33,
+      statements: 33,
     },
   },
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],

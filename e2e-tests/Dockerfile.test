@@ -14,7 +14,7 @@ COPY playwright.config.ts ./
 RUN npm install
 
 # Crear directorio para reportes
-RUN mkdir -p /app/playwright-report
+RUN mkdir -p /app/playwright-report /app/test-results && chmod -R 777 /app/playwright-report /app/test-results
 
 # Exponer puerto para debug
 EXPOSE 9323
