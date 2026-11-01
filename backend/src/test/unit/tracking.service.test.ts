@@ -97,6 +97,25 @@ describe('TrackingService', () => {
       expect(result).toHaveLength(1);
     });
 
+    it('nunca le devuelve al repartidor el código de entrega del cliente', async () => {
+      mockPrismaService.driver.findUnique.mockResolvedValue({
+        id: 'driver-1',
+        userId: 'driver-user-1',
+      });
+      mockPrismaService.delivery.findMany.mockResolvedValue([
+        {
+          id: 'delivery-1',
+          status: DeliveryStatus.IN_TRANSIT,
+          deliveryCode: '4821',
+        },
+      ]);
+
+      const [d] = await service.findMyActiveDeliveries('driver-user-1');
+
+      expect(d).not.toHaveProperty('deliveryCode');
+      expect(d).toMatchObject({ id: 'delivery-1', hasDeliveryCode: true });
+    });
+
     it('returns an empty list when the user has no linked Driver profile', async () => {
       mockPrismaService.driver.findUnique.mockResolvedValue(null);
 

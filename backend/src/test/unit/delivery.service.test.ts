@@ -111,6 +111,7 @@ describe('DeliveryService — driver invitations & assignability', () => {
 
     mockNotificationsService = {
       notifyDriverInvitationAccepted: jest.fn().mockResolvedValue(undefined),
+      notifyDeliveryStatusChange: jest.fn().mockResolvedValue(undefined),
     };
 
     mockMailService = {
@@ -361,6 +362,115 @@ describe('DeliveryService — driver invitations & assignability', () => {
       await expect(
         service.assignDriver('user-1', 'delivery-1', 'driver-1')
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('el repartidor actualiza su entrega', () => {
+    const delivery = (overrides: Partial<any> = {}) => ({
+      id: 'del-1',
+      commerceId: 'commerce-1',
+      driverId: 'driver-1',
+      status: 'IN_TRANSIT',
+      orderNumber: 'A-1',
+      customerPhone: null,
+      pickedUpAt: new Date(),
+      deliveryCode: '4821',
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      mockPrismaService.driver.findUnique.mockResolvedValue({
+        id: 'driver-1',
+        userId: 'u-driver',
+      });
+      mockPrismaService.delivery.update.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'del-1', deliveryCode: '4821', ...data })
+      );
+    });
+
+    it('entrega con el código del cliente y registra lo cobrado', async () => {
+      mockPrismaService.delivery.findUnique.mockResolvedValue(delivery());
+
+      const res = await service.driverUpdateStatus('u-driver', 'del-1', {
+        status: 'DELIVERED' as any,
+        deliveryCode: '4821',
+        collectedMethod: 'CASH' as any,
+        amountCollected: 12.5,
+      });
+
+      expect(res.status).toBe('DELIVERED');
+      expect(res).not.toHaveProperty('deliveryCode');
+      const [args] = mockPrismaService.delivery.update.mock.calls[0];
+      expect(args.data).toMatchObject({
+        status: 'DELIVERED',
+        collectedMethod: 'CASH',
+      });
+      expect(args.data.amountCollected.toString()).toBe('12.5');
+      expect(args.data.deliveredAt).toBeInstanceOf(Date);
+      // Se libera al repartidor.
+      expect(mockPrismaService.driver.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'driver-1' } })
+      );
+    });
+
+    it('sin el código correcto no se puede marcar entregada', async () => {
+      mockPrismaService.delivery.findUnique.mockResolvedValue(delivery());
+      await expect(
+        service.driverUpdateStatus('u-driver', 'del-1', {
+          status: 'DELIVERED' as any,
+          deliveryCode: '0000',
+          collectedMethod: 'PREPAID' as any,
+        })
+      ).rejects.toThrow('código de entrega no coincide');
+      expect(mockPrismaService.delivery.update).not.toHaveBeenCalled();
+    });
+
+    it('ya pagado: cobro cero sin pedir monto', async () => {
+      mockPrismaService.delivery.findUnique.mockResolvedValue(delivery());
+      await service.driverUpdateStatus('u-driver', 'del-1', {
+        status: 'DELIVERED' as any,
+        deliveryCode: '4821',
+        collectedMethod: 'PREPAID' as any,
+      });
+      const [args] = mockPrismaService.delivery.update.mock.calls[0];
+      expect(args.data.amountCollected.toString()).toBe('0');
+    });
+
+    it('no se salta pasos (asignada → entregada) ni retrocede', async () => {
+      mockPrismaService.delivery.findUnique.mockResolvedValue(
+        delivery({ status: 'ASSIGNED' })
+      );
+      await expect(
+        service.driverUpdateStatus('u-driver', 'del-1', {
+          status: 'DELIVERED' as any,
+          deliveryCode: '4821',
+          collectedMethod: 'PREPAID' as any,
+        })
+      ).rejects.toThrow('desde el estado actual');
+    });
+
+    it('fallida exige un motivo', async () => {
+      mockPrismaService.delivery.findUnique.mockResolvedValue(delivery());
+      await expect(
+        service.driverUpdateStatus('u-driver', 'del-1', {
+          status: 'FAILED' as any,
+          failureReason: 'no',
+        })
+      ).rejects.toThrow('mínimo 5 caracteres');
+    });
+
+    it('otro repartidor no puede tocar la entrega', async () => {
+      mockPrismaService.driver.findUnique.mockResolvedValue({
+        id: 'driver-2',
+        userId: 'u-otro',
+      });
+      mockPrismaService.delivery.findUnique.mockResolvedValue(delivery());
+      await expect(
+        service.driverUpdateStatus('u-otro', 'del-1', {
+          status: 'FAILED' as any,
+          failureReason: 'cliente ausente',
+        })
+      ).rejects.toThrow('Entrega no encontrada');
     });
   });
 });

@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { v4 as uuidv4 } from 'uuid';
+import { randomInt } from 'crypto';
+import { round } from '../../../common/money/money';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
@@ -23,6 +25,7 @@ import {
   DriverStatus,
   DriverInvitationStatus,
   KycStatus,
+  DeliveryCollection,
 } from '@prisma/client';
 import {
   ReputationFacade,
@@ -39,6 +42,25 @@ function startOfDay(d: Date) {
 }
 function endOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+}
+
+// Avances que puede hacer el repartidor desde su app (nunca hacia atrás ni
+// cancelar: eso lo decide el comercio).
+const DRIVER_TRANSITIONS: Partial<Record<DeliveryStatus, DeliveryStatus[]>> = {
+  [DeliveryStatus.ASSIGNED]: [DeliveryStatus.PICKING_UP, DeliveryStatus.FAILED],
+  [DeliveryStatus.PICKING_UP]: [
+    DeliveryStatus.IN_TRANSIT,
+    DeliveryStatus.FAILED,
+  ],
+  [DeliveryStatus.IN_TRANSIT]: [
+    DeliveryStatus.DELIVERED,
+    DeliveryStatus.FAILED,
+  ],
+};
+
+/** Código de 4 dígitos que el cliente le da al repartidor al recibir. */
+export function generateDeliveryCode(): string {
+  return String(randomInt(0, 10000)).padStart(4, '0');
 }
 
 @Injectable()
@@ -512,6 +534,7 @@ export class DeliveryService {
         ...dto,
         commerceId,
         status: dto.status ?? DeliveryStatus.PENDING,
+        deliveryCode: generateDeliveryCode(),
       },
       include: {
         driver: {
@@ -588,8 +611,103 @@ export class DeliveryService {
   ) {
     const commerceId = await this.getCommerceId(userId);
     const delivery = await this.assertDeliveryOwnership(deliveryId, commerceId);
+    return this.applyStatus(delivery, commerceId, status);
+  }
 
-    const data: Record<string, unknown> = { status };
+  /**
+   * El repartidor asignado avanza su entrega desde "Mis entregas". Solo hacia
+   * adelante (ASSIGNED → PICKING_UP → IN_TRANSIT → DELIVERED | FAILED).
+   * Entregar exige el código del cliente (prueba de entrega) y registra lo
+   * cobrado; fallar exige un motivo. El comercio conserva su propio camino
+   * (updateDeliveryStatus) para corregir o cerrar sin código.
+   */
+  async driverUpdateStatus(
+    userId: string,
+    deliveryId: string,
+    dto: {
+      status: DeliveryStatus;
+      deliveryCode?: string;
+      failureReason?: string;
+      amountCollected?: number;
+      collectedMethod?: DeliveryCollection;
+    }
+  ) {
+    const driver = await this.prisma.driver.findUnique({ where: { userId } });
+    const delivery = await this.prisma.delivery.findUnique({
+      where: { id: deliveryId },
+    });
+    if (!delivery || !driver || delivery.driverId !== driver.id) {
+      throw new NotFoundException('Entrega no encontrada');
+    }
+    const allowed = DRIVER_TRANSITIONS[delivery.status] ?? [];
+    if (!allowed.includes(dto.status)) {
+      throw new BadRequestException(
+        'No puedes pasar la entrega a ese estado desde el estado actual'
+      );
+    }
+
+    const extra: Record<string, unknown> = {};
+    if (dto.status === DeliveryStatus.DELIVERED) {
+      if (
+        delivery.deliveryCode &&
+        (dto.deliveryCode ?? '').trim() !== delivery.deliveryCode
+      ) {
+        throw new BadRequestException(
+          'El código de entrega no coincide. Pídeselo al cliente.'
+        );
+      }
+      if (!dto.collectedMethod) {
+        throw new BadRequestException(
+          'Indica cómo se pagó el pedido (efectivo, transferencia o ya pagado)'
+        );
+      }
+      const collected =
+        dto.collectedMethod === DeliveryCollection.PREPAID
+          ? 0
+          : (dto.amountCollected ?? -1);
+      if (collected < 0) {
+        throw new BadRequestException('Indica cuánto cobraste al entregar');
+      }
+      extra.collectedMethod = dto.collectedMethod;
+      extra.amountCollected = round(collected);
+    }
+    if (dto.status === DeliveryStatus.FAILED) {
+      const reason = dto.failureReason?.trim() ?? '';
+      if (reason.length < 5) {
+        throw new BadRequestException(
+          'Explica por qué no se pudo entregar (mínimo 5 caracteres)'
+        );
+      }
+      extra.failureReason = reason.slice(0, 300);
+    }
+    const updated = await this.applyStatus(
+      delivery,
+      delivery.commerceId,
+      dto.status,
+      extra
+    );
+    // Igual que en "Mis entregas": el repartidor nunca recibe el código.
+    const { deliveryCode, ...rest } = updated;
+    return { ...rest, hasDeliveryCode: !!deliveryCode };
+  }
+
+  // Cambio de estado común al comercio y al repartidor: fechas, liberar al
+  // repartidor, reputación, tracking en vivo y avisos.
+  private async applyStatus(
+    delivery: {
+      id: string;
+      driverId: string | null;
+      pickedUpAt: Date | null;
+      orderNumber: string;
+      customerPhone: string | null;
+      deliveryCode?: string | null;
+    },
+    commerceId: string,
+    status: DeliveryStatus,
+    extra: Record<string, unknown> = {}
+  ) {
+    const deliveryId = delivery.id;
+    const data: Record<string, unknown> = { status, ...extra };
 
     if (
       status === DeliveryStatus.PICKING_UP ||
@@ -674,10 +792,18 @@ export class DeliveryService {
           FAILED: '⚠️ Entrega fallida — contáctanos',
         };
         const label = statusEmoji[status] ?? status;
+        // Al salir el pedido, el cliente recibe el código que le dará al
+        // repartidor al recibir (prueba de entrega).
+        const codeLine =
+          delivery.deliveryCode &&
+          (status === DeliveryStatus.ASSIGNED ||
+            status === DeliveryStatus.IN_TRANSIT)
+            ? `\nCódigo de entrega: <b>${delivery.deliveryCode}</b> (dáselo al repartidor al recibir)`
+            : '';
         this.telegram
           .sendMessage(
             customer.telegramChatId,
-            `📦 <b>Entrega #${delivery.orderNumber}</b>\n${label}`
+            `📦 <b>Entrega #${delivery.orderNumber}</b>\n${label}${codeLine}`
           )
           .catch(() => null);
       }

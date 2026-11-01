@@ -33,6 +33,13 @@
         </div>
       </div>
 
+      <div v-if="snapshot.deliveryCode && !['DELIVERED', 'CANCELLED', 'FAILED'].includes(snapshot.status)" class="card p-4 mb-4 flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-200">
+        <p class="text-sm text-emerald-900">
+          <strong>Tu código de entrega.</strong> Dáselo al repartidor solo cuando recibas tu pedido.
+        </p>
+        <span class="font-mono text-2xl font-black tracking-[0.3em] text-emerald-900">{{ snapshot.deliveryCode }}</span>
+      </div>
+
       <div v-if="!isTrackable" class="card p-4 mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm">
         El seguimiento en vivo no está disponible para esta entrega en este momento.
       </div>

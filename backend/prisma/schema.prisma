@@ -784,6 +784,12 @@ enum VehicleType {
   ON_FOOT
 }
 
+enum DeliveryCollection {
+  CASH
+  TRANSFER
+  PREPAID
+}
+
 enum DeliveryStatus {
   PENDING
   ASSIGNED
@@ -907,6 +913,17 @@ model Delivery {
   // TrackingService.syncTrackingActive) y se apaga al finalizar/cancelar —
   // corta la emisión WS y evita exponer ubicación fuera de ese período.
   trackingActive Boolean @default(false)
+
+  // Prueba de entrega: código de 4 dígitos que el cliente le da al
+  // repartidor. Sin él, el repartidor no puede marcarla entregada (el
+  // comercio sí, desde su panel).
+  deliveryCode    String?
+  // Motivo cuando el repartidor la marca FAILED (cliente ausente, dirección errada...).
+  failureReason   String?
+  // Lo que el repartidor dice haber cobrado al entregar, para conciliar con
+  // el comercio (efectivo, transferencia o ya pagado).
+  amountCollected Decimal?           @db.Decimal(20, 2)
+  collectedMethod DeliveryCollection?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

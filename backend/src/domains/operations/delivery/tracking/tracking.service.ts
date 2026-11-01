@@ -100,7 +100,7 @@ export class TrackingService {
     const driver = await this.prisma.driver.findUnique({ where: { userId } });
     if (!driver) return [];
 
-    return this.prisma.delivery.findMany({
+    const deliveries = await this.prisma.delivery.findMany({
       where: {
         driverId: driver.id,
         status: {
@@ -113,6 +113,12 @@ export class TrackingService {
       },
       orderBy: { createdAt: 'asc' },
     });
+    // El código de entrega es la prueba de que el cliente recibió: el
+    // repartidor nunca lo ve, se lo pide al cliente.
+    return deliveries.map(({ deliveryCode: _code, ...rest }) => ({
+      ...rest,
+      hasDeliveryCode: !!_code,
+    }));
   }
 
   // ─── Autorización ───────────────────────────────────────────────────────
