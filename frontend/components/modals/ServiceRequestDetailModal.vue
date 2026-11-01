@@ -121,6 +121,43 @@
                 >
                   Pagar garantía
                 </button>
+
+                <!-- Disputa: congela la garantía hasta que soporte decida -->
+                <div v-if="req.escrowStatus === 'DISPUTED' && dispute" class="mt-2.5 text-xs rounded-lg bg-white/70 p-2.5">
+                  <p class="font-semibold">
+                    {{ dispute.raisedByRole === (isProvider ? 'PAYEE' : 'PAYER') ? 'Reportaste' : 'Se reportó' }} un problema el {{ formatShortDate(dispute.createdAt) }}:
+                  </p>
+                  <p class="italic mt-0.5">"{{ dispute.reason }}"</p>
+                  <p class="mt-1 opacity-80">Soporte revisará el caso y decidirá a quién se entrega la garantía.</p>
+                </div>
+                <template v-if="req.escrowStatus === 'HELD' && req.status === 'CONTACTED'">
+                  <button
+                    v-if="!disputing"
+                    type="button"
+                    class="mt-2.5 w-full text-xs font-semibold py-1.5 rounded-lg bg-white/70 hover:bg-white text-red-700 transition-colors"
+                    @click="disputing = true"
+                  >
+                    Tengo un problema con {{ isProvider ? 'el cliente' : 'el trabajo' }}
+                  </button>
+                  <form v-else class="mt-2.5 space-y-2" @submit.prevent="openDispute">
+                    <p class="text-xs">
+                      La garantía queda congelada hasta que soporte revise el caso. Explica qué pasó:
+                    </p>
+                    <textarea
+                      v-model="disputeReason"
+                      rows="3"
+                      maxlength="1000"
+                      class="w-full text-sm rounded-lg border border-gray-200 p-2 text-gray-800"
+                      placeholder="Ej. El técnico no vino en la fecha acordada"
+                    />
+                    <div class="flex justify-end gap-2">
+                      <button type="button" class="btn-secondary text-xs py-1.5 px-3" :disabled="openingDispute" @click="disputing = false">Cancelar</button>
+                      <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-60" :disabled="openingDispute || disputeReason.trim().length < 10">
+                        {{ openingDispute ? 'Enviando…' : 'Abrir disputa' }}
+                      </button>
+                    </div>
+                  </form>
+                </template>
               </div>
 
               <!-- Ubicación (presencial) -->
@@ -569,18 +606,21 @@ const MODALITY_LABELS: Record<string, string> = {
 const ESCROW_LABELS: Record<string, string> = {
   HELD: 'Garantía retenida',
   PENDING_FUNDS: 'Garantía por pagar',
+  DISPUTED: 'Garantía en disputa',
   RELEASED: 'Garantía liberada',
   REFUNDED: 'Garantía reembolsada',
 }
 const ESCROW_ICONS: Record<string, unknown> = {
   HELD: ShieldCheckIcon,
   PENDING_FUNDS: ExclamationTriangleIcon,
+  DISPUTED: ExclamationTriangleIcon,
   RELEASED: CheckCircleIcon,
   REFUNDED: ArrowUturnLeftIcon,
 }
 const ESCROW_CLASSES: Record<string, string> = {
   HELD: 'bg-emerald-50 border-emerald-100 text-emerald-800',
   PENDING_FUNDS: 'bg-amber-50 border-amber-100 text-amber-800',
+  DISPUTED: 'bg-red-50 border-red-100 text-red-800',
   RELEASED: 'bg-emerald-50 border-emerald-100 text-emerald-800',
   REFUNDED: 'bg-gray-50 border-gray-200 text-gray-700',
 }
@@ -595,6 +635,8 @@ const escrowDescription = computed(() => {
       return isProvider
         ? 'El cliente todavía no paga la garantía a la plataforma. Te avisaremos cuando quede retenida.'
         : 'Paga la garantía a una cuenta de la plataforma y reporta la referencia: queda protegida hasta que confirmes el servicio.'
+    case 'DISPUTED':
+      return 'Hay una disputa abierta: la garantía queda congelada hasta que soporte la resuelva.'
     case 'RELEASED':
       return isProvider
         ? 'La garantía ya fue liberada a tu billetera; puedes retirarla a tu banco.'
@@ -683,6 +725,53 @@ async function confirmCompletion() {
     actionError.value = getApiErrorMessage(e, 'Error al confirmar la finalización')
   } finally {
     confirming.value = false
+  }
+}
+
+// Disputa (solo con Pago Protegido): congela la garantía hasta que un
+// SUPERADMIN decide. Sin garantía, el camino es "Reportar un problema".
+interface ServiceRequestDispute {
+  id: string
+  status: 'OPEN' | 'RESOLVED'
+  reason: string
+  raisedByRole: 'PAYER' | 'PAYEE'
+  createdAt: string
+}
+const dispute = ref<ServiceRequestDispute | null>(null)
+const disputing = ref(false)
+const disputeReason = ref('')
+const openingDispute = ref(false)
+const formatShortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', timeZone: 'America/Caracas' })
+
+async function loadDispute() {
+  if (props.req.escrowStatus !== 'DISPUTED') {
+    dispute.value = null
+    return
+  }
+  try {
+    const { get } = useApi()
+    dispute.value = await get<ServiceRequestDispute | null>(`/services/requests/${props.req.id}/dispute`)
+  } catch {
+    dispute.value = null
+  }
+}
+watch(() => [props.req.id, props.req.escrowStatus], loadDispute, { immediate: true })
+
+async function openDispute() {
+  if (openingDispute.value) return
+  openingDispute.value = true
+  clearError()
+  try {
+    const { patch } = useApi()
+    await patch(`/services/requests/${props.req.id}/dispute`, { reason: disputeReason.value.trim() })
+    disputing.value = false
+    disputeReason.value = ''
+    emit('updated', { ...props.req, escrowStatus: 'DISPUTED' })
+  } catch (e: any) {
+    actionError.value = getApiErrorMessage(e, 'No se pudo abrir la disputa')
+  } finally {
+    openingDispute.value = false
   }
 }
 

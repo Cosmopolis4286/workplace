@@ -1526,6 +1526,13 @@ export class ServicesService {
   }
 
   async disputeServiceRequest(id: string, userId: string, reason: string) {
+    const trimmed = reason?.trim() ?? '';
+    if (trimmed.length < 10) {
+      throw new BadRequestException(
+        'Explica el problema (mínimo 10 caracteres) para que soporte pueda revisarlo'
+      );
+    }
+    reason = trimmed.slice(0, 1000);
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.providerId !== userId && req.requesterId !== userId) {
@@ -1552,6 +1559,109 @@ export class ServicesService {
       .catch(() => {});
 
     return dispute;
+  }
+
+  /**
+   * Resuelve la disputa de una solicitud (mueve el dinero vía escrow) y la
+   * deja terminada: si algo se liberó al proveedor, CLOSED con la comisión
+   * sobre lo liberado (va a su estado de cuenta: la garantía se liberó
+   * entera); si todo volvió al cliente, CANCELLED y sin comisión. Sin esto la
+   * solicitud quedaba en curso y el cierre automático podía cobrarle comisión
+   * al proveedor aunque el cliente hubiera recibido todo de vuelta.
+   */
+  async resolveServiceRequestDispute(
+    adminId: string,
+    disputeId: string,
+    dto: {
+      resolution: 'RELEASE_FULL' | 'REFUND_FULL' | 'SPLIT';
+      releaseAmount?: number;
+      refundAmount?: number;
+      resolutionNote?: string;
+    }
+  ) {
+    const dispute = await this.prisma.escrowDispute.findUnique({
+      where: { id: disputeId },
+      include: { escrow: true },
+    });
+    if (!dispute || dispute.escrow.entityType !== 'SERVICE_REQUEST') {
+      throw new NotFoundException('Disputa no encontrada');
+    }
+    const req = await this.prisma.serviceRequest.findUnique({
+      where: { id: dispute.escrow.entityId },
+    });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+
+    const resolved = await this.escrow.resolveDispute({
+      disputeId,
+      resolvedById: adminId,
+      resolution: dto.resolution,
+      releaseAmount: dto.releaseAmount,
+      refundAmount: dto.refundAmount,
+      resolutionNote: dto.resolutionNote,
+    });
+
+    const released = resolved.releaseAmount ?? 0;
+    const newStatus = released > 0 ? 'CLOSED' : 'CANCELLED';
+    if (released > 0) {
+      const feeConfig = await this.platformFees.resolveFeeConfig(
+        'SERVICE_REQUEST',
+        req.providerId
+      );
+      if (feeConfig) {
+        const { feeAmount } = this.platformFees.calculateFee(
+          released,
+          feeConfig
+        );
+        await this.platformFees.chargeProviderFee(
+          'SERVICE_REQUEST',
+          req.providerId,
+          feeAmount,
+          `FEE-SVC-${req.id}`,
+          { serviceRequestId: req.id, disputeId, released }
+        );
+      }
+    }
+    if (req.status !== 'CLOSED' && req.status !== 'CANCELLED') {
+      await this.prisma.serviceRequest.update({
+        where: { id: req.id },
+        data: { status: newStatus, statusUpdatedAt: new Date() },
+      });
+      await this.prisma.serviceRequestStatusHistory.create({
+        data: {
+          serviceRequestId: req.id,
+          previousStatus: req.status,
+          newStatus,
+          changedBy: adminId,
+        },
+      });
+    }
+    return { ...resolved, serviceRequestStatus: newStatus };
+  }
+
+  // Disputas abiertas de solicitudes de servicio que involucran al usuario
+  // (para mostrar el estado en el detalle).
+  async getServiceRequestDispute(id: string, userId: string) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (req.providerId !== userId && req.requesterId !== userId) {
+      throw new ForbiddenException('No tienes permiso');
+    }
+    return this.prisma.escrowDispute.findFirst({
+      where: { escrow: { entityType: 'SERVICE_REQUEST', entityId: id } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        reason: true,
+        raisedByRole: true,
+        resolution: true,
+        releaseAmount: true,
+        refundAmount: true,
+        resolutionNote: true,
+        createdAt: true,
+        resolvedAt: true,
+      },
+    });
   }
 
   // ─── Escrow retry (3.3b) ────────────────────────────────────────────────────

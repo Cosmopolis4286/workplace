@@ -162,10 +162,42 @@ export class EscrowService implements EscrowFacade {
       include: { escrow: true },
       orderBy: { createdAt: 'asc' },
     });
-    return disputes.map((d) => ({
-      ...this.toDisputeView(d),
-      escrow: this.toView(d.escrow),
-    }));
+    // Contexto para decidir sin abrir cada transacción: qué se disputa,
+    // quiénes son las partes y el motivo.
+    const userIds = [
+      ...new Set(disputes.flatMap((d) => [d.escrow.payerId, d.escrow.payeeId])),
+    ];
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+    const nameOf = (id: string) => {
+      const u = users.find((x) => x.id === id);
+      return u
+        ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
+        : null;
+    };
+    return Promise.all(
+      disputes.map(async (d) => ({
+        ...this.toDisputeView(d),
+        escrow: this.toView(d.escrow),
+        entityName: await this.getEntityName(
+          d.escrow.entityType,
+          d.escrow.entityId
+        ),
+        payerName: nameOf(d.escrow.payerId),
+        payeeName: nameOf(d.escrow.payeeId),
+        createdAt: d.createdAt,
+      }))
+    );
+  }
+
+  async isServiceRequestDispute(disputeId: string) {
+    const d = await this.prisma.escrowDispute.findUnique({
+      where: { id: disputeId },
+      select: { escrow: { select: { entityType: true } } },
+    });
+    return d?.escrow.entityType === 'SERVICE_REQUEST';
   }
 
   async openDispute(params: {

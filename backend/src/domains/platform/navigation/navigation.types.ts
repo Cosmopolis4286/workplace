@@ -5,6 +5,7 @@ export type NavIconKey =
   | 'dashboard'
   | 'payments'
   | 'billing'
+  | 'disputes'
   | 'menu'
   | 'inventory'
   | 'services'

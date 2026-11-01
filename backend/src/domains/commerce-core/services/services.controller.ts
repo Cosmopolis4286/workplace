@@ -37,6 +37,7 @@ import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
+import { ResolveDisputeDto } from '../../money/escrow/dto/resolve-dispute.dto';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -364,6 +365,24 @@ export class ServicesController {
     );
   }
 
+  // Resolver la disputa de una solicitud: mueve el dinero de la garantía y
+  // cierra (algo liberado al proveedor) o cancela (todo devuelto) la solicitud.
+  // Dinero real: solo SUPERADMIN.
+  @Patch('requests/disputes/:disputeId/resolve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN)
+  resolveDispute(
+    @Param('disputeId') disputeId: string,
+    @CurrentUser() user: any,
+    @Body() dto: ResolveDisputeDto
+  ) {
+    return this.servicesService.resolveServiceRequestDispute(
+      user.id,
+      disputeId,
+      dto
+    );
+  }
+
   // Debe declararse antes de 'requests/:id' — de lo contrario Nest matchearía
   // 'requests/admin' como 'requests/:id' con id="admin".
   @Get('requests/admin')
@@ -436,6 +455,12 @@ export class ServicesController {
   @UseGuards(JwtAuthGuard)
   cancelRequest(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.cancelServiceRequest(id, user.id);
+  }
+
+  @Get('requests/:id/dispute')
+  @UseGuards(JwtAuthGuard)
+  getDispute(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.servicesService.getServiceRequestDispute(id, user.id);
   }
 
   @Patch('requests/:id/dispute')
