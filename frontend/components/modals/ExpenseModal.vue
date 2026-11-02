@@ -106,7 +106,15 @@
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Recibo / Factura</label>
                     <div class="flex gap-2">
-                      <input v-model="form.receipt" type="text" class="input-field flex-1" placeholder="Ej. REC-001" />
+                      <button
+                        v-if="receiptIsPhoto"
+                        type="button"
+                        class="input-field flex-1 text-left text-sm text-blue-600 hover:underline"
+                        @click="viewReceipt"
+                      >
+                        📷 Ver foto del recibo
+                      </button>
+                      <input v-else v-model="form.receipt" type="text" class="input-field flex-1" placeholder="Ej. REC-001" />
                       <button
                         v-if="isEditing"
                         type="button"
@@ -171,7 +179,16 @@ const emit = defineEmits<{
 const isEditing = computed(() => !!props.expense)
 
 const { takePhoto } = useCamera()
-const { uploadReceipt } = useExpenses()
+const { uploadReceipt, openReceiptImage } = useExpenses()
+
+// El campo guarda un número de recibo escrito o la ruta de la foto subida
+// (privada: se ve con openReceiptImage, no por URL pública).
+const receiptIsPhoto = computed(() =>
+  /^(private-expense-receipts\/|\/uploads\/expenses\/)/.test(form.value.receipt ?? ''),
+)
+async function viewReceipt() {
+  if (props.expense?.id) await openReceiptImage(props.expense.id).catch(() => {})
+}
 const uploadingReceipt = ref(false)
 
 const defaultForm = () => ({
