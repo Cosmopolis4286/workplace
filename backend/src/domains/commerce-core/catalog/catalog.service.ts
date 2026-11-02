@@ -999,6 +999,19 @@ export class CatalogService {
           update.platformFeeRate = feeConfig.rate;
           update.platformFeeAmount = feeAmount;
         }
+      } else if (commerce && isPositive(order.platformFeeAmount)) {
+        // El comprador ya pagó la comisión dentro de la garantía: se descuenta
+        // de lo liberado al comercio (antes se le liberaba completa y la
+        // plataforma nunca la cobraba).
+        await this.platformFees.chargeProviderFee(
+          'CATALOG_ORDER',
+          commerce.userId,
+          toNumber(order.platformFeeAmount),
+          `FEE-CATALOG-${id}`,
+          { catalogOrderId: id, payer: 'CLIENT' },
+          { collected: true }
+        );
+        releaseAmount = sub(order.escrowAmount, order.platformFeeAmount!);
       }
 
       if (commerce && gt(releaseAmount, 0)) {

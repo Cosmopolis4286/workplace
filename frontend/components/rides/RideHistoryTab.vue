@@ -80,9 +80,17 @@
                   -${{ corrida.platformFeeAmount.toFixed(2) }} comisión
                 </p>
 
+                <!-- Código de entrega del envío: solo lo ve el remitente -->
+                <p v-if="!isDriver && corrida.deliveryCode && ['PENDING','ACCEPTED','IN_PROGRESS'].includes(corrida.status)" class="text-[11px] text-emerald-700">
+                  Código para quien recibe: <span class="font-mono font-bold tracking-widest">{{ corrida.deliveryCode }}</span>
+                </p>
+                <p v-if="corrida.status === 'CANCELLED' && corrida.cancelReason" class="text-[10px] text-gray-400">
+                  "{{ corrida.cancelReason }}"
+                </p>
+
                 <!-- Acciones pasajero -->
                 <button
-                  v-if="!isDriver && corrida.status === 'PENDING'"
+                  v-if="!isDriver && (corrida.status === 'PENDING' || corrida.status === 'ACCEPTED')"
                   @click="$emit('cancel', corrida.id)"
                   class="text-xs text-red-600 hover:underline"
                 >Cancelar</button>
@@ -95,6 +103,12 @@
                     :disabled="updatingId === corrida.id"
                     class="text-xs px-2 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
                   >Iniciar</button>
+                  <button
+                    v-if="corrida.status === 'ACCEPTED'"
+                    @click="$emit('driver-cancel', corrida.id)"
+                    :disabled="updatingId === corrida.id"
+                    class="text-xs px-2 py-1 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium"
+                  >Soltar</button>
                   <button
                     v-if="corrida.status === 'IN_PROGRESS'"
                     @click="$emit('update-status', corrida.id, 'COMPLETED')"
@@ -151,6 +165,7 @@ defineEmits<{
   refresh: []
   cancel: [id: string]
   'update-status': [id: string, status: 'IN_PROGRESS' | 'COMPLETED']
+  'driver-cancel': [id: string]
 }>()
 
 const { vehicleEmoji, statusText, statusBadgeClass, formatDate, formatPrice } = useRideHelpers()

@@ -18,6 +18,7 @@ describe('EscrowService', () => {
       update: jest.fn(),
     },
     serviceRequest: { update: jest.fn(), findUnique: jest.fn() },
+    user: { findMany: jest.fn().mockResolvedValue([]) },
     catalogOrder: { update: jest.fn(), findUnique: jest.fn() },
     $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
   };
@@ -701,6 +702,52 @@ describe('EscrowService', () => {
       );
       expect(result).toHaveLength(1);
       expect(result[0].escrow.status).toBe('DISPUTED');
+    });
+
+    it('incluye qué se disputa y los nombres de las partes', async () => {
+      mockPrismaService.escrowDispute.findMany.mockResolvedValue([
+        {
+          id: 'd1',
+          escrowId: 'e1',
+          raisedById: 'client-1',
+          raisedByRole: 'PAYER',
+          reason: 'No vino',
+          status: 'OPEN',
+          resolution: null,
+          releaseAmount: null,
+          refundAmount: null,
+          resolvedById: null,
+          resolvedAt: null,
+          createdAt: new Date(),
+          escrow: {
+            id: 'e1',
+            entityType: 'SERVICE_REQUEST',
+            entityId: 'req-1',
+            payerId: 'client-1',
+            payeeId: 'provider-1',
+            status: 'DISPUTED',
+            amount: 100,
+            heldAt: new Date(),
+            releasedAt: null,
+            refundedAt: null,
+          },
+        },
+      ]);
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue({
+        serviceName: 'Plomería',
+      });
+      mockPrismaService.user.findMany.mockResolvedValue([
+        { id: 'client-1', firstName: 'Ana', lastName: 'Pérez', email: 'a@x' },
+        { id: 'provider-1', firstName: 'Luis', lastName: '', email: 'l@x' },
+      ]);
+
+      const [d] = await service.listOpenDisputes();
+
+      expect(d).toMatchObject({
+        entityName: 'Plomería',
+        payerName: 'Ana Pérez',
+        payeeName: 'Luis',
+      });
     });
   });
 });

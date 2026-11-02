@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DriverDeliveriesController } from './driver-deliveries.controller';
 import { DeliveryController } from './delivery.controller';
 import { DriverInvitationsController } from './driver-invitations.controller';
 import { DeliveryService } from './delivery.service';
@@ -21,7 +22,11 @@ import { PlansModule } from '../../money/plans/plans.module';
     TrackingModule,
     PlansModule,
   ],
-  controllers: [DeliveryController, DriverInvitationsController],
+  controllers: [
+    DeliveryController,
+    DriverInvitationsController,
+    DriverDeliveriesController,
+  ],
   providers: [DeliveryService, DriverGraceReminderScheduler],
 })
 export class DeliveryModule {}

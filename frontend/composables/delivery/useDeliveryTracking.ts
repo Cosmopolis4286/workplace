@@ -37,6 +37,9 @@ export interface DeliveryTrackingSnapshot {
   pickup: { lat: number; lng: number } | null
   destination: { lat: number; lng: number } | null
   route: DeliveryRoute | null
+  // Solo para el cliente y el comercio: el código que el cliente le da al
+  // repartidor al recibir (prueba de entrega). El repartidor no lo recibe.
+  deliveryCode?: string | null
 }
 
 // Estados del enum DeliveryStatus del backend que aún permiten tracking en

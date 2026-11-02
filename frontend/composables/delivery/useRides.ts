@@ -29,6 +29,11 @@ export interface Ride {
   cargoDescription?: string
   cargoWeight?: number
   declaredValue?: number
+  // Envíos: el código solo llega al remitente; al conductor, hasDeliveryCode.
+  deliveryCode?: string | null
+  hasDeliveryCode?: boolean
+  cancelReason?: string | null
+  cancelledById?: string | null
   createdAt: string
   updatedAt: string
   completedAt?: string
@@ -52,6 +57,29 @@ export interface CreateRideDto {
   cargoDescription?: string
   cargoWeight?: number
   declaredValue?: number
+}
+
+export type RideDriverProfileStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+export interface RideDriverProfile {
+  id: string
+  userId: string
+  vehicleType: RideVehicleType
+  vehiclePlate: string
+  vehicleModel: string
+  vehicleColor?: string | null
+  licenseNumber: string
+  status: RideDriverProfileStatus
+  rejectionReason?: string | null
+  reviewedAt?: string | null
+  createdAt: string
+}
+
+export interface AdminRideDriverProfile extends RideDriverProfile {
+  userName: string
+  userEmail: string
+  userPhone?: string | null
+  kycStatus: string
 }
 
 export interface UpdateRideStatusDto {
@@ -203,7 +231,8 @@ export function useRides() {
    */
   async function updateCorridaStatus(
     corridaId: string,
-    status: Ride['status']
+    status: Ride['status'],
+    deliveryCode?: string
   ): Promise<Ride> {
     if (!can('corridas:manage') && !can('corridas:create')) {
       throw new Error('No tienes permiso para actualizar corridas')
@@ -211,7 +240,7 @@ export function useRides() {
     loading.value = true
     clearError()
     try {
-      const data = await patch<Ride>(`/rides/${corridaId}/status`, { status })
+      const data = await patch<Ride>(`/rides/${corridaId}/status`, { status, deliveryCode })
       // Actualizar en todas las listas
       const idx1 = corridas.value.findIndex(c => c.id === corridaId)
       if (idx1 >= 0) corridas.value[idx1] = data
@@ -232,11 +261,11 @@ export function useRides() {
   /**
    * Cancelar una corrida
    */
-  async function cancelCorrida(corridaId: string): Promise<void> {
+  async function cancelCorrida(corridaId: string, reason?: string): Promise<void> {
     loading.value = true
     clearError()
     try {
-      await post(`/rides/${corridaId}/cancel`, {})
+      await post(`/rides/${corridaId}/cancel`, { reason })
       // Actualizar estado localmente
       const idx1 = corridas.value.findIndex(c => c.id === corridaId)
       if (idx1 >= 0) corridas.value[idx1].status = 'CANCELLED'
@@ -252,6 +281,23 @@ export function useRides() {
       loading.value = false
     }
   }
+
+  /**
+   * El conductor suelta una corrida aceptada (vuelve al pool) o la cancela
+   * porque el pasajero no apareció (noShow).
+   */
+  async function driverCancelCorrida(corridaId: string, reason: string, noShow = false) {
+    return post<{ cancelled: boolean; requeued: boolean }>(`/rides/${corridaId}/driver-cancel`, { reason, noShow })
+  }
+
+  // ─── Perfil de conductor (vehículo + licencia, aprobado por admin) ───────
+  const getDriverProfile = () => get<RideDriverProfile | null>('/ride-drivers/me')
+  const submitDriverProfile = (data: Pick<RideDriverProfile, 'vehicleType' | 'vehiclePlate' | 'vehicleModel' | 'licenseNumber'> & { vehicleColor?: string }) =>
+    post<RideDriverProfile>('/ride-drivers/me', data)
+  const listDriverProfiles = (status?: RideDriverProfileStatus) =>
+    get<AdminRideDriverProfile[]>(`/ride-drivers/admin${status ? `?status=${status}` : ''}`)
+  const reviewDriverProfile = (id: string, status: 'APPROVED' | 'REJECTED', reason?: string) =>
+    patch<RideDriverProfile>(`/ride-drivers/admin/${id}/review`, { status, reason })
 
   /**
    * Obtener detalle de una corrida
@@ -328,6 +374,11 @@ export function useRides() {
     acceptCorrida,
     updateCorridaStatus,
     cancelCorrida,
+    driverCancelCorrida,
+    getDriverProfile,
+    submitDriverProfile,
+    listDriverProfiles,
+    reviewDriverProfile,
     fetchCorridaById,
     calculatePrice,
     clearError,

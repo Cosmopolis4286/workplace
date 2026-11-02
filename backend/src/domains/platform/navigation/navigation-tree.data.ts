@@ -528,9 +528,31 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
       {
         id: 'admin-billing',
         to: '/billing-admin',
-        label: 'Cobros a vendedores',
+        label: 'Cobros y pagos',
         icon: 'billing',
         order: 3,
+        condition: {
+          permission: null,
+          rolesOnly: [Role.SUPERADMIN, Role.ADMIN],
+        },
+      },
+      {
+        id: 'admin-disputes',
+        to: '/disputes-admin',
+        label: 'Disputas',
+        icon: 'disputes',
+        order: 4,
+        condition: {
+          permission: null,
+          rolesOnly: [Role.SUPERADMIN, Role.ADMIN],
+        },
+      },
+      {
+        id: 'admin-ride-drivers',
+        to: '/ride-drivers-admin',
+        label: 'Conductores',
+        icon: 'rides',
+        order: 5,
         condition: {
           permission: null,
           rolesOnly: [Role.SUPERADMIN, Role.ADMIN],

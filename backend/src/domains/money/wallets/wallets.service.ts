@@ -198,7 +198,15 @@ export class WalletsService {
 
   // ─── Financial operations ─────────────────────────────────────────────────────
 
-  async deposit(userId: string, role: Role, dto: DepositDto) {
+  // `retryEscrows: false`: quien acredita decide a qué garantía va el dinero
+  // (pago de garantía por operación), así que no se dispara el reintento
+  // general que retendría primero la solicitud pendiente más antigua.
+  async deposit(
+    userId: string,
+    role: Role,
+    dto: DepositDto,
+    options: { retryEscrows?: boolean } = {}
+  ) {
     if (dto.idempotencyKey) {
       const cached = await this.getIdempotent(
         dto.idempotencyKey,
@@ -259,9 +267,11 @@ export class WalletsService {
     // la retención ahora en vez de esperar al cron de respaldo (hasta 1h).
     // Resuelto por nombre de clase (token implícito de Nest) vía ModuleRef en
     // vez de inyección normal — ver comentario en el constructor.
-    this.getServicesService()
-      .retryPendingEscrowsForClient(userId)
-      .catch(() => {});
+    if (options.retryEscrows !== false) {
+      this.getServicesService()
+        .retryPendingEscrowsForClient(userId)
+        .catch(() => {});
+    }
 
     return result;
   }
@@ -667,6 +677,10 @@ export class WalletsService {
     referenceOverride?: string
   ) {
     this.assertPositiveAmount(amount);
+    // La billetera ya no se crea para recargar: un cliente sin billetera es
+    // un cliente con saldo 0, así que la garantía queda PENDING_FUNDS (se
+    // paga por operación) en vez de fallar la transición del proveedor.
+    await this.ensureWalletForUser(clientUserId);
     const { wallet: clientWallet } = await this.getActiveWallet(clientUserId);
     if (lt(clientWallet.balance, amount)) {
       throw new InsufficientEscrowFundsError(
@@ -860,7 +874,18 @@ export class WalletsService {
     actorRole: Role,
     dto: AdjustDto
   ) {
-    this.assertAdmin(actorRole);
+    // Con retiros reales, acreditar saldo es crear dinero que sale a un
+    // banco: solo SUPERADMIN, y nunca sobre su propia billetera.
+    if (actorRole !== Role.SUPERADMIN) {
+      throw new ForbiddenException(
+        'Solo un SUPERADMIN puede ajustar saldos manualmente'
+      );
+    }
+    if (targetUserId === actorId) {
+      throw new ForbiddenException(
+        'No puedes ajustar el saldo de tu propia billetera'
+      );
+    }
     const { wallet } = await this.getActiveWallet(targetUserId);
     this.assertPositiveAmount(dto.amount);
     // El motivo es obligatorio: un ajuste manual mueve dinero real sin que
@@ -871,18 +896,23 @@ export class WalletsService {
     }
 
     const isCredit = dto.type === WalletTransactionType.CREDIT;
-    const newBalance = isCredit
-      ? add(wallet.balance, dto.amount)
-      : sub(wallet.balance, dto.amount);
-
-    if (lt(newBalance, 0))
-      throw new BadRequestException('El ajuste dejaría el saldo en negativo');
+    const delta = isCredit ? dto.amount : -dto.amount;
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: newBalance },
-      });
+      // UPDATE atómico relativo al saldo actual (no "leer y sobrescribir"):
+      // un movimiento concurrente no se pierde, y un débito nunca deja el
+      // saldo en negativo.
+      const [row] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
+        UPDATE "wallets"
+        SET balance = balance + ${sqlNumeric(delta)}::numeric,
+            "updatedAt" = NOW()
+        WHERE id = ${wallet.id}
+          AND balance + ${sqlNumeric(delta)}::numeric >= 0
+        RETURNING balance AS new_balance
+      `;
+      if (!row) {
+        throw new BadRequestException('El ajuste dejaría el saldo en negativo');
+      }
       const transaction = await tx.walletTransaction.create({
         data: {
           walletId: wallet.id,
@@ -890,12 +920,15 @@ export class WalletsService {
           type: WalletTransactionType.ADJUSTMENT,
           status: WalletTransactionStatus.COMPLETED,
           amount: dto.amount,
-          balanceAfter: newBalance,
+          balanceAfter: row.new_balance,
           description: dto.description.trim(),
-          metadata: { adminId: actorId, ...dto.metadata },
+          metadata: { adminId: actorId, direction: dto.type, ...dto.metadata },
         },
       });
-      return { wallet: updated, transaction };
+      return {
+        wallet: { ...wallet, balance: row.new_balance },
+        transaction,
+      };
     });
   }
 

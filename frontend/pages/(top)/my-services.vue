@@ -14,6 +14,15 @@
       </template>
     </PageHeader>
 
+    <!-- Sin cuenta de cobro: el backend no deja publicar servicios -->
+    <div v-if="hasCollectionAccount === false" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-amber-800">
+        <strong>Agrega una cuenta de cobro para publicar servicios.</strong>
+        Es donde tus clientes te pagan (pago móvil, transferencia o Zelle).
+      </p>
+      <NuxtLink to="/settings" class="btn-primary text-sm">Agregar cuenta</NuxtLink>
+    </div>
+
     <!-- Error banner -->
     <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
       <p class="text-sm text-red-700">{{ error }}</p>
@@ -153,6 +162,7 @@ import ServiceFormModal from '~/components/services/ServiceFormModal.vue'
 import ServiceMetricsModal, { type ServiceMetricsData } from '~/components/services/ServiceMetricsModal.vue'
 import { useMyServices, SERVICE_STATUS_LABELS, type Service } from '~/composables/services/useMyServices'
 import { useConfirm } from '~/composables/ui/useConfirm'
+import { useDirectPayments } from '~/composables/payments/useDirectPayments'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -176,6 +186,16 @@ const {
 } = useMyServices()
 
 const { confirm } = useConfirm()
+const { listMyAccounts } = useDirectPayments()
+// null = todavía no se sabe (no mostrar el aviso mientras carga).
+const hasCollectionAccount = ref<boolean | null>(null)
+async function checkCollectionAccount() {
+  try {
+    hasCollectionAccount.value = (await listMyAccounts()).some(a => a.isActive)
+  } catch {
+    hasCollectionAccount.value = null
+  }
+}
 
 const search = ref('')
 const filterStatus = ref('')
@@ -318,7 +338,7 @@ const route = useRoute()
 const router = useRouter()
 
 onMounted(async () => {
-  await Promise.all([fetchServices(), fetchCatalogCategories(true), fetchStats(), fetchModalities()])
+  await Promise.all([fetchServices(), fetchCatalogCategories(true), fetchStats(), fetchModalities(), checkCollectionAccount()])
 
   const editId = typeof route.query.edit === 'string' ? route.query.edit : null
   const metricsId = typeof route.query.metrics === 'string' ? route.query.metrics : null

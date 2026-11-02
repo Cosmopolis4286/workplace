@@ -20,9 +20,9 @@
     </div>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div v-for="delivery in deliveries" :key="delivery.id" class="space-y-3">
+      <DriverDeliveryActions :delivery="delivery" @updated="onUpdated" />
       <DriverTrackingPanel
-        v-for="delivery in deliveries"
-        :key="delivery.id"
         :delivery-id="delivery.id"
         :order-number="delivery.orderNumber"
         :tracking-active="!!delivery.trackingActive"
@@ -31,16 +31,27 @@
         :pickup-label="delivery.deliveryAddress"
         :destination-label="delivery.customerName"
       />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { TruckIcon } from '@heroicons/vue/24/outline'
+import DriverDeliveryActions from '~/components/delivery/DriverDeliveryActions.vue'
+import type { Delivery } from '~/composables/delivery/useDelivery'
 
 definePageMeta({ middleware: 'auth' })
 
 const { deliveries, loading, error, fetchMyDeliveries } = useDriverDeliveries()
+
+// Entregada o fallida sale de la lista; si sigue activa se actualiza.
+function onUpdated(updated: Delivery) {
+  const active = ['ASSIGNED', 'PICKING_UP', 'IN_TRANSIT']
+  deliveries.value = active.includes(updated.status)
+    ? deliveries.value.map(d => (d.id === updated.id ? { ...d, ...updated } : d))
+    : deliveries.value.filter(d => d.id !== updated.id)
+}
 
 function hasCoords(lat?: number | null, lng?: number | null): boolean {
   return lat != null && lng != null

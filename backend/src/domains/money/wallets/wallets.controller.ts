@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  GoneException,
   Param,
   Patch,
   Post,
@@ -14,7 +15,6 @@ import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { EmailVerifiedGuard } from '../../../common/guards/email-verified.guard';
-import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import {
   RateLimitGuard,
   RateLimit,
@@ -25,9 +25,6 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { WalletsService } from './wallets.service';
 import { CreateWalletDto } from './dto/create-wallet.dto';
 import { QueryWalletTransactionsDto } from './dto/query-wallet-transactions.dto';
-import { WithdrawDto } from './dto/withdraw.dto';
-import { TransferDto } from './dto/transfer.dto';
-import { PaymentDto } from './dto/payment.dto';
 import { AdjustDto } from './dto/adjust.dto';
 import { SetPinDto, ChangePinDto } from './dto/set-pin.dto';
 
@@ -126,40 +123,33 @@ export class WalletsController {
   // WalletDepositRequestsController (comprobante + aprobación admin), que
   // internamente llama a WalletsService.deposit() ya aprobado.
 
+  // La billetera ya no mueve dinero entre usuarios (ver
+  // money/wallet-withdrawals y money/escrow-funding): retirar es una
+  // solicitud que un admin paga a una cuenta bancaria, y las transferencias
+  // y pagos con saldo se reemplazaron por pagos directos al vendedor.
+
   @Post('me/withdraw')
   @RequirePermission('wallets:use')
-  @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
-  @RateLimit({
-    windowMs: 60_000,
-    maxRequests: 5,
-    keyGenerator: (req) => `wallet:withdraw:${(req as any).user?.id}`,
-  })
-  withdraw(@CurrentUser() user: any, @Body() dto: WithdrawDto) {
-    return this.walletsService.withdraw(user.id, user.role, dto);
+  withdraw() {
+    throw new GoneException(
+      'Los retiros ahora se solicitan desde "Retirar a mi banco" en tu billetera'
+    );
   }
 
   @Post('me/transfer')
   @RequirePermission('wallets:use')
-  @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
-  @RateLimit({
-    windowMs: 60_000,
-    maxRequests: 5,
-    keyGenerator: (req) => `wallet:transfer:${(req as any).user?.id}`,
-  })
-  transfer(@CurrentUser() user: any, @Body() dto: TransferDto) {
-    return this.walletsService.transfer(user.id, user.role, dto);
+  transfer() {
+    throw new GoneException(
+      'Las transferencias entre billeteras ya no están disponibles'
+    );
   }
 
   @Post('me/payment')
   @RequirePermission('wallets:use')
-  @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
-  @RateLimit({
-    windowMs: 60_000,
-    maxRequests: 10,
-    keyGenerator: (req) => `wallet:payment:${(req as any).user?.id}`,
-  })
-  payment(@CurrentUser() user: any, @Body() dto: PaymentDto) {
-    return this.walletsService.payment(user.id, user.role, dto);
+  payment() {
+    throw new GoneException(
+      'Los pagos con saldo ya no están disponibles: paga directo al vendedor'
+    );
   }
 
   // ─── Admin – all wallets ──────────────────────────────────────────────────────
@@ -223,7 +213,7 @@ export class WalletsController {
   }
 
   @Post('users/:userId/adjust')
-  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  @Roles(Role.SUPERADMIN)
   @RateLimit({
     windowMs: 60_000,
     maxRequests: 10,

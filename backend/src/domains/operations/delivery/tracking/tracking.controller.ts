@@ -32,8 +32,16 @@ export class TrackingController {
     @CurrentUser() user: { id: string },
     @Param('id') id: string
   ) {
-    await this.trackingService.assertCanView(id, user.id);
-    return this.trackingService.getSnapshot(id);
+    const delivery = await this.trackingService.assertCanView(id, user.id);
+    const snapshot = await this.trackingService.getSnapshot(id);
+    // El código de entrega lo ven el cliente (para dárselo al repartidor) y
+    // el comercio; nunca el repartidor.
+    const canSeeCode =
+      delivery.customerUserId === user.id ||
+      delivery.commerce.userId === user.id;
+    return canSeeCode
+      ? { ...snapshot, deliveryCode: delivery.deliveryCode }
+      : snapshot;
   }
 
   // Alternativa HTTP a el evento WS driver:location — mismo throttling y

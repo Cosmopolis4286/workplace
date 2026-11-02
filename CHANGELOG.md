@@ -4,6 +4,25 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Cobro tipo Cashea, flujo del prestador y delivery (2026-10-28 → 2026-11-01)
+
+- **Billetera y Pago Protegido**
+  - La billetera ya no se recarga ni transfiere entre usuarios: solo se retira, con una solicitud que paga un SUPERADMIN.
+  - La garantía de Pago Protegido se paga por operación a una cuenta de la plataforma y la confirma un admin.
+  - La comisión que paga el cliente ahora se cobra (antes no se registraba).
+  - Aprobar recargas antiguas y ajustar saldos: solo SUPERADMIN, nunca sobre lo propio, de forma atómica.
+- **Prestador de servicios**
+  - Push en la APK en segundo plano (Firebase, se activa con `FIREBASE_*`) y copia por email de los avisos que piden acción.
+  - El proveedor marca el trabajo terminado; si el cliente no responde en 72 h, la solicitud se cierra sola.
+  - Disputas desde la solicitud y pantalla `/disputes-admin` para resolverlas (devolver, pagar o repartir).
+  - Publicar servicios exige una cuenta de cobro activa.
+  - Las garantías sin pagar vencen a las 72 h.
+- **Delivery y corridas**
+  - El repartidor actualiza su entrega con el código de 4 dígitos del cliente y registra lo cobrado.
+  - Conductores de corridas verificados (vehículo, placa, licencia y KYC) en `/ride-drivers-admin`.
+  - Envíos con código de entrega para quien recibe.
+  - Cancelar una corrida después de aceptarla (pasajero con motivo; el conductor la suelta o reporta que el pasajero no apareció).
+
 ### Preparación de la v1.0.0 (2026-10-27 → 2026-10-31)
 
 - **Infraestructura**

@@ -71,8 +71,13 @@
         <span class="text-xl font-bold text-red-600">${{ ride.price }}</span>
       </div>
 
+      <div v-if="ride.deliveryCode" class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900">
+        Código de entrega: <span class="font-mono text-base font-black tracking-widest">{{ ride.deliveryCode }}</span>
+        <p class="mt-0.5">Pásaselo a quien recibe: el conductor se lo pedirá al entregar.</p>
+      </div>
+
       <button
-        v-if="ride.status === 'PENDING'"
+        v-if="ride.status === 'PENDING' || ride.status === 'ACCEPTED'"
         @click="$emit('cancel', ride.id)"
         :disabled="cancelling"
         class="w-full px-4 py-2.5 border border-red-300 text-red-700 rounded-xl hover:bg-red-50 disabled:opacity-50 text-sm font-medium transition-colors"

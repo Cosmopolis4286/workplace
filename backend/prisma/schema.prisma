@@ -61,6 +61,9 @@ model User {
   sellerPaymentAccounts         SellerPaymentAccount[]
   sellerCommissionCharges       SellerCommissionCharge[]
   sellerStatements              SellerStatement[]
+  walletWithdrawalRequests      WalletWithdrawalRequest[]
+  rideDriverProfile             RideDriverProfile?
+  escrowFundingReports          EscrowFundingReport[]
   reviewedWalletDepositRequests WalletDepositRequest[] @relation("WalletDepositRequestReviewer")
 
   termsAcceptedAt   DateTime?
@@ -782,6 +785,12 @@ enum VehicleType {
   ON_FOOT
 }
 
+enum DeliveryCollection {
+  CASH
+  TRANSFER
+  PREPAID
+}
+
 enum DeliveryStatus {
   PENDING
   ASSIGNED
@@ -905,6 +914,17 @@ model Delivery {
   // TrackingService.syncTrackingActive) y se apaga al finalizar/cancelar —
   // corta la emisión WS y evita exponer ubicación fuera de ese período.
   trackingActive Boolean @default(false)
+
+  // Prueba de entrega: código de 4 dígitos que el cliente le da al
+  // repartidor. Sin él, el repartidor no puede marcarla entregada (el
+  // comercio sí, desde su panel).
+  deliveryCode    String?
+  // Motivo cuando el repartidor la marca FAILED (cliente ausente, dirección errada...).
+  failureReason   String?
+  // Lo que el repartidor dice haber cobrado al entregar, para conciliar con
+  // el comercio (efectivo, transferencia o ya pagado).
+  amountCollected Decimal?           @db.Decimal(20, 2)
+  collectedMethod DeliveryCollection?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2375,6 +2395,9 @@ model ServiceRequest {
   // Marca cuándo se envió el recordatorio automático por falta de respuesta del
   // proveedor (cron); evita reenviarlo en cada corrida del scheduler.
   reminderSentAt       DateTime?
+  // El proveedor marcó el trabajo como terminado: el cliente tiene 72 h para
+  // confirmar o reportar un problema; si no responde, se cierra solo (cron).
+  providerCompletedAt  DateTime?
   requesterId          String?
   requester            User?                               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   items                ServiceRequestItem[]
@@ -2394,6 +2417,8 @@ model ServiceRequest {
   @@index([providerId, status])
   // Acelera getSuggestedPrice: WHERE serviceId=X AND providerId=Y AND status='CLOSED'
   @@index([serviceId, providerId, status])
+  // Acelera el cierre automático: WHERE status='CONTACTED' AND providerCompletedAt<=X
+  @@index([status, providerCompletedAt])
   // Acelera el cron de reintento de escrow: WHERE escrowStatus='PENDING_FUNDS'
   @@index([escrowStatus])
   @@index([requesterId])
@@ -2916,6 +2941,12 @@ model Ride {
   cargoDescription  String?
   cargoWeight       Float? // kg aproximados
   declaredValue     Decimal?        @db.Decimal(20, 2) // valor declarado de la carga para responsabilidad
+  // Envíos (FREIGHT): código de 4 dígitos que el remitente le pasa al
+  // destinatario; el conductor lo pide al entregar. Solo lo ve el remitente.
+  deliveryCode      String?
+  // Quién canceló (pasajero/remitente o conductor) y por qué.
+  cancelledById     String?
+  cancelReason      String?
   acceptedAt        DateTime?
   startedAt         DateTime?
   completedAt       DateTime?
@@ -2934,6 +2965,35 @@ model Ride {
   @@index([status])
   @@index([serviceType])
   @@map("rides")
+}
+
+enum RideDriverProfileStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Habilitación como conductor de corridas/envíos. Antes cualquier perfil
+// profesional podía aceptar pasajeros; ahora hace falta este perfil aprobado
+// por un admin (además del KYC) y solo se aceptan corridas de su vehículo.
+model RideDriverProfile {
+  id              String                  @id @default(uuid())
+  userId          String                  @unique
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleType     RideVehicleType
+  vehiclePlate    String
+  vehicleModel    String
+  vehicleColor    String?
+  licenseNumber   String
+  status          RideDriverProfileStatus @default(PENDING)
+  rejectionReason String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@index([status])
+  @@map("ride_driver_profiles")
 }
 
 // ─── Exchange Rates ───────────────────────────────────────────────────────────
@@ -3753,6 +3813,7 @@ model PlatformCollectionAccount {
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
   payments       SellerStatementPayment[]
+  escrowFundings EscrowFundingReport[]
 
   @@index([isActive])
   @@map("platform_collection_accounts")
@@ -3784,4 +3845,77 @@ model SellerStatementPayment {
   @@index([statementId])
   @@index([reference])
   @@map("seller_statement_payments")
+}
+
+// ─── Billetera: solo retiro ─────────────────────────────────────────────────
+// La billetera ya no recibe recargas ni permite transferencias/pagos entre
+// usuarios: solo queda como contabilidad interna de Pago Protegido y para que
+// cada usuario retire su saldo. Un retiro es una solicitud real: el saldo se
+// reserva al pedirlo y un admin hace la transferencia a la cuenta indicada y
+// registra la referencia (o la rechaza y el saldo vuelve a la billetera).
+
+enum WithdrawalStatus {
+  PENDING
+  PAID
+  REJECTED
+}
+
+model WalletWithdrawalRequest {
+  id                  String           @id @default(uuid())
+  userId              String
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount              Decimal          @db.Decimal(20, 2)
+  currency            String           @default("USD")
+  // Cuenta de destino (mismos campos que SellerPaymentAccount), copiada al pedir.
+  destination         Json
+  // Monto a transferir en la moneda de la cuenta de destino, a la tasa del momento.
+  payoutCurrency      String
+  payoutAmount        Decimal          @db.Decimal(20, 2)
+  exchangeRate        Decimal?         @db.Decimal(20, 8)
+  status              WithdrawalStatus @default(PENDING)
+  // Referencia de la transferencia que hizo la plataforma al pagar.
+  payoutReference     String?
+  rejectionReason     String?
+  reviewedById        String?
+  reviewedAt          DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("wallet_withdrawal_requests")
+}
+
+// Pago Protegido por operación: el comprador paga la garantía de UNA
+// solicitud a una cuenta de la plataforma y reporta la referencia; al
+// confirmarlo un admin, se acredita a su billetera (contabilidad interna) y el
+// reintento automático de garantías la retiene para esa operación.
+model EscrowFundingReport {
+  id                String                     @id @default(uuid())
+  sourceType        String
+  sourceId          String
+  payerUserId       String
+  payer             User                       @relation(fields: [payerUserId], references: [id], onDelete: Cascade)
+  // Monto de la garantía que faltaba cubrir (USD), calculado en el servidor.
+  amount            Decimal                    @db.Decimal(20, 2)
+  platformAccountId String?
+  platformAccount   PlatformCollectionAccount? @relation(fields: [platformAccountId], references: [id], onDelete: SetNull)
+  destination       Json
+  reference         String
+  payerBankCode     String?
+  paidAt            DateTime
+  paidCurrency      String
+  paidAmount        Decimal                    @db.Decimal(20, 2)
+  exchangeRate      Decimal?                   @db.Decimal(20, 8)
+  status            ManualPaymentReportStatus  @default(SUBMITTED)
+  rejectionReason   String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  @@index([status, createdAt])
+  @@index([sourceType, sourceId])
+  @@index([reference])
+  @@map("escrow_funding_reports")
 }

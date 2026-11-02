@@ -79,31 +79,6 @@ export interface DepositPayload {
   metadata?: Record<string, any>
 }
 
-export interface WithdrawPayload {
-  amount: number
-  pin: string
-  description?: string
-  reference?: string
-  idempotencyKey?: string
-}
-
-export interface TransferPayload {
-  recipientUserId: string
-  amount: number
-  pin: string
-  description?: string
-  idempotencyKey?: string
-}
-
-export interface PaymentPayload {
-  amount: number
-  pin: string
-  orderId?: string
-  serviceRequestId?: string
-  description?: string
-  idempotencyKey?: string
-}
-
 // Prefixed to avoid Nuxt auto-import collisions with other composables
 const WALLET_STATUS_LABELS: Record<WalletStatus, string> = {
   ACTIVE: 'Activa',
@@ -223,54 +198,9 @@ export function useWallets() {
   }
 
   // ─── Financial operations ────────────────────────────────────────────────────
-  // No hay deposit() directo aquí: acreditar saldo sin verificar que el dinero
-  // exista es el hueco que se cerró. Ver useWalletDepositRequests (comprobante
-  // + aprobación admin) — solo esa vía puede terminar acreditando saldo real.
-
-  async function withdraw(payload: WithdrawPayload) {
-    loading.value = true; error.value = null
-    try {
-      const result = await post<{ wallet: Wallet; transaction: WalletTransaction }>('/wallets/me/withdraw', payload)
-      wallet.value = { ...wallet.value!, ...result.wallet }
-      transactions.value = [result.transaction, ...transactions.value]
-      transactionsMeta.value.total++
-      await fetchMyLimits()
-      return result
-    } catch (e: any) {
-      error.value = e?.message ?? 'No se pudo realizar el retiro'; throw e
-    } finally { loading.value = false }
-  }
-
-  async function transfer(payload: TransferPayload) {
-    loading.value = true; error.value = null
-    try {
-      const result = await post<{
-        reference: string
-        sender: { wallet: Wallet; transaction: WalletTransaction }
-        recipient: { wallet: Wallet; transaction: WalletTransaction }
-      }>('/wallets/me/transfer', payload)
-      wallet.value = { ...wallet.value!, ...result.sender.wallet }
-      transactions.value = [result.sender.transaction, ...transactions.value]
-      transactionsMeta.value.total++
-      await fetchMyLimits()
-      return result
-    } catch (e: any) {
-      error.value = e?.message ?? 'No se pudo realizar la transferencia'; throw e
-    } finally { loading.value = false }
-  }
-
-  async function payment(payload: PaymentPayload) {
-    loading.value = true; error.value = null
-    try {
-      const result = await post<{ wallet: Wallet; transaction: WalletTransaction }>('/wallets/me/payment', payload)
-      wallet.value = { ...wallet.value!, ...result.wallet }
-      transactions.value = [result.transaction, ...transactions.value]
-      transactionsMeta.value.total++
-      return result
-    } catch (e: any) {
-      error.value = e?.message ?? 'No se pudo procesar el pago'; throw e
-    } finally { loading.value = false }
-  }
+  // La billetera solo se retira (useWalletWithdrawals): ya no se recarga ni
+  // transfiere/paga entre usuarios. Pago Protegido se paga por operación
+  // (useEscrowFunding).
 
   async function fetchWallets(page = 1, limit = 20) {
     const res = await get<Paginated<Wallet>>(`/wallets?page=${page}&limit=${limit}`)
@@ -328,9 +258,6 @@ export function useWallets() {
     setPin,
     changePin,
     removePin,
-    withdraw,
-    transfer,
-    payment,
     fetchWallets,
     fetchEscrowReconciliation,
     createUserWallet,

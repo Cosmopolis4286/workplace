@@ -38,6 +38,7 @@ services:
         condition: service_healthy
     volumes:
       - uploads_data:/app/backend/uploads
+      - private_uploads_data:/app/backend/private-uploads
     healthcheck:
       test: ["CMD-SHELL", "curl -f --max-time 3 http://localhost:3002/api/health || exit 1"]
       interval: 15s

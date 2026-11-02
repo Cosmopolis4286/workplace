@@ -71,6 +71,7 @@
               Rechazar
             </button>
             <button
+              v-if="isSuperAdmin && item.userId !== user?.id"
               class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium disabled:opacity-60"
               :disabled="processingId === item.id"
               @click="confirmApprove(item.id)"
@@ -92,6 +93,11 @@ import { CheckCircleIcon, BanknotesIcon } from '@heroicons/vue/24/outline'
 import { useWalletDepositRequests, type WalletDepositRequest } from '~/composables/wallets/useWalletDepositRequests'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import { useAuth } from '~/composables/auth/useAuth'
+
+// Aprobar acredita saldo retirable: solo SUPERADMIN y nunca su propia solicitud.
+const { user } = useAuth()
+const isSuperAdmin = computed(() => user.value?.role === 'SUPERADMIN')
 
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
 const { fetchPending, review, fetchProofImageBlobUrl } = useWalletDepositRequests()

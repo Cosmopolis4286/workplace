@@ -96,25 +96,53 @@ export class WalletDepositRequestsService {
     return { data, total, page, limit };
   }
 
-  async review(id: string, reviewerId: string, dto: ReviewDepositRequestDto) {
+  async review(
+    id: string,
+    reviewerId: string,
+    reviewerRole: Role,
+    dto: ReviewDepositRequestDto
+  ) {
     const request = await this.prisma.walletDepositRequest.findUnique({
       where: { id },
     });
     if (!request)
       throw new NotFoundException('Solicitud de depósito no encontrada');
-    if (request.status !== ProposalStatus.PENDING) {
-      throw new BadRequestException('Esta solicitud ya fue revisada');
+    if (request.userId === reviewerId) {
+      throw new ForbiddenException(
+        'No puedes revisar tu propia solicitud de depósito'
+      );
+    }
+    // Acreditar es crear saldo retirable a un banco: solo SUPERADMIN, igual
+    // que el resto de confirmaciones de dinero real. Rechazar sí puede ADMIN.
+    if (
+      dto.status === ProposalStatus.APPROVED &&
+      reviewerRole !== Role.SUPERADMIN
+    ) {
+      throw new ForbiddenException(
+        'Solo un SUPERADMIN puede aprobar depósitos'
+      );
     }
 
+    // Se "reclama" la solicitud con un UPDATE condicionado al estado: dos
+    // revisiones simultáneas no pueden acreditar dos veces.
+    const claimed = await this.prisma.walletDepositRequest.updateMany({
+      where: { id, status: ProposalStatus.PENDING },
+      data: {
+        status: dto.status,
+        rejectionReason:
+          dto.status === ProposalStatus.REJECTED
+            ? dto.rejectionReason
+            : undefined,
+        reviewedBy: reviewerId,
+        reviewedAt: new Date(),
+      },
+    });
+    if (claimed.count !== 1) {
+      throw new BadRequestException('Esta solicitud ya fue revisada');
+    }
     if (dto.status === ProposalStatus.REJECTED) {
-      return this.prisma.walletDepositRequest.update({
+      return this.prisma.walletDepositRequest.findUniqueOrThrow({
         where: { id },
-        data: {
-          status: ProposalStatus.REJECTED,
-          rejectionReason: dto.rejectionReason,
-          reviewedBy: reviewerId,
-          reviewedAt: new Date(),
-        },
       });
     }
 
@@ -122,30 +150,34 @@ export class WalletDepositRequestsService {
       where: { id: request.userId },
       select: { role: true },
     });
-    if (!user) throw new NotFoundException('Usuario no encontrado');
 
     // Acredita el saldo real via el mismo deposit() que usa el resto del
     // sistema (mismos límites de saldo por rol, mismo registro de
-    // WalletTransaction) — la solicitud aprobada es la única vía que llega
-    // hasta acá con dinero verificado por un admin.
-    const { transaction } = await this.wallets.deposit(
-      request.userId,
-      user.role,
-      {
+    // WalletTransaction). Si falla, la solicitud vuelve a PENDING para no
+    // quedar aprobada sin saldo acreditado.
+    let transaction;
+    try {
+      if (!user) throw new NotFoundException('Usuario no encontrado');
+      ({ transaction } = await this.wallets.deposit(request.userId, user.role, {
         amount: toNumber(request.amount),
         description: `Depósito aprobado (${request.paymentMethod}${request.reference ? ` — ${request.reference}` : ''})`,
         reference: `DEPOSIT-REQ-${id}`,
-      }
-    );
+      }));
+    } catch (err) {
+      await this.prisma.walletDepositRequest.update({
+        where: { id },
+        data: {
+          status: ProposalStatus.PENDING,
+          reviewedBy: null,
+          reviewedAt: null,
+        },
+      });
+      throw err;
+    }
 
     return this.prisma.walletDepositRequest.update({
       where: { id },
-      data: {
-        status: ProposalStatus.APPROVED,
-        reviewedBy: reviewerId,
-        reviewedAt: new Date(),
-        resultingTransactionId: transaction.id,
-      },
+      data: { resultingTransactionId: transaction.id },
     });
   }
 }

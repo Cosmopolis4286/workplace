@@ -4,6 +4,8 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ServiceStatus, ServiceEventType, Prisma, Role } from '@prisma/client';
@@ -48,6 +50,12 @@ import {
   toNumber,
   type MoneyInput,
 } from '../../../common/money/money';
+
+// Plazo del cliente para confirmar o disputar después de que el proveedor
+// marca el trabajo terminado; luego se cierra solo.
+export const AUTO_CLOSE_AFTER_MS = 72 * 60 * 60 * 1000;
+// Plazo para pagar una garantía pendiente (Pago Protegido por operación).
+export const GUARANTEE_PAYMENT_WINDOW_MS = 72 * 60 * 60 * 1000;
 
 const SERVICE_SELECT = {
   id: true,
@@ -100,6 +108,8 @@ function attachRating<
 
 @Injectable()
 export class ServicesService {
+  private readonly logger = new Logger(ServicesService.name);
+
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
@@ -1220,15 +1230,35 @@ export class ServicesService {
   // El cliente (requester) confirma que el servicio se completó realmente.
   // Solo desde CONTACTED, para evitar que se cierre algo que nunca avanzó,
   // y habilita la reseña verificada del proveedor.
-  async confirmServiceRequestCompletion(id: string, userId: string) {
+  /**
+   * Cierra la solicitud: cobra la comisión y libera la garantía. La confirma el
+   * cliente (`userId`) o, con `auto`, el cierre automático cuando el proveedor
+   * marcó el trabajo terminado y el cliente no respondió en
+   * AUTO_CLOSE_AFTER_MS (ver closeUnconfirmedCompletions).
+   */
+  async confirmServiceRequestCompletion(
+    id: string,
+    userId: string | null,
+    options: { auto?: boolean } = {}
+  ) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
-    if (req.requesterId !== userId)
+    if (!options.auto && (!userId || req.requesterId !== userId))
       throw new ForbiddenException('No tienes permiso');
     if (req.status !== 'CONTACTED')
       throw new ForbiddenException(
         'Solo puedes confirmar una solicitud que ya fue contactada por el proveedor'
       );
+    if (
+      options.auto &&
+      (!req.providerCompletedAt ||
+        req.escrowStatus === 'DISPUTED' ||
+        req.escrowStatus === 'PENDING_FUNDS')
+    ) {
+      throw new ConflictException(
+        'La solicitud no se puede cerrar automáticamente'
+      );
+    }
 
     // Resolve fee before starting any write so we don't mark CLOSED on a fee error
     let feeData: { feeAmount: number; feeConfig: any } | null = null;
@@ -1263,13 +1293,34 @@ export class ServicesService {
       );
     }
 
-    // Libera el escrow al proveedor, neto de la comisión cuando el proveedor
-    // la paga (feeData): esa retención ES el cobro (registrado arriba como
-    // COLLECTED), no se factura de nuevo en su estado de cuenta.
-    if (req.escrowStatus === 'HELD' && isPositive(req.escrowAmount)) {
-      const releaseAmount = feeData
-        ? sub(req.escrowAmount, feeData.feeAmount)
-        : req.escrowAmount;
+    // Comisión que pagó el cliente (ya incluida en el precio): el proveedor
+    // la recibió junto con el pago, así que se le registra a él. Con garantía
+    // se descuenta de lo liberado (COLLECTED); sin garantía va a su estado de
+    // cuenta. Antes no se registraba en ningún lado y la plataforma nunca la
+    // cobraba.
+    const escrowHeld =
+      req.escrowStatus === 'HELD' && isPositive(req.escrowAmount);
+    const clientFee =
+      req.platformFeePayer === 'CLIENT' && isPositive(req.platformFeeAmount)
+        ? req.platformFeeAmount
+        : null;
+    if (clientFee) {
+      await this.platformFees.chargeProviderFee(
+        'SERVICE_REQUEST',
+        req.providerId,
+        toNumber(clientFee),
+        `FEE-SVC-${id}`,
+        { serviceRequestId: id, payer: 'CLIENT' },
+        { collected: escrowHeld }
+      );
+    }
+
+    // Libera el escrow al proveedor, neto de la comisión (la paguen el
+    // proveedor o el cliente): esa retención ES el cobro (registrado arriba
+    // como COLLECTED), no se factura de nuevo en su estado de cuenta.
+    if (escrowHeld) {
+      const feeWithheld = feeData?.feeAmount ?? clientFee ?? 0;
+      const releaseAmount = sub(req.escrowAmount!, feeWithheld);
       if (gt(releaseAmount, 0)) {
         await this.escrow.release({
           entityType: 'SERVICE_REQUEST',
@@ -1313,13 +1364,17 @@ export class ServicesService {
         serviceRequestId: id,
         previousStatus: req.status,
         newStatus: 'CLOSED',
-        changedBy: userId,
+        // null = cierre automático (ver el modelo).
+        changedBy: options.auto ? null : userId,
       },
     });
 
-    this.sendReviewReminder(userId, req.providerId, req.providerName).catch(
-      () => {}
-    );
+    const clientId = options.auto ? req.requesterId : userId;
+    if (clientId) {
+      this.sendReviewReminder(clientId, req.providerId, req.providerName).catch(
+        () => {}
+      );
+    }
 
     return updated;
   }
@@ -1384,7 +1439,204 @@ export class ServicesService {
   // reembolso automáticos hasta que un admin la resuelva. Solo tiene sentido
   // desde CONTACTED (ya hay precio fijado y trabajo en curso); antes de eso
   // no hay nada que disputar todavía.
+  // El proveedor avisa que terminó el trabajo. Antes solo el cliente podía
+  // cerrar: si no confirmaba, la solicitud quedaba abierta para siempre (sin
+  // comisión, sin reseña y con la garantía retenida). Ahora el cliente tiene
+  // AUTO_CLOSE_AFTER_MS para confirmar o reportar un problema; si no hace
+  // nada, se cierra solo.
+  async markServiceRequestDone(id: string, providerId: string) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (req.providerId !== providerId)
+      throw new ForbiddenException('No tienes permiso');
+    if (req.status !== 'CONTACTED') {
+      throw new BadRequestException(
+        'Solo puedes marcar como terminada una solicitud en curso'
+      );
+    }
+    if (req.escrowStatus === 'PENDING_FUNDS') {
+      throw new BadRequestException(
+        'El cliente todavía no pagó la garantía: espera a que quede retenida'
+      );
+    }
+    if (req.escrowStatus === 'DISPUTED') {
+      throw new BadRequestException(
+        'Hay una disputa abierta: soporte la está revisando'
+      );
+    }
+    if (req.providerCompletedAt) return req;
+
+    const updated = await this.prisma.serviceRequest.update({
+      where: { id },
+      data: { providerCompletedAt: new Date() },
+    });
+    if (req.requesterId) {
+      this.notifications
+        .notifyServiceRequestProviderCompleted(
+          req.requesterId,
+          req.providerName,
+          req.serviceName,
+          id,
+          AUTO_CLOSE_AFTER_MS / 3_600_000
+        )
+        .catch(() => {});
+    }
+    return updated;
+  }
+
+  // Cron: cierra las solicitudes que el proveedor marcó terminadas y el
+  // cliente no confirmó ni disputó a tiempo. Una por una: un fallo (ej. al
+  // liberar la garantía) no frena a las demás y se reintenta en la próxima
+  // corrida.
+  async closeUnconfirmedCompletions(now = new Date()) {
+    const due = await this.prisma.serviceRequest.findMany({
+      where: {
+        status: 'CONTACTED',
+        providerCompletedAt: {
+          lte: new Date(now.getTime() - AUTO_CLOSE_AFTER_MS),
+        },
+        escrowStatus: { notIn: ['DISPUTED', 'PENDING_FUNDS'] },
+      },
+      select: {
+        id: true,
+        providerId: true,
+        requesterId: true,
+        serviceName: true,
+      },
+      take: 200,
+    });
+    let closed = 0;
+    for (const req of due) {
+      const { id } = req;
+      try {
+        await this.confirmServiceRequestCompletion(id, null, { auto: true });
+        closed++;
+        this.notifications
+          .notifyServiceRequestAutoClosed(
+            req.providerId,
+            req.requesterId,
+            req.serviceName
+          )
+          .catch(() => {});
+      } catch (err) {
+        this.logger.warn(
+          `Cierre automático de la solicitud ${id} falló: ${(err as Error).message}`
+        );
+      }
+    }
+    return { checked: due.length, closed };
+  }
+
+  // Cron: garantías que nadie pagó a tiempo. Sin esto la solicitud quedaba
+  // esperando para siempre y el proveedor no podía hacer nada.
+  // - Garantía inicial sin pagar: la solicitud se cancela (no hay dinero
+  //   retenido que devolver).
+  // - Aumento de precio aprobado sin pagar: la propuesta caduca y la
+  //   solicitud sigue con la garantía original (que sigue retenida).
+  // Las que tienen un pago reportado en revisión no se tocan.
+  async expireUnpaidGuarantees(now = new Date()) {
+    const cutoff = new Date(now.getTime() - GUARANTEE_PAYMENT_WINDOW_MS);
+    const inReview = await this.prisma.escrowFundingReport.findMany({
+      where: { sourceType: 'SERVICE_REQUEST', status: 'SUBMITTED' },
+      select: { sourceId: true },
+    });
+    const reviewing = new Set(inReview.map((r) => r.sourceId));
+
+    // Aumentos aprobados sin fondos.
+    const staleIncreases =
+      await this.prisma.serviceRequestPriceChangeProposal.findMany({
+        where: {
+          status: 'APPROVED_PENDING_FUNDS',
+          resolvedAt: { lte: cutoff },
+        },
+        include: { serviceRequest: true },
+        take: 200,
+      });
+    let increasesExpired = 0;
+    for (const p of staleIncreases) {
+      const req = p.serviceRequest;
+      if (reviewing.has(req.id) || req.escrowStatus !== 'PENDING_FUNDS')
+        continue;
+      await this.prisma.$transaction([
+        this.prisma.serviceRequestPriceChangeProposal.update({
+          where: { id: p.id },
+          data: { status: 'INVALIDATED' },
+        }),
+        this.prisma.serviceRequest.update({
+          where: { id: req.id },
+          data: { escrowStatus: 'HELD' },
+        }),
+      ]);
+      increasesExpired++;
+      this.notifications
+        .notifyGuaranteeExpired(
+          req.providerId,
+          req.requesterId,
+          req.serviceName,
+          'increase'
+        )
+        .catch(() => {});
+    }
+
+    // Garantía inicial sin pagar.
+    const stale = await this.prisma.serviceRequest.findMany({
+      where: {
+        status: 'CONTACTED',
+        escrowStatus: 'PENDING_FUNDS',
+        OR: [
+          { statusUpdatedAt: { lte: cutoff } },
+          { statusUpdatedAt: null, createdAt: { lte: cutoff } },
+        ],
+        priceChangeProposals: { none: { status: 'APPROVED_PENDING_FUNDS' } },
+      },
+      take: 200,
+    });
+    let cancelled = 0;
+    for (const req of stale) {
+      if (reviewing.has(req.id)) continue;
+      const changed = await this.prisma.serviceRequest.updateMany({
+        where: {
+          id: req.id,
+          status: 'CONTACTED',
+          escrowStatus: 'PENDING_FUNDS',
+        },
+        data: {
+          status: 'CANCELLED',
+          statusUpdatedAt: now,
+          escrowStatus: 'NONE',
+          escrowAmount: null,
+        },
+      });
+      if (changed.count !== 1) continue;
+      await this.prisma.serviceRequestStatusHistory.create({
+        data: {
+          serviceRequestId: req.id,
+          previousStatus: 'CONTACTED',
+          newStatus: 'CANCELLED',
+          changedBy: null,
+        },
+      });
+      cancelled++;
+      this.notifications
+        .notifyGuaranteeExpired(
+          req.providerId,
+          req.requesterId,
+          req.serviceName,
+          'request'
+        )
+        .catch(() => {});
+    }
+    return { cancelled, increasesExpired };
+  }
+
   async disputeServiceRequest(id: string, userId: string, reason: string) {
+    const trimmed = reason?.trim() ?? '';
+    if (trimmed.length < 10) {
+      throw new BadRequestException(
+        'Explica el problema (mínimo 10 caracteres) para que soporte pueda revisarlo'
+      );
+    }
+    reason = trimmed.slice(0, 1000);
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.providerId !== userId && req.requesterId !== userId) {
@@ -1411,6 +1663,109 @@ export class ServicesService {
       .catch(() => {});
 
     return dispute;
+  }
+
+  /**
+   * Resuelve la disputa de una solicitud (mueve el dinero vía escrow) y la
+   * deja terminada: si algo se liberó al proveedor, CLOSED con la comisión
+   * sobre lo liberado (va a su estado de cuenta: la garantía se liberó
+   * entera); si todo volvió al cliente, CANCELLED y sin comisión. Sin esto la
+   * solicitud quedaba en curso y el cierre automático podía cobrarle comisión
+   * al proveedor aunque el cliente hubiera recibido todo de vuelta.
+   */
+  async resolveServiceRequestDispute(
+    adminId: string,
+    disputeId: string,
+    dto: {
+      resolution: 'RELEASE_FULL' | 'REFUND_FULL' | 'SPLIT';
+      releaseAmount?: number;
+      refundAmount?: number;
+      resolutionNote?: string;
+    }
+  ) {
+    const dispute = await this.prisma.escrowDispute.findUnique({
+      where: { id: disputeId },
+      include: { escrow: true },
+    });
+    if (!dispute || dispute.escrow.entityType !== 'SERVICE_REQUEST') {
+      throw new NotFoundException('Disputa no encontrada');
+    }
+    const req = await this.prisma.serviceRequest.findUnique({
+      where: { id: dispute.escrow.entityId },
+    });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+
+    const resolved = await this.escrow.resolveDispute({
+      disputeId,
+      resolvedById: adminId,
+      resolution: dto.resolution,
+      releaseAmount: dto.releaseAmount,
+      refundAmount: dto.refundAmount,
+      resolutionNote: dto.resolutionNote,
+    });
+
+    const released = resolved.releaseAmount ?? 0;
+    const newStatus = released > 0 ? 'CLOSED' : 'CANCELLED';
+    if (released > 0) {
+      const feeConfig = await this.platformFees.resolveFeeConfig(
+        'SERVICE_REQUEST',
+        req.providerId
+      );
+      if (feeConfig) {
+        const { feeAmount } = this.platformFees.calculateFee(
+          released,
+          feeConfig
+        );
+        await this.platformFees.chargeProviderFee(
+          'SERVICE_REQUEST',
+          req.providerId,
+          feeAmount,
+          `FEE-SVC-${req.id}`,
+          { serviceRequestId: req.id, disputeId, released }
+        );
+      }
+    }
+    if (req.status !== 'CLOSED' && req.status !== 'CANCELLED') {
+      await this.prisma.serviceRequest.update({
+        where: { id: req.id },
+        data: { status: newStatus, statusUpdatedAt: new Date() },
+      });
+      await this.prisma.serviceRequestStatusHistory.create({
+        data: {
+          serviceRequestId: req.id,
+          previousStatus: req.status,
+          newStatus,
+          changedBy: adminId,
+        },
+      });
+    }
+    return { ...resolved, serviceRequestStatus: newStatus };
+  }
+
+  // Disputas abiertas de solicitudes de servicio que involucran al usuario
+  // (para mostrar el estado en el detalle).
+  async getServiceRequestDispute(id: string, userId: string) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (req.providerId !== userId && req.requesterId !== userId) {
+      throw new ForbiddenException('No tienes permiso');
+    }
+    return this.prisma.escrowDispute.findFirst({
+      where: { escrow: { entityType: 'SERVICE_REQUEST', entityId: id } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        reason: true,
+        raisedByRole: true,
+        resolution: true,
+        releaseAmount: true,
+        refundAmount: true,
+        resolutionNote: true,
+        createdAt: true,
+        resolvedAt: true,
+      },
+    });
   }
 
   // ─── Escrow retry (3.3b) ────────────────────────────────────────────────────
@@ -1511,6 +1866,12 @@ export class ServicesService {
       )
       .catch(() => {});
     return true;
+  }
+
+  // Reintento de UNA solicitud: lo usa el pago de garantía por operación
+  // (money/escrow-funding), donde el dinero acreditado es para esa solicitud.
+  retryPendingEscrowForRequest(requestId: string) {
+    return this.retryPendingEscrow(requestId);
   }
 
   // Llamado fire-and-forget desde WalletsService tras un depósito exitoso.

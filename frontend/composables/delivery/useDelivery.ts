@@ -100,8 +100,23 @@ export interface Delivery {
   destLat?: number | null
   destLng?: number | null
   trackingActive?: boolean
+  // Prueba de entrega: el comercio y el cliente ven el código; al repartidor
+  // solo le llega hasDeliveryCode (se lo pide al cliente).
+  deliveryCode?: string | null
+  hasDeliveryCode?: boolean
+  failureReason?: string | null
+  amountCollected?: number | null
+  collectedMethod?: DeliveryCollectionMethod | null
   createdAt: string
   updatedAt: string
+}
+
+export type DeliveryCollectionMethod = 'CASH' | 'TRANSFER' | 'PREPAID'
+
+export const DELIVERY_COLLECTION_LABELS: Record<DeliveryCollectionMethod, string> = {
+  CASH: 'Efectivo',
+  TRANSFER: 'Transferencia / pago móvil',
+  PREPAID: 'Ya estaba pagado',
 }
 
 export interface DeliveryStats {

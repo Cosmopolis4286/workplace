@@ -29,6 +29,7 @@ import { CashService } from '../cash/cash.service';
 import {
   div,
   gt,
+  isPositive,
   mul,
   round,
   sub,
@@ -491,6 +492,26 @@ export class OrdersService {
           data.platformFeeRate = feeConfig.rate;
           data.platformFeeAmount = feeAmount;
           data.platformFeePayer = 'PROVIDER';
+        }
+      } else if (
+        existing.platformFeePayer === 'CLIENT' &&
+        isPositive(existing.platformFeeAmount)
+      ) {
+        // El cliente pagó la comisión dentro del total, directo al comercio:
+        // el comercio la debe a la plataforma (estado de cuenta). Antes no se
+        // registraba en ningún lado.
+        const commerce = await this.prisma.commerce.findUnique({
+          where: { id: commerceId },
+          select: { userId: true },
+        });
+        if (commerce) {
+          await this.platformFees.chargeProviderFee(
+            'ORDER',
+            commerce.userId,
+            toNumber(existing.platformFeeAmount),
+            `FEE-ORDER-${id}`,
+            { orderId: id, payer: 'CLIENT' }
+          );
         }
       }
     }

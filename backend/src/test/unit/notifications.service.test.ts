@@ -3,6 +3,8 @@ import { NotificationsService } from '../../domains/engagement/notifications/not
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsGateway } from '../../domains/engagement/notifications/notifications.gateway';
 import { NotificationType } from '@prisma/client';
+import { MailService } from '../../domains/engagement/mail/mail.service';
+import { PushService } from '../../domains/engagement/notifications/push.service';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -20,6 +22,17 @@ describe('NotificationsService', () => {
     commerce: {
       findUnique: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn(),
+    },
+  };
+
+  const mockPushService = {
+    sendToUser: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockMailService = {
+    sendNotificationEmail: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockNotificationsGateway = {
@@ -39,6 +52,8 @@ describe('NotificationsService', () => {
           provide: NotificationsGateway,
           useValue: mockNotificationsGateway,
         },
+        { provide: MailService, useValue: mockMailService },
+        { provide: PushService, useValue: mockPushService },
       ],
     }).compile();
 
@@ -406,5 +421,68 @@ describe('NotificationsService', () => {
 
       expect(result).toEqual(mockNotification);
     });
+  });
+
+  describe('copia por email', () => {
+    const flush = () => new Promise((r) => setImmediate(r));
+
+    beforeEach(() => {
+      mockPrismaService.notification.create.mockResolvedValue({ id: 'n1' });
+    });
+
+    it('una solicitud nueva le llega por email al proveedor', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        email: 'pro@test.com',
+        firstName: 'Luis',
+        isActive: true,
+      });
+      await service.notifyNewServiceRequest('pro-1', 'Ana', 'Plomería');
+      await flush();
+      expect(mockMailService.sendNotificationEmail).toHaveBeenCalledWith(
+        'pro@test.com',
+        'Luis',
+        expect.stringContaining('Nueva solicitud'),
+        expect.stringContaining('Plomería'),
+        '/service-requests'
+      );
+    });
+
+    it('no escribe a cuentas eliminadas (email anonimizado)', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        email: 'eliminado-1@eliminado.invalid',
+        firstName: 'x',
+        isActive: false,
+      });
+      await service.notifyNewServiceRequest('pro-1', 'Ana', 'Plomería');
+      await flush();
+      expect(mockMailService.sendNotificationEmail).not.toHaveBeenCalled();
+    });
+
+    it('las notificaciones sin email (ej. mensajes del chat) no mandan correo', async () => {
+      await service.notifyNewServiceRequestMessage(
+        'u1',
+        'Ana',
+        'Plomería',
+        'sr1'
+      );
+      await flush();
+      expect(mockPrismaService.user.findUnique).not.toHaveBeenCalled();
+      expect(mockMailService.sendNotificationEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  it('cada notificación de usuario sale también por push con su link', async () => {
+    mockPrismaService.notification.create.mockResolvedValue({
+      id: 'n1',
+      title: 't',
+      message: 'm',
+      link: '/service-requests',
+      type: 'ORDER',
+    });
+    await service.notifyNewServiceRequest('pro-1', 'Ana', 'Plomería');
+    expect(mockPushService.sendToUser).toHaveBeenCalledWith(
+      'pro-1',
+      expect.objectContaining({ link: '/service-requests' })
+    );
   });
 });

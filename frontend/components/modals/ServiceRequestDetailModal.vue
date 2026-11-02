@@ -117,10 +117,47 @@
                   v-if="!isProvider && req.escrowStatus === 'PENDING_FUNDS'"
                   type="button"
                   class="mt-2.5 w-full text-xs font-semibold py-1.5 rounded-lg bg-white/70 hover:bg-white transition-colors"
-                  @click="goToWallet"
+                  @click="showEscrowFunding = true"
                 >
-                  Ir a cargar saldo
+                  Pagar garantía
                 </button>
+
+                <!-- Disputa: congela la garantía hasta que soporte decida -->
+                <div v-if="req.escrowStatus === 'DISPUTED' && dispute" class="mt-2.5 text-xs rounded-lg bg-white/70 p-2.5">
+                  <p class="font-semibold">
+                    {{ dispute.raisedByRole === (isProvider ? 'PAYEE' : 'PAYER') ? 'Reportaste' : 'Se reportó' }} un problema el {{ formatShortDate(dispute.createdAt) }}:
+                  </p>
+                  <p class="italic mt-0.5">"{{ dispute.reason }}"</p>
+                  <p class="mt-1 opacity-80">Soporte revisará el caso y decidirá a quién se entrega la garantía.</p>
+                </div>
+                <template v-if="req.escrowStatus === 'HELD' && req.status === 'CONTACTED'">
+                  <button
+                    v-if="!disputing"
+                    type="button"
+                    class="mt-2.5 w-full text-xs font-semibold py-1.5 rounded-lg bg-white/70 hover:bg-white text-red-700 transition-colors"
+                    @click="disputing = true"
+                  >
+                    Tengo un problema con {{ isProvider ? 'el cliente' : 'el trabajo' }}
+                  </button>
+                  <form v-else class="mt-2.5 space-y-2" @submit.prevent="openDispute">
+                    <p class="text-xs">
+                      La garantía queda congelada hasta que soporte revise el caso. Explica qué pasó:
+                    </p>
+                    <textarea
+                      v-model="disputeReason"
+                      rows="3"
+                      maxlength="1000"
+                      class="w-full text-sm rounded-lg border border-gray-200 p-2 text-gray-800"
+                      placeholder="Ej. El técnico no vino en la fecha acordada"
+                    />
+                    <div class="flex justify-end gap-2">
+                      <button type="button" class="btn-secondary text-xs py-1.5 px-3" :disabled="openingDispute" @click="disputing = false">Cancelar</button>
+                      <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-60" :disabled="openingDispute || disputeReason.trim().length < 10">
+                        {{ openingDispute ? 'Enviando…' : 'Abrir disputa' }}
+                      </button>
+                    </div>
+                  </form>
+                </template>
               </div>
 
               <!-- Ubicación (presencial) -->
@@ -250,9 +287,29 @@
 
           <!-- Footer esperando confirmación del cliente — proveedor (CONTACTED) -->
           <div v-else-if="isProvider && req.status === 'CONTACTED'" class="p-4 border-t border-gray-100 bg-blue-50">
-            <div class="flex items-center gap-2">
-              <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0" />
-              <p class="text-xs text-blue-700">Esperando que el cliente confirme la finalización del servicio.</p>
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <div class="flex items-start gap-2">
+                <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p v-if="req.providerCompletedAt" class="text-xs text-blue-700">
+                  Marcaste el trabajo como terminado. Si el cliente no confirma ni reporta un problema,
+                  se cerrará automáticamente el <strong>{{ autoCloseAt }}</strong>.
+                </p>
+                <p v-else-if="req.escrowStatus === 'PENDING_FUNDS'" class="text-xs text-blue-700">
+                  Espera a que el cliente pague la garantía antes de hacer el trabajo.
+                </p>
+                <p v-else class="text-xs text-blue-700">
+                  Cuando termines el trabajo, márcalo: el cliente tendrá {{ AUTO_CLOSE_HOURS }} horas para confirmar o reportar un problema.
+                </p>
+              </div>
+              <button
+                v-if="!req.providerCompletedAt && !['PENDING_FUNDS', 'DISPUTED'].includes(req.escrowStatus ?? 'NONE')"
+                :disabled="markingDone"
+                class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex-shrink-0"
+                @click="markDone"
+              >
+                <CheckCircleIcon class="h-4 w-4" />
+                {{ markingDone ? 'Guardando…' : 'Marcar como terminado' }}
+              </button>
             </div>
           </div>
 
@@ -269,7 +326,11 @@
             <div class="flex items-center justify-between gap-3 flex-wrap">
               <div class="flex items-start gap-2">
                 <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                <p class="text-xs text-blue-700">
+                <p v-if="req.providerCompletedAt" class="text-xs text-blue-700">
+                  {{ req.providerName }} marcó el trabajo como terminado. Confírmalo o reporta un problema antes del
+                  <strong>{{ autoCloseAt }}</strong>; si no respondes, se cerrará automáticamente.
+                </p>
+                <p v-else class="text-xs text-blue-700">
                   El proveedor ya se contactó contigo. Cuando recibas el servicio, confirma para poder dejar tu reseña.
                 </p>
               </div>
@@ -348,6 +409,12 @@
   />
 
   <ReportProblemModal v-model="showReportModal" entity-type="SERVICE_REQUEST" :entity-id="req.id" />
+  <EscrowFundingModal
+    v-if="showEscrowFunding"
+    :request-id="req.id"
+    @close="showEscrowFunding = false"
+    @held="onEscrowHeld"
+  />
   <PayToSellerModal
     :show="showPayModal"
     source-type="SERVICE_REQUEST"
@@ -382,6 +449,7 @@ import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 import PayToSellerModal from '~/components/payments/PayToSellerModal.vue'
+import EscrowFundingModal from '~/components/payments/EscrowFundingModal.vue'
 import MediaLightbox, { type MediaEntry } from '~/components/modals/service-request/MediaLightbox.vue'
 import ServiceRequestTimeline from '~/components/modals/service-request/ServiceRequestTimeline.vue'
 import ServiceRequestChat from '~/components/modals/service-request/ServiceRequestChat.vue'
@@ -428,7 +496,8 @@ interface ServiceRequest {
   platformFeeRate?: number | null
   platformFeeAmount?: number | null
   platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
-  escrowStatus?: 'NONE' | 'HELD' | 'PENDING_FUNDS' | 'RELEASED' | 'REFUNDED'
+  escrowStatus?: 'NONE' | 'HELD' | 'PENDING_FUNDS' | 'RELEASED' | 'REFUNDED' | 'DISPUTED'
+  providerCompletedAt?: string | null
   escrowAmount?: number | null
   escrowHeldAt?: string | null
   providerAvatar?: string | null
@@ -536,50 +605,65 @@ const MODALITY_LABELS: Record<string, string> = {
 
 const ESCROW_LABELS: Record<string, string> = {
   HELD: 'Garantía retenida',
-  PENDING_FUNDS: 'Pendiente de saldo',
+  PENDING_FUNDS: 'Garantía por pagar',
+  DISPUTED: 'Garantía en disputa',
   RELEASED: 'Garantía liberada',
   REFUNDED: 'Garantía reembolsada',
 }
 const ESCROW_ICONS: Record<string, unknown> = {
   HELD: ShieldCheckIcon,
   PENDING_FUNDS: ExclamationTriangleIcon,
+  DISPUTED: ExclamationTriangleIcon,
   RELEASED: CheckCircleIcon,
   REFUNDED: ArrowUturnLeftIcon,
 }
 const ESCROW_CLASSES: Record<string, string> = {
   HELD: 'bg-emerald-50 border-emerald-100 text-emerald-800',
   PENDING_FUNDS: 'bg-amber-50 border-amber-100 text-amber-800',
+  DISPUTED: 'bg-red-50 border-red-100 text-red-800',
   RELEASED: 'bg-emerald-50 border-emerald-100 text-emerald-800',
   REFUNDED: 'bg-gray-50 border-gray-200 text-gray-700',
 }
+// Plazo para pagar la garantía inicial (backend: GUARANTEE_PAYMENT_WINDOW_MS,
+// contado desde que el proveedor fijó el precio). Con escrowHeldAt la garantía
+// original ya está retenida y lo pendiente es un aumento: si no se paga, el
+// aumento caduca pero la solicitud NO se cancela, así que no se muestra.
+const guaranteeDeadline = computed(() => {
+  const since = props.req.statusUpdatedAt ?? props.req.createdAt
+  if (props.req.escrowStatus !== 'PENDING_FUNDS' || props.req.escrowHeldAt || !since) return ''
+  return new Date(new Date(since).getTime() + 72 * 3600 * 1000).toLocaleString('es-VE', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Caracas',
+  })
+})
 const escrowDescription = computed(() => {
   const isProvider = props.isProvider
   switch (props.req.escrowStatus) {
     case 'HELD':
       return isProvider
-        ? 'La plataforma retiene el pago del cliente y te lo liberará al confirmar la finalización.'
-        : 'Se retuvo el monto de tu billetera como garantía. Se liberará al proveedor cuando confirmes que el servicio se completó.'
+        ? 'La plataforma retiene el pago del cliente y te lo pagará al confirmar la finalización.'
+        : 'La plataforma retiene tu pago como garantía. Se le paga al proveedor cuando confirmes que el servicio se completó.'
     case 'PENDING_FUNDS':
       return isProvider
-        ? 'El cliente todavía no tiene saldo suficiente para cubrir la garantía. Se reintentará automáticamente.'
-        : 'No tenías saldo suficiente para la garantía. Carga saldo y se retendrá automáticamente.'
+        ? `El cliente todavía no paga la garantía a la plataforma. Te avisaremos cuando quede retenida.${guaranteeDeadline.value ? ` Si no la paga antes del ${guaranteeDeadline.value}, la solicitud se cancela.` : ''}`
+        : `Paga la garantía a una cuenta de la plataforma y reporta la referencia: queda protegida hasta que confirmes el servicio.${guaranteeDeadline.value ? ` Si no la pagas antes del ${guaranteeDeadline.value}, la solicitud se cancela.` : ''}`
+    case 'DISPUTED':
+      return 'Hay una disputa abierta: la garantía queda congelada hasta que soporte la resuelva.'
     case 'RELEASED':
       return isProvider
-        ? 'La garantía ya fue liberada a tu billetera.'
+        ? 'La garantía ya fue liberada a tu billetera; puedes retirarla a tu banco.'
         : 'La garantía fue liberada al proveedor.'
     case 'REFUNDED':
       return isProvider
         ? 'La garantía fue reembolsada al cliente.'
-        : 'La garantía fue reembolsada a tu billetera.'
+        : 'La garantía fue reembolsada a tu billetera; puedes retirarla a tu banco.'
     default:
       return ''
   }
 })
 
-const router = useRouter()
-function goToWallet() {
-  emit('close')
-  router.push('/wallet')
+const showEscrowFunding = ref(false)
+function onEscrowHeld() {
+  emit('updated', { ...props.req, escrowStatus: 'HELD' })
 }
 
 if (!defaultRate.value) fetchRates(false, true)
@@ -652,6 +736,78 @@ async function confirmCompletion() {
     actionError.value = getApiErrorMessage(e, 'Error al confirmar la finalización')
   } finally {
     confirming.value = false
+  }
+}
+
+// Disputa (solo con Pago Protegido): congela la garantía hasta que un
+// SUPERADMIN decide. Sin garantía, el camino es "Reportar un problema".
+interface ServiceRequestDispute {
+  id: string
+  status: 'OPEN' | 'RESOLVED'
+  reason: string
+  raisedByRole: 'PAYER' | 'PAYEE'
+  createdAt: string
+}
+const dispute = ref<ServiceRequestDispute | null>(null)
+const disputing = ref(false)
+const disputeReason = ref('')
+const openingDispute = ref(false)
+const formatShortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', timeZone: 'America/Caracas' })
+
+async function loadDispute() {
+  if (props.req.escrowStatus !== 'DISPUTED') {
+    dispute.value = null
+    return
+  }
+  try {
+    const { get } = useApi()
+    dispute.value = await get<ServiceRequestDispute | null>(`/services/requests/${props.req.id}/dispute`)
+  } catch {
+    dispute.value = null
+  }
+}
+watch(() => [props.req.id, props.req.escrowStatus], loadDispute, { immediate: true })
+
+async function openDispute() {
+  if (openingDispute.value) return
+  openingDispute.value = true
+  clearError()
+  try {
+    const { patch } = useApi()
+    await patch(`/services/requests/${props.req.id}/dispute`, { reason: disputeReason.value.trim() })
+    disputing.value = false
+    disputeReason.value = ''
+    emit('updated', { ...props.req, escrowStatus: 'DISPUTED' })
+  } catch (e: any) {
+    actionError.value = getApiErrorMessage(e, 'No se pudo abrir la disputa')
+  } finally {
+    openingDispute.value = false
+  }
+}
+
+// El proveedor marca terminado; el cliente tiene AUTO_CLOSE_HOURS para
+// confirmar o reportar un problema (backend: AUTO_CLOSE_AFTER_MS).
+const AUTO_CLOSE_HOURS = 72
+const markingDone = ref(false)
+const autoCloseAt = computed(() => {
+  if (!props.req.providerCompletedAt) return ''
+  const at = new Date(new Date(props.req.providerCompletedAt).getTime() + AUTO_CLOSE_HOURS * 3600 * 1000)
+  return at.toLocaleString('es-VE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Caracas' })
+})
+
+async function markDone() {
+  if (markingDone.value) return
+  markingDone.value = true
+  clearError()
+  try {
+    const { patch } = useApi()
+    const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/mark-done`, {})
+    emit('updated', { ...props.req, providerCompletedAt: updated.providerCompletedAt ?? new Date().toISOString() })
+  } catch (e: any) {
+    actionError.value = getApiErrorMessage(e, 'No se pudo marcar como terminado')
+  } finally {
+    markingDone.value = false
   }
 }
 

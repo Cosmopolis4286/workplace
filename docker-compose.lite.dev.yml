@@ -65,6 +65,7 @@ services:
       # Excepciones para node_modules y uploads
       - /app/backend/node_modules
       - uploads_data:/app/backend/uploads
+      - private_uploads_data:/app/backend/private-uploads
     ports:
       # Acceso directo para Postman/debugging
       - "3001:3001"
@@ -228,6 +229,7 @@ volumes:
   postgres_data:
   redis_data:
   uploads_data:
+  private_uploads_data:
 
 networks:
   public_network:

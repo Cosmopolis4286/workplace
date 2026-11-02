@@ -79,6 +79,18 @@
             </span>
             <span class="font-bold text-gray-900">${{ delivery.total.toFixed(2) }}</span>
           </div>
+          <!-- Prueba de entrega: el comercio le pasa el código al cliente;
+               el repartidor lo pide al entregar. -->
+          <div v-if="delivery.deliveryCode && !['DELIVERED','CANCELLED','FAILED'].includes(delivery.status)" class="flex items-center justify-between rounded-md bg-gray-50 px-2 py-1">
+            <span>Código para el cliente</span>
+            <span class="font-mono font-bold tracking-widest text-gray-900">{{ delivery.deliveryCode }}</span>
+          </div>
+          <p v-if="delivery.status === 'DELIVERED' && delivery.collectedMethod" class="text-green-700">
+            Cobrado: {{ DELIVERY_COLLECTION_LABELS[delivery.collectedMethod] }}<template v-if="delivery.collectedMethod !== 'PREPAID'"> · ${{ Number(delivery.amountCollected ?? 0).toFixed(2) }}</template>
+          </p>
+          <p v-if="delivery.status === 'FAILED' && delivery.failureReason" class="text-red-600">
+            No entregada: "{{ delivery.failureReason }}"
+          </p>
         </div>
 
         <!-- Acciones -->
@@ -127,7 +139,7 @@ import {
   PencilIcon, TrashIcon, XCircleIcon, UserIcon,
 } from '@heroicons/vue/24/outline'
 import {
-  DELIVERY_STATUS_LABELS, DELIVERY_STATUS_CLASSES, VEHICLE_LABELS,
+  DELIVERY_STATUS_LABELS, DELIVERY_STATUS_CLASSES, VEHICLE_LABELS, DELIVERY_COLLECTION_LABELS,
   type Delivery, type DeliveryStatus,
 } from '~/composables/delivery/useDelivery'
 

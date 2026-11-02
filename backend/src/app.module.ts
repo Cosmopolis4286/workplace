@@ -75,6 +75,8 @@ import { MatchingModule } from './domains/commerce-core/matching/matching.module
 import { EscrowModule } from './domains/money/escrow/escrow.module';
 import { PaymentsModule } from './domains/money/payments/payments.module';
 import { SellerBillingModule } from './domains/money/seller-billing/seller-billing.module';
+import { WalletWithdrawalsModule } from './domains/money/wallet-withdrawals/wallet-withdrawals.module';
+import { EscrowFundingModule } from './domains/money/escrow-funding/escrow-funding.module';
 
 @Module({
   imports: [
@@ -163,6 +165,8 @@ import { SellerBillingModule } from './domains/money/seller-billing/seller-billi
     EscrowModule,
     PaymentsModule,
     SellerBillingModule,
+    WalletWithdrawalsModule,
+    EscrowFundingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: SpanishThrottlerGuard },

@@ -377,8 +377,22 @@ export class PlanLimitsService implements PlanLimitsFacade {
     }
   }
 
+  // Sin una cuenta de cobro activa el cliente no tiene dónde pagar (pago
+  // directo) ni el proveedor dónde recibir lo liberado de una garantía.
+  private async assertHasCollectionAccount(userId: string) {
+    const accounts = await this.prisma.sellerPaymentAccount.count({
+      where: { userId, isActive: true },
+    });
+    if (accounts === 0) {
+      throw new ForbiddenException(
+        'Agrega una cuenta de cobro (pago móvil, transferencia o Zelle) en Configuración antes de publicar servicios: es donde te pagan tus clientes.'
+      );
+    }
+  }
+
   async assertServiceLimit(userId: string) {
     await this.assertNoOverdueStatement(userId);
+    await this.assertHasCollectionAccount(userId);
     const limits = await this.getPlanLimits(userId);
     if (limits.maxServices === -1) return;
     const count = await this.prisma.service.count({
