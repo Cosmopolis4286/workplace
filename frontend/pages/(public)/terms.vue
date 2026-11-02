@@ -109,7 +109,7 @@ const sections = [
   {
     title: 'Descripción del servicio',
     paragraphs: [
-      'WorkPlace Manager es una plataforma de gestión para comercios y proveedores de servicios que incluye módulos de pedidos, inventario, clientes, empleados, delivery, gastos y analytics.',
+      'WorkPlace Manager es una plataforma de gestión para comercios y proveedores de servicios que incluye módulos de pedidos, inventario, clientes, empleados, delivery, gastos y analytics, y un marketplace donde clientes contratan servicios, compran productos y solicitan corridas o envíos.',
       'Nos reservamos el derecho de modificar o interrumpir el servicio (temporal o permanentemente) con o sin aviso previo.',
     ],
   },
@@ -126,6 +126,42 @@ const sections = [
     paragraphs: [
       'Te comprometes a usar WorkPlace Manager únicamente para fines legales y de acuerdo con estos términos. Queda prohibido: intentar acceder a datos de otros comercios o proveedores, realizar ingeniería inversa, o usar el servicio para actividades ilegales.',
       'Nos reservamos el derecho de suspender o cancelar cuentas que violen estas condiciones sin previo aviso.',
+    ],
+  },
+  {
+    title: 'Pagos entre usuarios',
+    paragraphs: [
+      'Salvo en Pago Protegido, el cliente le paga directamente al vendedor o proveedor (pago móvil, transferencia o Zelle) en las cuentas que este registra en la plataforma, y reporta la referencia del pago. WorkPlace Manager no recibe ese dinero ni es parte de esa compraventa: solo muestra los datos de cobro y registra los reportes.',
+      'El vendedor o proveedor es responsable de confirmar los pagos que recibe y de que las cuentas que registra sean suyas o de su negocio. Los montos en bolívares se calculan con la tasa de cambio vigente al momento del pago.',
+    ],
+  },
+  {
+    title: 'Comisiones y estado de cuenta',
+    paragraphs: [
+      'Por cada venta, servicio, pedido, corrida o compra agrupada concretada a través de la plataforma, el vendedor o proveedor debe a WorkPlace Manager la comisión vigente para ese tipo de operación. Si la comisión la paga el cliente, va incluida en el precio que este paga y el vendedor la debe igualmente a la plataforma.',
+      'Las comisiones de cada semana se agrupan en un estado de cuenta que se emite los lunes y debe pagarse dentro de los 5 días siguientes a una cuenta de la plataforma, reportando la referencia. Si vence sin pagarse, no podrás publicar ni reactivar servicios o productos; si pasan 48 horas más, se pausa todo lo que tengas publicado. Al confirmarse el pago, se reactiva lo que se pausó.',
+    ],
+  },
+  {
+    title: 'Pago Protegido (garantía)',
+    paragraphs: [
+      'En las operaciones con Pago Protegido, el cliente paga una garantía a una cuenta de WorkPlace Manager, que la retiene por cuenta de ambas partes hasta que la operación termine. La garantía queda retenida cuando un administrador confirma que el pago llegó. Si no se paga dentro de las 72 horas siguientes a fijarse el precio, la solicitud se cancela.',
+      'Cuando el proveedor marca el trabajo como terminado, el cliente tiene 72 horas para confirmarlo o reportar un problema. Si no responde, la operación se cierra automáticamente y la garantía se libera al proveedor, descontando la comisión.',
+      'Si cliente o proveedor abren una disputa, la garantía queda congelada y WorkPlace Manager decide, según la información disponible, si se entrega al proveedor, se devuelve al cliente o se reparte entre ambos. Esa decisión es final dentro de la plataforma y no impide a las partes ejercer las acciones legales que les correspondan.',
+    ],
+  },
+  {
+    title: 'Billetera y retiros',
+    paragraphs: [
+      'La billetera no es una cuenta bancaria ni admite recargas: solo refleja montos liberados o devueltos de operaciones con Pago Protegido. Su saldo no genera intereses.',
+      'Puedes retirar tu saldo a una cuenta a tu nombre con tu PIN. El monto se descuenta al solicitarlo y un administrador realiza la transferencia; los pagos en bolívares se calculan con la tasa vigente al momento de la solicitud. Si el retiro se rechaza, el monto vuelve a tu billetera. Podemos pedirte verificar tu identidad antes de procesar un retiro.',
+    ],
+  },
+  {
+    title: 'Delivery y corridas',
+    paragraphs: [
+      'WorkPlace Manager conecta a clientes con repartidores y conductores; no presta el servicio de transporte. Para aceptar corridas o envíos, el conductor debe tener su identidad verificada y su vehículo y licencia aprobados.',
+      'Las entregas y los envíos usan un código de entrega que solo tiene quien recibe: el repartidor o conductor debe pedirlo para completar la entrega. No compartas ese código antes de recibir tu pedido.',
     ],
   },
   {

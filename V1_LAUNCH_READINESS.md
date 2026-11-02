@@ -15,6 +15,36 @@ manualmente** (no solo implementado y con tests unitarios).
 
 ---
 
+## 🔄 Estado al 2026-11-02 — cobro tipo Cashea y flujos de v1 (PRs #78, #80, #84 y siguientes)
+
+Lo de esta sección **reemplaza** a los ítems viejos que contradice (marcados más abajo).
+
+- **Pago directo al vendedor** (#78): el cliente paga a las cuentas de cobro del vendedor y
+  reporta la referencia; el vendedor confirma. Publicar servicios exige una cuenta de cobro activa.
+- **Estado de cuenta semanal** (#80): las comisiones se agrupan y se facturan los lunes, 5 días
+  para pagar; vencido bloquea publicar y a las 48 h pausa todo. Panel `/billing` y
+  `/billing-admin`. Comisiones que antes no se cobraban: la que paga el cliente, pedidos de
+  catálogo con pago directo y compras agrupadas.
+- **Billetera solo retiro** (#84): sin recargas ni transferencias. Retiros reales pagados por
+  SUPERADMIN. **Reemplaza el ítem 2** (depósitos con comprobante): ese flujo ya no acepta
+  solicitudes nuevas; las pendientes solo las aprueba un SUPERADMIN.
+- **Pago Protegido por operación** (#84): la garantía se paga a una cuenta de la plataforma por
+  solicitud; vence a las 72 h sin pagar. El proveedor marca terminado y la solicitud se cierra
+  sola a las 72 h. Disputas en `/disputes-admin`.
+- **Notificaciones** (#84): push FCM implementado (se activa con `FIREBASE_*`, ver
+  `frontend/docs/PUSH_NOTIFICATIONS.md`) y copia por email de los avisos que piden acción.
+  **Reemplaza el ítem 21.**
+- **Delivery y corridas** (#84): el repartidor actualiza la entrega con código del cliente;
+  conductores de corridas verificados en `/ride-drivers-admin` (**cambia el ítem 15**: tener
+  `corridas:manage` ya no basta para aceptar corridas).
+- **Términos de servicio**: secciones de pagos, comisiones, Pago Protegido, billetera, delivery
+  y corridas. **Pendiente de revisión legal.**
+
+**Decisiones pendientes de producto:** exigir KYC para retirar a todos o permitir retiros
+pequeños sin KYC; conciliación bancaria automática (hoy los admins confirman referencias a mano).
+
+---
+
 ## ✅ Bloqueantes resueltos (2026-08-03)
 
 ### 1. Conversión NORMAL → FREELANCER
@@ -34,7 +64,7 @@ como se decidió: no hay alta pública de FREELANCER. En su lugar:
   con KYC pendiente (debe rechazar) → aprobar KYC → aprobar solicitud (debe funcionar) → confirmar
   que el usuario ve `/my-services` y puede publicar.
 
-### 2. Depósitos de wallet con comprobante y aprobación admin
+### 2. Depósitos de wallet con comprobante y aprobación admin — ⚠️ reemplazado (billetera solo retiro, ver arriba)
 `WalletsService.deposit()` ya **no es accesible públicamente** — se eliminó
 `POST /wallets/me/deposit`. El único camino para acreditar saldo real:
 - El usuario sube comprobante (imagen) + método de pago + referencia desde `/wallet` → queda
@@ -271,7 +301,7 @@ activo en el repo).
 
 ## 🟡 Importante — pendiente
 
-### 21. Push notifications (FCM) es un no-op — feature incompleta, no un bug
+### 21. Push notifications (FCM) — ✅ implementado; solo falta configurar Firebase (ver arriba)
 `NotificationsService.sendPush()` está vacío (falta configurar Firebase). El flujo de
 `DeviceToken`/registro sí está completo y expuesto, lo que puede dar la falsa impresión de que
 las notificaciones push ya funcionan. Documentado explícitamente para que no se asuma resuelto.
@@ -281,7 +311,19 @@ las notificaciones push ya funcionan. Documentado explícitamente para que no se
 ## Checklist de verificación antes de dar por lista la v1
 
 - [ ] Prueba manual end-to-end de conversión NORMAL → FREELANCER (ver ítem 1)
-- [ ] Prueba manual end-to-end de depósito con comprobante (ver ítem 2)
+- [ ] Prueba manual end-to-end de pago directo: cliente reporta referencia → vendedor confirma
+- [ ] Prueba manual del estado de cuenta: comisión de una venta → estado del lunes → pago
+      reportado → confirmado por SUPERADMIN; y vencido → bloqueo → pausa a las 48 h
+- [ ] Prueba manual de Pago Protegido por operación: fijar precio → pagar garantía → confirmar
+      admin → retenida → proveedor marca terminado → cierre (manual y automático a las 72 h)
+- [ ] Prueba manual de disputa: abrir desde la solicitud → resolver en `/disputes-admin` (reparto)
+- [ ] Prueba manual de retiro: solicitar → pagar con referencia; y rechazar → saldo devuelto
+- [ ] Prueba manual de delivery con código de entrega y de envío por corridas con código
+- [ ] Conductores actuales de corridas registraron su vehículo y fueron aprobados antes de anunciar
+- [ ] Cuentas de cobro de la plataforma cargadas en `/billing-admin` (sin ellas nadie puede pagar
+      estados de cuenta ni garantías)
+- [ ] `MAIL_*` configurado en producción (avisos por email) y prueba de un aviso real
+- [ ] Términos de servicio revisados por un abogado antes de lanzar
 - [ ] Prueba manual end-to-end de cambio a plan pago vía self-subscribe (ver ítem 7): debe quedar
       PENDING, no ACTIVE
 - [ ] Prueba manual del ciclo completo de escrow con dos usuarios reales (cliente con saldo,
@@ -311,8 +353,8 @@ las notificaciones push ya funcionan. Documentado explícitamente para que no se
       confía solo en esta variable, pero sigue siendo mala práctica dejarla en `true` en prod
 - [ ] Prueba manual de crear un pedido de catálogo con datos manipulados (ej. vía curl con
       `commerceId` de otro comercio) — debe devolver 400, no crear el pedido (ver ítem 20)
-- [ ] Firebase/FCM configurado si se quiere push real antes de lanzar (ítem 21, pendiente —
-      requiere credenciales externas, no accionable por código)
+- [ ] Firebase/FCM configurado (`google-services.json` en la APK y `FIREBASE_*` en el backend) y
+      prueba de un push con la app cerrada (ítem 21)
 
 ---
 
