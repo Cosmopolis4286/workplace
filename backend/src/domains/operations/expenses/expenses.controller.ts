@@ -12,11 +12,23 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  NotFoundException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+
+// Fotos de recibos: pueden traer datos fiscales/bancarios del comercio, así que
+// van fuera de uploads/ (público) y solo se sirven autenticadas al comercio
+// dueño (GET /expenses/:id/receipt-image). Las viejas en uploads/expenses se
+// siguen sirviendo por ese endpoint; la ruta pública está bloqueada en main.ts.
+const RECEIPTS_DIR = join(process.cwd(), 'private-uploads', 'expenses');
+const LEGACY_RECEIPTS_DIR = join(process.cwd(), 'uploads', 'expenses');
+const PRIVATE_PREFIX = 'private-expense-receipts/';
+const LEGACY_PREFIX = '/uploads/expenses/';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -147,10 +159,9 @@ export class ExpensesController {
     FileInterceptor('receipt', {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
-          const uploadPath = join(process.cwd(), 'uploads', 'expenses');
-          if (!existsSync(uploadPath))
-            mkdirSync(uploadPath, { recursive: true });
-          cb(null, uploadPath);
+          if (!existsSync(RECEIPTS_DIR))
+            mkdirSync(RECEIPTS_DIR, { recursive: true });
+          cb(null, RECEIPTS_DIR);
         },
         filename: (_req, file, cb) => {
           const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -181,7 +192,30 @@ export class ExpensesController {
     return this.expensesService.updateReceipt(
       id,
       commerceId,
-      `/uploads/expenses/${file.filename}`
+      `${PRIVATE_PREFIX}${file.filename}`
     );
+  }
+
+  @Get(':id/receipt-image')
+  @RequirePermission('expenses:view')
+  async receiptImage(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Res() res: Response
+  ) {
+    const commerceId = await this.expensesService.getCommerceId(user.id);
+    const expense = await this.expensesService.findOne(id, commerceId);
+    const receipt = expense.receipt ?? '';
+    const [root, prefix] = receipt.startsWith(PRIVATE_PREFIX)
+      ? [RECEIPTS_DIR, PRIVATE_PREFIX]
+      : receipt.startsWith(LEGACY_PREFIX)
+        ? [LEGACY_RECEIPTS_DIR, LEGACY_PREFIX]
+        : [null, null];
+    const filename = prefix ? receipt.slice(prefix.length) : '';
+    // Solo el nombre de archivo generado al subir (sin rutas).
+    if (!root || !/^[\w.-]+$/.test(filename)) {
+      throw new NotFoundException('Este gasto no tiene foto de recibo');
+    }
+    return res.sendFile(filename, { root });
   }
 }

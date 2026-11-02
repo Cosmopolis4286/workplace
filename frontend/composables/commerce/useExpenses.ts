@@ -283,6 +283,14 @@ export function useExpenses() {
     }
   }
 
+  // La foto del recibo es privada: se pide autenticada y se abre como blob.
+  async function openReceiptImage(id: string) {
+    const blob = await get<Blob>(`/expenses/${id}/receipt-image`, { parseAs: 'blob' })
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank', 'noopener')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  }
+
   async function uploadReceipt(id: string, file: File): Promise<Expense | null> {
     error.value = null
     try {
@@ -326,5 +334,6 @@ export function useExpenses() {
     updateExpenseStatus,
     deleteExpense,
     uploadReceipt,
+    openReceiptImage,
   }
 }
