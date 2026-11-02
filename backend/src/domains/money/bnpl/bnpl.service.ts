@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import {
   BadRequestException,
   Injectable,
@@ -305,8 +306,12 @@ export class BnplService {
         ? 'BNPL_CASHEA_WEBHOOK_SECRET'
         : 'BNPL_KRECE_WEBHOOK_SECRET';
     const expected = this.config.get<string>(key);
-    if (!expected) return false;
-    return receivedSecret === expected;
+    if (!expected || !receivedSecret) return false;
+    // Comparación en tiempo constante: con === el tiempo de respuesta
+    // filtra cuántos caracteres del secreto coinciden.
+    const a = Buffer.from(receivedSecret);
+    const b = Buffer.from(expected);
+    return a.length === b.length && timingSafeEqual(a, b);
   }
 
   async handleWebhook(provider: BnplProvider, payload: BnplWebhookDto) {
@@ -323,6 +328,30 @@ export class BnplService {
     }
 
     const nextStatus: BnplTransactionStatus = payload.status ?? 'APPROVED';
+
+    // Solo una transacción PENDING puede resolverse. Un webhook repetido o
+    // tardío (después de expirar o cancelarse) no debe reabrirla ni marcar
+    // pagado un pedido que ya no espera ese financiamiento.
+    if (transaction.status !== 'PENDING') {
+      this.logger.warn(
+        `Webhook ${provider} ignorado: la transacción ${transaction.id} ya está ${transaction.status}`
+      );
+      return {
+        received: true,
+        matched: true,
+        ignored: true,
+        status: transaction.status,
+      };
+    }
+
+    // Condicionado a PENDING: dos webhooks simultáneos no la resuelven dos veces.
+    const claimed = await this.prisma.bnplTransaction.updateMany({
+      where: { id: transaction.id, status: 'PENDING' },
+      data: { status: nextStatus },
+    });
+    if (claimed.count !== 1) {
+      return { received: true, matched: true, ignored: true };
+    }
 
     const updated = await this.prisma.bnplTransaction.update({
       where: { id: transaction.id },

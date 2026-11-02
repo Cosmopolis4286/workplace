@@ -646,6 +646,68 @@ describe('CatalogService', () => {
 
       expect(mockEscrowService.release).not.toHaveBeenCalled();
     });
+
+    it('pago directo: la comisión sobre el monto acordado va al estado de cuenta del comercio', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(
+        baseOrder({ totalEstimate: 40 })
+      );
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        userId: 'owner-1',
+      });
+      mockPrismaService.catalogOrder.update.mockImplementation(
+        ({ data }: any) => Promise.resolve({ ...data })
+      );
+      (mockPlatformFeesService.resolveFeeConfig as jest.Mock).mockResolvedValue(
+        {
+          rate: 10,
+          payer: 'PROVIDER',
+        }
+      );
+      (mockPlatformFeesService.calculateFee as jest.Mock).mockReturnValue({
+        feeAmount: 4,
+      });
+
+      const result = await service.confirmOrderCompletion(
+        'order-1',
+        REQUESTER_ID
+      );
+
+      expect(mockPlatformFeesService.calculateFee).toHaveBeenCalledWith(
+        40,
+        expect.anything()
+      );
+      // Sin { collected }: no hubo garantía de la que descontarla.
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
+        'CATALOG_ORDER',
+        'owner-1',
+        4,
+        'FEE-CATALOG-order-1',
+        { catalogOrderId: 'order-1' }
+      );
+      expect(result.data.platformFeeAmount).toBe(4);
+    });
+
+    it('pago directo con comisión que pagó el comprador: se registra ese monto', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(
+        baseOrder({ totalEstimate: 44, platformFeeAmount: 4 })
+      );
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        userId: 'owner-1',
+      });
+      mockPrismaService.catalogOrder.update.mockImplementation(
+        ({ data }: any) => Promise.resolve({ ...data })
+      );
+
+      await service.confirmOrderCompletion('order-1', REQUESTER_ID);
+
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
+        'CATALOG_ORDER',
+        'owner-1',
+        4,
+        'FEE-CATALOG-order-1',
+        { catalogOrderId: 'order-1', payer: 'CLIENT' }
+      );
+    });
   });
 
   describe('disputeOrder — Pago Protegido (escrow)', () => {

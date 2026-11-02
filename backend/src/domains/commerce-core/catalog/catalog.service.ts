@@ -1023,6 +1023,44 @@ export class CatalogService {
         });
       }
       update.escrowStatus = 'RELEASED';
+    } else if (order.escrowStatus !== 'DISPUTED') {
+      // Pago directo al comercio (sin garantía): la comisión va a su estado de
+      // cuenta. Antes estos pedidos no generaban comisión. Base: el monto
+      // acordado del pedido; si el comprador ya la pagó dentro del precio
+      // (payer CLIENT), se registra ese monto.
+      const commerce = await this.prisma.commerce.findUnique({
+        where: { id: order.commerceId },
+        select: { userId: true },
+      });
+      if (commerce && isPositive(order.platformFeeAmount)) {
+        await this.platformFees.chargeProviderFee(
+          'CATALOG_ORDER',
+          commerce.userId,
+          toNumber(order.platformFeeAmount),
+          `FEE-CATALOG-${id}`,
+          { catalogOrderId: id, payer: 'CLIENT' }
+        );
+      } else if (commerce && isPositive(order.totalEstimate)) {
+        const feeConfig = await this.platformFees.resolveFeeConfig(
+          'CATALOG_ORDER',
+          commerce.userId
+        );
+        if (feeConfig) {
+          const { feeAmount } = this.platformFees.calculateFee(
+            toNumber(order.totalEstimate),
+            feeConfig
+          );
+          await this.platformFees.chargeProviderFee(
+            'CATALOG_ORDER',
+            commerce.userId,
+            feeAmount,
+            `FEE-CATALOG-${id}`,
+            { catalogOrderId: id }
+          );
+          update.platformFeeRate = feeConfig.rate;
+          update.platformFeeAmount = feeAmount;
+        }
+      }
     }
 
     const updated = await this.prisma.catalogOrder.update({
