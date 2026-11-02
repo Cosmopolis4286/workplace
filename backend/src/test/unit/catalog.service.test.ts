@@ -561,7 +561,7 @@ describe('CatalogService', () => {
       };
     });
 
-    it('releases the full escrow to the commerce when the fee was already charged to the buyer at creation', async () => {
+    it('keeps the buyer-paid fee in the platform and releases only the rest to the commerce', async () => {
       mockPrismaService.catalogOrder.findUnique.mockResolvedValue(
         baseOrder({
           escrowStatus: 'HELD',
@@ -583,11 +583,13 @@ describe('CatalogService', () => {
       );
 
       expect(mockPlatformFeesService.chargeProviderFee).not.toHaveBeenCalled();
+      // Antes se liberaban los 55 (incluida la comisión que pagó el
+      // comprador): la plataforma nunca cobraba su comisión.
       expect(mockEscrowService.release).toHaveBeenCalledWith({
         entityType: 'CATALOG_ORDER',
         entityId: 'order-1',
         payeeId: 'owner-1',
-        amount: 55,
+        amount: money(50),
       });
       expect(result.data.status).toBe('CLOSED');
       expect(result.data.escrowStatus).toBe('RELEASED');
@@ -628,6 +630,42 @@ describe('CatalogService', () => {
         expect.objectContaining({ amount: money(92) })
       );
       expect(result.data.platformFeeAmount).toBe(8);
+    });
+
+    it('without escrow, charges the commission to the commerce statement (PENDING)', async () => {
+      mockPrismaService.catalogOrder.findUnique.mockResolvedValue(
+        baseOrder({ totalEstimate: 40 })
+      );
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        userId: 'owner-1',
+      });
+      mockPlatformFeesService.resolveFeeConfig = jest
+        .fn()
+        .mockResolvedValue({ rate: 10, payer: 'CLIENT' });
+      mockPlatformFeesService.calculateFee = jest
+        .fn()
+        .mockReturnValue({ feeAmount: 4 });
+      mockPrismaService.catalogOrder.update.mockImplementation(
+        ({ data }: any) => Promise.resolve({ ...data })
+      );
+
+      const result = await service.confirmOrderCompletion(
+        'order-1',
+        REQUESTER_ID
+      );
+
+      // El comprador le pagó directo al comercio: la comisión, sea quien sea
+      // el payer configurado, la debe el comercio en su estado de cuenta.
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
+        'CATALOG_ORDER',
+        'owner-1',
+        4,
+        'FEE-CATALOG-order-1',
+        { catalogOrderId: 'order-1' },
+        { collected: false }
+      );
+      expect(mockEscrowService.release).not.toHaveBeenCalled();
+      expect(result.data.platformFeeAmount).toBe(4);
     });
 
     it('does not touch escrow when confirming an order with no escrow retained', async () => {

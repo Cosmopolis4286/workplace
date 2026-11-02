@@ -29,6 +29,7 @@ import { CashService } from '../cash/cash.service';
 import {
   div,
   gt,
+  isPositive,
   mul,
   round,
   sub,
@@ -316,7 +317,15 @@ export class OrdersService {
       );
     }
 
-    const feeConfig = await this.platformFees.resolveFeeConfig('ORDER', userId);
+    // La tasa es la del comercio (su dueño: override por usuario o plan), no
+    // la de quien opera el POS — un empleado no debe cambiar la comisión.
+    const owner = await this.prisma.commerce.findUnique({
+      where: { id: commerceId },
+      select: { userId: true },
+    });
+    const feeConfig = owner
+      ? await this.platformFees.resolveFeeConfig('ORDER', owner.userId)
+      : null;
     let platformFeeAmount = 0;
     if (feeConfig?.payer === 'CLIENT') {
       platformFeeAmount = this.platformFees.calculateFee(
@@ -491,6 +500,26 @@ export class OrdersService {
           data.platformFeeRate = feeConfig.rate;
           data.platformFeeAmount = feeAmount;
           data.platformFeePayer = 'PROVIDER';
+        }
+      } else if (
+        existing.platformFeePayer === 'CLIENT' &&
+        isPositive(existing.platformFeeAmount)
+      ) {
+        // El cliente pagó la comisión dentro del total, pero ese dinero lo
+        // cobró el comercio en caja: se le carga en su estado de cuenta para
+        // que la remita. Antes se quedaba con ella.
+        const commerce = await this.prisma.commerce.findUnique({
+          where: { id: commerceId },
+          select: { userId: true },
+        });
+        if (commerce) {
+          await this.platformFees.chargeProviderFee(
+            'ORDER',
+            commerce.userId,
+            toNumber(existing.platformFeeAmount!),
+            `FEE-ORDER-${id}`,
+            { orderId: id, paidByClient: true }
+          );
         }
       }
     }

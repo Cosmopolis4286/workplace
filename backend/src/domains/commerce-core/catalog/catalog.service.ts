@@ -26,6 +26,7 @@ import {
   round,
   sub,
   sum,
+  toDecimal,
   toNumber,
 } from '../../../common/money/money';
 
@@ -963,44 +964,48 @@ export class CatalogService {
       );
 
     const update: any = { status: 'CLOSED' };
+    const hasEscrow =
+      order.escrowStatus === 'HELD' && isPositive(order.escrowAmount);
+    const commerce = await this.prisma.commerce.findUnique({
+      where: { id: order.commerceId },
+      select: { userId: true },
+    });
 
-    if (order.escrowStatus === 'HELD' && isPositive(order.escrowAmount)) {
-      const commerce = await this.prisma.commerce.findUnique({
-        where: { id: order.commerceId },
-        select: { userId: true },
-      });
-      let releaseAmount = order.escrowAmount;
-
-      // Si el fee no se cobró al comprador al crear el pedido (platformFeeRate
-      // null), lo paga el comercio ahora, descontado de lo liberado — mismo
-      // criterio que ServiceRequest: el fee se cobra siempre, nunca se
-      // duplica ni se omite.
-      if (commerce && !isPositive(order.platformFeeRate)) {
-        const feeConfig = await this.platformFees.resolveFeeConfig(
+    // La comisión se cobra en todo pedido cerrado, con o sin garantía (antes
+    // solo con garantía, y la mayoría de las ventas quedaban sin comisión).
+    // - Ya cobrada al comprador al crear (payer CLIENT, platformFeeAmount):
+    //   está dentro de la garantía y se queda en la plataforma; se libera al
+    //   comercio solo el resto.
+    // - Si no: se calcula ahora a cargo del comercio. Con garantía se
+    //   descuenta de lo liberado (COLLECTED); sin garantía el comprador le
+    //   pagó directo al comercio, así que va a su estado de cuenta (PENDING).
+    let retainedFee = isPositive(order.platformFeeAmount)
+      ? toDecimal(order.platformFeeAmount!)
+      : toDecimal(0);
+    if (commerce && !isPositive(order.platformFeeRate)) {
+      const feeConfig = await this.platformFees.resolveFeeConfig(
+        'CATALOG_ORDER',
+        commerce.userId
+      );
+      const base = hasEscrow ? order.escrowAmount : order.totalEstimate;
+      if (feeConfig && isPositive(base)) {
+        const { feeAmount } = this.platformFees.calculateFee(base!, feeConfig);
+        await this.platformFees.chargeProviderFee(
           'CATALOG_ORDER',
-          commerce.userId
+          commerce.userId,
+          feeAmount,
+          `FEE-CATALOG-${id}`,
+          { catalogOrderId: id },
+          { collected: hasEscrow }
         );
-        if (feeConfig?.payer === 'PROVIDER') {
-          const { feeAmount } = this.platformFees.calculateFee(
-            toNumber(order.escrowAmount),
-            feeConfig
-          );
-          // Se descuenta de lo liberado: queda cobrada (COLLECTED), no va al
-          // estado de cuenta del comercio.
-          await this.platformFees.chargeProviderFee(
-            'CATALOG_ORDER',
-            commerce.userId,
-            feeAmount,
-            `FEE-CATALOG-${id}`,
-            { catalogOrderId: id },
-            { collected: true }
-          );
-          releaseAmount = sub(order.escrowAmount, feeAmount);
-          update.platformFeeRate = feeConfig.rate;
-          update.platformFeeAmount = feeAmount;
-        }
+        if (hasEscrow) retainedFee = toDecimal(feeAmount);
+        update.platformFeeRate = feeConfig.rate;
+        update.platformFeeAmount = feeAmount;
       }
+    }
 
+    if (hasEscrow) {
+      const releaseAmount = sub(order.escrowAmount!, retainedFee);
       if (commerce && gt(releaseAmount, 0)) {
         await this.escrow.release({
           entityType: 'CATALOG_ORDER',

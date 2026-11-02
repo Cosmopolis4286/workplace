@@ -618,6 +618,55 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('comisión de pedidos POS', () => {
+    it('al crear, usa la tasa del dueño del comercio y no la de quien opera el POS', async () => {
+      mockPlanLimitsService.assertOrderLimit.mockResolvedValue(undefined);
+      mockPrismaService.commerce.findUnique.mockResolvedValueOnce({ userId: 'owner-1' });
+      mockPrismaService.order.count.mockResolvedValue(0);
+      mockPrismaService.order.create.mockResolvedValue({ id: 'o-1', items: [] });
+      mockPrismaService.commerceSettings.findUnique.mockResolvedValue({ tax: 0 });
+
+      await service.create(
+        'commerce-123',
+        {
+          customerName: 'Ana',
+          items: [{ productName: 'Café', quantity: 1, unitPrice: 2 }],
+        } as any,
+        'employee-1'
+      );
+
+      expect(mockPlatformFeesService.resolveFeeConfig).toHaveBeenCalledWith('ORDER', 'owner-1');
+    });
+
+    it('al entregar, la comisión que pagó el cliente se carga al estado de cuenta del comercio', async () => {
+      const existingOrder = {
+        id: 'order-9',
+        orderNumber: 'ORD-2026-0009',
+        status: 'READY',
+        commerceId: 'commerce-123',
+        customerId: null,
+        total: 44,
+        paymentMethod: 'CARD',
+        platformFeePayer: 'CLIENT',
+        platformFeeAmount: 4,
+        items: [],
+      };
+      mockPrismaService.order.findFirst.mockResolvedValue(existingOrder);
+      mockPrismaService.order.update.mockResolvedValue({ ...existingOrder, status: 'DELIVERED' });
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ userId: 'owner-1' });
+
+      await service.updateStatus('order-9', 'commerce-123', 'DELIVERED');
+
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
+        'ORDER',
+        'owner-1',
+        4,
+        'FEE-ORDER-order-9',
+        { orderId: 'order-9', paidByClient: true }
+      );
+    });
+  });
+
   describe('findAll', () => {
     it('should return paginated orders', async () => {
       const commerceId = 'commerce-123';
