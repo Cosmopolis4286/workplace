@@ -16,7 +16,11 @@ describe('BnplService', () => {
 
   beforeEach(async () => {
     mockPrismaService = {
-      bnplTransaction: { findFirst: jest.fn(), update: jest.fn() },
+      bnplTransaction: {
+        findFirst: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       order: { update: jest.fn() },
     };
 
@@ -191,6 +195,50 @@ describe('BnplService', () => {
 
       expect(service.verifyWebhookSecret('KRECE', 'krece-secret')).toBe(true);
       expect(service.verifyWebhookSecret('CASHEA', 'krece-secret')).toBe(false);
+    });
+  });
+
+  describe('webhook sobre transacciones ya resueltas', () => {
+    it('un APPROVED tardío no marca pagado un pedido cuya transacción expiró', async () => {
+      mockPrismaService.bnplTransaction.findFirst.mockResolvedValue({
+        id: 'tx-1',
+        orderId: 'order-1',
+        commerceId: 'c1',
+        provider: 'CASHEA',
+        status: 'EXPIRED',
+      });
+
+      const res = await service.handleWebhook('CASHEA', {
+        externalReference: 'ref-1',
+        status: 'APPROVED',
+      } as any);
+
+      expect(res).toMatchObject({ ignored: true, status: 'EXPIRED' });
+      expect(mockPrismaService.order.update).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.bnplTransaction.updateMany
+      ).not.toHaveBeenCalled();
+    });
+
+    it('dos webhooks simultáneos: solo el primero la resuelve', async () => {
+      mockPrismaService.bnplTransaction.findFirst.mockResolvedValue({
+        id: 'tx-1',
+        orderId: 'order-1',
+        commerceId: 'c1',
+        provider: 'CASHEA',
+        status: 'PENDING',
+      });
+      mockPrismaService.bnplTransaction.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      const res = await service.handleWebhook('CASHEA', {
+        externalReference: 'ref-1',
+        status: 'APPROVED',
+      } as any);
+
+      expect(res).toMatchObject({ ignored: true });
+      expect(mockPrismaService.order.update).not.toHaveBeenCalled();
     });
   });
 });
