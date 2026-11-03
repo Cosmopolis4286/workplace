@@ -452,6 +452,7 @@ describe('EscrowService', () => {
         payerId: 'client-1',
         payeeId: 'provider-1',
         amount: 100,
+        status: 'DISPUTED',
       },
     };
 
