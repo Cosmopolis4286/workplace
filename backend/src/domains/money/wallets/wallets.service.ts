@@ -821,7 +821,9 @@ export class WalletsService {
         WHERE id = ${providerWallet.id}
         RETURNING balance AS new_balance
       `;
-      if (!providerRow) throw new NotFoundException('Wallet del proveedor no encontrada');
+      if (!providerRow) {
+        throw new NotFoundException('Wallet del proveedor no encontrada');
+      }
 
       await tx.walletTransaction.create({
         data: {
@@ -922,7 +924,9 @@ export class WalletsService {
         WHERE id = ${clientWallet.id}
         RETURNING balance AS new_balance
       `;
-      if (!clientRow) throw new NotFoundException('Wallet del cliente no encontrada');
+      if (!clientRow) {
+        throw new NotFoundException('Wallet del cliente no encontrada');
+      }
 
       await tx.walletTransaction.create({
         data: {
