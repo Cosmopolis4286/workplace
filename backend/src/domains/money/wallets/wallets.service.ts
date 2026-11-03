@@ -694,6 +694,43 @@ export class WalletsService {
     const ref = referenceOverride ?? `ESCROW-HOLD-${serviceRequestId}`;
 
     return this.prisma.$transaction(async (tx) => {
+      // La wallet de sistema serializa las retenciones que comparten referencia.
+      // Así, un reintento concurrente observa el par de movimientos ya creado
+      // antes de volver a debitar al cliente.
+      await tx.$queryRaw`
+        SELECT id FROM "wallets" WHERE id = ${systemWallet.id} FOR UPDATE
+      `;
+      const [clientExisting, systemExisting] = await Promise.all([
+        tx.walletTransaction.findFirst({
+          where: {
+            walletId: clientWallet.id,
+            reference: ref,
+            type: WalletTransactionType.DEBIT,
+          },
+        }),
+        tx.walletTransaction.findFirst({
+          where: {
+            walletId: systemWallet.id,
+            reference: ref,
+            type: WalletTransactionType.CREDIT,
+          },
+        }),
+      ]);
+      if (clientExisting || systemExisting) {
+        if (
+          clientExisting &&
+          systemExisting &&
+          clientExisting.userId === clientUserId &&
+          clientExisting.amount.equals(toDecimal(amount)) &&
+          systemExisting.amount.equals(toDecimal(amount))
+        ) {
+          return { transaction: systemExisting };
+        }
+        throw new ConflictException(
+          'La retención existe parcialmente o con otro importe; requiere conciliación'
+        );
+      }
+
       const [clientRow] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
         SET balance = balance - ${sqlNumeric(amount)}::numeric,
