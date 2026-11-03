@@ -275,62 +275,77 @@ export class EscrowService implements EscrowFacade {
     refundAmount?: number;
     resolutionNote?: string;
   }): Promise<EscrowDisputeView> {
-    const dispute = await this.prisma.escrowDispute.findUnique({
+    // Lectura preliminar para localizar el escrow. La lectura autoritativa de
+    // estado se repite después de adquirir el bloqueo de fila.
+    const initial = await this.prisma.escrowDispute.findUnique({
       where: { id: params.disputeId },
-      include: { escrow: true },
+      select: { id: true, escrowId: true },
     });
-    if (!dispute) throw new NotFoundException('Disputa no encontrada');
-    if (dispute.status !== 'OPEN')
-      throw new BadRequestException('Esta disputa ya fue resuelta');
+    if (!initial) throw new NotFoundException('Disputa no encontrada');
 
-    const { escrow } = dispute;
-    let releaseAmount = toDecimal(0);
-    let refundAmount = toDecimal(0);
+    // Todas las resoluciones del mismo escrow quedan serializadas, incluso si
+    // llegan con IDs de disputa diferentes. El bloqueo se mantiene mientras
+    // WalletsService confirma los movimientos y se persiste la resolución.
+    const updatedDispute = await this.prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "escrows" WHERE id = ${initial.escrowId} FOR UPDATE
+      `;
+      if (!locked.length) throw new NotFoundException('Garantía no encontrada');
 
-    if (params.resolution === 'RELEASE_FULL') {
-      releaseAmount = toDecimal(escrow.amount);
-    } else if (params.resolution === 'REFUND_FULL') {
-      refundAmount = toDecimal(escrow.amount);
-    } else {
-      // SPLIT: ambos montos son obligatorios y deben sumar exactamente el
-      // total retenido — no puede "aparecer" ni "desaparecer" dinero al
-      // resolver, solo redistribuirse entre payer y payee.
-      if (params.releaseAmount == null || params.refundAmount == null) {
-        throw new BadRequestException(
-          'SPLIT requiere releaseAmount y refundAmount'
+      const dispute = await tx.escrowDispute.findUnique({
+        where: { id: params.disputeId },
+        include: { escrow: true },
+      });
+      if (!dispute) throw new NotFoundException('Disputa no encontrada');
+      if (dispute.escrowId !== initial.escrowId) {
+        throw new BadRequestException('La disputa cambió de garantía');
+      }
+      if (dispute.status !== 'OPEN' || dispute.escrow.status !== 'DISPUTED') {
+        throw new BadRequestException('Esta disputa ya fue resuelta');
+      }
+
+      const { escrow } = dispute;
+      let releaseAmount = toDecimal(0);
+      let refundAmount = toDecimal(0);
+
+      if (params.resolution === 'RELEASE_FULL') {
+        releaseAmount = toDecimal(escrow.amount);
+      } else if (params.resolution === 'REFUND_FULL') {
+        refundAmount = toDecimal(escrow.amount);
+      } else {
+        if (params.releaseAmount == null || params.refundAmount == null) {
+          throw new BadRequestException(
+            'SPLIT requiere releaseAmount y refundAmount'
+          );
+        }
+        releaseAmount = round(params.releaseAmount);
+        refundAmount = round(params.refundAmount);
+        if (!eq(add(releaseAmount, refundAmount), escrow.amount)) {
+          throw new BadRequestException(
+            'releaseAmount + refundAmount debe ser igual al monto total retenido'
+          );
+        }
+      }
+
+      // La fila escrow sigue bloqueada durante ambos movimientos. Una segunda
+      // petición espera y luego observa la disputa RESOLVED/escrow RELEASED.
+      if (gt(releaseAmount, 0)) {
+        await this.wallets.releaseEscrow(
+          escrow.entityId,
+          escrow.payeeId,
+          releaseAmount
         );
       }
-      releaseAmount = round(params.releaseAmount);
-      refundAmount = round(params.refundAmount);
-      // Exacto al centavo (Decimal): con Float se toleraba ±0.01, lo que
-      // dejaba pasar un centavo de más o de menos en cada resolución.
-      if (!eq(add(releaseAmount, refundAmount), escrow.amount)) {
-        throw new BadRequestException(
-          'releaseAmount + refundAmount debe ser igual al monto total retenido'
+      if (gt(refundAmount, 0)) {
+        await this.wallets.refundEscrow(
+          escrow.entityId,
+          escrow.payerId,
+          refundAmount
         );
       }
-    }
 
-    // Ejecuta los movimientos de dinero reales primero (vía WalletsService) —
-    // si alguno falla, la disputa sigue OPEN para reintentar, en vez de
-    // quedar marcada RESOLVED sin que el dinero se haya movido.
-    if (gt(releaseAmount, 0)) {
-      await this.wallets.releaseEscrow(
-        escrow.entityId,
-        escrow.payeeId,
-        releaseAmount
-      );
-    }
-    if (gt(refundAmount, 0)) {
-      await this.wallets.refundEscrow(
-        escrow.entityId,
-        escrow.payerId,
-        refundAmount
-      );
-    }
-
-    const [updatedDispute] = await this.prisma.$transaction([
-      this.prisma.escrowDispute.update({
+      const resolvedAt = new Date();
+      const result = await tx.escrowDispute.update({
         where: { id: dispute.id },
         data: {
           status: 'RESOLVED',
@@ -339,26 +354,30 @@ export class EscrowService implements EscrowFacade {
           refundAmount,
           resolutionNote: params.resolutionNote,
           resolvedById: params.resolvedById,
-          resolvedAt: new Date(),
+          resolvedAt,
         },
-      }),
-      // RELEASED representa "ya no queda nada retenido" — el desglose real
-      // de cuánto fue a cada parte en un SPLIT vive en EscrowDispute, no en
-      // Escrow.status (que es un único valor, no dos).
-      this.prisma.escrow.update({
+      });
+      await tx.escrow.update({
         where: { id: escrow.id },
-        data: { status: 'RELEASED', releasedAt: new Date() },
-      }),
-      // Escrow es una proyección — ServiceRequest/CatalogOrder siguen siendo
-      // la fuente real que consultan sus propios dominios, así que hay que
-      // sincronizar el espejo desnormalizado ahí también.
-      ...this.syncEntityEscrowStatusTo(
-        escrow.entityType,
-        escrow.entityId,
-        'RELEASED'
-      ),
-    ]);
+        data: { status: 'RELEASED', releasedAt: resolvedAt },
+      });
+      const entityData = { escrowStatus: 'RELEASED' };
+      if (escrow.entityType === 'SERVICE_REQUEST') {
+        await tx.serviceRequest.update({
+          where: { id: escrow.entityId },
+          data: entityData,
+        });
+      } else {
+        await tx.catalogOrder.update({
+          where: { id: escrow.entityId },
+          data: entityData,
+        });
+      }
 
+      return { result, escrow, releaseAmount, refundAmount };
+    });
+
+    const { result, escrow, releaseAmount, refundAmount } = updatedDispute;
     const entityName = await this.getEntityName(
       escrow.entityType,
       escrow.entityId
@@ -382,7 +401,7 @@ export class EscrowService implements EscrowFacade {
         .catch(() => {});
     }
 
-    return this.toDisputeView(updatedDispute);
+    return this.toDisputeView(result);
   }
 
   private async getEntityName(
