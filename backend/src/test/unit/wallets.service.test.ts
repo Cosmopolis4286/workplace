@@ -57,6 +57,7 @@ describe('WalletsService — escrow', () => {
           ),
       },
       walletTransaction: {
+        findFirst: jest.fn().mockResolvedValue(null),
         create: jest
           .fn()
           .mockImplementation(({ data }: any) =>
@@ -208,6 +209,7 @@ describe('WalletsService — escrow', () => {
   describe('releaseEscrow', () => {
     it('debita la wallet de sistema y acredita al proveedor', async () => {
       mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' }, // lock sistema
         { new_balance: 0 }, // débito sistema
         { new_balance: 45 }, // crédito proveedor
       ]);
@@ -230,9 +232,46 @@ describe('WalletsService — escrow', () => {
     });
   });
 
+  describe('releaseEscrow idempotency', () => {
+    it('no vuelve a acreditar al proveedor cuando se reintenta una liberación ya confirmada', async () => {
+      const providerTransaction = {
+        id: 'provider-tx-existing',
+        userId: PROVIDER_ID,
+        amount: { equals: jest.fn().mockReturnValue(true) },
+      };
+      mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' }, // lock sistema
+      ]);
+      mockPrismaService.walletTransaction.findFirst
+        .mockResolvedValueOnce({
+          amount: { equals: jest.fn().mockReturnValue(true) },
+        })
+        .mockResolvedValueOnce(providerTransaction);
+
+      const result = await service.releaseEscrow(REQUEST_ID, PROVIDER_ID, 45);
+
+      expect(result.transaction).toBe(providerTransaction);
+      expect(mockPrismaService.walletTransaction.create).not.toHaveBeenCalled();
+      expect(mockPrismaService.$queryRaw).toHaveBeenCalledTimes(1);
+    });
+
+    it('rechaza una liberación cuyo saldo de sistema no cubre el importe', async () => {
+      mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' }, // lock sistema
+        null, // no hay saldo retenido suficiente
+      ]);
+
+      await expect(
+        service.releaseEscrow(REQUEST_ID, PROVIDER_ID, 45)
+      ).rejects.toThrow('Saldo retenido insuficiente');
+      expect(mockPrismaService.walletTransaction.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('refundEscrow', () => {
     it('debita la wallet de sistema y acredita de vuelta al cliente', async () => {
       mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' }, // lock sistema
         { new_balance: 0 }, // débito sistema
         { new_balance: 150 }, // crédito cliente
       ]);

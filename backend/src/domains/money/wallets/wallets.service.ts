@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -759,15 +760,58 @@ export class WalletsService {
     const systemWallet = await this.ensureWalletForUser(systemUserId);
     const providerWallet = await this.ensureWalletForUser(providerId);
     const ref = `ESCROW-RELEASE-${serviceRequestId}`;
+    const decimalAmount = toDecimal(amount);
 
     return this.prisma.$transaction(async (tx) => {
+      // Serializa todos los movimientos de escrow en la wallet de sistema.
+      // La referencia determinista permite reconocer reintentos tras timeout.
+      await tx.$queryRaw`
+        SELECT id FROM "wallets" WHERE id = ${systemWallet.id} FOR UPDATE
+      `;
+      const [systemExisting, providerExisting] = await Promise.all([
+        tx.walletTransaction.findFirst({
+          where: {
+            walletId: systemWallet.id,
+            reference: ref,
+            type: WalletTransactionType.DEBIT,
+          },
+        }),
+        tx.walletTransaction.findFirst({
+          where: {
+            walletId: providerWallet.id,
+            reference: ref,
+            type: WalletTransactionType.CREDIT,
+          },
+        }),
+      ]);
+      if (systemExisting || providerExisting) {
+        if (
+          systemExisting &&
+          providerExisting &&
+          systemExisting.amount.equals(decimalAmount) &&
+          providerExisting.amount.equals(decimalAmount) &&
+          providerExisting.userId === providerId
+        ) {
+          return { transaction: providerExisting };
+        }
+        throw new ConflictException(
+          'El movimiento de escrow existe parcialmente o con otro importe; requiere conciliación'
+        );
+      }
+
       const [systemRow] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = GREATEST(balance - ${sqlNumeric(amount)}::numeric, 0),
+        SET balance = balance - ${sqlNumeric(amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${systemWallet.id}
+          AND balance >= ${sqlNumeric(amount)}::numeric
         RETURNING balance AS new_balance
       `;
+      if (!systemRow) {
+        throw new BadRequestException(
+          'Saldo retenido insuficiente para liberar el escrow; requiere conciliación'
+        );
+      }
       const [providerRow] = await tx.$queryRaw<
         { new_balance: Prisma.Decimal }[]
       >`
@@ -777,6 +821,9 @@ export class WalletsService {
         WHERE id = ${providerWallet.id}
         RETURNING balance AS new_balance
       `;
+      if (!providerRow) {
+        throw new NotFoundException('Wallet del proveedor no encontrada');
+      }
 
       await tx.walletTransaction.create({
         data: {
@@ -820,15 +867,56 @@ export class WalletsService {
     const systemWallet = await this.ensureWalletForUser(systemUserId);
     const clientWallet = await this.ensureWalletForUser(clientUserId);
     const ref = `ESCROW-REFUND-${serviceRequestId}`;
+    const decimalAmount = toDecimal(amount);
 
     return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT id FROM "wallets" WHERE id = ${systemWallet.id} FOR UPDATE
+      `;
+      const [systemExisting, clientExisting] = await Promise.all([
+        tx.walletTransaction.findFirst({
+          where: {
+            walletId: systemWallet.id,
+            reference: ref,
+            type: WalletTransactionType.DEBIT,
+          },
+        }),
+        tx.walletTransaction.findFirst({
+          where: {
+            walletId: clientWallet.id,
+            reference: ref,
+            type: WalletTransactionType.CREDIT,
+          },
+        }),
+      ]);
+      if (systemExisting || clientExisting) {
+        if (
+          systemExisting &&
+          clientExisting &&
+          systemExisting.amount.equals(decimalAmount) &&
+          clientExisting.amount.equals(decimalAmount) &&
+          clientExisting.userId === clientUserId
+        ) {
+          return { transaction: clientExisting };
+        }
+        throw new ConflictException(
+          'El movimiento de escrow existe parcialmente o con otro importe; requiere conciliación'
+        );
+      }
+
       const [systemRow] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
-        SET balance = GREATEST(balance - ${sqlNumeric(amount)}::numeric, 0),
+        SET balance = balance - ${sqlNumeric(amount)}::numeric,
             "updatedAt" = NOW()
         WHERE id = ${systemWallet.id}
+          AND balance >= ${sqlNumeric(amount)}::numeric
         RETURNING balance AS new_balance
       `;
+      if (!systemRow) {
+        throw new BadRequestException(
+          'Saldo retenido insuficiente para reembolsar el escrow; requiere conciliación'
+        );
+      }
       const [clientRow] = await tx.$queryRaw<{ new_balance: Prisma.Decimal }[]>`
         UPDATE "wallets"
         SET balance = balance + ${sqlNumeric(amount)}::numeric,
@@ -836,6 +924,9 @@ export class WalletsService {
         WHERE id = ${clientWallet.id}
         RETURNING balance AS new_balance
       `;
+      if (!clientRow) {
+        throw new NotFoundException('Wallet del cliente no encontrada');
+      }
 
       await tx.walletTransaction.create({
         data: {
