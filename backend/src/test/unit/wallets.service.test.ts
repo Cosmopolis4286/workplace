@@ -57,6 +57,7 @@ describe('WalletsService — escrow', () => {
           ),
       },
       walletTransaction: {
+        findFirst: jest.fn().mockResolvedValue(null),
         create: jest
           .fn()
           .mockImplementation(({ data }: any) =>
@@ -208,6 +209,7 @@ describe('WalletsService — escrow', () => {
   describe('releaseEscrow', () => {
     it('debita la wallet de sistema y acredita al proveedor', async () => {
       mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' }, // lock sistema
         { new_balance: 0 }, // débito sistema
         { new_balance: 45 }, // crédito proveedor
       ]);
@@ -233,6 +235,7 @@ describe('WalletsService — escrow', () => {
   describe('refundEscrow', () => {
     it('debita la wallet de sistema y acredita de vuelta al cliente', async () => {
       mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' }, // lock sistema
         { new_balance: 0 }, // débito sistema
         { new_balance: 150 }, // crédito cliente
       ]);
