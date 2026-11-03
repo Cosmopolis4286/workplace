@@ -7,6 +7,7 @@ import {
 import {
   EscrowEntityType,
   EscrowDisputeResolution,
+  EscrowStatus,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -361,7 +362,7 @@ export class EscrowService implements EscrowFacade {
         where: { id: escrow.id },
         data: { status: 'RELEASED', releasedAt: resolvedAt },
       });
-      const entityData = { escrowStatus: 'RELEASED' };
+      const entityData = { escrowStatus: EscrowStatus.RELEASED };
       if (escrow.entityType === 'SERVICE_REQUEST') {
         await tx.serviceRequest.update({
           where: { id: escrow.entityId },
