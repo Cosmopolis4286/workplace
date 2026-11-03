@@ -20,7 +20,12 @@ describe('EscrowService', () => {
     serviceRequest: { update: jest.fn(), findUnique: jest.fn() },
     user: { findMany: jest.fn().mockResolvedValue([]) },
     catalogOrder: { update: jest.fn(), findUnique: jest.fn() },
-    $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
+    $queryRaw: jest.fn().mockResolvedValue([{ id: 'e1' }]),
+    $transaction: jest.fn((input: any) =>
+      typeof input === 'function'
+        ? input(mockPrismaService)
+        : Promise.all(input)
+    ),
   };
 
   const mockWalletsService = {
@@ -71,8 +76,11 @@ describe('EscrowService', () => {
     mockPrismaService.catalogOrder.findUnique.mockResolvedValue({
       commerceName: 'Comercio X',
     });
-    mockPrismaService.$transaction.mockImplementation((ops: any[]) =>
-      Promise.all(ops)
+    mockPrismaService.$queryRaw.mockResolvedValue([{ id: 'e1' }]);
+    mockPrismaService.$transaction.mockImplementation((input: any) =>
+      typeof input === 'function'
+        ? input(mockPrismaService)
+        : Promise.all(input)
     );
 
     const module: TestingModule = await Test.createTestingModule({
@@ -444,6 +452,7 @@ describe('EscrowService', () => {
         payerId: 'client-1',
         payeeId: 'provider-1',
         amount: 100,
+        status: 'DISPUTED',
       },
     };
 

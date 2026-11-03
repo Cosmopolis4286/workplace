@@ -116,6 +116,7 @@ describe('WalletsService — escrow', () => {
         wallet({ userId: CLIENT_ID, balance: 100 })
       );
       mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' }, // lock sistema
         { new_balance: 50 }, // débito cliente: 100 - 50
         { new_balance: 50 }, // crédito sistema: 0 + 50
       ]);
@@ -164,13 +165,42 @@ describe('WalletsService — escrow', () => {
       expect(mockPrismaService.walletTransaction.create).not.toHaveBeenCalled();
     });
 
+    it('reconoce un reintento de la misma retención sin volver a debitar', async () => {
+      const existingSystemTransaction = {
+        id: 'system-hold-existing',
+        userId: SYSTEM_USER_ID,
+        amount: { equals: jest.fn().mockReturnValue(true) },
+      };
+      mockPrismaService.wallet.findUnique.mockResolvedValue(
+        wallet({ userId: CLIENT_ID, balance: 50 })
+      );
+      mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' }, // lock sistema
+      ]);
+      mockPrismaService.walletTransaction.findFirst
+        .mockResolvedValueOnce({
+          userId: CLIENT_ID,
+          amount: { equals: jest.fn().mockReturnValue(true) },
+        })
+        .mockResolvedValueOnce(existingSystemTransaction);
+
+      const result = await service.holdEscrow(CLIENT_ID, 50, REQUEST_ID);
+
+      expect(result.transaction).toBe(existingSystemTransaction);
+      expect(mockPrismaService.walletTransaction.create).not.toHaveBeenCalled();
+      expect(mockPrismaService.$queryRaw).toHaveBeenCalledTimes(1);
+    });
+
     it('lanza InsufficientEscrowFundsError si el UPDATE atómico no afecta filas (carrera de saldo)', async () => {
       // El saldo "parece" suficiente en el pre-check, pero la fila no se actualiza
       // dentro de la transacción — simula que otra operación gastó el saldo primero.
       mockPrismaService.wallet.findUnique.mockResolvedValue(
         wallet({ userId: CLIENT_ID, balance: 100 })
       );
-      mockPrismaService.$queryRaw = jest.fn().mockResolvedValue([]); // sin fila devuelta
+      mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' }, // lock sistema
+        null, // sin saldo suficiente
+      ]);
 
       await expect(
         service.holdEscrow(CLIENT_ID, 50, REQUEST_ID)
