@@ -102,20 +102,23 @@ export class EscrowService implements EscrowFacade {
     payeeId: string;
     amount: MoneyInput;
   }): Promise<EscrowView> {
-    await this.wallets.releaseEscrow(
-      params.entityId,
-      params.payeeId,
-      params.amount
-    );
-
-    const row = await this.prisma.escrow.update({
-      where: {
-        entityType_entityId: {
-          entityType: params.entityType,
-          entityId: params.entityId,
-        },
-      },
-      data: { status: 'RELEASED', releasedAt: new Date() },
+    const row = await this.prisma.$transaction(async (tx) => {
+      const escrow = await tx.escrow.findUnique({
+        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      });
+      if (!escrow) throw new NotFoundException('Garantía no encontrada');
+      await tx.$queryRaw`SELECT id FROM "escrows" WHERE id = ${escrow.id} FOR UPDATE`;
+      const current = await tx.escrow.findUnique({
+        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      });
+      if (!current) throw new NotFoundException('Garantía no encontrada');
+      if (current.status !== 'HELD') throw new BadRequestException('Solo se puede liberar una garantía en estado HELD');
+      if (current.payeeId !== params.payeeId) throw new ForbiddenException('No eres el destinatario de esta garantía');
+      await this.wallets.releaseEscrow(params.entityId, params.payeeId, params.amount);
+      return tx.escrow.update({
+        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+        data: { status: 'RELEASED', releasedAt: new Date() },
+      });
     });
     return this.toView(row);
   }
@@ -126,20 +129,23 @@ export class EscrowService implements EscrowFacade {
     payerId: string;
     amount: MoneyInput;
   }): Promise<EscrowView> {
-    await this.wallets.refundEscrow(
-      params.entityId,
-      params.payerId,
-      params.amount
-    );
-
-    const row = await this.prisma.escrow.update({
-      where: {
-        entityType_entityId: {
-          entityType: params.entityType,
-          entityId: params.entityId,
-        },
-      },
-      data: { status: 'REFUNDED', refundedAt: new Date() },
+    const row = await this.prisma.$transaction(async (tx) => {
+      const escrow = await tx.escrow.findUnique({
+        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      });
+      if (!escrow) throw new NotFoundException('Garantía no encontrada');
+      await tx.$queryRaw`SELECT id FROM "escrows" WHERE id = ${escrow.id} FOR UPDATE`;
+      const current = await tx.escrow.findUnique({
+        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      });
+      if (!current) throw new NotFoundException('Garantía no encontrada');
+      if (current.status !== 'HELD') throw new BadRequestException('Solo se puede reembolsar una garantía en estado HELD');
+      if (current.payerId !== params.payerId) throw new ForbiddenException('No eres el pagador de esta garantía');
+      await this.wallets.refundEscrow(params.entityId, params.payerId, params.amount);
+      return tx.escrow.update({
+        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+        data: { status: 'REFUNDED', refundedAt: new Date() },
+      });
     });
     return this.toView(row);
   }
