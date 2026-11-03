@@ -213,63 +213,48 @@ export class EscrowService implements EscrowFacade {
     raisedById: string;
     reason: string;
   }): Promise<EscrowDisputeView> {
-    const escrow = await this.prisma.escrow.findUnique({
-      where: {
-        entityType_entityId: {
-          entityType: params.entityType,
-          entityId: params.entityId,
-        },
-      },
+    const initial = await this.prisma.escrow.findUnique({
+      where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
     });
-    if (!escrow)
-      throw new NotFoundException(
-        'No hay garantía retenida para esta transacción'
-      );
-    if (escrow.status !== 'HELD') {
-      throw new BadRequestException(
-        'Solo se puede disputar una garantía retenida (HELD)'
-      );
-    }
-    if (
-      escrow.payerId !== params.raisedById &&
-      escrow.payeeId !== params.raisedById
-    ) {
-      throw new ForbiddenException(
-        'No tienes permiso para disputar esta transacción'
-      );
-    }
+    if (!initial) throw new NotFoundException('No hay garantía retenida para esta transacción');
 
-    const existingOpen = await this.prisma.escrowDispute.findFirst({
-      where: { escrowId: escrow.id, status: 'OPEN' },
-    });
-    if (existingOpen) {
-      throw new BadRequestException(
-        'Ya existe una disputa abierta para esta transacción'
-      );
-    }
+    const dispute = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "escrows" WHERE id = ${initial.id} FOR UPDATE`;
+      const escrow = await tx.escrow.findUnique({
+        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      });
+      if (!escrow) throw new NotFoundException('No hay garantía retenida para esta transacción');
+      if (escrow.status !== 'HELD') {
+        throw new BadRequestException('Solo se puede disputar una garantía retenida (HELD)');
+      }
+      if (escrow.payerId !== params.raisedById && escrow.payeeId !== params.raisedById) {
+        throw new ForbiddenException('No tienes permiso para disputar esta transacción');
+      }
 
-    const raisedByRole =
-      escrow.payerId === params.raisedById ? 'PAYER' : 'PAYEE';
+      const existingOpen = await tx.escrowDispute.findFirst({
+        where: { escrowId: escrow.id, status: 'OPEN' },
+      });
+      if (existingOpen) {
+        throw new BadRequestException('Ya existe una disputa abierta para esta transacción');
+      }
 
-    const [dispute] = await this.prisma.$transaction([
-      this.prisma.escrowDispute.create({
+      const raisedByRole = escrow.payerId === params.raisedById ? 'PAYER' : 'PAYEE';
+      const created = await tx.escrowDispute.create({
         data: {
           escrowId: escrow.id,
           raisedById: params.raisedById,
           raisedByRole,
           reason: params.reason,
         },
-      }),
-      this.prisma.escrow.update({
-        where: { id: escrow.id },
-        data: { status: 'DISPUTED' },
-      }),
-      ...this.syncEntityEscrowStatusTo(
-        params.entityType,
-        params.entityId,
-        'DISPUTED'
-      ),
-    ]);
+      });
+      await tx.escrow.update({ where: { id: escrow.id }, data: { status: 'DISPUTED' } });
+      if (params.entityType === 'SERVICE_REQUEST') {
+        await tx.serviceRequest.update({ where: { id: params.entityId }, data: { escrowStatus: 'DISPUTED' } });
+      } else {
+        await tx.catalogOrder.update({ where: { id: params.entityId }, data: { escrowStatus: 'DISPUTED' } });
+      }
+      return created;
+    });
 
     return this.toDisputeView(dispute);
   }
