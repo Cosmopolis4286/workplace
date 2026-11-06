@@ -238,7 +238,15 @@ describe('EscrowService', () => {
 
   describe('release', () => {
     it('credits the payee via WalletsService.releaseEscrow and marks the Escrow row RELEASED', async () => {
-      mockPrismaService.escrow.findUnique.mockResolvedValue({ id: 'e1', entityType: 'SERVICE_REQUEST', entityId: 'req-1', payerId: 'c1', payeeId: 'p1', status: 'HELD', amount: money(90) });
+      mockPrismaService.escrow.findUnique.mockResolvedValue({
+        id: 'e1',
+        entityType: 'SERVICE_REQUEST',
+        entityId: 'req-1',
+        payerId: 'c1',
+        payeeId: 'p1',
+        status: 'HELD',
+        amount: money(90),
+      });
       mockWalletsService.releaseEscrow.mockResolvedValue({ transaction: {} });
       mockPrismaService.escrow.update.mockResolvedValue({
         id: 'e1',
@@ -276,7 +284,15 @@ describe('EscrowService', () => {
 
   describe('refund', () => {
     it('credits the payer via WalletsService.refundEscrow and marks the Escrow row REFUNDED', async () => {
-      mockPrismaService.escrow.findUnique.mockResolvedValue({ id: 'e1', entityType: 'CATALOG_ORDER', entityId: 'order-1', payerId: 'buyer-1', payeeId: 'commerce-user-1', status: 'HELD', amount: money(200) });
+      mockPrismaService.escrow.findUnique.mockResolvedValue({
+        id: 'e1',
+        entityType: 'CATALOG_ORDER',
+        entityId: 'order-1',
+        payerId: 'buyer-1',
+        payeeId: 'commerce-user-1',
+        status: 'HELD',
+        amount: money(200),
+      });
       mockWalletsService.refundEscrow.mockResolvedValue({ transaction: {} });
       mockPrismaService.escrow.update.mockResolvedValue({
         id: 'e1',
