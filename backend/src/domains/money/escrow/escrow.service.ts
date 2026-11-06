@@ -104,19 +104,48 @@ export class EscrowService implements EscrowFacade {
   }): Promise<EscrowView> {
     const row = await this.prisma.$transaction(async (tx) => {
       const escrow = await tx.escrow.findUnique({
-        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+        where: {
+          entityType_entityId: {
+            entityType: params.entityType,
+            entityId: params.entityId,
+          },
+        },
       });
       if (!escrow) throw new NotFoundException('Garantía no encontrada');
-      await tx.$queryRaw`SELECT id FROM "escrows" WHERE id = ${escrow.id} FOR UPDATE`;
+      await tx.$queryRaw`
+        SELECT id FROM "escrows" WHERE id = ${escrow.id} FOR UPDATE
+      `;
       const current = await tx.escrow.findUnique({
-        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+        where: {
+          entityType_entityId: {
+            entityType: params.entityType,
+            entityId: params.entityId,
+          },
+        },
       });
       if (!current) throw new NotFoundException('Garantía no encontrada');
-      if (current.status !== 'HELD') throw new BadRequestException('Solo se puede liberar una garantía en estado HELD');
-      if (current.payeeId !== params.payeeId) throw new ForbiddenException('No eres el destinatario de esta garantía');
-      await this.wallets.releaseEscrow(params.entityId, params.payeeId, params.amount);
+      if (current.status !== 'HELD') {
+        throw new BadRequestException(
+          'Solo se puede liberar una garantía en estado HELD'
+        );
+      }
+      if (current.payeeId !== params.payeeId) {
+        throw new ForbiddenException(
+          'No eres el destinatario de esta garantía'
+        );
+      }
+      await this.wallets.releaseEscrow(
+        params.entityId,
+        params.payeeId,
+        params.amount
+      );
       return tx.escrow.update({
-        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+        where: {
+          entityType_entityId: {
+            entityType: params.entityType,
+            entityId: params.entityId,
+          },
+        },
         data: { status: 'RELEASED', releasedAt: new Date() },
       });
     });
@@ -131,19 +160,46 @@ export class EscrowService implements EscrowFacade {
   }): Promise<EscrowView> {
     const row = await this.prisma.$transaction(async (tx) => {
       const escrow = await tx.escrow.findUnique({
-        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+        where: {
+          entityType_entityId: {
+            entityType: params.entityType,
+            entityId: params.entityId,
+          },
+        },
       });
       if (!escrow) throw new NotFoundException('Garantía no encontrada');
-      await tx.$queryRaw`SELECT id FROM "escrows" WHERE id = ${escrow.id} FOR UPDATE`;
+      await tx.$queryRaw`
+        SELECT id FROM "escrows" WHERE id = ${escrow.id} FOR UPDATE
+      `;
       const current = await tx.escrow.findUnique({
-        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+        where: {
+          entityType_entityId: {
+            entityType: params.entityType,
+            entityId: params.entityId,
+          },
+        },
       });
       if (!current) throw new NotFoundException('Garantía no encontrada');
-      if (current.status !== 'HELD') throw new BadRequestException('Solo se puede reembolsar una garantía en estado HELD');
-      if (current.payerId !== params.payerId) throw new ForbiddenException('No eres el pagador de esta garantía');
-      await this.wallets.refundEscrow(params.entityId, params.payerId, params.amount);
+      if (current.status !== 'HELD') {
+        throw new BadRequestException(
+          'Solo se puede reembolsar una garantía en estado HELD'
+        );
+      }
+      if (current.payerId !== params.payerId) {
+        throw new ForbiddenException('No eres el pagador de esta garantía');
+      }
+      await this.wallets.refundEscrow(
+        params.entityId,
+        params.payerId,
+        params.amount
+      );
       return tx.escrow.update({
-        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+        where: {
+          entityType_entityId: {
+            entityType: params.entityType,
+            entityId: params.entityId,
+          },
+        },
         data: { status: 'REFUNDED', refundedAt: new Date() },
       });
     });
@@ -216,29 +272,51 @@ export class EscrowService implements EscrowFacade {
     const initial = await this.prisma.escrow.findUnique({
       where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
     });
-    if (!initial) throw new NotFoundException('No hay garantía retenida para esta transacción');
+    if (!initial) {
+      throw new NotFoundException(
+        'No hay garantía retenida para esta transacción'
+      );
+    }
 
     const dispute = await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "escrows" WHERE id = ${initial.id} FOR UPDATE`;
+      await tx.$queryRaw`
+        SELECT id FROM "escrows" WHERE id = ${initial.id} FOR UPDATE
+      `;
       const escrow = await tx.escrow.findUnique({
-        where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+        where: {
+          entityType_entityId: {
+            entityType: params.entityType,
+            entityId: params.entityId,
+          },
+        },
       });
-      if (!escrow) throw new NotFoundException('No hay garantía retenida para esta transacción');
+      if (!escrow) {
+        throw new NotFoundException(
+          'No hay garantía retenida para esta transacción'
+        );
+      }
       if (escrow.status !== 'HELD') {
-        throw new BadRequestException('Solo se puede disputar una garantía retenida (HELD)');
+        throw new BadRequestException(
+          'Solo se puede disputar una garantía retenida (HELD)'
+        );
       }
       if (escrow.payerId !== params.raisedById && escrow.payeeId !== params.raisedById) {
-        throw new ForbiddenException('No tienes permiso para disputar esta transacción');
+        throw new ForbiddenException(
+          'No tienes permiso para disputar esta transacción'
+        );
       }
 
       const existingOpen = await tx.escrowDispute.findFirst({
         where: { escrowId: escrow.id, status: 'OPEN' },
       });
       if (existingOpen) {
-        throw new BadRequestException('Ya existe una disputa abierta para esta transacción');
+        throw new BadRequestException(
+          'Ya existe una disputa abierta para esta transacción'
+        );
       }
 
-      const raisedByRole = escrow.payerId === params.raisedById ? 'PAYER' : 'PAYEE';
+      const raisedByRole =
+        escrow.payerId === params.raisedById ? 'PAYER' : 'PAYEE';
       const created = await tx.escrowDispute.create({
         data: {
           escrowId: escrow.id,
@@ -247,11 +325,20 @@ export class EscrowService implements EscrowFacade {
           reason: params.reason,
         },
       });
-      await tx.escrow.update({ where: { id: escrow.id }, data: { status: 'DISPUTED' } });
+      await tx.escrow.update({
+        where: { id: escrow.id },
+        data: { status: 'DISPUTED' },
+      });
       if (params.entityType === 'SERVICE_REQUEST') {
-        await tx.serviceRequest.update({ where: { id: params.entityId }, data: { escrowStatus: 'DISPUTED' } });
+        await tx.serviceRequest.update({
+          where: { id: params.entityId },
+          data: { escrowStatus: 'DISPUTED' },
+        });
       } else {
-        await tx.catalogOrder.update({ where: { id: params.entityId }, data: { escrowStatus: 'DISPUTED' } });
+        await tx.catalogOrder.update({
+          where: { id: params.entityId },
+          data: { escrowStatus: 'DISPUTED' },
+        });
       }
       return created;
     });
