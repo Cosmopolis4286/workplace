@@ -2,7 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EscrowService } from '../../domains/money/escrow/escrow.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WalletsService } from '../../domains/money/wallets/wallets.service';
-import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
+import {
+  NotificationsService,
+} from '../../domains/engagement/notifications/notifications.service';
 import { money } from '../money-matcher';
 
 describe('EscrowService', () => {
@@ -100,7 +102,9 @@ describe('EscrowService', () => {
   });
 
   describe('hold', () => {
-    it('debits via WalletsService.holdEscrow before persisting the Escrow row', async () => {
+    it(
+      'debits via WalletsService.holdEscrow before persisting the Escrow row',
+      async () => {
       mockWalletsService.holdEscrow.mockResolvedValue({ transaction: {} });
       mockPrismaService.escrow.upsert.mockResolvedValue({
         id: 'e1',
@@ -131,7 +135,11 @@ describe('EscrowService', () => {
       );
     });
 
-    it('does not persist any Escrow row when WalletsService.holdEscrow throws', async () => {
+    it(
+
+      'does not persist any Escrow row when WalletsService.holdEscrow throws',
+
+      async () => {
       mockWalletsService.holdEscrow.mockRejectedValue(
         new Error('insufficient funds')
       );
@@ -149,7 +157,11 @@ describe('EscrowService', () => {
       expect(mockPrismaService.escrow.upsert).not.toHaveBeenCalled();
     });
 
-    it('creates a new Escrow row with the delta as the total amount when none existed', async () => {
+    it(
+
+      'creates a new Escrow row with the delta as the total amount when none existed',
+
+      async () => {
       mockWalletsService.holdEscrow.mockResolvedValue({ transaction: {} });
       mockPrismaService.escrow.findUnique.mockResolvedValue(null);
       mockPrismaService.escrow.upsert.mockImplementation(({ create }: any) =>
@@ -174,7 +186,11 @@ describe('EscrowService', () => {
       );
     });
 
-    it('accumulates the delta on top of the existing amount instead of overwriting it (price-increase case)', async () => {
+    it(
+
+      'accumulates the delta on top of the existing amount instead of overwriting it (price-increase case)',
+
+      async () => {
       mockWalletsService.holdEscrow.mockResolvedValue({ transaction: {} });
       mockPrismaService.escrow.findUnique.mockResolvedValue({ amount: 100 });
       mockPrismaService.escrow.upsert.mockImplementation(({ update }: any) =>
@@ -237,7 +253,9 @@ describe('EscrowService', () => {
   });
 
   describe('release', () => {
-    it('credits the payee via WalletsService.releaseEscrow and marks the Escrow row RELEASED', async () => {
+    it(
+      'credits the payee via WalletsService.releaseEscrow and marks the Escrow row RELEASED',
+      async () => {
       mockPrismaService.escrow.findUnique.mockResolvedValue({
         id: 'e1',
         entityType: 'SERVICE_REQUEST',
@@ -283,7 +301,9 @@ describe('EscrowService', () => {
   });
 
   describe('refund', () => {
-    it('credits the payer via WalletsService.refundEscrow and marks the Escrow row REFUNDED', async () => {
+    it(
+      'credits the payer via WalletsService.refundEscrow and marks the Escrow row REFUNDED',
+      async () => {
       mockPrismaService.escrow.findUnique.mockResolvedValue({
         id: 'e1',
         entityType: 'CATALOG_ORDER',
@@ -360,7 +380,11 @@ describe('EscrowService', () => {
       amount: 100,
     };
 
-    it('throws NotFoundException when there is no escrow for the entity', async () => {
+    it(
+
+      'throws NotFoundException when there is no escrow for the entity',
+
+      async () => {
       mockPrismaService.escrow.findUnique.mockResolvedValue(null);
       await expect(
         service.openDispute({
@@ -387,7 +411,11 @@ describe('EscrowService', () => {
       ).rejects.toThrow('Solo se puede disputar una garantía retenida (HELD)');
     });
 
-    it('rejects a raisedById that is neither the payer nor the payee', async () => {
+    it(
+
+      'rejects a raisedById that is neither the payer nor the payee',
+
+      async () => {
       mockPrismaService.escrow.findUnique.mockResolvedValue(heldEscrow);
       await expect(
         service.openDispute({
@@ -399,7 +427,11 @@ describe('EscrowService', () => {
       ).rejects.toThrow('No tienes permiso para disputar esta transacción');
     });
 
-    it('rejects opening a second dispute while one is already OPEN', async () => {
+    it(
+
+      'rejects opening a second dispute while one is already OPEN',
+
+      async () => {
       mockPrismaService.escrow.findUnique.mockResolvedValue(heldEscrow);
       mockPrismaService.escrowDispute.findFirst.mockResolvedValue({
         id: 'existing-dispute',
@@ -414,7 +446,11 @@ describe('EscrowService', () => {
       ).rejects.toThrow('Ya existe una disputa abierta para esta transacción');
     });
 
-    it('marks raisedByRole as PAYER when the payer opens the dispute, and moves Escrow to DISPUTED', async () => {
+    it(
+
+      'marks raisedByRole as PAYER when the payer opens the dispute, and moves Escrow to DISPUTED',
+
+      async () => {
       mockPrismaService.escrow.findUnique.mockResolvedValue(heldEscrow);
       await service.openDispute({
         entityType: 'SERVICE_REQUEST',
@@ -437,7 +473,11 @@ describe('EscrowService', () => {
       });
     });
 
-    it('marks raisedByRole as PAYEE when the payee opens the dispute', async () => {
+    it(
+
+      'marks raisedByRole as PAYEE when the payee opens the dispute',
+
+      async () => {
       mockPrismaService.escrow.findUnique.mockResolvedValue(heldEscrow);
 
       await service.openDispute({
@@ -470,7 +510,11 @@ describe('EscrowService', () => {
       },
     };
 
-    it('throws NotFoundException when the dispute does not exist', async () => {
+    it(
+
+      'throws NotFoundException when the dispute does not exist',
+
+      async () => {
       mockPrismaService.escrowDispute.findUnique.mockResolvedValue(null);
       await expect(
         service.resolveDispute({
@@ -495,7 +539,11 @@ describe('EscrowService', () => {
       ).rejects.toThrow('Esta disputa ya fue resuelta');
     });
 
-    it('RELEASE_FULL releases the entire amount to the payee and never touches the payer wallet', async () => {
+    it(
+
+      'RELEASE_FULL releases the entire amount to the payee and never touches the payer wallet',
+
+      async () => {
       mockPrismaService.escrowDispute.findUnique.mockResolvedValue(openDispute);
 
       await service.resolveDispute({
@@ -512,7 +560,11 @@ describe('EscrowService', () => {
       expect(mockWalletsService.refundEscrow).not.toHaveBeenCalled();
     });
 
-    it('REFUND_FULL refunds the entire amount to the payer and never touches the payee wallet', async () => {
+    it(
+
+      'REFUND_FULL refunds the entire amount to the payer and never touches the payee wallet',
+
+      async () => {
       mockPrismaService.escrowDispute.findUnique.mockResolvedValue(openDispute);
 
       await service.resolveDispute({
@@ -541,7 +593,11 @@ describe('EscrowService', () => {
       ).rejects.toThrow('SPLIT requiere releaseAmount y refundAmount');
     });
 
-    it('SPLIT rejects amounts that do not add up to the total escrowed amount', async () => {
+    it(
+
+      'SPLIT rejects amounts that do not add up to the total escrowed amount',
+
+      async () => {
       mockPrismaService.escrowDispute.findUnique.mockResolvedValue(openDispute);
       await expect(
         service.resolveDispute({
@@ -556,7 +612,11 @@ describe('EscrowService', () => {
       );
     });
 
-    it('SPLIT calls both releaseEscrow and refundEscrow with their respective amounts', async () => {
+    it(
+
+      'SPLIT calls both releaseEscrow and refundEscrow with their respective amounts',
+
+      async () => {
       mockPrismaService.escrowDispute.findUnique.mockResolvedValue(openDispute);
 
       await service.resolveDispute({
@@ -579,7 +639,11 @@ describe('EscrowService', () => {
       );
     });
 
-    it('SPLIT cuadra al centavo exacto, sin la tolerancia de ±0.01 de Float', async () => {
+    it(
+
+      'SPLIT cuadra al centavo exacto, sin la tolerancia de ±0.01 de Float',
+
+      async () => {
       mockPrismaService.escrowDispute.findUnique.mockResolvedValue(openDispute);
       // 100 retenidos: 33.33 + 66.66 = 99.99 deja un centavo sin asignar.
       await expect(
@@ -609,7 +673,11 @@ describe('EscrowService', () => {
       );
     });
 
-    it('always leaves Escrow.status as RELEASED regardless of the resolution (release, refund, or split)', async () => {
+    it(
+
+      'always leaves Escrow.status as RELEASED regardless of the resolution (release, refund, or split)',
+
+      async () => {
       mockPrismaService.escrowDispute.findUnique.mockResolvedValue(openDispute);
 
       await service.resolveDispute({
@@ -626,7 +694,11 @@ describe('EscrowService', () => {
       );
     });
 
-    it('syncs the underlying ServiceRequest.escrowStatus mirror to RELEASED', async () => {
+    it(
+
+      'syncs the underlying ServiceRequest.escrowStatus mirror to RELEASED',
+
+      async () => {
       mockPrismaService.escrowDispute.findUnique.mockResolvedValue(openDispute);
 
       await service.resolveDispute({
@@ -643,7 +715,11 @@ describe('EscrowService', () => {
       );
     });
 
-    it('syncs CatalogOrder instead of ServiceRequest when the escrow entityType is CATALOG_ORDER', async () => {
+    it(
+
+      'syncs CatalogOrder instead of ServiceRequest when the escrow entityType is CATALOG_ORDER',
+
+      async () => {
       mockPrismaService.escrowDispute.findUnique.mockResolvedValue({
         ...openDispute,
         escrow: {
@@ -668,7 +744,11 @@ describe('EscrowService', () => {
       expect(mockPrismaService.serviceRequest.update).not.toHaveBeenCalled();
     });
 
-    it('notifies the payee when funds are released and the payer when funds are refunded', async () => {
+    it(
+
+      'notifies the payee when funds are released and the payer when funds are refunded',
+
+      async () => {
       mockPrismaService.escrowDispute.findUnique.mockResolvedValue(openDispute);
 
       await service.resolveDispute({
