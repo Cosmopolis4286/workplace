@@ -12,7 +12,9 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
-import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import {
+  NotificationsService,
+} from '../../engagement/notifications/notifications.service';
 import {
   add,
   eq,
@@ -270,7 +272,12 @@ export class EscrowService implements EscrowFacade {
     reason: string;
   }): Promise<EscrowDisputeView> {
     const initial = await this.prisma.escrow.findUnique({
-      where: { entityType_entityId: { entityType: params.entityType, entityId: params.entityId } },
+      where: {
+        entityType_entityId: {
+          entityType: params.entityType,
+          entityId: params.entityId,
+        },
+      },
     });
     if (!initial) {
       throw new NotFoundException(
@@ -300,7 +307,10 @@ export class EscrowService implements EscrowFacade {
           'Solo se puede disputar una garantía retenida (HELD)'
         );
       }
-      if (escrow.payerId !== params.raisedById && escrow.payeeId !== params.raisedById) {
+      if (
+        escrow.payerId !== params.raisedById &&
+        escrow.payeeId !== params.raisedById
+      ) {
         throw new ForbiddenException(
           'No tienes permiso para disputar esta transacción'
         );
