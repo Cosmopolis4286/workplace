@@ -143,9 +143,10 @@ describe('SellerBillingService', () => {
         },
       } as any;
 
-      const charge = await service.recordCharge(input, tx);
+      const result = await service.recordChargeInTransaction(input, tx);
 
-      expect(charge!.id).toBe('tx-charge');
+      expect(result.charge!.id).toBe('tx-charge');
+      expect(result.created).toBe(true);
       expect(tx.sellerCommissionCharge.findUnique).toHaveBeenCalledWith({
         where: { reference: input.reference },
       });
@@ -153,6 +154,23 @@ describe('SellerBillingService', () => {
       expect(prisma.sellerCommissionCharge.findUnique).not.toHaveBeenCalled();
       expect(prisma.sellerCommissionCharge.create).not.toHaveBeenCalled();
       expect(notifications.createForUser).not.toHaveBeenCalled();
+    });
+
+    it('no marca como creado un cargo que ya existía', async () => {
+      const tx = {
+        sellerCommissionCharge: {
+          findUnique: jest.fn().mockResolvedValue({ id: 'existing-charge' }),
+          create: jest.fn(),
+        },
+      } as any;
+
+      const result = await service.recordChargeInTransaction(input, tx);
+
+      expect(result).toEqual({
+        charge: { id: 'existing-charge' },
+        created: false,
+      });
+      expect(tx.sellerCommissionCharge.create).not.toHaveBeenCalled();
     });
 
     it('permite notificar un cargo transaccional explícitamente después del commit', async () => {
