@@ -726,7 +726,7 @@ export class SellerBillingService {
     }
   }
 
-private async withSellerNames<T extends { sellerUserId: string }>(rows: T[]) {
+  private async withSellerNames<T extends { sellerUserId: string }>(rows: T[]) {
     const users = await this.prisma.user.findMany({
       where: { id: { in: [...new Set(rows.map((r) => r.sellerUserId))] } },
       select: { id: true, firstName: true, lastName: true, email: true },
