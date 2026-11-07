@@ -28,6 +28,8 @@ export interface PlanLimitsFacade {
   getSelectableModules(userId: string): Promise<string[]>;
   assertModuleAccess(userId: string, module: string): Promise<void>;
   assertProductLimit(userId: string, commerceId: string): Promise<void>;
+  // Estado de cuenta vencido o suspendido → no puede publicar ni reactivar.
+  assertCanPublish(userId: string): Promise<void>;
   assertEmployeeLimit(userId: string, commerceId: string): Promise<void>;
   assertBranchLimit(userId: string, commerceId: string): Promise<void>;
   assertOrderLimit(userId: string, commerceId: string): Promise<void>;

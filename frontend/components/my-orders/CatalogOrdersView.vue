@@ -157,6 +157,23 @@
             </button>
           </div>
         </div>
+        <!-- Cancelar: solo mientras el comercio no lo atendió -->
+        <div v-else-if="selectedOrder.status === 'PENDING' || selectedOrder.status === 'SEEN'" class="p-4 border-t border-gray-100 bg-gray-50">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <p class="text-xs text-gray-600">
+              ¿Ya no lo necesitas? Puedes cancelarlo mientras el comercio no lo atienda.
+              Si pagaste con pago protegido, te devolvemos el dinero a la billetera.
+            </p>
+            <button
+              :disabled="cancellingOrder"
+              class="px-4 py-2 rounded-lg text-sm font-semibold border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50 flex-shrink-0"
+              @click="cancelOrder"
+            >
+              {{ cancellingOrder ? 'Cancelando…' : 'Cancelar pedido' }}
+            </button>
+          </div>
+          <p v-if="cancelError" class="text-xs text-red-600 mt-2">{{ cancelError }}</p>
+        </div>
         <div v-else-if="selectedOrder.status === 'CLOSED'" class="p-4 border-t border-gray-100 bg-green-50">
           <p class="text-xs text-green-700 font-medium">Pedido completado. Ya puedes dejar una reseña verificada en el perfil del comercio.</p>
         </div>
@@ -323,6 +340,26 @@ async function confirmCompletion() {
     if (idx !== -1) orders.value[idx].status = 'CLOSED'
   } finally {
     confirmingCompletion.value = false
+  }
+}
+
+const cancellingOrder = ref(false)
+const cancelError = ref<string | null>(null)
+
+async function cancelOrder() {
+  if (!selectedOrder.value) return
+  cancellingOrder.value = true
+  cancelError.value = null
+  try {
+    const { patch } = useApi()
+    await patch(`/catalog/orders/${selectedOrder.value.id}/cancel`, {})
+    selectedOrder.value.status = 'CANCELLED'
+    const idx = orders.value.findIndex((o) => o.id === selectedOrder.value!.id)
+    if (idx !== -1) orders.value[idx].status = 'CANCELLED'
+  } catch (e: any) {
+    cancelError.value = e?.data?.message ?? e?.message ?? 'No se pudo cancelar el pedido'
+  } finally {
+    cancellingOrder.value = false
   }
 }
 

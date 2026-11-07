@@ -46,6 +46,23 @@ describe('BnplService', () => {
     service = module.get<BnplService>(BnplService);
   });
 
+  describe('BNPL_ENABLED (Cashea/Krece ocultos hasta tener credenciales)', () => {
+    it('apagado por defecto: sin proveedores elegibles y sin iniciar ni configurar', async () => {
+      expect(service.isEnabled()).toBe(false);
+      await expect(service.getEligibleProviders('c-1')).resolves.toEqual([]);
+      await expect(
+        service.initiate('c-1', 'o-1', 'CASHEA' as any)
+      ).rejects.toThrow('todavía no está disponible');
+      await expect(
+        service.upsertSettings(
+          'c-1',
+          'CASHEA' as any,
+          { isEnabled: true } as any
+        )
+      ).rejects.toThrow('todavía no está disponible');
+    });
+  });
+
   describe('simulateResolve', () => {
     it('rechaza una externalReference que no tiene el prefijo SIM-', async () => {
       await expect(

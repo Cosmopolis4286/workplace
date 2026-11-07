@@ -9,6 +9,26 @@ Severidad:
 - **A** datos o reglas incorrectas con impacto real.
 - **M** fricción, inconsistencia o deuda técnica.
 
+## Estado de los arreglos (actualizado 2026-11-07)
+
+| Punto | Estado |
+|---|---|
+| C1 comisión de catálogo sin garantía | ✅ Resuelto: se cobra en todo pedido cerrado (PENDING al estado de cuenta sin garantía; retenida si la hay). |
+| C2 comisión del cliente entregada al vendedor | ✅ Resuelto (PR #84 en catálogo con garantía y servicios; catálogo sin garantía en #92). POS ya no cobra comisión. |
+| C3 retiro que borraba saldo | ✅ Resuelto en PR #84 (módulo wallet-withdrawals: retiro a banco con aprobación admin). |
+| C4 pago con billetera huérfano | ✅ Resuelto en PR #84 (pagos y transferencias con saldo devuelven 410; se paga por operación). |
+| C5 deuda vencida | ✅ Corregido el hallazgo: crear productos/servicios y reactivar servicios **ya** estaba bloqueado; faltaba volver a poner productos a la venta (edición, toggle, en bloque). Ahora también está bloqueado. |
+| C6 garantías sin salida | ✅ El comprador cancela en PENDING/SEEN; cron con auto-reembolso (3 días) y auto-liberación (7 días), configurables. |
+| A1 límites por rol | ✅ Se deducen del perfil (comercio / profesional). |
+| A3 stock al cancelar | ✅ Se devuelve el stock y salesCount. |
+| A4 totalSpent doble | ✅ Resuelto. |
+| A6 comisión en ventas POS | ✅ Decisión del dueño: **no** se cobra comisión sobre las ventas del POS. Se quitó del código. |
+| A7 tasas por defecto | ✅ Seed: CATALOG_ORDER 5 % (paga el comercio), SERVICE_REQUEST 10 %. Editables por SUPERADMIN. |
+| A8 BNPL | ✅ Decisión: oculto hasta tener credenciales (`BNPL_ENABLED` / `NUXT_PUBLIC_BNPL_ENABLED`, apagados por defecto). Endurecer el webhook queda para cuando se integre. |
+| M2 KYC | ✅ Decisión: KYC para toda compra. Ya se exige en pedidos de catálogo, solicitudes de servicio y viajes. |
+| A9 doble aprobación de depósito | ✅ Resuelto en PR #84. |
+| A2, A5, M1, M3–M8 | Pendientes. |
+
 ---
 
 ## 1. El flujo hoy

@@ -48,6 +48,22 @@ export class BnplService {
   // ──────────────────────────────────────────────────────────────────────────
   // Helpers
   // ──────────────────────────────────────────────────────────────────────────
+
+  // Cashea/Krece quedan apagados hasta tener credenciales reales: sus
+  // adaptadores todavía delegan al simulador, así que un pedido financiado
+  // en producción quedaría PENDING hasta expirar. Se enciende con
+  // BNPL_ENABLED=true (y NUXT_PUBLIC_BNPL_ENABLED=true en el frontend).
+  isEnabled(): boolean {
+    return this.config.get<string>('BNPL_ENABLED') === 'true';
+  }
+
+  private assertEnabled() {
+    if (!this.isEnabled()) {
+      throw new NotFoundException(
+        'El financiamiento con Cashea/Krece todavía no está disponible'
+      );
+    }
+  }
   async getCommerceId(userId: string): Promise<string> {
     return this.commerceResolver.resolve(userId);
   }
@@ -96,6 +112,7 @@ export class BnplService {
     provider: BnplProvider,
     dto: UpsertBnplSettingsDto
   ) {
+    this.assertEnabled();
     const existing = await this.prisma.bnplSettings.findUnique({
       where: { commerceId_provider: { commerceId, provider } },
     });
@@ -127,6 +144,7 @@ export class BnplService {
   }
 
   async getEligibleProviders(commerceId: string) {
+    if (!this.isEnabled()) return [];
     const rows = await this.prisma.bnplSettings.findMany({
       where: { commerceId, isEnabled: true },
       select: { provider: true },
@@ -162,6 +180,7 @@ export class BnplService {
   // Ciclo de vida de la transacción
   // ──────────────────────────────────────────────────────────────────────────
   async initiate(commerceId: string, orderId: string, provider: BnplProvider) {
+    this.assertEnabled();
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, commerceId },
     });

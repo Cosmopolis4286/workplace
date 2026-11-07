@@ -77,7 +77,7 @@ describe('WalletsService — escrow', () => {
     const mockRedisService = { get: jest.fn(), setex: jest.fn() };
     const mockPinService = {};
     const mockLimitsService = {
-      getLimitsForRole: jest.fn().mockResolvedValue({ maxBalance: 10000 }),
+      getLimitsFor: jest.fn().mockResolvedValue({ maxBalance: 10000 }),
       assertBalanceLimit: jest.fn().mockResolvedValue(undefined),
       recordDebit: jest.fn().mockResolvedValue(undefined),
     };

@@ -113,6 +113,14 @@ export class CatalogController {
     return this.catalogService.confirmOrderCompletion(id, user.id);
   }
 
+  // El comprador cancela mientras el comercio no lo atendió (PENDING/SEEN);
+  // si había garantía se le reembolsa.
+  @Patch('orders/:id/cancel')
+  @UseGuards(JwtAuthGuard)
+  cancelOrder(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.catalogService.cancelOrderByBuyer(id, user.id);
+  }
+
   @Patch('orders/:id/dispute')
   @UseGuards(JwtAuthGuard)
   disputeOrder(
