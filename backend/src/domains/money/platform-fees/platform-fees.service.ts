@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FeeTransactionType, FeePayer } from '@prisma/client';
+import { FeeTransactionType, FeePayer, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   div,
@@ -107,16 +107,33 @@ export class PlatformFeesService implements PlatformFeesFacade {
     feeAmount: number,
     reference: string,
     metadata: Record<string, unknown>,
-    options?: { collected?: boolean }
+    options?: { collected?: boolean; tx?: Prisma.TransactionClient }
   ) {
     if (feeAmount <= 0) return null;
-    return this.billing.recordCharge({
+    const input = {
       type,
       sellerUserId: userId,
       amount: feeAmount,
       reference,
       metadata,
       collected: options?.collected,
+    };
+    return options?.tx
+      ? this.billing.recordCharge(input, options.tx)
+      : this.billing.recordCharge(input);
+  }
+
+  async notifyProviderFee(input: {
+    type: FeeTransactionType;
+    userId: string;
+    feeAmount: number;
+    collected?: boolean;
+  }): Promise<void> {
+    await this.billing.notifyChargeRecorded({
+      type: input.type,
+      sellerUserId: input.userId,
+      amount: input.feeAmount,
+      collected: input.collected,
     });
   }
 
