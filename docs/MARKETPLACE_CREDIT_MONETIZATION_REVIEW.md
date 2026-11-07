@@ -170,6 +170,56 @@ Reutilizar reputación/reviews donde corresponda y agregar un dominio de promoci
 - Los comprobantes y facturas reflejan el servicio y la comisión según el criterio validado por asesoría venezolana.
 - La función permanece desactivada si falta configuración legal, fiscal o comercial obligatoria.
 
+
+## 8. Especificación de implementación del cargo por oportunidad
+
+La inspección del código confirma que hoy el proveedor puede pasar de `PENDING` o `SEEN` directamente a `CONTACTED` mediante `PATCH /services/requests/:id` o `PATCH /services/requests/:id/status`. Ese salto no registra aceptación de una tarifa nueva.
+
+### Contrato de API propuesto
+
+No reutilizar el PATCH genérico como consentimiento implícito. Incorporar un comando explícito:
+
+- `GET /services/requests/:id/lead-fee-quote`: solo proveedor propietario; devuelve si la función está habilitada, política/versionado, moneda, importe y explicación del cargo. No crea cargos.
+- `POST /services/requests/:id/accept-lead-fee`: solo proveedor propietario; exige confirmación explícita y una versión de política vigente. Devuelve la aceptación persistida y la transición a `CONTACTED`.
+- El PATCH genérico no podrá realizar `PENDING|SEEN -> CONTACTED` cuando la política de lead fees esté habilitada, salvo que exista una aceptación válida para esa solicitud. Con la función desactivada, se conserva el comportamiento actual.
+
+### Persistencia requerida
+
+La aceptación debe guardar como mínimo:
+
+- solicitud y proveedor;
+- fecha/hora del consentimiento;
+- identificador y versión de política;
+- importe y moneda exactos presentados;
+- snapshot de la base/tarifa usada para el cálculo;
+- referencia única del cargo y estado de facturación.
+
+No basta un booleano mutable en `ServiceRequest`: el consentimiento y el cargo necesitan trazabilidad auditable. La restricción única debe impedir más de un cargo por solicitud y tipo de evento.
+
+### Cobro y consistencia
+
+El cargo debe usar `SellerBillingService.recordCharge` (estado de cuenta semanal) y no la wallet. La referencia de idempotencia propuesta es `LEAD-SVC-{serviceRequestId}`; la comisión de éxito conserva su referencia actual `FEE-SVC-{serviceRequestId}`. El reporte debe distinguir ambos conceptos aunque compartan el ciclo de facturación del proveedor.
+
+**Bloqueo técnico antes de activar cobros:** `recordCharge` realiza una lectura y creación idempotente, pero no acepta un cliente transaccional de Prisma. La aceptación de consentimiento, la transición de estado y el registro del cargo no deben componerse como tres escrituras independientes: un fallo intermedio puede dejar una solicitud aceptada sin cargo o un cargo sin aceptación. Antes de habilitar el cobro se debe incorporar una operación transaccional en el límite de dominio (o un patrón outbox con consumidor idempotente), con unicidad en base de datos y pruebas de concurrencia. No se debe resolver con compensaciones silenciosas.
+
+### Requisitos de producto aún no definidos
+
+- importe fijo del lead y moneda de referencia;
+- reglas de conversión cuando el estado de cuenta se pague en otra moneda;
+- si se cobra al aceptar el contacto o solo cuando el cliente confirma que recibió respuesta;
+- cancelación/reembolso del lead ante contacto inválido, datos incorrectos, duplicado o fraude;
+- texto de consentimiento y pantalla que muestre el cargo antes de aceptarlo.
+
+Hasta resolver estos puntos, el endpoint y el cobro no deben desplegarse como activos. No se debe inferir el precio del lead a partir de la comisión de éxito ni reutilizar automáticamente el mismo porcentaje.
+
+## 9. Decisión de alcance para el siguiente PR de código
+
+1. Primero extraer una operación transaccional de facturación para poder registrar cargos desde el mismo `Prisma.TransactionClient`, conservando la idempotencia y notificación posterior al commit.
+2. Agregar pruebas para referencia duplicada, dos aceptaciones concurrentes, fallo entre persistencia y transición, y reintento después de timeout.
+3. Agregar el comando de aceptación explícita y el feature flag apagado por defecto.
+4. Habilitar el cargo solo cuando exista importe aprobado, consentimiento visible y revisión legal/contable.
+5. Mantener los créditos prepagados fuera de esta entrega. La Etapa 2 requiere su propio modelo de lotes/ledger y aprobación jurídica previa.
+
 ## 7. Fuentes internas revisadas
 
 - `README.md`: arquitectura del monorepo y dominios existentes.
