@@ -17,10 +17,6 @@ import {
   PLAN_LIMITS_FACADE,
 } from '../../money/plans/plan-limits.facade';
 import {
-  PlatformFeesFacade,
-  PLATFORM_FEES_FACADE,
-} from '../../money/platform-fees/platform-fees.facade';
-import {
   ReputationFacade,
   REPUTATION_FACADE,
 } from '../../reputation/reputation.facade';
@@ -29,7 +25,6 @@ import { CashService } from '../cash/cash.service';
 import {
   div,
   gt,
-  isPositive,
   mul,
   round,
   sub,
@@ -59,8 +54,6 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
     @Inject(PLAN_LIMITS_FACADE) private readonly planLimits: PlanLimitsFacade,
     private readonly telegram: TelegramService,
-    @Inject(PLATFORM_FEES_FACADE)
-    private readonly platformFees: PlatformFeesFacade,
     @Inject(REPUTATION_FACADE) private readonly reputation: ReputationFacade,
     private readonly receipts: ReceiptsService,
     private readonly cash: CashService
@@ -317,27 +310,10 @@ export class OrdersService {
       );
     }
 
-    // La tasa es la del comercio (su dueño: override por usuario o plan), no
-    // la de quien opera el POS — un empleado no debe cambiar la comisión.
-    const owner = await this.prisma.commerce.findUnique({
-      where: { id: commerceId },
-      select: { userId: true },
-    });
-    const feeConfig = owner
-      ? await this.platformFees.resolveFeeConfig('ORDER', owner.userId)
-      : null;
-    let platformFeeAmount = 0;
-    if (feeConfig?.payer === 'CLIENT') {
-      platformFeeAmount = this.platformFees.calculateFee(
-        subtotal,
-        feeConfig
-      ).feeAmount;
-    }
-
-    const total = sub(
-      sum([subtotal, tax, deliveryFee, platformFeeAmount]),
-      discount
-    );
+    // Sin comisión de plataforma: las ventas del POS son ventas propias del
+    // comercio (decisión de producto). WorkPlace cobra comisión solo sobre lo
+    // que origina el marketplace (catálogo, servicios, viajes).
+    const total = sub(sum([subtotal, tax, deliveryFee]), discount);
 
     // Número correlativo por comercio (único por commerceId+orderNumber).
     // count()+1 puede chocar si dos pedidos se crean a la vez o si se borró
@@ -366,12 +342,6 @@ export class OrdersService {
           deliveryFee,
           discount,
           total,
-          platformFeeRate:
-            feeConfig?.payer === 'CLIENT' ? feeConfig.rate : undefined,
-          platformFeeAmount:
-            feeConfig?.payer === 'CLIENT' ? platformFeeAmount : undefined,
-          platformFeePayer:
-            feeConfig?.payer === 'CLIENT' ? 'CLIENT' : undefined,
           items: {
             create: dto.items.map((item, i) => ({
               productId: item.productId,
@@ -465,63 +435,6 @@ export class OrdersService {
 
     if (dto.status === 'DELIVERED') {
       data.completedAt = new Date();
-
-      // Comisión de plataforma a cargo del comercio, si aplica. Se cobra
-      // ANTES de la transacción de abajo a propósito: chargeProviderFee toca
-      // el sistema de wallets (su propia lógica de idempotencia, fuera de
-      // este archivo), y no es seguro anidarlo dentro de un $transaction de
-      // Prisma sin auditar ese código primero. Riesgo residual conocido: si
-      // el cobro tiene éxito pero la $transaction de abajo falla después,
-      // queda una comisión cobrada sin que el pedido refleje
-      // platformFeePayer='PROVIDER' — el guard `!existing.platformFeePayer`
-      // no protegería un reintento posterior contra un segundo cobro. No es
-      // best-effort: requeriría revisar chargeProviderFee para hacerlo
-      // seguro de anidar, o agregar una tabla de idempotencia por orderId.
-      if (!existing.platformFeePayer) {
-        const commerce = await this.prisma.commerce.findUnique({
-          where: { id: commerceId },
-          select: { userId: true },
-        });
-        const feeConfig = commerce
-          ? await this.platformFees.resolveFeeConfig('ORDER', commerce.userId)
-          : null;
-        if (feeConfig?.payer === 'PROVIDER' && commerce) {
-          const { feeAmount } = this.platformFees.calculateFee(
-            existing.total,
-            feeConfig
-          );
-          await this.platformFees.chargeProviderFee(
-            'ORDER',
-            commerce.userId,
-            feeAmount,
-            `FEE-ORDER-${id}`,
-            { orderId: id }
-          );
-          data.platformFeeRate = feeConfig.rate;
-          data.platformFeeAmount = feeAmount;
-          data.platformFeePayer = 'PROVIDER';
-        }
-      } else if (
-        existing.platformFeePayer === 'CLIENT' &&
-        isPositive(existing.platformFeeAmount)
-      ) {
-        // El cliente pagó la comisión dentro del total, pero ese dinero lo
-        // cobró el comercio en caja: se le carga en su estado de cuenta para
-        // que la remita. Antes se quedaba con ella.
-        const commerce = await this.prisma.commerce.findUnique({
-          where: { id: commerceId },
-          select: { userId: true },
-        });
-        if (commerce) {
-          await this.platformFees.chargeProviderFee(
-            'ORDER',
-            commerce.userId,
-            toNumber(existing.platformFeeAmount!),
-            `FEE-ORDER-${id}`,
-            { orderId: id, paidByClient: true }
-          );
-        }
-      }
     }
     if (dto.status === 'CANCELLED') {
       data.cancelledAt = new Date();

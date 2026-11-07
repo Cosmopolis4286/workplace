@@ -169,7 +169,7 @@
 
         <!-- Financiamiento (Cashea / Krece) — /bnpl/settings exige HAS_COMMERCE;
              antes se montaba para todos (admins y freelancers recibían 403) -->
-        <BnplSettingsSection v-if="hasCommerce" />
+        <BnplSettingsSection v-if="hasCommerce && bnplEnabled" />
       </div>
     </template>
 
@@ -188,6 +188,7 @@
 </template>
 
 <script setup lang="ts">
+const bnplEnabled = useRuntimeConfig().public.bnplEnabled
 definePageMeta({ middleware: 'auth' })
 
 import { ref, computed, onMounted } from 'vue'

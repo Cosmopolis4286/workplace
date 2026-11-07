@@ -22,9 +22,12 @@ Severidad:
 | A1 límites por rol | ✅ Se deducen del perfil (comercio / profesional). |
 | A3 stock al cancelar | ✅ Se devuelve el stock y salesCount. |
 | A4 totalSpent doble | ✅ Resuelto. |
-| A6 tasa resuelta con el empleado | ✅ Se usa la del dueño del comercio. La pregunta de modelo (¿comisión sobre ventas POS propias?) sigue abierta. |
+| A6 comisión en ventas POS | ✅ Decisión del dueño: **no** se cobra comisión sobre las ventas del POS. Se quitó del código. |
+| A7 tasas por defecto | ✅ Seed: CATALOG_ORDER 5 % (paga el comercio), SERVICE_REQUEST 10 %. Editables por SUPERADMIN. |
+| A8 BNPL | ✅ Decisión: oculto hasta tener credenciales (`BNPL_ENABLED` / `NUXT_PUBLIC_BNPL_ENABLED`, apagados por defecto). Endurecer el webhook queda para cuando se integre. |
+| M2 KYC | ✅ Decisión: KYC para toda compra. Ya se exige en pedidos de catálogo, solicitudes de servicio y viajes. |
 | A9 doble aprobación de depósito | ✅ Resuelto. |
-| A2, A5, A7, A8, M* | Pendientes (A7 y A8 dependen de decisiones del dueño). |
+| A2, A5, M1, M3–M8 | Pendientes. |
 
 ---
 

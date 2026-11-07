@@ -643,22 +643,22 @@ describe('OrdersService', () => {
     });
   });
 
-  describe('comisión de pedidos POS', () => {
-    it('al crear, usa la tasa del dueño del comercio y no la de quien opera el POS', async () => {
+  describe('sin comisión en ventas del POS', () => {
+    it('el total no suma comisión y al entregar no se registra ningún cargo', async () => {
       mockPlanLimitsService.assertOrderLimit.mockResolvedValue(undefined);
-      mockPrismaService.commerce.findUnique.mockResolvedValueOnce({
-        userId: 'owner-1',
+      mockPlatformFeesService.resolveFeeConfig.mockResolvedValue({
+        rate: 10,
+        payer: 'CLIENT',
       });
       mockPrismaService.order.count.mockResolvedValue(0);
-      mockPrismaService.order.create.mockResolvedValue({
-        id: 'o-1',
-        items: [],
-      });
+      mockPrismaService.order.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'o-1', items: [], ...data })
+      );
       mockPrismaService.commerceSettings.findUnique.mockResolvedValue({
         tax: 0,
       });
 
-      await service.create(
+      const created: any = await service.create(
         'commerce-123',
         {
           customerName: 'Ana',
@@ -666,14 +666,9 @@ describe('OrdersService', () => {
         } as any,
         'employee-1'
       );
+      expect(Number(created.total)).toBe(2);
+      expect(created.platformFeeAmount).toBeUndefined();
 
-      expect(mockPlatformFeesService.resolveFeeConfig).toHaveBeenCalledWith(
-        'ORDER',
-        'owner-1'
-      );
-    });
-
-    it('al entregar, la comisión que pagó el cliente se carga al estado de cuenta del comercio', async () => {
       const existingOrder = {
         id: 'order-9',
         orderNumber: 'ORD-2026-0009',
@@ -682,8 +677,6 @@ describe('OrdersService', () => {
         customerId: null,
         total: 44,
         paymentMethod: 'CARD',
-        platformFeePayer: 'CLIENT',
-        platformFeeAmount: 4,
         items: [],
       };
       mockPrismaService.order.findFirst.mockResolvedValue(existingOrder);
@@ -691,19 +684,10 @@ describe('OrdersService', () => {
         ...existingOrder,
         status: 'DELIVERED',
       });
-      mockPrismaService.commerce.findUnique.mockResolvedValue({
-        userId: 'owner-1',
-      });
-
       await service.updateStatus('order-9', 'commerce-123', 'DELIVERED');
 
-      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
-        'ORDER',
-        'owner-1',
-        4,
-        'FEE-ORDER-order-9',
-        { orderId: 'order-9', paidByClient: true }
-      );
+      expect(mockPlatformFeesService.resolveFeeConfig).not.toHaveBeenCalled();
+      expect(mockPlatformFeesService.chargeProviderFee).not.toHaveBeenCalled();
     });
   });
 
