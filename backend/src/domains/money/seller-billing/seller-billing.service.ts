@@ -725,3 +725,50 @@ export class SellerBillingService {
       throw new ConflictException('Este pago ya fue revisado');
     }
   }
+
+private async withSellerNames<T extends { sellerUserId: string }>(rows: T[]) {
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: [...new Set(rows.map((r) => r.sellerUserId))] } },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+    const byId = new Map(users.map((u) => [u.id, u]));
+    return rows.map((r) => {
+      const u = byId.get(r.sellerUserId);
+      return {
+        ...r,
+        sellerName: u
+          ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()
+          : null,
+        sellerEmail: u?.email ?? null,
+      };
+    });
+  }
+
+  private formatDate(date: Date) {
+    return date.toLocaleDateString('es-VE', {
+      day: '2-digit',
+      month: 'short',
+      timeZone: 'America/Caracas',
+    });
+  }
+
+  // Una notificación fallida no debe revertir una operación de dinero.
+  private async notify(
+    userId: string,
+    dto: {
+      title: string;
+      message: string;
+      link?: string;
+      metadata?: Record<string, unknown>;
+    }
+  ) {
+    try {
+      await this.notifications.createForUser(userId, {
+        type: NotificationType.SYSTEM,
+        ...dto,
+      });
+    } catch {
+      // best-effort
+    }
+  }
+}
