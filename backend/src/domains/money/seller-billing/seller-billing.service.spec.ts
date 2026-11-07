@@ -137,7 +137,9 @@ describe('SellerBillingService', () => {
       const tx = {
         sellerCommissionCharge: {
           findUnique: jest.fn().mockResolvedValue(null),
-          create: jest.fn(({ data }) => Promise.resolve({ id: 'tx-charge', ...data })),
+          create: jest.fn(({ data }) =>
+            Promise.resolve({ id: 'tx-charge', ...data })
+          ),
         },
       } as any;
 
@@ -166,8 +168,12 @@ describe('SellerBillingService', () => {
     });
 
     it('no crea ni notifica cargos de importe cero o negativo', async () => {
-      await expect(service.recordCharge({ ...input, amount: 0 })).resolves.toBeNull();
-      await expect(service.recordCharge({ ...input, amount: -1 })).resolves.toBeNull();
+      await expect(
+        service.recordCharge({ ...input, amount: 0 })
+      ).resolves.toBeNull();
+      await expect(
+        service.recordCharge({ ...input, amount: -1 })
+      ).resolves.toBeNull();
       expect(prisma.sellerCommissionCharge.create).not.toHaveBeenCalled();
       expect(notifications.createForUser).not.toHaveBeenCalled();
     });
