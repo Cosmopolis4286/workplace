@@ -89,6 +89,10 @@ PENDING ──> SEEN ──> CONTACTED ──> CLOSED
 
 El flujo actual de precio puede retener garantía al actualizar la solicitud, y la finalización confirma la comisión existente. El nuevo cargo no debe alterar ni duplicar esos efectos secundarios. La aceptación del cargo de oportunidad y su registro deben ser una operación atómica/idempotente, separada de la comisión de éxito.
 
+**Hallazgo de consistencia en el cierre actual:** la inspección de `confirmServiceRequestCompletion` muestra que hoy se registra la comisión mediante `chargeProviderFee` antes de ejecutar `escrow.release`, y solo después se actualizan `ServiceRequest.status=CLOSED` y su historial. Esas operaciones no forman una única transacción. Si la liberación falla, el cargo puede quedar registrado mientras la solicitud sigue en `CONTACTED`; si falla la actualización posterior, la garantía puede haberse liberado sin que la solicitud quede cerrada. La referencia idempotente evita duplicar el cargo, pero no resuelve estos estados parciales.
+
+El PR de infraestructura transaccional de billing (#94) añade la posibilidad de escribir el cargo con un `Prisma.TransactionClient` y notificar después del commit; **no vuelve atómico por sí solo el flujo completo de escrow + wallet + solicitud**. Antes de cambiar la comisión de éxito o habilitar cargos por lead, hace falta diseñar una orquestación recuperable (estados intermedios/outbox y reconciliación) que coordine la liberación de fondos, el cargo y el cierre, con pruebas de fallos entre cada paso. No se debe describir el flujo actual como atómico.
+
 ### 2.4 Recompensas y cupones
 
 - Los puntos de reputación deben permanecer separados de cualquier saldo monetario o crédito de consumo.
