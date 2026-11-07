@@ -9,6 +9,23 @@ Severidad:
 - **A** datos o reglas incorrectas con impacto real.
 - **M** fricción, inconsistencia o deuda técnica.
 
+## Estado de los arreglos (actualizado 2026-11-07)
+
+| Punto | Estado |
+|---|---|
+| C1 comisión de catálogo sin garantía | ✅ Resuelto: se cobra en todo pedido cerrado (PENDING al estado de cuenta sin garantía; retenida si la hay). |
+| C2 comisión del cliente entregada al vendedor | ✅ Resuelto en catálogo, servicios y POS. |
+| C3 retiro que borraba saldo | ✅ Resuelto: solicitud de retiro con cuenta de destino; un admin la paga o la rechaza (reintegro). |
+| C4 pago con billetera huérfano | ✅ Eliminado el endpoint. |
+| C5 deuda vencida | ✅ Corregido el hallazgo: crear productos/servicios y reactivar servicios **ya** estaba bloqueado; faltaba volver a poner productos a la venta (edición, toggle, en bloque). Ahora también está bloqueado. |
+| C6 garantías sin salida | ✅ El comprador cancela en PENDING/SEEN; cron con auto-reembolso (3 días) y auto-liberación (7 días), configurables. |
+| A1 límites por rol | ✅ Se deducen del perfil (comercio / profesional). |
+| A3 stock al cancelar | ✅ Se devuelve el stock y salesCount. |
+| A4 totalSpent doble | ✅ Resuelto. |
+| A6 tasa resuelta con el empleado | ✅ Se usa la del dueño del comercio. La pregunta de modelo (¿comisión sobre ventas POS propias?) sigue abierta. |
+| A9 doble aprobación de depósito | ✅ Resuelto. |
+| A2, A5, A7, A8, M* | Pendientes (A7 y A8 dependen de decisiones del dueño). |
+
 ---
 
 ## 1. El flujo hoy
