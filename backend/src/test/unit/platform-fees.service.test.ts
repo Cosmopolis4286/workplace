@@ -9,6 +9,10 @@ describe('PlatformFeesService', () => {
   };
   const billing = {
     recordCharge: jest.fn().mockResolvedValue({ id: 'c1' }),
+    recordChargeInTransaction: jest.fn().mockResolvedValue({
+      charge: { id: 'tx-charge' },
+      created: true,
+    }),
     notifyChargeRecorded: jest.fn().mockResolvedValue(undefined),
   };
   const service = new PlatformFeesService(prisma as any, billing as any);
@@ -76,11 +80,6 @@ describe('PlatformFeesService', () => {
 
     it('propaga el TransactionClient y devuelve si creó el cargo', async () => {
       const tx = { sellerCommissionCharge: {} } as any;
-      billing.recordChargeInTransaction = jest.fn().mockResolvedValue({
-        charge: { id: 'tx-charge' },
-        created: true,
-      });
-
       await expect(
         service.chargeProviderFeeInTransaction(
           'SERVICE_REQUEST',
