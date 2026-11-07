@@ -95,25 +95,31 @@ export class SellerBillingService {
    * dos veces. `collected`: la comisión ya se retuvo de una garantía (escrow)
    * al liberarla, así que queda registrada pero no se factura.
    */
-  async recordCharge(input: {
-    type: FeeTransactionType;
-    sellerUserId: string;
-    amount: number;
-    reference: string;
-    metadata?: Record<string, unknown>;
-    collected?: boolean;
-  }) {
+  async recordCharge(
+    input: {
+      type: FeeTransactionType;
+      sellerUserId: string;
+      amount: number;
+      reference: string;
+      metadata?: Record<string, unknown>;
+      collected?: boolean;
+    },
+    tx?: Prisma.TransactionClient
+  ) {
     const amount = new Prisma.Decimal(input.amount).toDecimalPlaces(2);
     if (!amount.gt(0)) return null;
 
-    const existing = await this.prisma.sellerCommissionCharge.findUnique({
+    // Si el caller aporta una transacción, todas las lecturas/escrituras usan
+    // ese cliente y la notificación queda a cargo del caller después del commit.
+    const client = tx ?? this.prisma;
+    const existing = await client.sellerCommissionCharge.findUnique({
       where: { reference: input.reference },
     });
     if (existing) return existing;
 
     let charge;
     try {
-      charge = await this.prisma.sellerCommissionCharge.create({
+      charge = await client.sellerCommissionCharge.create({
         data: {
           sellerUserId: input.sellerUserId,
           type: input.type,
@@ -126,7 +132,11 @@ export class SellerBillingService {
         },
       });
     } catch (error) {
+      // En una transacción interactiva de PostgreSQL, un P2002 aborta la
+      // transacción. No se debe consultar de nuevo dentro de ella: se propaga
+      // para que el caller revierta y pueda reintentar la operación completa.
       if (
+        !tx &&
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
@@ -137,16 +147,33 @@ export class SellerBillingService {
       throw error;
     }
 
+    if (!tx) await this.notifyChargeRecorded(input);
+    return charge;
+  }
+
+  /**
+   * Notificación post-commit para cargos creados dentro de una transacción.
+   * Invocar solo después de que $transaction haya resuelto correctamente y
+   * únicamente cuando el caller haya confirmado que el cargo fue creado.
+   */
+  async notifyChargeRecorded(input: {
+    type: FeeTransactionType;
+    sellerUserId: string;
+    amount: number;
+    collected?: boolean;
+  }) {
+    const amount = new Prisma.Decimal(input.amount).toDecimalPlaces(2);
+    if (!amount.gt(0)) return;
+
     const label = FEE_LABELS[input.type] ?? 'venta';
     await this.notify(input.sellerUserId, {
       title: '🧾 Comisión registrada',
       message: input.collected
-        ? `Se retuvo una comisión de $${amount.toFixed(2)} de la garantía de un ${label} completado.`
-        : `Se sumó una comisión de $${amount.toFixed(2)} por un ${label} completado a tu estado de cuenta semanal.`,
+        ? `Se retuvo una comisión de ${amount.toFixed(2)} de la garantía de un ${label} completado.`
+        : `Se sumó una comisión de ${amount.toFixed(2)} por un ${label} completado a tu estado de cuenta semanal.`,
       link: '/billing',
       metadata: { feeType: input.type, feeAmount: amount.toNumber() },
     });
-    return charge;
   }
 
   // ─── Emisión semanal ──────────────────────────────────────────────────────
@@ -698,50 +725,3 @@ export class SellerBillingService {
       throw new ConflictException('Este pago ya fue revisado');
     }
   }
-
-  private async withSellerNames<T extends { sellerUserId: string }>(rows: T[]) {
-    const users = await this.prisma.user.findMany({
-      where: { id: { in: [...new Set(rows.map((r) => r.sellerUserId))] } },
-      select: { id: true, firstName: true, lastName: true, email: true },
-    });
-    const byId = new Map(users.map((u) => [u.id, u]));
-    return rows.map((r) => {
-      const u = byId.get(r.sellerUserId);
-      return {
-        ...r,
-        sellerName: u
-          ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()
-          : null,
-        sellerEmail: u?.email ?? null,
-      };
-    });
-  }
-
-  private formatDate(date: Date) {
-    return date.toLocaleDateString('es-VE', {
-      day: '2-digit',
-      month: 'short',
-      timeZone: 'America/Caracas',
-    });
-  }
-
-  // Una notificación fallida no debe revertir una operación de dinero.
-  private async notify(
-    userId: string,
-    dto: {
-      title: string;
-      message: string;
-      link?: string;
-      metadata?: Record<string, unknown>;
-    }
-  ) {
-    try {
-      await this.notifications.createForUser(userId, {
-        type: NotificationType.SYSTEM,
-        ...dto,
-      });
-    } catch {
-      // best-effort
-    }
-  }
-}
