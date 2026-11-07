@@ -12,9 +12,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
-import {
-  NotificationsService,
-} from '../../engagement/notifications/notifications.service';
+import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import {
   add,
   eq,
