@@ -67,6 +67,28 @@ No cobrar ambos por defecto sin validar la economía unitaria y mostrar al prove
 
 La implementación deberá usar referencias únicas por evento y transacciones atómicas para impedir dobles cargos ante reintentos, webhooks concurrentes o cambios de estado repetidos.
 
+
+### 2.3.1 Ciclo real de ServiceRequest y punto correcto del cargo
+
+La implementación actual no tiene un estado `ASSIGNED` ni `ACCEPTED`. Su máquina de estados es:
+
+```text
+PENDING ──> SEEN ──> CONTACTED ──> CLOSED
+   │          │          │
+   ├──────────┴──> REJECTED
+   └─────────────> CANCELLED
+```
+
+- `PENDING`: la solicitud ya fue creada y notificada al proveedor. No equivale a una aceptación.
+- `SEEN`: el proveedor abrió/visualizó la solicitud. Tampoco equivale a aceptar el trabajo.
+- `CONTACTED`: el proveedor inició contacto y el sistema considera que existe un trato abierto. Es el primer candidato a representar la aceptación comercial, pero hoy no exige una confirmación explícita y separada del proveedor sobre una tarifa de lead.
+- `CLOSED`: el cliente confirma que el servicio terminó; es el punto donde hoy se registra la comisión de éxito.
+- `REJECTED` / `CANCELLED`: salidas tempranas, antes de `CONTACTED`.
+
+**Conclusión:** no debemos cobrar un lead en `PENDING` ni en `SEEN`. Tampoco debemos asumir que `CONTACTED` es consentimiento suficiente para un nuevo cargo sin ajustar la UX y los términos. La solución correcta es introducir una aceptación explícita e informada de la tarifa de oportunidad, registrada con timestamp, versión de tarifa y referencia de solicitud. Solo después de esa aceptación se podrá devengar el cargo.
+
+El flujo actual de precio puede retener garantía al actualizar la solicitud, y la finalización confirma la comisión existente. El nuevo cargo no debe alterar ni duplicar esos efectos secundarios. La aceptación del cargo de oportunidad y su registro deben ser una operación atómica/idempotente, separada de la comisión de éxito.
+
 ### 2.4 Recompensas y cupones
 
 - Los puntos de reputación deben permanecer separados de cualquier saldo monetario o crédito de consumo.
