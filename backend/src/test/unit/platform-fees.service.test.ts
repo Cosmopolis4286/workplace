@@ -74,19 +74,25 @@ describe('PlatformFeesService', () => {
       );
     });
 
-    it('propaga el TransactionClient al registro del cargo', async () => {
+    it('propaga el TransactionClient y devuelve si creó el cargo', async () => {
       const tx = { sellerCommissionCharge: {} } as any;
+      billing.recordChargeInTransaction = jest.fn().mockResolvedValue({
+        charge: { id: 'tx-charge' },
+        created: true,
+      });
 
-      await service.chargeProviderFee(
-        'SERVICE_REQUEST',
-        'u1',
-        2,
-        'FEE-SVC-TX-1',
-        { requestId: 'req-1' },
-        { tx }
-      );
+      await expect(
+        service.chargeProviderFeeInTransaction(
+          'SERVICE_REQUEST',
+          'u1',
+          2,
+          'FEE-SVC-TX-1',
+          { requestId: 'req-1' },
+          { tx }
+        )
+      ).resolves.toEqual({ charge: { id: 'tx-charge' }, created: true });
 
-      expect(billing.recordCharge).toHaveBeenCalledWith(
+      expect(billing.recordChargeInTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'SERVICE_REQUEST',
           sellerUserId: 'u1',
