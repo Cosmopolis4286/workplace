@@ -7,7 +7,10 @@ describe('PlatformFeesService', () => {
     platformFeeOverride: { findFirst: jest.fn() },
     subscription: { findFirst: jest.fn() },
   };
-  const billing = { recordCharge: jest.fn().mockResolvedValue({ id: 'c1' }) };
+  const billing = {
+    recordCharge: jest.fn().mockResolvedValue({ id: 'c1' }),
+    notifyChargeRecorded: jest.fn().mockResolvedValue(undefined),
+  };
   const service = new PlatformFeesService(prisma as any, billing as any);
 
   beforeEach(() => jest.clearAllMocks());
@@ -69,6 +72,44 @@ describe('PlatformFeesService', () => {
       expect(billing.recordCharge).toHaveBeenCalledWith(
         expect.objectContaining({ collected: true })
       );
+    });
+
+    it('propaga el TransactionClient al registro del cargo', async () => {
+      const tx = { sellerCommissionCharge: {} } as any;
+
+      await service.chargeProviderFee(
+        'SERVICE_REQUEST',
+        'u1',
+        2,
+        'FEE-SVC-TX-1',
+        { requestId: 'req-1' },
+        { tx }
+      );
+
+      expect(billing.recordCharge).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'SERVICE_REQUEST',
+          sellerUserId: 'u1',
+          amount: 2,
+          reference: 'FEE-SVC-TX-1',
+        }),
+        tx
+      );
+    });
+
+    it('expone la notificación para ejecutarla después del commit', async () => {
+      await service.notifyProviderFee({
+        type: 'SERVICE_REQUEST',
+        userId: 'u1',
+        feeAmount: 2,
+      });
+
+      expect(billing.notifyChargeRecorded).toHaveBeenCalledWith({
+        type: 'SERVICE_REQUEST',
+        sellerUserId: 'u1',
+        amount: 2,
+        collected: undefined,
+      });
     });
 
     it('una comisión en 0 no registra nada', async () => {
