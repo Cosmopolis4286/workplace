@@ -302,6 +302,12 @@ export class PlanLimitsService implements PlanLimitsFacade {
   // Estado de cuenta vencido (OVERDUE) o suspendido: no puede publicar ni
   // activar nada nuevo hasta pagar (ver SellerBillingService). Va en los
   // mismos puntos que ya controlan "¿puede publicar más?": servicios y productos.
+  // Público para que el menú bloquee también volver a poner a la venta un
+  // producto (lo que pausa la suspensión por deuda), no solo crear.
+  assertCanPublish(userId: string) {
+    return this.assertNoOverdueStatement(userId);
+  }
+
   private async assertNoOverdueStatement(userId: string) {
     const overdue = await this.prisma.sellerStatement.count({
       where: {

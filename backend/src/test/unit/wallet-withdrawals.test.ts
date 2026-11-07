@@ -38,12 +38,18 @@ describe('WalletsService.withdraw — crea una solicitud de retiro', () => {
       },
       sellerPaymentAccount: { findFirst: jest.fn().mockResolvedValue(ACCOUNT) },
       walletTransaction: {
-        create: jest.fn(({ data }: any) => Promise.resolve({ id: 'tx-1', ...data })),
+        create: jest.fn(({ data }: any) =>
+          Promise.resolve({ id: 'tx-1', ...data })
+        ),
       },
       walletWithdrawalRequest: {
-        create: jest.fn(({ data }: any) => Promise.resolve({ ...data, status: 'PENDING' })),
+        create: jest.fn(({ data }: any) =>
+          Promise.resolve({ ...data, status: 'PENDING' })
+        ),
       },
-      $queryRaw: jest.fn().mockResolvedValue([{ new_balance: new Prisma.Decimal(60) }]),
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ new_balance: new Prisma.Decimal(60) }]),
       $transaction: jest.fn((cb: (tx: any) => unknown) => cb(prisma)),
     };
     limits = {
@@ -54,13 +60,23 @@ describe('WalletsService.withdraw — crea una solicitud de retiro', () => {
     };
     const redis = { get: jest.fn(), setex: jest.fn() };
     const pin = { verifyPin: jest.fn().mockResolvedValue(undefined) };
-    service = new WalletsService(prisma, redis as any, pin as any, limits, {} as any);
+    service = new WalletsService(
+      prisma,
+      redis as any,
+      pin as any,
+      limits,
+      {} as any
+    );
   });
 
   const dto = { amount: 40, pin: '123456', payoutAccountId: ACCOUNT.id };
 
   it('descuenta el saldo y deja la solicitud PENDING con la cuenta de destino copiada', async () => {
-    const result: any = await service.withdraw(USER_ID, Role.NORMAL, dto as any);
+    const result: any = await service.withdraw(
+      USER_ID,
+      Role.NORMAL,
+      dto as any
+    );
 
     const request = prisma.walletWithdrawalRequest.create.mock.calls[0][0].data;
     expect(request).toMatchObject({
@@ -122,12 +138,18 @@ describe('WalletWithdrawalsService', () => {
       walletWithdrawalRequest: {
         findUnique: jest.fn().mockResolvedValue(pending),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        update: jest.fn(({ data }: any) => Promise.resolve({ ...pending, ...data })),
+        update: jest.fn(({ data }: any) =>
+          Promise.resolve({ ...pending, ...data })
+        ),
       },
       walletTransaction: {
-        create: jest.fn(({ data }: any) => Promise.resolve({ id: 'rev-1', ...data })),
+        create: jest.fn(({ data }: any) =>
+          Promise.resolve({ id: 'rev-1', ...data })
+        ),
       },
-      $queryRaw: jest.fn().mockResolvedValue([{ new_balance: new Prisma.Decimal(100) }]),
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ new_balance: new Prisma.Decimal(100) }]),
       $transaction: jest.fn((cb: (tx: any) => unknown) => cb(prisma)),
     };
     notifications = { createForUser: jest.fn().mockResolvedValue(undefined) };
@@ -167,9 +189,9 @@ describe('WalletWithdrawalsService', () => {
 
   it('si otro admin ya lo procesó (carrera), no reintegra dos veces', async () => {
     prisma.walletWithdrawalRequest.updateMany.mockResolvedValue({ count: 0 });
-    await expect(service.reject(ID, 'admin-1', 'x motivo')).rejects.toBeInstanceOf(
-      ConflictException
-    );
+    await expect(
+      service.reject(ID, 'admin-1', 'x motivo')
+    ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
     expect(prisma.walletTransaction.create).not.toHaveBeenCalled();
   });
@@ -179,9 +201,9 @@ describe('WalletWithdrawalsService', () => {
       ...pending,
       status: 'PAID',
     });
-    await expect(service.markPaid(ID, 'admin-1', 'REF1')).rejects.toBeInstanceOf(
-      ConflictException
-    );
+    await expect(
+      service.markPaid(ID, 'admin-1', 'REF1')
+    ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.walletWithdrawalRequest.updateMany).not.toHaveBeenCalled();
   });
 });

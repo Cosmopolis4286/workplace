@@ -2249,12 +2249,17 @@ model CatalogOrder {
   platformFeeRate   Decimal?     @db.Decimal(20, 8)
   platformFeeAmount Decimal?     @db.Decimal(20, 2)
 
+  // Último cambio de estado: cuenta los plazos de la garantía (auto-reembolso
+  // si el comercio no responde, auto-liberación si el comprador no confirma).
+  statusUpdatedAt DateTime?
+
   createdAt DateTime @default(now())
 
   @@index([commerceId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@index([requesterId])
+  @@index([escrowStatus, status])
   @@map("catalog_orders")
 }
 

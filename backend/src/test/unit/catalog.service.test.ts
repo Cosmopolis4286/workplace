@@ -69,6 +69,8 @@ describe('CatalogService', () => {
         update: jest.fn(),
       },
       catalogOrder: { create: jest.fn() },
+      catalogOrderItem: { findMany: jest.fn().mockResolvedValue([]) },
+      productBundleItem: { findMany: jest.fn().mockResolvedValue([]) },
       commerce: { findUnique: jest.fn() },
       $transaction: jest.fn((callback: (tx: any) => unknown) =>
         callback(mockPrismaService)
@@ -467,7 +469,9 @@ describe('CatalogService', () => {
       mockPrismaService.catalogOrder = {
         ...mockPrismaService.catalogOrder,
         findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       };
     });
 
@@ -557,7 +561,9 @@ describe('CatalogService', () => {
       mockPrismaService.catalogOrder = {
         ...mockPrismaService.catalogOrder,
         findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       };
     });
 

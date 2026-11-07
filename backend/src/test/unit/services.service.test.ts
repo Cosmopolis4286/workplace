@@ -331,7 +331,8 @@ describe('ServicesService — service request status transitions', () => {
       expect(mockEscrowService.release).toHaveBeenCalledWith(
         expect.objectContaining({ amount: expect.anything() })
       );
-      const { amount } = (mockEscrowService.release as jest.Mock).mock.calls[0][0];
+      const { amount } = (mockEscrowService.release as jest.Mock).mock
+        .calls[0][0];
       expect(Number(amount)).toBe(100);
     });
 

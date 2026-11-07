@@ -16,11 +16,7 @@ export interface WalletLimits {
 // resolveTier). Antes se buscaban por Role y nunca coincidían, así que
 // comercios y profesionales quedaban con los límites de un cliente.
 export type WalletLimitTier =
-  | 'NORMAL'
-  | 'FREELANCER'
-  | 'COMMERCE'
-  | 'ADMIN'
-  | 'SUPERADMIN';
+  'NORMAL' | 'FREELANCER' | 'COMMERCE' | 'ADMIN' | 'SUPERADMIN';
 
 const LIMITS_BY_ROLE: Record<WalletLimitTier, WalletLimits> = {
   NORMAL: {

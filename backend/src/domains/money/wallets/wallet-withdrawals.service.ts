@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -13,7 +14,10 @@ import {
   WalletWithdrawalStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { NotificationsService } from '../../engagement/notifications/notifications.service';
+import {
+  NOTIFICATIONS_FACADE,
+  type NotificationsFacade,
+} from '../../engagement/notifications/notifications.facade';
 import { sqlNumeric } from '../../../common/money/money';
 
 const STATUSES = Object.values(WalletWithdrawalStatus);
@@ -32,7 +36,8 @@ export class WalletWithdrawalsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService
+    @Inject(NOTIFICATIONS_FACADE)
+    private readonly notifications: NotificationsFacade
   ) {}
 
   listMine(userId: string) {

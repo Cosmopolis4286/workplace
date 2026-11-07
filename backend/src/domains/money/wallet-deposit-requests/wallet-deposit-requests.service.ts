@@ -158,8 +158,16 @@ export class WalletDepositRequestsService {
       // No se acreditó (p. ej. superaría el tope de saldo): la solicitud
       // vuelve a PENDING para poder aprobarla o rechazarla después.
       await this.prisma.walletDepositRequest.updateMany({
-        where: { id, status: ProposalStatus.APPROVED, resultingTransactionId: null },
-        data: { status: ProposalStatus.PENDING, reviewedBy: null, reviewedAt: null },
+        where: {
+          id,
+          status: ProposalStatus.APPROVED,
+          resultingTransactionId: null,
+        },
+        data: {
+          status: ProposalStatus.PENDING,
+          reviewedBy: null,
+          reviewedAt: null,
+        },
       });
       throw err;
     }

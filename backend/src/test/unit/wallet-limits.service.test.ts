@@ -16,11 +16,15 @@ describe('WalletLimitsService.resolveTier', () => {
   it('un dueño de comercio usa los límites de COMMERCE aunque su rol sea NORMAL', async () => {
     prisma.commerce.findUnique.mockResolvedValue({ id: 'c-1' });
     expect(await service.resolveTier('u-1', Role.NORMAL)).toBe('COMMERCE');
-    expect((await service.getLimitsFor('u-1', Role.NORMAL)).maxBalance).toBe(50_000);
+    expect((await service.getLimitsFor('u-1', Role.NORMAL)).maxBalance).toBe(
+      50_000
+    );
   });
 
   it('rol PROFESIONAL o perfil profesional activo → FREELANCER', async () => {
-    expect(await service.resolveTier('u-1', Role.PROFESIONAL)).toBe('FREELANCER');
+    expect(await service.resolveTier('u-1', Role.PROFESIONAL)).toBe(
+      'FREELANCER'
+    );
     prisma.userProfile.findFirst.mockResolvedValue({ id: 'p-1' });
     expect(await service.resolveTier('u-2', Role.NORMAL)).toBe('FREELANCER');
   });

@@ -128,7 +128,9 @@ describe('WalletDepositRequestsService', () => {
       mockPrismaService.walletDepositRequest.findUnique.mockResolvedValue(
         pendingRequest()
       );
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.NORMAL });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: Role.NORMAL,
+      });
       mockPrismaService.walletDepositRequest.updateMany
         .mockResolvedValueOnce({ count: 1 })
         .mockResolvedValueOnce({ count: 0 });
@@ -149,9 +151,13 @@ describe('WalletDepositRequestsService', () => {
       mockPrismaService.walletDepositRequest.findUnique.mockResolvedValue(
         pendingRequest()
       );
-      mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.NORMAL });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: Role.NORMAL,
+      });
       (mockWalletsService.deposit as jest.Mock).mockRejectedValue(
-        new BadRequestException('La operación superaría el límite de saldo permitido')
+        new BadRequestException(
+          'La operación superaría el límite de saldo permitido'
+        )
       );
 
       await expect(
@@ -160,7 +166,11 @@ describe('WalletDepositRequestsService', () => {
       expect(
         mockPrismaService.walletDepositRequest.updateMany
       ).toHaveBeenLastCalledWith({
-        where: { id: REQUEST_ID, status: 'APPROVED', resultingTransactionId: null },
+        where: {
+          id: REQUEST_ID,
+          status: 'APPROVED',
+          resultingTransactionId: null,
+        },
         data: { status: 'PENDING', reviewedBy: null, reviewedAt: null },
       });
     });

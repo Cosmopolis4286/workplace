@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MenuService } from '../../domains/commerce-core/menu/menu.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -46,6 +47,7 @@ describe('MenuService', () => {
   };
 
   const mockPlanLimitsService = {
+    assertCanPublish: jest.fn().mockResolvedValue(undefined),
     assertProductLimit: jest.fn(),
   };
 
@@ -499,6 +501,49 @@ describe('MenuService', () => {
     beforeEach(() => {
       mockPrismaService.commerce.findUnique.mockResolvedValue({
         id: 'commerce-123',
+      });
+    });
+
+    describe('bloqueo por estado de cuenta vencido', () => {
+      const overdue = () =>
+        mockPlanLimitsService.assertCanPublish.mockRejectedValueOnce(
+          new ForbiddenException('Tienes un estado de cuenta vencido.')
+        );
+
+      beforeEach(() => {
+        mockPrismaService.commerce.findUnique.mockResolvedValue({
+          userId: 'owner-1',
+        });
+      });
+
+      it('no deja reactivar en bloque con deuda vencida y verifica al dueño del comercio', async () => {
+        overdue();
+        await expect(
+          service.bulkToggleStatus(userId, productIds, true)
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(mockPlanLimitsService.assertCanPublish).toHaveBeenCalledWith(
+          'owner-1'
+        );
+        expect(mockPrismaService.product.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('desactivar en bloque no exige estar al día', async () => {
+        mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 });
+        await service.bulkToggleStatus(userId, productIds, false);
+        expect(mockPlanLimitsService.assertCanPublish).not.toHaveBeenCalled();
+      });
+
+      it('no deja volver a poner a la venta un producto pausado por deuda', async () => {
+        overdue();
+        mockPrismaService.product.findUnique.mockResolvedValue({
+          id: 'p-1',
+          commerceId: 'commerce-123',
+          status: 'AVAILABLE',
+        });
+        await expect(
+          service.updateProduct(userId, 'p-1', { forSale: true } as any)
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(mockPrismaService.product.update).not.toHaveBeenCalled();
       });
     });
 

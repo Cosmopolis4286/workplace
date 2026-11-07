@@ -533,16 +533,8 @@ export class OrdersService {
     // stats (totalOrders/totalSpent) desincronizadas del estado real del
     // pedido de forma permanente, sin ningún mecanismo de reconciliación.
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (
-        dto.status === 'DELIVERED' &&
-        existing.customerId &&
-        existing.status !== 'DELIVERED'
-      ) {
-        await tx.customer.update({
-          where: { id: existing.customerId },
-          data: { totalSpent: { increment: existing.total } },
-        });
-      }
+      // totalSpent ya se sumó al crear el pedido (create()); sumarlo otra vez
+      // al entregar lo contaba doble. Al cancelar se resta lo sumado.
       if (dto.status === 'CANCELLED' && existing.customerId) {
         await tx.customer.update({
           where: { id: existing.customerId },
