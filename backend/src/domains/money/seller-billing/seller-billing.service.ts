@@ -106,20 +106,22 @@ export class SellerBillingService {
     },
     tx?: Prisma.TransactionClient
   ) {
+    if (tx) {
+      const result = await this.recordChargeInTransaction(input, tx);
+      return result.charge;
+    }
+
     const amount = new Prisma.Decimal(input.amount).toDecimalPlaces(2);
     if (!amount.gt(0)) return null;
 
-    // Si el caller aporta una transacción, todas las lecturas/escrituras usan
-    // ese cliente y la notificación queda a cargo del caller después del commit.
-    const client = tx ?? this.prisma;
-    const existing = await client.sellerCommissionCharge.findUnique({
+    const existing = await this.prisma.sellerCommissionCharge.findUnique({
       where: { reference: input.reference },
     });
     if (existing) return existing;
 
     let charge;
     try {
-      charge = await client.sellerCommissionCharge.create({
+      charge = await this.prisma.sellerCommissionCharge.create({
         data: {
           sellerUserId: input.sellerUserId,
           type: input.type,
@@ -132,11 +134,7 @@ export class SellerBillingService {
         },
       });
     } catch (error) {
-      // En una transacción interactiva de PostgreSQL, un P2002 aborta la
-      // transacción. No se debe consultar de nuevo dentro de ella: se propaga
-      // para que el caller revierta y pueda reintentar la operación completa.
       if (
-        !tx &&
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
@@ -147,8 +145,48 @@ export class SellerBillingService {
       throw error;
     }
 
-    if (!tx) await this.notifyChargeRecorded(input);
+    await this.notifyChargeRecorded(input);
     return charge;
+  }
+
+  /**
+   * Registra el cargo usando exclusivamente el cliente transaccional.
+   * El indicador created permite notificar solo si este intento insertó el cargo.
+   * Los errores de unicidad se propagan para revertir la transacción completa.
+   */
+  async recordChargeInTransaction(
+    input: {
+      type: FeeTransactionType;
+      sellerUserId: string;
+      amount: number;
+      reference: string;
+      metadata?: Record<string, unknown>;
+      collected?: boolean;
+    },
+    tx: Prisma.TransactionClient
+  ) {
+    const amount = new Prisma.Decimal(input.amount).toDecimalPlaces(2);
+    if (!amount.gt(0)) return { charge: null, created: false };
+
+    const existing = await tx.sellerCommissionCharge.findUnique({
+      where: { reference: input.reference },
+    });
+    if (existing) return { charge: existing, created: false };
+
+    const charge = await tx.sellerCommissionCharge.create({
+      data: {
+        sellerUserId: input.sellerUserId,
+        type: input.type,
+        reference: input.reference,
+        amount,
+        status: input.collected
+          ? SellerChargeStatus.COLLECTED
+          : SellerChargeStatus.PENDING,
+        metadata: (input.metadata ?? undefined) as Prisma.InputJsonValue,
+      },
+    });
+
+    return { charge, created: true };
   }
 
   /**
