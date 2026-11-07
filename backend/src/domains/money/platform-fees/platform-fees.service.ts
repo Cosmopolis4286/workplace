@@ -107,7 +107,7 @@ export class PlatformFeesService implements PlatformFeesFacade {
     feeAmount: number,
     reference: string,
     metadata: Record<string, unknown>,
-    options?: { collected?: boolean; tx?: Prisma.TransactionClient }
+    options?: { collected?: boolean }
   ) {
     if (feeAmount <= 0) return null;
     const input = {
@@ -118,9 +118,30 @@ export class PlatformFeesService implements PlatformFeesFacade {
       metadata,
       collected: options?.collected,
     };
-    return options?.tx
-      ? this.billing.recordCharge(input, options.tx)
-      : this.billing.recordCharge(input);
+    return this.billing.recordCharge(input);
+  }
+
+  async chargeProviderFeeInTransaction(
+    type: FeeTransactionType,
+    userId: string,
+    feeAmount: number,
+    reference: string,
+    metadata: Record<string, unknown>,
+    options: { tx: Prisma.TransactionClient; collected?: boolean }
+  ) {
+    if (feeAmount <= 0) return { charge: null, created: false };
+
+    return this.billing.recordChargeInTransaction(
+      {
+        type,
+        sellerUserId: userId,
+        amount: feeAmount,
+        reference,
+        metadata,
+        collected: options.collected,
+      },
+      options.tx
+    );
   }
 
   async notifyProviderFee(input: {
