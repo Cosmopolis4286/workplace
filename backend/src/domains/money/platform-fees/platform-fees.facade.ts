@@ -31,8 +31,16 @@ export interface PlatformFeesFacade {
     reference: string,
     metadata: Record<string, unknown>,
     // true: la comisión ya se retuvo de una garantía (escrow) al liberarla.
-    options?: { collected?: boolean; tx?: Prisma.TransactionClient }
+    options?: { collected?: boolean }
   ): Promise<unknown>;
+  chargeProviderFeeInTransaction(
+    type: FeeTransactionType,
+    userId: string,
+    feeAmount: number,
+    reference: string,
+    metadata: Record<string, unknown>,
+    options: { tx: Prisma.TransactionClient; collected?: boolean }
+  ): Promise<{ charge: unknown | null; created: boolean }>;
   /**
    * Debe ejecutarse después del commit y solo si la transacción creó el cargo.
    */
