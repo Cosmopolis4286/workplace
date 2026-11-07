@@ -237,7 +237,7 @@
                   </button>
                 </div>
 
-                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div v-if="bnplEnabled" class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
                     <label class="block text-sm font-medium text-gray-700">Financiable con Cashea/Krece</label>
                     <p class="text-xs text-gray-500">Permite pagar este producto en cuotas (BNPL)</p>
@@ -341,6 +341,8 @@ import ReplacementCostCard from '~/components/products/ReplacementCostCard.vue'
 import PurchaseModal from '~/components/modals/PurchaseModal.vue'
 import SupplierQuoteModal from '~/components/modals/SupplierQuoteModal.vue'
 import SupplierModal from '~/components/modals/SupplierModal.vue'
+
+const bnplEnabled = useRuntimeConfig().public.bnplEnabled
 
 const showPurchaseModal = ref(false)
 const showQuoteModal = ref(false)

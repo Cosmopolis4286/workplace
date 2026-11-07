@@ -44,6 +44,15 @@ export class MenuService {
     return this.commerceResolver.resolve(userId);
   }
 
+  // La deuda es del dueño del comercio, aunque opere un empleado.
+  private async assertOwnerCanPublish(commerceId: string) {
+    const commerce = await this.prisma.commerce.findUnique({
+      where: { id: commerceId },
+      select: { userId: true },
+    });
+    if (commerce) await this.planLimits.assertCanPublish(commerce.userId);
+  }
+
   private async assertCategoryOwnership(
     categoryId: string,
     commerceId: string
@@ -338,6 +347,10 @@ export class MenuService {
     if (dto.categoryId) {
       await this.assertCategoryOwnership(dto.categoryId, commerceId);
     }
+    // Volver a poner a la venta (lo que pausa la suspensión por deuda).
+    if (dto.forSale === true || dto.status === ProductStatus.AVAILABLE) {
+      await this.assertOwnerCanPublish(commerceId);
+    }
 
     const { categoryId, ...rest } = dto;
     return this.prisma.product.update({
@@ -371,6 +384,7 @@ export class MenuService {
     makeAvailable: boolean
   ) {
     const commerceId = await this.getCommerceId(userId);
+    if (makeAvailable) await this.assertOwnerCanPublish(commerceId);
     const result = await this.prisma.product.updateMany({
       where: { id: { in: productIds }, commerceId },
       data: {
@@ -524,6 +538,7 @@ export class MenuService {
 
     const newStatus =
       product.status === 'AVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE';
+    if (newStatus === 'AVAILABLE') await this.assertOwnerCanPublish(commerceId);
     return this.prisma.product.update({
       where: { id: productId },
       data: { status: newStatus },

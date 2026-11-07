@@ -1135,7 +1135,13 @@ async function seedVeLocations() {
 async function seedPlatformFees({ createOnly = false } = {}) {
   console.log('\n💰 Seeding platform fee rates...\n')
 
-  const globalRates = [{ type: 'SERVICE_REQUEST', rate: 10, payer: 'PROVIDER' }]
+  // ORDER (ventas del POS) no lleva tasa: no se cobra comisión sobre las
+  // ventas propias del comercio. Un SUPERADMIN puede cambiar estas tasas en
+  // /platform-fees; en producción (createOnly) no se pisan las ya existentes.
+  const globalRates = [
+    { type: 'SERVICE_REQUEST', rate: 10, payer: 'PROVIDER' },
+    { type: 'CATALOG_ORDER', rate: 5, payer: 'PROVIDER' },
+  ]
 
   for (const rate of globalRates) {
     const existing = await prisma.platformFeeRate.findFirst({ where: { type: rate.type, isActive: true } })

@@ -1,12 +1,18 @@
 import {
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CatalogOrderStatus, Prisma, ProductStatus } from '@prisma/client';
+import {
+  CatalogOrderStatus,
+  NotificationType,
+  Prisma,
+  ProductStatus,
+} from '@prisma/client';
 import { QueryCatalogDto, CatalogSortBy } from './dto/query-catalog.dto';
 import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
@@ -26,6 +32,7 @@ import {
   round,
   sub,
   sum,
+  toDecimal,
   toNumber,
 } from '../../../common/money/money';
 
@@ -57,6 +64,8 @@ function attachProductRating<
 
 @Injectable()
 export class CatalogService {
+  private readonly logger = new Logger(CatalogService.name);
+
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
@@ -921,32 +930,159 @@ export class CatalogService {
       );
     }
 
-    const update: any = { status };
-    // El comercio cancela: si había pago protegido retenido, se reembolsa al
-    // comprador — un pedido cancelado nunca debe dejar dinero retenido sin
-    // motivo. defensa en profundidad: hoy CANCELLED solo es alcanzable desde
-    // PENDING/SEEN/CONTACTED (no terminal), así que esto siempre aplica
-    // cuando corresponde.
+    if (status === 'CANCELLED') {
+      return { data: await this.cancelOrder(order) };
+    }
+    const updated = await this.prisma.catalogOrder.update({
+      where: { id },
+      data: { status, statusUpdatedAt: new Date() },
+    });
+    return { data: updated };
+  }
+
+  // El comprador cancela su pedido mientras el comercio todavía no lo
+  // atendió (PENDING/SEEN). Antes no podía: si el comercio nunca respondía,
+  // la garantía quedaba retenida sin salida.
+  async cancelOrderByBuyer(id: string, requesterId: string) {
+    const order = await this.prisma.catalogOrder.findUnique({ where: { id } });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+    if (order.requesterId !== requesterId) throw new ForbiddenException();
+    if (order.status !== 'PENDING' && order.status !== 'SEEN') {
+      throw new BadRequestException(
+        'Solo puedes cancelar un pedido que el comercio todavía no atendió'
+      );
+    }
+    return { data: await this.cancelOrder(order) };
+  }
+
+  /**
+   * Cancela un pedido: reembolsa la garantía retenida (si hay) y devuelve el
+   * stock que se descontó al crearlo. Lo usan el comercio, el comprador y la
+   * expiración automática. Un pedido en disputa no se toca: lo resuelve un admin.
+   */
+  private async cancelOrder(order: {
+    id: string;
+    status: CatalogOrderStatus;
+    escrowStatus: string;
+    escrowAmount: Prisma.Decimal | null;
+    requesterId: string | null;
+  }) {
+    if (order.escrowStatus === 'DISPUTED') {
+      throw new BadRequestException(
+        'El pedido tiene una disputa abierta; la resuelve un administrador'
+      );
+    }
+    // Toma el pedido con un UPDATE condicionado al estado leído: dos
+    // cancelaciones simultáneas (o cancelar + expirar) no reembolsan ni
+    // devuelven stock dos veces.
+    const claimed = await this.prisma.catalogOrder.updateMany({
+      where: { id: order.id, status: order.status },
+      data: { status: 'CANCELLED', statusUpdatedAt: new Date() },
+    });
+    if (claimed.count !== 1) {
+      throw new BadRequestException('El pedido ya cambió de estado');
+    }
+
+    await this.restoreStock(order.id).catch((err) =>
+      this.logger.error(
+        `No se pudo devolver el stock del pedido ${order.id}: ${(err as Error).message}`
+      )
+    );
+
     if (
-      status === 'CANCELLED' &&
       order.escrowStatus === 'HELD' &&
       isPositive(order.escrowAmount) &&
       order.requesterId
     ) {
       await this.escrow.refund({
         entityType: 'CATALOG_ORDER',
-        entityId: id,
+        entityId: order.id,
         payerId: order.requesterId,
-        amount: order.escrowAmount,
+        amount: order.escrowAmount!,
       });
-      update.escrowStatus = 'REFUNDED';
+      return this.prisma.catalogOrder.update({
+        where: { id: order.id },
+        data: { escrowStatus: 'REFUNDED' },
+      });
+    }
+    return this.prisma.catalogOrder.findUnique({ where: { id: order.id } });
+  }
+
+  // Devuelve el stock descontado en createOrder (packs: a sus componentes) y
+  // revierte el contador de "más vendidos".
+  private async restoreStock(orderId: string) {
+    const items = await this.prisma.catalogOrderItem.findMany({
+      where: { orderId },
+      select: { productId: true, quantity: true, isBundle: true },
+    });
+    if (!items.length) return;
+
+    const bundleIds = items.filter((i) => i.isBundle).map((i) => i.productId);
+    const bundles = bundleIds.length
+      ? await this.prisma.productBundleItem.findMany({
+          where: { bundleProductId: { in: bundleIds } },
+          select: {
+            bundleProductId: true,
+            componentProductId: true,
+            quantity: true,
+          },
+        })
+      : [];
+
+    const restock = new Map<string, number>();
+    for (const item of items) {
+      if (item.isBundle) {
+        for (const c of bundles.filter(
+          (b) => b.bundleProductId === item.productId
+        )) {
+          restock.set(
+            c.componentProductId,
+            (restock.get(c.componentProductId) ?? 0) +
+              c.quantity * item.quantity
+          );
+        }
+      } else {
+        restock.set(
+          item.productId,
+          (restock.get(item.productId) ?? 0) + item.quantity
+        );
+      }
     }
 
-    const updated = await this.prisma.catalogOrder.update({
-      where: { id },
-      data: update,
+    await this.prisma.$transaction(async (tx) => {
+      for (const [productId, qty] of restock) {
+        // updateMany: un producto borrado desde el pedido no rompe nada.
+        await tx.product.updateMany({
+          where: { id: productId },
+          data: { stock: { increment: qty } },
+        });
+        const product = await tx.product.findUnique({
+          where: { id: productId },
+          select: { stock: true, minStock: true, status: true },
+        });
+        // Solo recalcula estados de stock; UNAVAILABLE lo puso el comercio.
+        if (product && product.status !== ProductStatus.UNAVAILABLE) {
+          const status =
+            product.stock === 0
+              ? ProductStatus.OUT_OF_STOCK
+              : product.stock <= product.minStock
+                ? ProductStatus.LOW_STOCK
+                : ProductStatus.AVAILABLE;
+          if (status !== product.status) {
+            await tx.product.update({
+              where: { id: productId },
+              data: { status },
+            });
+          }
+        }
+      }
+      for (const item of items) {
+        await tx.product.updateMany({
+          where: { id: item.productId, salesCount: { gte: item.quantity } },
+          data: { salesCount: { decrement: item.quantity } },
+        });
+      }
     });
-    return { data: updated };
   }
 
   // El comprador (requester) confirma que recibió el pedido. Solo desde
@@ -961,59 +1097,81 @@ export class CatalogService {
       throw new ForbiddenException(
         'Solo puedes confirmar un pedido que ya fue contactado por el comercio'
       );
+    return { data: await this.completeOrder(order) };
+  }
+
+  // Cierre del pedido: cobra la comisión y libera la garantía. Lo dispara
+  // el comprador al confirmar o la auto-liberación por plazo.
+  private async completeOrder(
+    order: NonNullable<
+      Awaited<ReturnType<PrismaService['catalogOrder']['findUnique']>>
+    >
+  ) {
+    const id = order.id;
+    // Toma el pedido (CONTACTED → CLOSED) antes de mover dinero: confirmar y
+    // auto-liberar a la vez no cobran ni liberan dos veces.
+    const claimed = await this.prisma.catalogOrder.updateMany({
+      where: { id, status: 'CONTACTED', escrowStatus: order.escrowStatus },
+      data: { status: 'CLOSED', statusUpdatedAt: new Date() },
+    });
+    if (claimed.count !== 1) {
+      throw new BadRequestException('El pedido ya cambió de estado');
+    }
 
     const update: any = { status: 'CLOSED' };
+    const hasEscrow =
+      order.escrowStatus === 'HELD' && isPositive(order.escrowAmount);
+    const commerce = await this.prisma.commerce.findUnique({
+      where: { id: order.commerceId },
+      select: { userId: true },
+    });
 
-    if (order.escrowStatus === 'HELD' && isPositive(order.escrowAmount)) {
-      const commerce = await this.prisma.commerce.findUnique({
-        where: { id: order.commerceId },
-        select: { userId: true },
-      });
-      let releaseAmount = order.escrowAmount;
-
-      // Si el fee no se cobró al comprador al crear el pedido (platformFeeRate
-      // null), lo paga el comercio ahora, descontado de lo liberado — mismo
-      // criterio que ServiceRequest: el fee se cobra siempre, nunca se
-      // duplica ni se omite.
-      if (commerce && !isPositive(order.platformFeeRate)) {
-        const feeConfig = await this.platformFees.resolveFeeConfig(
-          'CATALOG_ORDER',
-          commerce.userId
-        );
-        if (feeConfig?.payer === 'PROVIDER') {
-          const { feeAmount } = this.platformFees.calculateFee(
-            toNumber(order.escrowAmount),
-            feeConfig
-          );
-          // Se descuenta de lo liberado: queda cobrada (COLLECTED), no va al
-          // estado de cuenta del comercio.
-          await this.platformFees.chargeProviderFee(
-            'CATALOG_ORDER',
-            commerce.userId,
-            feeAmount,
-            `FEE-CATALOG-${id}`,
-            { catalogOrderId: id },
-            { collected: true }
-          );
-          releaseAmount = sub(order.escrowAmount, feeAmount);
-          update.platformFeeRate = feeConfig.rate;
-          update.platformFeeAmount = feeAmount;
-        }
-      } else if (commerce && isPositive(order.platformFeeAmount)) {
-        // El comprador ya pagó la comisión dentro de la garantía: se descuenta
-        // de lo liberado al comercio (antes se le liberaba completa y la
-        // plataforma nunca la cobraba).
+    // La comisión se cobra en todo pedido cerrado, con o sin garantía (antes
+    // solo con garantía, y la mayoría de las ventas quedaban sin comisión).
+    // - Ya cobrada al comprador al crear (payer CLIENT, platformFeeAmount):
+    //   está dentro de la garantía y se queda en la plataforma; se libera al
+    //   comercio solo el resto.
+    // - Si no: se calcula ahora a cargo del comercio. Con garantía se
+    //   descuenta de lo liberado (COLLECTED); sin garantía el comprador le
+    //   pagó directo al comercio, así que va a su estado de cuenta (PENDING).
+    let retainedFee = toDecimal(0);
+    if (commerce && isPositive(order.platformFeeAmount)) {
+      // Ya cobrada al comprador al crear (payer CLIENT): se registra como
+      // cobrada (está dentro de la garantía) para que conste en la
+      // contabilidad del comercio sin facturársela.
+      retainedFee = toDecimal(order.platformFeeAmount!);
+      await this.platformFees.chargeProviderFee(
+        'CATALOG_ORDER',
+        commerce.userId,
+        toNumber(order.platformFeeAmount!),
+        `FEE-CATALOG-${id}`,
+        { catalogOrderId: id, payer: 'CLIENT' },
+        { collected: true }
+      );
+    } else if (commerce && !isPositive(order.platformFeeRate)) {
+      const feeConfig = await this.platformFees.resolveFeeConfig(
+        'CATALOG_ORDER',
+        commerce.userId
+      );
+      const base = hasEscrow ? order.escrowAmount : order.totalEstimate;
+      if (feeConfig && isPositive(base)) {
+        const { feeAmount } = this.platformFees.calculateFee(base!, feeConfig);
         await this.platformFees.chargeProviderFee(
           'CATALOG_ORDER',
           commerce.userId,
-          toNumber(order.platformFeeAmount),
+          feeAmount,
           `FEE-CATALOG-${id}`,
-          { catalogOrderId: id, payer: 'CLIENT' },
-          { collected: true }
+          { catalogOrderId: id },
+          { collected: hasEscrow }
         );
-        releaseAmount = sub(order.escrowAmount, order.platformFeeAmount!);
+        if (hasEscrow) retainedFee = toDecimal(feeAmount);
+        update.platformFeeRate = feeConfig.rate;
+        update.platformFeeAmount = feeAmount;
       }
+    }
 
+    if (hasEscrow) {
+      const releaseAmount = sub(order.escrowAmount!, retainedFee);
       if (commerce && gt(releaseAmount, 0)) {
         await this.escrow.release({
           entityType: 'CATALOG_ORDER',
@@ -1025,11 +1183,87 @@ export class CatalogService {
       update.escrowStatus = 'RELEASED';
     }
 
-    const updated = await this.prisma.catalogOrder.update({
+    return this.prisma.catalogOrder.update({
       where: { id },
       data: update,
     });
-    return { data: updated };
+  }
+
+  /**
+   * Plazos de la garantía (cron cada hora):
+   * - PENDING/SEEN sin respuesta del comercio en CATALOG_ESCROW_RESPONSE_DAYS
+   *   (3 por defecto) → se cancela y se reembolsa al comprador.
+   * - CONTACTED sin confirmación ni disputa del comprador en
+   *   CATALOG_ESCROW_AUTO_RELEASE_DAYS (7 por defecto) → se cierra y se
+   *   libera al comercio, como si el comprador confirmara.
+   * Los pedidos en disputa no se tocan. Sin estos plazos el dinero podía
+   * quedar retenido para siempre.
+   */
+  async enforceEscrowDeadlines(now = new Date()) {
+    const days = (key: string, fallback: number) => {
+      const value = Number(process.env[key]);
+      return Number.isFinite(value) && value > 0 ? value : fallback;
+    };
+    const before = (d: number) => new Date(now.getTime() - d * 86_400_000);
+    const olderThan = (cutoff: Date) => ({
+      OR: [
+        { statusUpdatedAt: { lt: cutoff } },
+        { statusUpdatedAt: null, createdAt: { lt: cutoff } },
+      ],
+    });
+
+    const [unanswered, unconfirmed] = await Promise.all([
+      this.prisma.catalogOrder.findMany({
+        where: {
+          escrowStatus: 'HELD',
+          status: { in: ['PENDING', 'SEEN'] },
+          ...olderThan(before(days('CATALOG_ESCROW_RESPONSE_DAYS', 3))),
+        },
+        take: 100,
+      }),
+      this.prisma.catalogOrder.findMany({
+        where: {
+          escrowStatus: 'HELD',
+          status: 'CONTACTED',
+          ...olderThan(before(days('CATALOG_ESCROW_AUTO_RELEASE_DAYS', 7))),
+        },
+        take: 100,
+      }),
+    ]);
+
+    let refunded = 0;
+    let released = 0;
+    for (const order of unanswered) {
+      try {
+        await this.cancelOrder(order);
+        refunded++;
+        if (order.requesterId) {
+          this.notifications
+            .createForUser(order.requesterId, {
+              type: NotificationType.ORDER,
+              title: 'Pedido cancelado y reembolsado',
+              message: `${order.commerceName} no respondió a tu pedido a tiempo. Te devolvimos el dinero a la billetera.`,
+              link: '/my-orders',
+            })
+            .catch(() => {});
+        }
+      } catch (err) {
+        this.logger.warn(
+          `No se pudo expirar el pedido ${order.id}: ${(err as Error).message}`
+        );
+      }
+    }
+    for (const order of unconfirmed) {
+      try {
+        await this.completeOrder(order);
+        released++;
+      } catch (err) {
+        this.logger.warn(
+          `No se pudo auto-liberar el pedido ${order.id}: ${(err as Error).message}`
+        );
+      }
+    }
+    return { refunded, released };
   }
 
   // El comprador O el comercio pueden disputar un pedido con garantía

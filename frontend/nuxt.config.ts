@@ -84,6 +84,9 @@ export default defineNuxtConfig({
       useDemoCredentials: process.env.USE_DEMO === 'true',
       recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY || '',
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
+      // Cashea/Krece ocultos hasta tener credenciales reales (el backend
+      // también los bloquea con BNPL_ENABLED).
+      bnplEnabled: process.env.NUXT_PUBLIC_BNPL_ENABLED === 'true',
     },
   },
 

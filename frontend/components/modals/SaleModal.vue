@@ -35,10 +35,10 @@
                 <label class="label-field">Método de Pago</label>
                 <select v-model="form.paymentMethod" class="input-field">
                   <option
-                    v-for="(label, val) in PAYMENT_METHOD_LABELS"
+                    v-for="[val, label] in paymentMethodOptions"
                     :key="val"
                     :value="val"
-                    :disabled="isBnplProvider(val) && (!eligibleBnplProviders.includes(val) || hasIneligibleItems)"
+                    :disabled="isBnplProvider(val) && hasIneligibleItems"
                   >
                     {{ label }}
                   </option>
@@ -228,6 +228,14 @@ const eligibleBnplProviders = computed(() => props.eligibleBnplProviders ?? [])
 function isBnplProvider(method: PaymentMethod): boolean {
   return method === 'CASHEA' || method === 'KRECE'
 }
+
+// Cashea/Krece solo aparecen si el comercio los tiene habilitados (y el
+// backend con BNPL_ENABLED); si no, ni se muestran.
+const paymentMethodOptions = computed(() =>
+  (Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).filter(
+    ([val]) => !isBnplProvider(val) || eligibleBnplProviders.value.includes(val),
+  ),
+)
 
 const hasIneligibleItems = computed(() =>
   form.value.items.some(i => {
