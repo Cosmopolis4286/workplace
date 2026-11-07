@@ -151,7 +151,7 @@ export class SellerBillingService {
 
   /**
    * Registra el cargo usando exclusivamente el cliente transaccional.
-   * El indicador created permite notificar solo si este intento insertó el cargo.
+   * El indicador created permite notificar solo si se insertó el cargo.
    * Los errores de unicidad se propagan para revertir la transacción completa.
    */
   async recordChargeInTransaction(
