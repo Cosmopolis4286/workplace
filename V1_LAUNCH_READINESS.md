@@ -40,6 +40,16 @@ Lo de esta sección **reemplaza** a los ítems viejos que contradice (marcados m
 - **Términos de servicio**: secciones de pagos, comisiones, Pago Protegido, billetera, delivery
   y corridas. **Pendiente de revisión legal.**
 
+- **Pago Protegido apagado para la v1** (`PROTECTED_PAYMENTS_ENABLED=false` por defecto): la
+  plataforma no recibe ni custodia dinero de terceros, porque eso puede requerir autorización de
+  SUDEBAN/BCV (ITFB, Resolución 001-21). Sin el interruptor: no se crean garantías nuevas
+  (servicios ni catálogo), no se aceptan pagos de garantía y la opción no aparece en la UI; las
+  garantías ya existentes se terminan de liquidar. Encenderlo solo con un aliado autorizado que
+  custodie la garantía y asesoría legal.
+- **IVA en el estado de cuenta**: comisiones + IVA (`PLATFORM_VAT_RATE`, 16 por defecto) = total.
+  Falta confirmar con el contador la alícuota, el IGTF según la moneda y la emisión de la factura
+  fiscal (imprenta digital autorizada por el SENIAT).
+
 **Decisiones pendientes de producto:** exigir KYC para retirar a todos o permitir retiros
 pequeños sin KYC; conciliación bancaria automática (hoy los admins confirman referencias a mano).
 
