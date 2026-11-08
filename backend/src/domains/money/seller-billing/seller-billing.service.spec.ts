@@ -132,6 +132,69 @@ describe('SellerBillingService', () => {
       const charge = await service.recordCharge({ ...input, collected: true });
       expect(charge!.status).toBe(SellerChargeStatus.COLLECTED);
     });
+
+    it('usa el TransactionClient proporcionado y difiere la notificación al commit', async () => {
+      const tx = {
+        sellerCommissionCharge: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn(({ data }) =>
+            Promise.resolve({ id: 'tx-charge', ...data })
+          ),
+        },
+      } as any;
+
+      const result = await service.recordChargeInTransaction(input, tx);
+
+      expect(result.charge!.id).toBe('tx-charge');
+      expect(result.created).toBe(true);
+      expect(tx.sellerCommissionCharge.findUnique).toHaveBeenCalledWith({
+        where: { reference: input.reference },
+      });
+      expect(tx.sellerCommissionCharge.create).toHaveBeenCalled();
+      expect(prisma.sellerCommissionCharge.findUnique).not.toHaveBeenCalled();
+      expect(prisma.sellerCommissionCharge.create).not.toHaveBeenCalled();
+      expect(notifications.createForUser).not.toHaveBeenCalled();
+    });
+
+    it('no marca como creado un cargo que ya existía', async () => {
+      const tx = {
+        sellerCommissionCharge: {
+          findUnique: jest.fn().mockResolvedValue({ id: 'existing-charge' }),
+          create: jest.fn(),
+        },
+      } as any;
+
+      const result = await service.recordChargeInTransaction(input, tx);
+
+      expect(result).toEqual({
+        charge: { id: 'existing-charge' },
+        created: false,
+      });
+      expect(tx.sellerCommissionCharge.create).not.toHaveBeenCalled();
+    });
+
+    it('permite notificar un cargo transaccional explícitamente después del commit', async () => {
+      await service.notifyChargeRecorded(input);
+
+      expect(notifications.createForUser).toHaveBeenCalledWith(
+        'seller-1',
+        expect.objectContaining({
+          title: '🧾 Comisión registrada',
+          link: '/billing',
+        })
+      );
+    });
+
+    it('no crea ni notifica cargos de importe cero o negativo', async () => {
+      await expect(
+        service.recordCharge({ ...input, amount: 0 })
+      ).resolves.toBeNull();
+      await expect(
+        service.recordCharge({ ...input, amount: -1 })
+      ).resolves.toBeNull();
+      expect(prisma.sellerCommissionCharge.create).not.toHaveBeenCalled();
+      expect(notifications.createForUser).not.toHaveBeenCalled();
+    });
   });
 
   describe('issueStatements', () => {

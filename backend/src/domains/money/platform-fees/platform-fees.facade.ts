@@ -1,4 +1,4 @@
-import { FeeTransactionType, FeePayer } from '@prisma/client';
+import { FeeTransactionType, FeePayer, Prisma } from '@prisma/client';
 import type { MoneyInput } from '../../../common/money/money';
 
 export interface FeeConfig {
@@ -33,6 +33,23 @@ export interface PlatformFeesFacade {
     // true: la comisión ya se retuvo de una garantía (escrow) al liberarla.
     options?: { collected?: boolean }
   ): Promise<unknown>;
+  chargeProviderFeeInTransaction(
+    type: FeeTransactionType,
+    userId: string,
+    feeAmount: number,
+    reference: string,
+    metadata: Record<string, unknown>,
+    options: { tx: Prisma.TransactionClient; collected?: boolean }
+  ): Promise<{ charge: unknown | null; created: boolean }>;
+  /**
+   * Debe ejecutarse después del commit y solo si la transacción creó el cargo.
+   */
+  notifyProviderFee(input: {
+    type: FeeTransactionType;
+    userId: string;
+    feeAmount: number;
+    collected?: boolean;
+  }): Promise<void>;
 }
 
 export const PLATFORM_FEES_FACADE = Symbol('PLATFORM_FEES_FACADE');

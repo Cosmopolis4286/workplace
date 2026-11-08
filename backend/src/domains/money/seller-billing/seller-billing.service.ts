@@ -95,14 +95,22 @@ export class SellerBillingService {
    * dos veces. `collected`: la comisión ya se retuvo de una garantía (escrow)
    * al liberarla, así que queda registrada pero no se factura.
    */
-  async recordCharge(input: {
-    type: FeeTransactionType;
-    sellerUserId: string;
-    amount: number;
-    reference: string;
-    metadata?: Record<string, unknown>;
-    collected?: boolean;
-  }) {
+  async recordCharge(
+    input: {
+      type: FeeTransactionType;
+      sellerUserId: string;
+      amount: number;
+      reference: string;
+      metadata?: Record<string, unknown>;
+      collected?: boolean;
+    },
+    tx?: Prisma.TransactionClient
+  ) {
+    if (tx) {
+      const result = await this.recordChargeInTransaction(input, tx);
+      return result.charge;
+    }
+
     const amount = new Prisma.Decimal(input.amount).toDecimalPlaces(2);
     if (!amount.gt(0)) return null;
 
@@ -137,6 +145,64 @@ export class SellerBillingService {
       throw error;
     }
 
+    await this.notifyChargeRecorded(input);
+    return charge;
+  }
+
+  /**
+   * Registra el cargo usando exclusivamente el cliente transaccional.
+   * El indicador created permite notificar solo si se insertó el cargo.
+   * Un error de unicidad se propaga para revertir la transacción completa.
+   */
+  async recordChargeInTransaction(
+    input: {
+      type: FeeTransactionType;
+      sellerUserId: string;
+      amount: number;
+      reference: string;
+      metadata?: Record<string, unknown>;
+      collected?: boolean;
+    },
+    tx: Prisma.TransactionClient
+  ) {
+    const amount = new Prisma.Decimal(input.amount).toDecimalPlaces(2);
+    if (!amount.gt(0)) return { charge: null, created: false };
+
+    const existing = await tx.sellerCommissionCharge.findUnique({
+      where: { reference: input.reference },
+    });
+    if (existing) return { charge: existing, created: false };
+
+    const charge = await tx.sellerCommissionCharge.create({
+      data: {
+        sellerUserId: input.sellerUserId,
+        type: input.type,
+        reference: input.reference,
+        amount,
+        status: input.collected
+          ? SellerChargeStatus.COLLECTED
+          : SellerChargeStatus.PENDING,
+        metadata: (input.metadata ?? undefined) as Prisma.InputJsonValue,
+      },
+    });
+
+    return { charge, created: true };
+  }
+
+  /**
+   * Notificación post-commit para cargos creados dentro de una transacción.
+   * Invocar solo después de que $transaction haya resuelto correctamente y
+   * únicamente cuando el caller haya confirmado que el cargo fue creado.
+   */
+  async notifyChargeRecorded(input: {
+    type: FeeTransactionType;
+    sellerUserId: string;
+    amount: number;
+    collected?: boolean;
+  }) {
+    const amount = new Prisma.Decimal(input.amount).toDecimalPlaces(2);
+    if (!amount.gt(0)) return;
+
     const label = FEE_LABELS[input.type] ?? 'venta';
     await this.notify(input.sellerUserId, {
       title: '🧾 Comisión registrada',
@@ -146,7 +212,6 @@ export class SellerBillingService {
       link: '/billing',
       metadata: { feeType: input.type, feeAmount: amount.toNumber() },
     });
-    return charge;
   }
 
   // ─── Emisión semanal ──────────────────────────────────────────────────────
