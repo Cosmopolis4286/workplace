@@ -33,6 +33,18 @@ import { ReportStatementPaymentDto } from './dto/seller-billing.dto';
 
 export const STATEMENT_DUE_DAYS = 5;
 export const SUSPENSION_GRACE_HOURS = 48;
+
+/**
+ * IVA sobre la comisión (servicio que presta la plataforma), en porcentaje.
+ * Configurable por PLATFORM_VAT_RATE para no tocar código si cambia la
+ * alícuota; 0 lo desactiva. Confirmar con el contador la alícuota y si aplica
+ * IGTF según la moneda de pago.
+ */
+export function platformVatRate(): Prisma.Decimal {
+  const raw = process.env.PLATFORM_VAT_RATE;
+  const rate = new Prisma.Decimal(raw === undefined || raw === '' ? 16 : raw);
+  return rate.isNaN() || rate.lt(0) ? new Prisma.Decimal(0) : rate;
+}
 // Caracas es UTC-4 todo el año (sin horario de verano).
 const CARACAS_OFFSET_MS = 4 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -229,21 +241,31 @@ export class SellerBillingService {
         where: { statementId: created.id },
         _sum: { amount: true },
       });
-      const total = sum._sum.amount ?? new Prisma.Decimal(0);
-      if (!total.gt(0)) {
+      const commissions = sum._sum.amount ?? new Prisma.Decimal(0);
+      if (!commissions.gt(0)) {
         await tx.sellerStatement.delete({ where: { id: created.id } });
         return null;
       }
+      const vatRate = platformVatRate();
+      const vatAmount = commissions
+        .mul(vatRate)
+        .div(100)
+        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
       return tx.sellerStatement.update({
         where: { id: created.id },
-        data: { totalAmount: total },
+        data: {
+          commissionsAmount: commissions,
+          vatRate,
+          vatAmount,
+          totalAmount: commissions.add(vatAmount),
+        },
       });
     });
 
     if (statement) {
       await this.notify(sellerUserId, {
         title: '🧾 Nuevo estado de cuenta',
-        message: `Tu estado de cuenta semanal es de $${statement.totalAmount.toFixed(2)} en comisiones. Vence el ${this.formatDate(statement.dueAt)}.`,
+        message: `Tu estado de cuenta semanal es de $${statement.totalAmount.toFixed(2)} ($${statement.commissionsAmount.toFixed(2)} en comisiones${statement.vatAmount.gt(0) ? ` + IVA $${statement.vatAmount.toFixed(2)}` : ''}). Vence el ${this.formatDate(statement.dueAt)}.`,
         link: '/billing',
         metadata: { statementId: statement.id },
       });

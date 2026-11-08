@@ -74,6 +74,9 @@
                 Semana del {{ formatDate(st.periodStart) }} al {{ formatDate(lastDay(st.periodEnd)) }}
                 · {{ st.charges?.length ?? 0 }} cargo(s)
               </p>
+              <p v-if="Number(st.vatAmount) > 0" class="text-xs text-gray-500">
+                Comisiones {{ money(st.commissionsAmount ?? 0) }} + IVA ({{ Number(st.vatRate) }} %) {{ money(st.vatAmount ?? 0) }}
+              </p>
               <p class="text-xs mt-1" :class="isOpen(st) ? 'text-gray-700 font-medium' : 'text-gray-400'">
                 <template v-if="st.status === 'PAID'">Pagado el {{ formatDate(st.paidAt!) }}</template>
                 <template v-else>Vence el {{ formatDateTime(st.dueAt) }}</template>

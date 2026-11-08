@@ -157,9 +157,27 @@ describe('SellerBillingService', () => {
           }),
         })
       );
-      expect(
-        prisma.sellerStatement.update.mock.calls[0][0].data.totalAmount
-      ).toEqual(D('12.50'));
+      // Comisiones + IVA (16 % por defecto) = total a pagar.
+      const totals = prisma.sellerStatement.update.mock.calls[0][0].data;
+      expect(totals.commissionsAmount).toEqual(D('12.50'));
+      expect(totals.vatRate).toEqual(D(16));
+      expect(totals.vatAmount).toEqual(D('2.00'));
+      expect(totals.totalAmount).toEqual(D('14.50'));
+    });
+
+    it('con PLATFORM_VAT_RATE=0 el estado de cuenta va sin IVA', async () => {
+      process.env.PLATFORM_VAT_RATE = '0';
+      try {
+        prisma.sellerCommissionCharge.groupBy.mockResolvedValue([
+          { sellerUserId: 'seller-1' },
+        ]);
+        await service.issueStatements(now);
+        const totals = prisma.sellerStatement.update.mock.calls[0][0].data;
+        expect(totals.vatAmount).toEqual(D(0));
+        expect(totals.totalAmount).toEqual(D('12.50'));
+      } finally {
+        delete process.env.PLATFORM_VAT_RATE;
+      }
     });
 
     it('no emite dos veces el mismo período', async () => {
