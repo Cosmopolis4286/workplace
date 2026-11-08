@@ -20,6 +20,20 @@ import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallet
 import { money } from '../money-matcher';
 
 describe('CatalogService', () => {
+  // Estas pruebas cubren el Pago Protegido encendido; el modo apagado (por
+  // defecto) se prueba en protected-payments-disabled.test.ts.
+  const previousProtectedPayments = process.env.PROTECTED_PAYMENTS_ENABLED;
+  beforeAll(() => {
+    process.env.PROTECTED_PAYMENTS_ENABLED = 'true';
+  });
+  afterAll(() => {
+    if (previousProtectedPayments === undefined) {
+      delete process.env.PROTECTED_PAYMENTS_ENABLED;
+    } else {
+      process.env.PROTECTED_PAYMENTS_ENABLED = previousProtectedPayments;
+    }
+  });
+
   let service: CatalogService;
   let mockPrismaService: any;
   let mockNotificationsService: Partial<NotificationsService>;
@@ -376,6 +390,27 @@ describe('CatalogService', () => {
       );
       expect(result.data.escrowStatus).toBe('HELD');
       expect(result.data.escrowAmount).toEqual(money(50));
+    });
+
+    it('with Pago Protegido turned off, creates the order without escrow even if the commerce requires it', async () => {
+      process.env.PROTECTED_PAYMENTS_ENABLED = 'false';
+      try {
+        mockPrismaService.commerce.findUnique.mockResolvedValue({
+          userId: 'owner-1',
+          settings: { requiresEscrowForCatalogOrders: true },
+        });
+        setupHappyPath();
+
+        const result = await service.createOrder(
+          baseDto() as any,
+          REQUESTER_ID
+        );
+
+        expect(mockEscrowService.hold).not.toHaveBeenCalled();
+        expect(result.data.escrowStatus ?? 'NONE').toBe('NONE');
+      } finally {
+        process.env.PROTECTED_PAYMENTS_ENABLED = 'true';
+      }
     });
 
     it('rejects with BadRequestException (not the raw wallet error) when the buyer has insufficient funds', async () => {

@@ -23,6 +23,10 @@ import {
   type MoneyInput,
 } from '../../../common/money/money';
 import { EscrowDisputeView, EscrowFacade, EscrowView } from './escrow.facade';
+import {
+  features,
+  PROTECTED_PAYMENTS_DISABLED_MESSAGE,
+} from '../../../common/config/features';
 
 @Injectable()
 export class EscrowService implements EscrowFacade {
@@ -45,6 +49,12 @@ export class EscrowService implements EscrowFacade {
     deltaAmount: MoneyInput;
     referenceOverride?: string;
   }): Promise<EscrowView> {
+    // Con el Pago Protegido apagado no se retiene dinero nuevo (ni garantías
+    // nuevas ni aumentos): la plataforma deja de custodiar fondos de
+    // terceros. Los callers ya lo verifican antes; esto es la segunda barrera.
+    if (!features.protectedPayments()) {
+      throw new BadRequestException(PROTECTED_PAYMENTS_DISABLED_MESSAGE);
+    }
     // WalletsService.holdEscrow es la única fuente de movimiento de dinero
     // real (débito cliente + crédito wallet de plataforma, atómico) — no se
     // reimplementa acá, solo se envuelve. Si lanza (ej.

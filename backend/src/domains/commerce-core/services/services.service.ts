@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ServiceStatus, ServiceEventType, Prisma, Role } from '@prisma/client';
+import { features } from '../../../common/config/features';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto';
@@ -1082,7 +1083,8 @@ export class ServicesService {
           where: { id: req.serviceId },
           select: { hasEscrow: true },
         });
-        if (service?.hasEscrow) {
+        // Pago Protegido apagado: el servicio se cobra directo, sin garantía.
+        if (service?.hasEscrow && features.protectedPayments()) {
           if (!req.requesterId) {
             throw new BadRequestException(
               'Este servicio requiere garantía de plataforma; el cliente debe estar autenticado con una billetera.'
@@ -1782,6 +1784,8 @@ export class ServicesService {
   // — ver approvePriceChangeProposal). En ese segundo caso solo se reintenta el
   // delta, no el precio total, o se duplicaría la retención ya existente.
   private async retryPendingEscrow(requestId: string): Promise<boolean> {
+    // Apagado: no se retiene dinero nuevo; la garantía pendiente vence sola.
+    if (!features.protectedPayments()) return false;
     const req = await this.prisma.serviceRequest.findUnique({
       where: { id: requestId },
     });

@@ -6,6 +6,20 @@ import { NotificationsService } from '../../domains/engagement/notifications/not
 import { money } from '../money-matcher';
 
 describe('EscrowService', () => {
+  // Estas pruebas cubren el Pago Protegido encendido; el modo apagado (por
+  // defecto) se prueba en protected-payments-disabled.test.ts.
+  const previousProtectedPayments = process.env.PROTECTED_PAYMENTS_ENABLED;
+  beforeAll(() => {
+    process.env.PROTECTED_PAYMENTS_ENABLED = 'true';
+  });
+  afterAll(() => {
+    if (previousProtectedPayments === undefined) {
+      delete process.env.PROTECTED_PAYMENTS_ENABLED;
+    } else {
+      process.env.PROTECTED_PAYMENTS_ENABLED = previousProtectedPayments;
+    }
+  });
+
   let service: EscrowService;
 
   const mockPrismaService: any = {

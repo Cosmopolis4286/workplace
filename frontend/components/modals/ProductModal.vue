@@ -342,7 +342,10 @@ import PurchaseModal from '~/components/modals/PurchaseModal.vue'
 import SupplierQuoteModal from '~/components/modals/SupplierQuoteModal.vue'
 import SupplierModal from '~/components/modals/SupplierModal.vue'
 
-const bnplEnabled = useRuntimeConfig().public.bnplEnabled
+import { useFeatures } from '~/composables/core/useFeatures'
+// Misma fuente que aplica el backend (GET /features).
+const { features: platformFeatures } = useFeatures()
+const bnplEnabled = computed(() => platformFeatures.value.bnpl)
 
 const showPurchaseModal = ref(false)
 const showQuoteModal = ref(false)

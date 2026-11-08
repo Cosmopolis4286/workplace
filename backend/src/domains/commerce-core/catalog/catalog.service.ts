@@ -24,6 +24,7 @@ import {
 } from '../../money/platform-fees/platform-fees.facade';
 import { InsufficientEscrowFundsError } from '../../money/wallets/wallet.errors';
 import { v4 as uuidv4 } from 'uuid';
+import { features } from '../../../common/config/features';
 import {
   add,
   gt,
@@ -658,8 +659,11 @@ export class CatalogService {
         settings: { select: { requiresEscrowForCatalogOrders: true } },
       },
     });
+    // Con el Pago Protegido apagado el pedido sigue sin garantía (pago directo
+    // al comercio), aunque el comercio la tenga configurada.
     const requiresEscrow =
-      commerce?.settings?.requiresEscrowForCatalogOrders ?? false;
+      features.protectedPayments() &&
+      (commerce?.settings?.requiresEscrowForCatalogOrders ?? false);
     if (requiresEscrow && !requesterId) {
       throw new BadRequestException(
         'Este comercio requiere pago protegido; debes estar autenticado con una billetera para completar el pedido.'

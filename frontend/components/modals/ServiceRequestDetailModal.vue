@@ -114,7 +114,7 @@
                   <span v-if="req.escrowAmount != null" class="text-sm font-bold flex-shrink-0">${{ formatPrice(req.escrowAmount) }}</span>
                 </div>
                 <button
-                  v-if="!isProvider && req.escrowStatus === 'PENDING_FUNDS'"
+                  v-if="!isProvider && req.escrowStatus === 'PENDING_FUNDS' && features.protectedPayments"
                   type="button"
                   class="mt-2.5 w-full text-xs font-semibold py-1.5 rounded-lg bg-white/70 hover:bg-white transition-colors"
                   @click="showEscrowFunding = true"
@@ -463,6 +463,9 @@ import {
   SERVICE_REQUEST_STATUS_CLASSES,
   SERVICE_REQUEST_STATUS_ICONS,
 } from '~/config/serviceRequestStatus.config'
+import { useFeatures } from '~/composables/core/useFeatures'
+
+const { features } = useFeatures()
 
 interface ServiceRequestItem {
   id: string
