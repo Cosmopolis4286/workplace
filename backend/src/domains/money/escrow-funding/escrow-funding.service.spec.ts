@@ -166,4 +166,14 @@ describe('EscrowFundingService', () => {
     expect(res.held).toBe(true);
     expect(services.retryPendingEscrowForRequest).toHaveBeenCalledWith('sr-1');
   });
+
+  it('con Pago Protegido apagado no acepta pagos de garantía', async () => {
+    delete process.env.PROTECTED_PAYMENTS_ENABLED;
+    try {
+      await expect(report()).rejects.toThrow('no está disponible');
+      expect(prisma.escrowFundingReport.create).not.toHaveBeenCalled();
+    } finally {
+      process.env.PROTECTED_PAYMENTS_ENABLED = 'true';
+    }
+  });
 });

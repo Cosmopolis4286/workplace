@@ -11,6 +11,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { protectedPaymentsEnabled } from '../../../common/config/protected-payments';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import {
   SERVICES_FACADE,
@@ -103,6 +104,13 @@ export class EscrowFundingService {
     requestId: string,
     dto: ReportEscrowFundingDto
   ) {
+    // Apagado: la plataforma no recibe pagos de garantía en sus cuentas. Las
+    // solicitudes que quedaron esperando garantía vencen solas a las 72 h.
+    if (!protectedPaymentsEnabled()) {
+      throw new ConflictException(
+        'Pago Protegido no está disponible por ahora. Coordina el pago directo con el proveedor.'
+      );
+    }
     const req = await this.findOwnedPendingRequest(userId, requestId);
     const pending = await this.prisma.escrowFundingReport.findFirst({
       where: {

@@ -27,6 +27,9 @@ const testEnvVars = {
   GOOGLE_CLIENT_ID: 'test-google-client-id-for-testing',
   GOOGLE_CLIENT_SECRET: 'test-google-client-secret-for-testing',
   GOOGLE_CALLBACK_URL: 'http://localhost:3001/auth/google/callback',
+  // Los tests de garantías ejercitan Pago Protegido encendido; los que
+  // verifican el comportamiento por defecto (apagado) lo borran ellos mismos.
+  PROTECTED_PAYMENTS_ENABLED: 'true',
 };
 
 // Apply all environment variables

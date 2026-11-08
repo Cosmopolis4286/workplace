@@ -601,6 +601,7 @@ describe('ServicesService — service request status transitions', () => {
           status: 'CONTACTED',
           price: 100,
           escrowAmount: 100,
+          escrowStatus: 'HELD',
         }),
         ...overrides,
       };
@@ -696,6 +697,68 @@ describe('ServicesService — service request status transitions', () => {
       expect(
         mockNotificationsService.notifyPriceChangeApprovedPendingFunds
       ).toHaveBeenCalled();
+    });
+
+    it('con pago directo (sin garantía) el aumento solo cambia el precio: no retiene ni deja PENDING_FUNDS', async () => {
+      mockPrismaService.serviceRequestPriceChangeProposal.findUnique.mockResolvedValue(
+        baseProposal({
+          serviceRequest: baseRequest({
+            status: 'CONTACTED',
+            price: 100,
+            escrowStatus: 'NONE',
+          }),
+        })
+      );
+      mockPrismaService.serviceRequestPriceChangeProposal.findUnique.mockResolvedValueOnce(
+        baseProposal({
+          serviceRequest: baseRequest({
+            status: 'CONTACTED',
+            price: 100,
+            escrowStatus: 'NONE',
+          }),
+        })
+      );
+
+      await service.approvePriceChangeProposal('proposal-1', 'client-1');
+
+      expect(mockEscrowService.hold).not.toHaveBeenCalled();
+      const [args] = mockPrismaService.serviceRequest.update.mock.calls[0];
+      expect(args.data.price.toString()).toBe('150');
+      expect(args.data).not.toHaveProperty('escrowAmount');
+      expect(
+        mockPrismaService.serviceRequestPriceChangeProposal.update
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'APPROVED' }),
+        })
+      );
+    });
+  });
+
+  describe('Pago Protegido apagado (PROTECTED_PAYMENTS_ENABLED)', () => {
+    afterEach(() => {
+      process.env.PROTECTED_PAYMENTS_ENABLED = 'true';
+    });
+
+    it('al fijar el precio de un servicio con garantía, no retiene nada: queda en pago directo', async () => {
+      delete process.env.PROTECTED_PAYMENTS_ENABLED;
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({ status: 'SEEN', escrowStatus: 'NONE' })
+      );
+      mockPrismaService.service = {
+        findUnique: jest.fn().mockResolvedValue({ hasEscrow: true }),
+      };
+
+      await service
+        .updateServiceRequest('req-1', 'provider-1', {
+          status: 'CONTACTED',
+          price: 80,
+        } as any)
+        .catch(() => undefined);
+
+      // Llegó a leer el servicio (hasEscrow) y aun así no retuvo.
+      expect(mockPrismaService.service.findUnique).toHaveBeenCalled();
+      expect(mockEscrowService.hold).not.toHaveBeenCalled();
     });
   });
 

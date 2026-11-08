@@ -25,6 +25,7 @@ import {
   PLAN_LIMITS_FACADE,
 } from '../../money/plans/plan-limits.facade';
 import { InsufficientEscrowFundsError } from '../../money/wallets/wallet.errors';
+import { protectedPaymentsEnabled } from '../../../common/config/protected-payments';
 import { EscrowFacade, ESCROW_FACADE } from '../../money/escrow/escrow.facade';
 import {
   ReputationFacade,
@@ -1082,7 +1083,9 @@ export class ServicesService {
           where: { id: req.serviceId },
           select: { hasEscrow: true },
         });
-        if (service?.hasEscrow) {
+        // Pago Protegido apagado (ver protectedPaymentsEnabled): el servicio
+        // pasa a pago directo aunque tenga hasEscrow.
+        if (service?.hasEscrow && protectedPaymentsEnabled()) {
           if (!req.requesterId) {
             throw new BadRequestException(
               'Este servicio requiere garantía de plataforma; el cliente debe estar autenticado con una billetera.'
@@ -2041,50 +2044,58 @@ export class ServicesService {
       deltaWithFee = add(proposal.deltaAmount, feeAmount);
     }
 
-    const escrowReference = `ESCROW-HOLD-INCREASE-${proposal.id}`;
+    // Solo se retiene el delta si la solicitud ya tiene una garantía retenida.
+    // Con pago directo (sin garantía) el aumento solo cambia el precio: antes
+    // también intentaba retener y dejaba la solicitud en PENDING_FUNDS.
+    const hasHeldEscrow = req.escrowStatus === 'HELD';
+    const escrowReference = hasHeldEscrow
+      ? `ESCROW-HOLD-INCREASE-${proposal.id}`
+      : null;
 
-    try {
-      await this.escrow.hold({
-        entityType: 'SERVICE_REQUEST',
-        entityId: req.id,
-        payerId: clientUserId,
-        payeeId: req.providerId,
-        deltaAmount: deltaWithFee,
-        referenceOverride: escrowReference,
-      });
-    } catch (err) {
-      if (!(err instanceof InsufficientEscrowFundsError)) throw err;
+    if (hasHeldEscrow) {
+      try {
+        await this.escrow.hold({
+          entityType: 'SERVICE_REQUEST',
+          entityId: req.id,
+          payerId: clientUserId,
+          payeeId: req.providerId,
+          deltaAmount: deltaWithFee,
+          referenceOverride: escrowReference!,
+        });
+      } catch (err) {
+        if (!(err instanceof InsufficientEscrowFundsError)) throw err;
 
-      await this.prisma.$transaction([
-        this.prisma.serviceRequestPriceChangeProposal.update({
+        await this.prisma.$transaction([
+          this.prisma.serviceRequestPriceChangeProposal.update({
+            where: { id: proposalId },
+            data: {
+              status: 'APPROVED_PENDING_FUNDS',
+              deltaAmount: deltaWithFee,
+              resolvedBy: clientUserId,
+              resolvedAt: new Date(),
+              escrowReference,
+            },
+          }),
+          this.prisma.serviceRequest.update({
+            where: { id: req.id },
+            data: { escrowStatus: 'PENDING_FUNDS' },
+          }),
+        ]);
+
+        this.notifications
+          .notifyPriceChangeApprovedPendingFunds(
+            clientUserId,
+            req.providerName,
+            req.serviceName,
+            toNumber(deltaWithFee)
+          )
+          .catch(() => {});
+
+        return this.prisma.serviceRequestPriceChangeProposal.findUnique({
           where: { id: proposalId },
-          data: {
-            status: 'APPROVED_PENDING_FUNDS',
-            deltaAmount: deltaWithFee,
-            resolvedBy: clientUserId,
-            resolvedAt: new Date(),
-            escrowReference,
-          },
-        }),
-        this.prisma.serviceRequest.update({
-          where: { id: req.id },
-          data: { escrowStatus: 'PENDING_FUNDS' },
-        }),
-      ]);
-
-      this.notifications
-        .notifyPriceChangeApprovedPendingFunds(
-          clientUserId,
-          req.providerName,
-          req.serviceName,
-          toNumber(deltaWithFee)
-        )
-        .catch(() => {});
-
-      return this.prisma.serviceRequestPriceChangeProposal.findUnique({
-        where: { id: proposalId },
-        include: { items: true },
-      });
+          include: { items: true },
+        });
+      }
     }
 
     const existingMaxSortOrder = await this.prisma.serviceRequestItem.aggregate(
@@ -2100,7 +2111,9 @@ export class ServicesService {
         where: { id: req.id },
         data: {
           price: add(req.price ?? 0, deltaWithFee),
-          escrowAmount: add(req.escrowAmount ?? 0, deltaWithFee),
+          ...(hasHeldEscrow
+            ? { escrowAmount: add(req.escrowAmount ?? 0, deltaWithFee) }
+            : {}),
           ...(feeConfig?.payer === 'CLIENT'
             ? {
                 platformFeeAmount: add(

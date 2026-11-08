@@ -376,6 +376,27 @@ describe('CatalogService', () => {
       expect(result.data.escrowAmount).toEqual(money(50));
     });
 
+    it('con Pago Protegido apagado el pedido va a pago directo aunque el comercio exija garantía', async () => {
+      delete process.env.PROTECTED_PAYMENTS_ENABLED;
+      try {
+        mockPrismaService.commerce.findUnique.mockResolvedValue({
+          userId: 'owner-1',
+          settings: { requiresEscrowForCatalogOrders: true },
+        });
+        setupHappyPath();
+
+        const result = await service.createOrder(
+          baseDto() as any,
+          REQUESTER_ID
+        );
+
+        expect(mockEscrowService.hold).not.toHaveBeenCalled();
+        expect(result.data.escrowStatus).not.toBe('HELD');
+      } finally {
+        process.env.PROTECTED_PAYMENTS_ENABLED = 'true';
+      }
+    });
+
     it('rejects with BadRequestException (not the raw wallet error) when the buyer has insufficient funds', async () => {
       mockPrismaService.commerce.findUnique.mockResolvedValue({
         userId: 'owner-1',
