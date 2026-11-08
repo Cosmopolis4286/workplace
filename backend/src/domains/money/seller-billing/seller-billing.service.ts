@@ -207,8 +207,8 @@ export class SellerBillingService {
     await this.notify(input.sellerUserId, {
       title: '🧾 Comisión registrada',
       message: input.collected
-        ? `Se retuvo una comisión de ${amount.toFixed(2)} de la garantía de un ${label} completado.`
-        : `Se sumó una comisión de ${amount.toFixed(2)} por un ${label} completado a tu estado de cuenta semanal.`,
+        ? `Se retuvo una comisión de $${amount.toFixed(2)} de la garantía de un ${label} completado.`
+        : `Se sumó una comisión de $${amount.toFixed(2)} por un ${label} completado a tu estado de cuenta semanal.`,
       link: '/billing',
       metadata: { feeType: input.type, feeAmount: amount.toNumber() },
     });
