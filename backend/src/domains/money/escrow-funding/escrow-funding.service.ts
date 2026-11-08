@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  GoneException,
   Inject,
   Injectable,
   NotFoundException,
@@ -11,6 +12,10 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  features,
+  PROTECTED_PAYMENTS_DISABLED_MESSAGE,
+} from '../../../common/config/features';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import {
   SERVICES_FACADE,
@@ -52,6 +57,7 @@ export class EscrowFundingService {
   ) {}
 
   async getServiceRequestOptions(userId: string, requestId: string) {
+    this.assertEnabled();
     const req = await this.findOwnedPendingRequest(userId, requestId);
     const due = await this.amountDue(userId, req);
 
@@ -103,6 +109,7 @@ export class EscrowFundingService {
     requestId: string,
     dto: ReportEscrowFundingDto
   ) {
+    this.assertEnabled();
     const req = await this.findOwnedPendingRequest(userId, requestId);
     const pending = await this.prisma.escrowFundingReport.findFirst({
       where: {
@@ -283,6 +290,15 @@ export class EscrowFundingService {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  // Pago Protegido apagado: no se aceptan pagos nuevos a la plataforma. Los
+  // reportes ya enviados se pueden confirmar (el dinero queda en la
+  // billetera del cliente y lo retira) o rechazar.
+  private assertEnabled() {
+    if (!features.protectedPayments()) {
+      throw new GoneException(PROTECTED_PAYMENTS_DISABLED_MESSAGE);
+    }
+  }
 
   private async findOwnedPendingRequest(userId: string, requestId: string) {
     const req = await this.prisma.serviceRequest.findUnique({

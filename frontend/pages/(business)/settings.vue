@@ -188,7 +188,6 @@
 </template>
 
 <script setup lang="ts">
-const bnplEnabled = useRuntimeConfig().public.bnplEnabled
 definePageMeta({ middleware: 'auth' })
 
 import { ref, computed, onMounted } from 'vue'
@@ -222,6 +221,11 @@ import { useSettings, type CommerceSettings, type FreelancerSettingsData } from 
 import { useAuth } from '~/composables/auth/useAuth'
 import { usePermissions } from '~/composables/users/usePermissions'
 import { useProfileContext } from '~/composables/users/useProfileContext'
+import { useFeatures } from '~/composables/core/useFeatures'
+
+// Misma fuente que aplica el backend (GET /features).
+const { features: platformFeatures } = useFeatures()
+const bnplEnabled = computed(() => platformFeatures.value.bnpl)
 
 const { user } = useAuth()
 const { userCategory } = usePermissions()

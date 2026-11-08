@@ -11,6 +11,7 @@ import {
   NotificationType,
   Prisma,
 } from '@prisma/client';
+import { features } from '../../../common/config/features';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
@@ -54,7 +55,7 @@ export class BnplService {
   // en producción quedaría PENDING hasta expirar. Se enciende con
   // BNPL_ENABLED=true (y NUXT_PUBLIC_BNPL_ENABLED=true en el frontend).
   isEnabled(): boolean {
-    return this.config.get<string>('BNPL_ENABLED') === 'true';
+    return features.bnpl();
   }
 
   private assertEnabled() {

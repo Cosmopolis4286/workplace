@@ -152,7 +152,7 @@
             </div>
 
             <!-- Garantía de plataforma -->
-            <div class="flex items-start justify-between gap-3 rounded-xl border border-gray-200 p-3">
+            <div v-if="features.protectedPayments" class="flex items-start justify-between gap-3 rounded-xl border border-gray-200 p-3">
               <div class="min-w-0">
                 <p class="text-xs font-medium text-gray-700">Ofrecer con garantía de plataforma</p>
                 <p class="mt-0.5 text-xs text-gray-400">
@@ -304,6 +304,9 @@ import { useMyServices } from '~/composables/services/useMyServices'
 import { useDefaultRate } from '~/composables/wallets/useDefaultRate'
 import { useConfirm } from '~/composables/ui/useConfirm'
 import type { Service, MyServiceCategory, ServiceModality } from '~/composables/services/useMyServices'
+import { useFeatures } from '~/composables/core/useFeatures'
+
+const { features } = useFeatures()
 
 const props = defineProps<{
   show: boolean

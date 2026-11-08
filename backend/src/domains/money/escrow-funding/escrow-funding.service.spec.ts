@@ -18,6 +18,20 @@ const PLATFORM_ACCOUNT = {
 };
 
 describe('EscrowFundingService', () => {
+  // Estas pruebas cubren el Pago Protegido encendido; el modo apagado (por
+  // defecto) se prueba en protected-payments-disabled.test.ts.
+  const previousProtectedPayments = process.env.PROTECTED_PAYMENTS_ENABLED;
+  beforeAll(() => {
+    process.env.PROTECTED_PAYMENTS_ENABLED = 'true';
+  });
+  afterAll(() => {
+    if (previousProtectedPayments === undefined) {
+      delete process.env.PROTECTED_PAYMENTS_ENABLED;
+    } else {
+      process.env.PROTECTED_PAYMENTS_ENABLED = previousProtectedPayments;
+    }
+  });
+
   let prisma: any;
   let wallets: any;
   let notifications: any;
