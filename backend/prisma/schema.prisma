@@ -2590,6 +2590,8 @@ enum ReportEntityType {
   SERVICE
   ORDER
   GENERAL
+  PRODUCT // producto publicado en el catálogo de un comercio
+  COMMERCE // el comercio en sí (su tienda pública)
 }
 
 enum ReportStatus {

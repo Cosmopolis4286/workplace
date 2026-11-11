@@ -260,6 +260,23 @@ describe('WalletsService — escrow', () => {
         })
       );
     });
+
+    it('describe la garantía de un pedido de catálogo como pedido, no como servicio', async () => {
+      mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' },
+        { new_balance: 0 },
+        { new_balance: 45 },
+      ]);
+
+      await service.releaseEscrow('order-1', PROVIDER_ID, 45, 'CATALOG_ORDER');
+
+      const { data } =
+        mockPrismaService.walletTransaction.create.mock.calls[1][0];
+      expect(data.description).toBe('Pago de pedido (garantía liberada)');
+      expect(data.metadata).toEqual({ catalogOrderId: 'order-1' });
+      // La referencia (clave de idempotencia) no cambia de formato.
+      expect(data.reference).toBe('ESCROW-RELEASE-order-1');
+    });
   });
 
   describe('releaseEscrow idempotency', () => {

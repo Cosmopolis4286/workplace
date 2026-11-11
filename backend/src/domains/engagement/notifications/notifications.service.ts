@@ -890,6 +890,9 @@ export class NotificationsService {
       CATALOG_ORDER: 'un pedido',
       SERVICE_REQUEST: 'una solicitud de servicio',
       ORDER: 'un pedido de comida',
+      SERVICE: 'un servicio publicado',
+      PRODUCT: 'un producto del catálogo',
+      COMMERCE: 'un comercio',
       GENERAL: 'la app',
     };
     const label = labels[entityType] ?? entityType.toLowerCase();

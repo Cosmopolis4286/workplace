@@ -28,6 +28,10 @@ Severidad:
 | M2 KYC | ✅ Decisión: KYC para toda compra. Ya se exige en pedidos de catálogo, solicitudes de servicio y viajes. |
 | A9 doble aprobación de depósito | ✅ Resuelto en PR #84. |
 | A5 stock del POS | ✅ Vender descuenta el stock (los combos, sus componentes); sin stock suficiente la venta no se bloquea y el stock queda en 0; cancelar o borrar el pedido lo devuelve. |
+| M3 reportar productos/comercios | ✅ `ReportEntityType` suma `PRODUCT` y `COMMERCE`. Cualquier usuario autenticado reporta desde la tienda pública (no el dueño); un mismo usuario no duplica un reporte abierto. |
+| M5 rótulos de garantía | ✅ Los movimientos de un pedido de catálogo dicen "pedido del catálogo" y llevan `metadata.catalogOrderId`. Las referencias `ESCROW-*` (clave de idempotencia) no cambian. |
+| M6 usuario de sistema admin | ✅ Se crea con rol NORMAL y desactivado; una migración corrige el existente. |
+| M8 empleados y pedidos | ⚠️ Premisa incorrecta: `Employee` no tiene cuenta de usuario (sin `userId`) y `commerceResolver` solo resuelve al dueño, así que hoy ningún empleado inicia sesión en el comercio. `GET orders/mine` ya usa el mismo resolvedor que `PATCH status`. Acceso de empleados = función nueva (cuentas por comercio), no un bug. |
 | A2, M1, M3–M8 | Pendientes. |
 
 ---

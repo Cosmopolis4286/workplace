@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import {
+  EscrowEntityType,
   Prisma,
   Role,
   WalletTransactionType,
@@ -45,6 +46,23 @@ import {
 
 const ADMIN_ROLES: Role[] = [Role.SUPERADMIN, Role.ADMIN];
 const IDEMPOTENCY_TTL = 60 * 60; // 1 hour
+
+// Cómo se describe en los movimientos de wallet la operación a la que
+// pertenece una garantía. Las referencias (ESCROW-HOLD/RELEASE/REFUND-{id})
+// no cambian: son la clave de idempotencia y ya existen en producción.
+function escrowSubject(entityType: EscrowEntityType, entityId: string) {
+  return entityType === 'CATALOG_ORDER'
+    ? {
+        noun: 'pedido del catálogo',
+        payment: 'Pago de pedido',
+        ref: { catalogOrderId: entityId },
+      }
+    : {
+        noun: 'solicitud de servicio',
+        payment: 'Pago de servicio',
+        ref: { serviceRequestId: entityId },
+      };
+}
 
 @Injectable()
 export class WalletsService {
@@ -605,9 +623,13 @@ export class WalletsService {
           password: hashedPassword,
           firstName: 'Escrow',
           lastName: 'Sistema',
-          role: Role.ADMIN,
+          // Cuenta técnica: sin rol de admin (no aparece entre los admins ni
+          // hereda sus permisos) y desactivada (nadie puede iniciar sesión
+          // con ella). Los movimientos de garantía no dependen de ninguna
+          // de las dos cosas.
+          role: Role.NORMAL,
           userType: 'APP',
-          isActive: true,
+          isActive: false,
           emailVerified: true,
         },
         select: { id: true },
@@ -675,9 +697,11 @@ export class WalletsService {
     clientUserId: string,
     amount: MoneyInput,
     serviceRequestId: string,
-    referenceOverride?: string
+    referenceOverride?: string,
+    entityType: EscrowEntityType = 'SERVICE_REQUEST'
   ) {
     this.assertPositiveAmount(amount);
+    const subject = escrowSubject(entityType, serviceRequestId);
     // La billetera ya no se crea para recargar: un cliente sin billetera es
     // un cliente con saldo 0, así que la garantía queda PENDING_FUNDS (se
     // paga por operación) en vez de fallar la transición del proveedor.
@@ -760,9 +784,9 @@ export class WalletsService {
           status: WalletTransactionStatus.COMPLETED,
           amount,
           balanceAfter: clientRow.new_balance,
-          description: 'Garantía retenida para solicitud de servicio',
+          description: `Garantía retenida para ${subject.noun}`,
           reference: ref,
-          metadata: { serviceRequestId },
+          metadata: subject.ref,
         },
       });
       const systemTransaction = await tx.walletTransaction.create({
@@ -775,7 +799,7 @@ export class WalletsService {
           balanceAfter: systemRow.new_balance,
           description: 'Garantía retenida (intermediación)',
           reference: ref,
-          metadata: { serviceRequestId, clientUserId },
+          metadata: { ...subject.ref, clientUserId },
         },
       });
 
@@ -790,9 +814,11 @@ export class WalletsService {
   async releaseEscrow(
     serviceRequestId: string,
     providerId: string,
-    amount: MoneyInput
+    amount: MoneyInput,
+    entityType: EscrowEntityType = 'SERVICE_REQUEST'
   ) {
     this.assertPositiveAmount(amount);
+    const subject = escrowSubject(entityType, serviceRequestId);
     const systemUserId = await this.ensureEscrowSystemUserId();
     const systemWallet = await this.ensureWalletForUser(systemUserId);
     const providerWallet = await this.ensureWalletForUser(providerId);
@@ -872,7 +898,7 @@ export class WalletsService {
           balanceAfter: systemRow.new_balance,
           description: 'Garantía liberada (intermediación)',
           reference: ref,
-          metadata: { serviceRequestId, providerId },
+          metadata: { ...subject.ref, providerId },
         },
       });
       const providerTransaction = await tx.walletTransaction.create({
@@ -883,9 +909,9 @@ export class WalletsService {
           status: WalletTransactionStatus.COMPLETED,
           amount,
           balanceAfter: providerRow.new_balance,
-          description: 'Pago de servicio (garantía liberada)',
+          description: `${subject.payment} (garantía liberada)`,
           reference: ref,
-          metadata: { serviceRequestId },
+          metadata: subject.ref,
         },
       });
 
@@ -897,9 +923,11 @@ export class WalletsService {
   async refundEscrow(
     serviceRequestId: string,
     clientUserId: string,
-    amount: MoneyInput
+    amount: MoneyInput,
+    entityType: EscrowEntityType = 'SERVICE_REQUEST'
   ) {
     this.assertPositiveAmount(amount);
+    const subject = escrowSubject(entityType, serviceRequestId);
     const systemUserId = await this.ensureEscrowSystemUserId();
     const systemWallet = await this.ensureWalletForUser(systemUserId);
     const clientWallet = await this.ensureWalletForUser(clientUserId);
@@ -975,7 +1003,7 @@ export class WalletsService {
           balanceAfter: systemRow.new_balance,
           description: 'Reembolso de garantía (intermediación)',
           reference: ref,
-          metadata: { serviceRequestId, clientUserId },
+          metadata: { ...subject.ref, clientUserId },
         },
       });
       const clientTransaction = await tx.walletTransaction.create({
@@ -988,7 +1016,7 @@ export class WalletsService {
           balanceAfter: clientRow.new_balance,
           description: 'Garantía reembolsada',
           reference: ref,
-          metadata: { serviceRequestId },
+          metadata: subject.ref,
         },
       });
 

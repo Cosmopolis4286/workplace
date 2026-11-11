@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { ReportEntityType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
@@ -12,6 +13,12 @@ import {
 } from '../../reputation/reputation.facade';
 import { CreateReportDto } from './dto/create-report.dto';
 import { ModerateReportDto } from './dto/moderate-report.dto';
+
+const PUBLIC_ENTITY_TYPES: ReportEntityType[] = [
+  'SERVICE',
+  'PRODUCT',
+  'COMMERCE',
+];
 
 @Injectable()
 export class ReportsService {
@@ -29,6 +36,21 @@ export class ReportsService {
     }
     if (dto.entityId) {
       await this.assertInvolved(reporterId, dto.entityType, dto.entityId);
+    }
+
+    // Lo publicado (servicios, productos, comercios) lo puede reportar
+    // cualquiera: un mismo usuario no abre un reporte nuevo por cada clic
+    // mientras el anterior sigue sin revisar.
+    if (dto.entityId && PUBLIC_ENTITY_TYPES.includes(dto.entityType)) {
+      const open = await this.prisma.report.findFirst({
+        where: {
+          reporterId,
+          entityType: dto.entityType,
+          entityId: dto.entityId,
+          status: { in: ['PENDING', 'IN_REVIEW'] },
+        },
+      });
+      if (open) return open;
     }
 
     const report = await this.prisma.report.create({
@@ -164,6 +186,37 @@ export class ReportsService {
         where: { id: entityId },
       });
       if (!service) throw new NotFoundException('Servicio no encontrado');
+      return;
+    }
+
+    // Productos y comercios también son contenido público: cualquier usuario
+    // autenticado puede reportarlos, salvo el propio dueño.
+    if (entityType === 'PRODUCT' || entityType === 'COMMERCE') {
+      const commerceId =
+        entityType === 'PRODUCT'
+          ? (
+              await this.prisma.product.findUnique({
+                where: { id: entityId },
+                select: { commerceId: true },
+              })
+            )?.commerceId
+          : entityId;
+      const commerce = commerceId
+        ? await this.prisma.commerce.findUnique({
+            where: { id: commerceId },
+            select: { userId: true },
+          })
+        : null;
+      if (!commerce) {
+        throw new NotFoundException(
+          entityType === 'PRODUCT'
+            ? 'Producto no encontrado'
+            : 'Comercio no encontrado'
+        );
+      }
+      if (commerce.userId === userId) {
+        throw new ForbiddenException('No puedes reportar tu propio comercio');
+      }
       return;
     }
 

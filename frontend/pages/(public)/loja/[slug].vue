@@ -59,6 +59,13 @@
                     Compartir
                   </button>
                 </div>
+                <button
+                  v-if="isAuthenticated"
+                  class="text-xs text-gray-400 hover:text-red-600 hover:underline mt-1"
+                  @click="reportTarget = { type: 'COMMERCE', id: store.id }"
+                >
+                  Reportar este comercio
+                </button>
                 <p v-if="store.type" class="text-sm text-gray-500 mt-0.5">{{ store.type }}</p>
                 <!-- Solo si el dueño activó perfil profesional con slug
                      propio ("opción 2": también cotiza trabajos a medida,
@@ -147,6 +154,13 @@
               <p class="font-semibold text-gray-900 text-sm line-clamp-1">{{ product.name }}</p>
               <p class="text-red-600 font-black text-sm mt-0.5">${{ new Intl.NumberFormat('es-CO').format(product.price) }}</p>
               <p v-if="product.category?.name" class="text-xs text-gray-400 mt-0.5">{{ product.category.name }}</p>
+              <button
+                v-if="isAuthenticated"
+                class="text-[11px] text-gray-400 hover:text-red-600 hover:underline mt-1"
+                @click.stop="reportTarget = { type: 'PRODUCT', id: product.id }"
+              >
+                Reportar
+              </button>
             </div>
           </div>
         </div>
@@ -180,6 +194,15 @@
       @success="onOrderSuccess"
     />
 
+    <!-- ── Modal: Reportar comercio o producto ──────────────────────────── -->
+    <ReportProblemModal
+      v-if="reportTarget"
+      :model-value="true"
+      :entity-type="reportTarget.type"
+      :entity-id="reportTarget.id"
+      @update:model-value="reportTarget = null"
+    />
+
     <!-- ── Modal: Compartir ─────────────────────────────────────────────── -->
     <ShareStoreModal
       v-model="showShareModal"
@@ -194,6 +217,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { StarIcon, MapPinIcon, PhoneIcon, ShareIcon } from '@heroicons/vue/24/outline'
 import CatalogOrderModal from '~/components/modals/CatalogOrderModal.vue'
 import ShareStoreModal from '~/components/modals/ShareStoreModal.vue'
+import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 import { useApi } from '~/composables/core/useApi'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import { useAuth } from '~/composables/auth/useAuth'
@@ -240,6 +264,7 @@ const avatarSrc = computed(() => getAssetUrl(store.value?.user?.avatar))
 const initials = computed(() => (store.value?.name ?? '?').trim().charAt(0).toUpperCase())
 
 const showShareModal = ref(false)
+const reportTarget = ref<{ type: 'COMMERCE' | 'PRODUCT'; id: string } | null>(null)
 const shareUrl = computed(() => `${config.public.siteUrl}/loja/${slug.value}`)
 
 // SEO/compartir: solo se completa una vez que el fetch resuelve (SPA sin
