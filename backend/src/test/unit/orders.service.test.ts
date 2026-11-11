@@ -42,6 +42,12 @@ describe('OrdersService', () => {
     commerce: {
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    product: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      update: jest.fn().mockResolvedValue({}),
+    },
     $transaction: jest.fn((callback: (tx: any) => unknown) =>
       callback(mockPrismaService)
     ),
@@ -792,6 +798,154 @@ describe('OrdersService', () => {
       await expect(service.findOne(orderId, commerceId)).rejects.toThrow(
         NotFoundException
       );
+    });
+  });
+
+  describe('inventario del POS', () => {
+    const commerceId = 'commerce-123';
+    const saleOrder = {
+      id: 'order-1',
+      orderNumber: 'ORD-2026-0001',
+      commerceId,
+      status: 'PENDING',
+      total: 30,
+      items: [
+        { productId: 'p-cafe', quantity: 2 },
+        { productId: 'p-combo', quantity: 1 },
+        { productId: null, quantity: 1 }, // ítem libre sin producto
+      ],
+    };
+
+    beforeEach(() => {
+      mockPrismaService.product.findMany.mockResolvedValue([
+        { id: 'p-cafe', isBundle: false, bundleItems: [] },
+        {
+          id: 'p-combo',
+          isBundle: true,
+          bundleItems: [
+            { componentProductId: 'p-cafe', quantity: 1 },
+            { componentProductId: 'p-pan', quantity: 2 },
+          ],
+        },
+      ]);
+      mockPrismaService.product.findUnique.mockResolvedValue({
+        name: 'Café',
+        stock: 10,
+        minStock: 2,
+        status: 'AVAILABLE',
+      });
+      mockPrismaService.product.updateMany.mockResolvedValue({ count: 1 });
+    });
+
+    it('vender descuenta el stock, y un combo descuenta sus componentes', async () => {
+      mockPrismaService.commerceSettings.findUnique.mockResolvedValue(null);
+      mockPrismaService.order.count.mockResolvedValue(0);
+      mockPrismaService.order.create.mockResolvedValue(saleOrder);
+
+      await service.create(commerceId, {
+        customerName: 'Ana',
+        items: [
+          {
+            productId: 'p-cafe',
+            productName: 'Café',
+            quantity: 2,
+            unitPrice: 5,
+          },
+          {
+            productId: 'p-combo',
+            productName: 'Combo',
+            quantity: 1,
+            unitPrice: 20,
+          },
+        ],
+      } as CreateOrderDto);
+
+      const calls = mockPrismaService.product.updateMany.mock.calls.map(
+        ([a]: any[]) => a
+      );
+      // Café: 2 sueltos + 1 del combo; pan: 2 del combo.
+      expect(calls).toContainEqual({
+        where: { id: 'p-cafe', commerceId, stock: { gte: 3 } },
+        data: { stock: { decrement: 3 } },
+      });
+      expect(calls).toContainEqual({
+        where: { id: 'p-pan', commerceId, stock: { gte: 2 } },
+        data: { stock: { decrement: 2 } },
+      });
+    });
+
+    it('sin stock suficiente la venta no se bloquea: el stock queda en 0', async () => {
+      mockPrismaService.commerceSettings.findUnique.mockResolvedValue(null);
+      mockPrismaService.order.count.mockResolvedValue(0);
+      mockPrismaService.order.create.mockResolvedValue({
+        ...saleOrder,
+        items: [{ productId: 'p-cafe', quantity: 5 }],
+      });
+      mockPrismaService.product.updateMany
+        .mockResolvedValueOnce({ count: 0 }) // no alcanza
+        .mockResolvedValueOnce({ count: 1 }); // se pone en 0
+      mockPrismaService.product.findUnique.mockResolvedValue({
+        name: 'Café',
+        stock: 0,
+        minStock: 2,
+        status: 'AVAILABLE',
+      });
+
+      await expect(
+        service.create(commerceId, {
+          customerName: 'Ana',
+          items: [
+            {
+              productId: 'p-cafe',
+              productName: 'Café',
+              quantity: 5,
+              unitPrice: 5,
+            },
+          ],
+        } as CreateOrderDto)
+      ).resolves.toBeDefined();
+
+      expect(mockPrismaService.product.updateMany).toHaveBeenLastCalledWith({
+        where: { id: 'p-cafe', commerceId },
+        data: { stock: 0 },
+      });
+      expect(mockPrismaService.product.update).toHaveBeenCalledWith({
+        where: { id: 'p-cafe' },
+        data: { status: 'OUT_OF_STOCK' },
+      });
+    });
+
+    it('cancelar devuelve el stock', async () => {
+      mockPrismaService.order.findFirst.mockResolvedValue(saleOrder);
+      mockPrismaService.order.update.mockResolvedValue({
+        ...saleOrder,
+        status: 'CANCELLED',
+      });
+
+      await service.updateStatus('order-1', commerceId, 'CANCELLED' as any);
+
+      const calls = mockPrismaService.product.updateMany.mock.calls.map(
+        ([a]: any[]) => a
+      );
+      expect(calls).toContainEqual({
+        where: { id: 'p-cafe', commerceId },
+        data: { stock: { increment: 3 } },
+      });
+    });
+
+    it('borrar un pedido pendiente devuelve el stock', async () => {
+      mockPrismaService.order.findFirst.mockResolvedValue(saleOrder);
+      mockPrismaService.order.delete.mockResolvedValue(saleOrder);
+
+      await service.remove('order-1', commerceId);
+
+      const calls = mockPrismaService.product.updateMany.mock.calls.map(
+        ([a]: any[]) => a
+      );
+      expect(calls).toContainEqual({
+        where: { id: 'p-pan', commerceId },
+        data: { stock: { increment: 2 } },
+      });
     });
   });
 

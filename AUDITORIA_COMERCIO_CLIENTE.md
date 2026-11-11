@@ -24,10 +24,11 @@ Severidad:
 | A4 totalSpent doble | ✅ Resuelto. |
 | A6 comisión en ventas POS | ✅ Decisión del dueño: **no** se cobra comisión sobre las ventas del POS. Se quitó del código. |
 | A7 tasas por defecto | ✅ Seed: CATALOG_ORDER 5 % (paga el comercio), SERVICE_REQUEST 10 %. Editables por SUPERADMIN. |
-| A8 BNPL | ✅ Decisión: oculto hasta tener credenciales (`BNPL_ENABLED` / `NUXT_PUBLIC_BNPL_ENABLED`, apagados por defecto). Endurecer el webhook queda para cuando se integre. |
+| A8 BNPL | ✅ Decisión: oculto hasta tener credenciales (`BNPL_ENABLED`, apagado por defecto). El webhook ya está endurecido: solo resuelve transacciones PENDING, de forma atómica, y compara el secreto en tiempo constante. |
 | M2 KYC | ✅ Decisión: KYC para toda compra. Ya se exige en pedidos de catálogo, solicitudes de servicio y viajes. |
 | A9 doble aprobación de depósito | ✅ Resuelto en PR #84. |
-| A2, A5, M1, M3–M8 | Pendientes. |
+| A5 stock del POS | ✅ Vender descuenta el stock (los combos, sus componentes); sin stock suficiente la venta no se bloquea y el stock queda en 0; cancelar o borrar el pedido lo devuelve. |
+| A2, M1, M3–M8 | Pendientes. |
 
 ---
 

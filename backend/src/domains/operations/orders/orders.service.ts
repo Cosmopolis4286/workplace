@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -11,7 +12,7 @@ import { TelegramService } from '../../engagement/telegram/telegram.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
-import { OrderStatus, Prisma } from '@prisma/client';
+import { OrderStatus, Prisma, ProductStatus } from '@prisma/client';
 import {
   PlanLimitsFacade,
   PLAN_LIMITS_FACADE,
@@ -48,6 +49,8 @@ const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly commerceResolver: CommerceResolverService,
@@ -62,6 +65,91 @@ export class OrdersService {
   // ──────────────────────────────────────────────────────────────────────────
   // Helpers
   // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Mueve el inventario por una venta del POS: direction -1 al vender, +1 al
+   * cancelar o borrar el pedido. Un pack mueve sus componentes (igual que el
+   * catálogo). A diferencia del catálogo, vender por mostrador nunca se
+   * bloquea por falta de stock (el producto existe; lo desalineado es el
+   * registro): el stock baja hasta 0 como mínimo. Solo cuenta productos de
+   * este comercio. Devuelve los que quedaron en stock bajo o agotados.
+   */
+  private async moveStock(
+    tx: Prisma.TransactionClient,
+    commerceId: string,
+    items: { productId: string | null; quantity: number }[],
+    direction: 1 | -1
+  ) {
+    const ids = [
+      ...new Set(
+        items.map((i) => i.productId).filter((id): id is string => !!id)
+      ),
+    ];
+    if (ids.length === 0) return [];
+    const products = await tx.product.findMany({
+      where: { id: { in: ids }, commerceId },
+      select: {
+        id: true,
+        isBundle: true,
+        bundleItems: { select: { componentProductId: true, quantity: true } },
+      },
+    });
+    const byId = new Map(products.map((p) => [p.id, p]));
+
+    const deltas = new Map<string, number>();
+    const add = (id: string, qty: number) =>
+      deltas.set(id, (deltas.get(id) ?? 0) + qty);
+    for (const item of items) {
+      const product = item.productId ? byId.get(item.productId) : undefined;
+      if (!product) continue;
+      if (product.isBundle) {
+        for (const c of product.bundleItems)
+          add(c.componentProductId, c.quantity * item.quantity);
+      } else {
+        add(product.id, item.quantity);
+      }
+    }
+
+    const low: { name: string; stock: number }[] = [];
+    for (const [productId, qty] of deltas) {
+      if (direction === 1) {
+        await tx.product.updateMany({
+          where: { id: productId, commerceId },
+          data: { stock: { increment: qty } },
+        });
+      } else {
+        const taken = await tx.product.updateMany({
+          where: { id: productId, commerceId, stock: { gte: qty } },
+          data: { stock: { decrement: qty } },
+        });
+        if (taken.count === 0) {
+          await tx.product.updateMany({
+            where: { id: productId, commerceId },
+            data: { stock: 0 },
+          });
+        }
+      }
+      const product = await tx.product.findUnique({
+        where: { id: productId },
+        select: { name: true, stock: true, minStock: true, status: true },
+      });
+      // UNAVAILABLE lo decide el comercio; solo se recalculan estados de stock.
+      if (!product || product.status === ProductStatus.UNAVAILABLE) continue;
+      const status =
+        product.stock === 0
+          ? ProductStatus.OUT_OF_STOCK
+          : product.stock <= product.minStock
+            ? ProductStatus.LOW_STOCK
+            : ProductStatus.AVAILABLE;
+      if (status !== product.status) {
+        await tx.product.update({ where: { id: productId }, data: { status } });
+      }
+      if (direction === -1 && status !== ProductStatus.AVAILABLE) {
+        low.push({ name: product.name, stock: product.stock });
+      }
+    }
+    return low;
+  }
   async getCommerceId(userId: string): Promise<string> {
     return this.commerceResolver.resolve(userId);
   }
@@ -372,6 +460,24 @@ export class OrdersService {
       }
     }
 
+    // Inventario: antes las ventas del POS no descontaban stock y el
+    // inventario se desalineaba en cuanto se vendía por mostrador. Un fallo
+    // acá no deshace la venta (ya registrada): se deja en el log.
+    try {
+      const low = await this.prisma.$transaction((tx) =>
+        this.moveStock(tx, commerceId, order.items, -1)
+      );
+      for (const p of low) {
+        this.notifications
+          .notifyLowStock(commerceId, p.name, p.stock)
+          .catch(() => null);
+      }
+    } catch (err) {
+      this.logger.warn(
+        `No se pudo descontar el stock del pedido ${orderNumber}: ${(err as Error).message}`
+      );
+    }
+
     // Update customer stats if linked
     if (dto.customerId) {
       await this.prisma.customer.update({
@@ -448,6 +554,10 @@ export class OrdersService {
     const updated = await this.prisma.$transaction(async (tx) => {
       // totalSpent ya se sumó al crear el pedido (create()); sumarlo otra vez
       // al entregar lo contaba doble. Al cancelar se resta lo sumado.
+      // Cancelar devuelve al inventario lo que se descontó al vender.
+      if (dto.status === 'CANCELLED' && existing.status !== 'CANCELLED') {
+        await this.moveStock(tx, commerceId, existing.items, 1);
+      }
       if (dto.status === 'CANCELLED' && existing.customerId) {
         await tx.customer.update({
           where: { id: existing.customerId },
@@ -603,7 +713,11 @@ export class OrdersService {
         'Solo se pueden eliminar pedidos en estado PENDING'
       );
     }
-    await this.prisma.order.delete({ where: { id } });
+    // Borrar el pedido devuelve al inventario lo que se descontó al crearlo.
+    await this.prisma.$transaction(async (tx) => {
+      await this.moveStock(tx, commerceId, order.items, 1);
+      await tx.order.delete({ where: { id } });
+    });
     return { message: 'Pedido eliminado' };
   }
 
