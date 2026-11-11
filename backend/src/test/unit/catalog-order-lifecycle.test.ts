@@ -37,6 +37,7 @@ describe('CatalogService — cancelación, stock y plazos de garantía', () => {
           Promise.resolve({ ...order(), ...data })
         ),
       },
+      report: { findMany: jest.fn().mockResolvedValue([]) },
       catalogOrderItem: {
         findMany: jest.fn().mockResolvedValue([
           { productId: 'p-cafe', quantity: 2, isBundle: false },
@@ -191,7 +192,81 @@ describe('CatalogService — cancelación, stock y plazos de garantía', () => {
       expect(second.OR[0].statusUpdatedAt.lt).toEqual(
         new Date('2026-11-03T12:00:00Z')
       );
-      expect(first.escrowStatus).toBe('HELD');
+      // Sin respuesta del comercio: también los pedidos sin garantía.
+      expect(first.escrowStatus).toEqual({ in: ['HELD', 'NONE'] });
+    });
+
+    it('cierra los pedidos que el comercio marcó entregados hace 72 h, salvo los reportados', async () => {
+      const entregado = order({
+        id: 'o-entregado-sin-garantia',
+        status: 'CONTACTED',
+        escrowStatus: 'NONE',
+        escrowAmount: null,
+        totalEstimate: new Prisma.Decimal(40),
+        commerceCompletedAt: new Date('2026-11-05T12:00:00Z'),
+      });
+      const reportado = order({
+        id: 'o-reportado',
+        status: 'CONTACTED',
+        escrowStatus: 'NONE',
+        commerceCompletedAt: new Date('2026-11-05T12:00:00Z'),
+      });
+      prisma.catalogOrder.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([entregado, reportado]);
+      prisma.report.findMany.mockResolvedValue([{ entityId: 'o-reportado' }]);
+      fees.resolveFeeConfig.mockResolvedValue({ rate: 5, payer: 'PROVIDER' });
+      fees.calculateFee.mockReturnValue({ feeAmount: 2 });
+
+      const now = new Date('2026-11-10T12:00:00Z');
+      const result = await service.enforceEscrowDeadlines(now);
+
+      expect(result.released).toBe(1);
+      const third = prisma.catalogOrder.findMany.mock.calls[2][0].where;
+      expect(third.commerceCompletedAt.lte).toEqual(
+        new Date('2026-11-07T12:00:00Z')
+      );
+      // Sin garantía la comisión va al estado de cuenta del comercio.
+      expect(fees.chargeProviderFee).toHaveBeenCalledTimes(1);
+      expect(fees.chargeProviderFee).toHaveBeenCalledWith(
+        'CATALOG_ORDER',
+        'owner-1',
+        2,
+        'FEE-CATALOG-o-entregado-sin-garantia',
+        { catalogOrderId: 'o-entregado-sin-garantia' },
+        { collected: false }
+      );
+      expect(escrow.release).not.toHaveBeenCalled();
+    });
+
+    it('marcar entregado solo desde CONTACTED y avisa al comprador', async () => {
+      prisma.catalogOrder.findUnique.mockResolvedValue(
+        order({
+          status: 'CONTACTED',
+          escrowStatus: 'NONE',
+          commerceCompletedAt: null,
+        })
+      );
+      prisma.catalogOrder.update.mockImplementation(({ data }: any) =>
+        Promise.resolve({ ...order(), ...data })
+      );
+      const result = await service.markOrderDelivered('order-1', 'commerce-1');
+      expect(result.data.commerceCompletedAt).toBeInstanceOf(Date);
+      expect(notifications.createForUser).toHaveBeenCalledWith(
+        REQUESTER_ID,
+        expect.objectContaining({ title: 'Tu pedido fue entregado' })
+      );
+
+      prisma.catalogOrder.findUnique.mockResolvedValue(
+        order({ status: 'PENDING' })
+      );
+      await expect(
+        service.markOrderDelivered('order-1', 'commerce-1')
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.markOrderDelivered('order-1', 'otro-comercio')
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('un fallo en un pedido no frena a los demás', async () => {

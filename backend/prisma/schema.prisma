@@ -2235,6 +2235,11 @@ model CatalogOrder {
   // si el comercio no responde, auto-liberación si el comprador no confirma).
   statusUpdatedAt DateTime?
 
+  // El comercio marcó el pedido como entregado: el comprador tiene 72 h para
+  // confirmar o reportar un problema; si no, se cierra solo (y se registra
+  // la comisión). Mismo criterio que ServiceRequest.providerCompletedAt.
+  commerceCompletedAt DateTime?
+
   createdAt DateTime @default(now())
 
   @@index([commerceId])

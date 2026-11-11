@@ -13,6 +13,7 @@ import {
   ArrayMaxSize,
 } from 'class-validator';
 import { ServiceStatus } from '@prisma/client';
+import { NoContactInfo } from '../../../../common/validators/no-contact-info.validator';
 
 export class CreateServiceDto {
   @IsString()
@@ -22,6 +23,7 @@ export class CreateServiceDto {
   @IsOptional()
   @IsString()
   @MaxLength(1000)
+  @NoContactInfo()
   description?: string;
 
   // > 0: un servicio publicado a $0 no puede cobrarse ni retener garantía

@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ServiceRequestMessagesService } from '../../domains/commerce-core/services/messages/service-request-messages.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
@@ -123,6 +127,34 @@ describe('ServiceRequestMessagesService', () => {
         'Servicio Uno',
         REQUEST_ID
       );
+    });
+
+    it('rechaza mensajes con datos de contacto en cualquier estado, sin guardarlos', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({ status: 'CONTACTED' })
+      );
+      await expect(
+        service.send(REQUEST_ID, PROVIDER_ID, {
+          body: 'escríbeme al 0414 123 45 67',
+        } as any)
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(
+        mockPrismaService.serviceRequestMessage.create
+      ).not.toHaveBeenCalled();
+      expect(
+        mockNotificationsService.notifyNewServiceRequestMessage
+      ).not.toHaveBeenCalled();
+    });
+
+    it('muestra con el contacto oculto los mensajes enviados antes del filtro', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest()
+      );
+      mockPrismaService.serviceRequestMessage.findMany.mockResolvedValue([
+        { id: 'm1', body: 'mi correo es ana@gmail.com' },
+      ]);
+      const [msg] = await service.list(REQUEST_ID, CLIENT_ID);
+      expect(msg.body).not.toContain('ana@gmail.com');
     });
 
     it('notifica al proveedor cuando el remitente es el cliente', async () => {

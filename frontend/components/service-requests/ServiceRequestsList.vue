@@ -180,8 +180,8 @@ export interface ServiceRequest {
   address?: string
   city?: string
   clientName: string
-  clientPhone: string
-  clientEmail?: string
+  clientPhone: string | null
+  clientEmail?: string | null
   description?: string
   price?: number
   priceUnit?: string

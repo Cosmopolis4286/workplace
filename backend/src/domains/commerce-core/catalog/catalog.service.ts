@@ -25,6 +25,7 @@ import {
 import { InsufficientEscrowFundsError } from '../../money/wallets/wallet.errors';
 import { v4 as uuidv4 } from 'uuid';
 import { features } from '../../../common/config/features';
+
 import {
   add,
   gt,
@@ -36,6 +37,9 @@ import {
   toDecimal,
   toNumber,
 } from '../../../common/money/money';
+
+// Plazo del comprador para confirmar o reportar tras "entregado".
+export const CATALOG_AUTO_CLOSE_HOURS = 72;
 
 function attachProductRating<
   T extends {
@@ -1216,10 +1220,12 @@ export class CatalogService {
       ],
     });
 
-    const [unanswered, unconfirmed] = await Promise.all([
+    const [unanswered, unconfirmed, delivered] = await Promise.all([
+      // Sin respuesta del comercio: con o sin garantía (sin garantía, el
+      // pedido igual tenía el stock reservado indefinidamente).
       this.prisma.catalogOrder.findMany({
         where: {
-          escrowStatus: 'HELD',
+          escrowStatus: { in: ['HELD', 'NONE'] },
           status: { in: ['PENDING', 'SEEN'] },
           ...olderThan(before(days('CATALOG_ESCROW_RESPONSE_DAYS', 3))),
         },
@@ -1233,6 +1239,18 @@ export class CatalogService {
         },
         take: 100,
       }),
+      // El comercio marcó el pedido entregado y el comprador no confirmó ni
+      // reportó en 72 h: se cierra (y se registra la comisión). Antes, sin
+      // garantía, estos pedidos quedaban CONTACTED para siempre y la venta
+      // nunca generaba comisión.
+      this.prisma.catalogOrder.findMany({
+        where: {
+          escrowStatus: { in: ['HELD', 'NONE'] },
+          status: 'CONTACTED',
+          commerceCompletedAt: { lte: before(CATALOG_AUTO_CLOSE_HOURS / 24) },
+        },
+        take: 100,
+      }),
     ]);
 
     let refunded = 0;
@@ -1242,11 +1260,16 @@ export class CatalogService {
         await this.cancelOrder(order);
         refunded++;
         if (order.requesterId) {
+          const hadEscrow = order.escrowStatus === 'HELD';
           this.notifications
             .createForUser(order.requesterId, {
               type: NotificationType.ORDER,
-              title: 'Pedido cancelado y reembolsado',
-              message: `${order.commerceName} no respondió a tu pedido a tiempo. Te devolvimos el dinero a la billetera.`,
+              title: hadEscrow
+                ? 'Pedido cancelado y reembolsado'
+                : 'Pedido cancelado',
+              message: hadEscrow
+                ? `${order.commerceName} no respondió a tu pedido a tiempo. Te devolvimos el dinero a la billetera.`
+                : `${order.commerceName} no respondió a tu pedido a tiempo, así que lo cancelamos.`,
               link: '/my-orders',
             })
             .catch(() => {});
@@ -1257,7 +1280,24 @@ export class CatalogService {
         );
       }
     }
-    for (const order of unconfirmed) {
+    // Un reporte abierto del comprador frena el cierre automático: lo revisa
+    // soporte antes de cobrar la comisión.
+    const byId = new Map(
+      [...unconfirmed, ...delivered].map((o) => [o.id, o] as const)
+    );
+    const reported = byId.size
+      ? await this.prisma.report.findMany({
+          where: {
+            entityType: 'CATALOG_ORDER',
+            entityId: { in: [...byId.keys()] },
+            status: { in: ['PENDING', 'IN_REVIEW'] },
+          },
+          select: { entityId: true },
+        })
+      : [];
+    for (const r of reported) if (r.entityId) byId.delete(r.entityId);
+
+    for (const order of byId.values()) {
       try {
         await this.completeOrder(order);
         released++;
@@ -1268,6 +1308,43 @@ export class CatalogService {
       }
     }
     return { refunded, released };
+  }
+
+  // El comercio avisa que entregó el pedido. El comprador tiene
+  // CATALOG_AUTO_CLOSE_HOURS para confirmar o reportar un problema; si no hace
+  // nada, enforceEscrowDeadlines lo cierra (registra la comisión y, si había
+  // garantía, la libera).
+  async markOrderDelivered(id: string, commerceId: string) {
+    const order = await this.prisma.catalogOrder.findUnique({ where: { id } });
+    if (!order) throw new NotFoundException('Pedido no encontrado');
+    if (order.commerceId !== commerceId) throw new ForbiddenException();
+    if (order.status !== 'CONTACTED') {
+      throw new BadRequestException(
+        'Solo puedes marcar como entregado un pedido en curso (contactado)'
+      );
+    }
+    if (order.escrowStatus === 'DISPUTED') {
+      throw new BadRequestException(
+        'Hay una disputa abierta: soporte la está revisando'
+      );
+    }
+    if (order.commerceCompletedAt) return { data: order };
+
+    const updated = await this.prisma.catalogOrder.update({
+      where: { id },
+      data: { commerceCompletedAt: new Date() },
+    });
+    if (order.requesterId) {
+      this.notifications
+        .createForUser(order.requesterId, {
+          type: NotificationType.ORDER,
+          title: 'Tu pedido fue entregado',
+          message: `${order.commerceName} marcó tu pedido como entregado. Confírmalo o reporta un problema en las próximas ${CATALOG_AUTO_CLOSE_HOURS} h; si no, se cerrará automáticamente.`,
+          link: '/my-orders',
+        })
+        .catch(() => {});
+    }
+    return { data: updated };
   }
 
   // El comprador O el comercio pueden disputar un pedido con garantía

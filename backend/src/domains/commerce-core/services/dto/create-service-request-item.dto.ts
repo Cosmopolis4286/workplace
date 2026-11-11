@@ -6,6 +6,7 @@ import {
   ArrayMaxSize,
   MaxLength,
 } from 'class-validator';
+import { NoContactInfo } from '../../../../common/validators/no-contact-info.validator';
 
 export class CreateServiceRequestItemDto {
   @IsOptional()
@@ -15,6 +16,7 @@ export class CreateServiceRequestItemDto {
   @IsOptional()
   @IsString()
   @MaxLength(300)
+  @NoContactInfo()
   notes?: string;
 
   @IsOptional()

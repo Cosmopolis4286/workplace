@@ -53,6 +53,14 @@
         </div>
         <div class="flex-shrink-0 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
+            v-if="mo.status === 'CONTACTED' && !mo.commerceCompletedAt"
+            class="text-xs px-2 py-1 rounded-lg font-medium transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700 disabled:opacity-50"
+            :disabled="updatingId === mo.id"
+            title="El comprador tiene 72 h para confirmar o reportar un problema; si no, se cierra solo"
+            @click="markDelivered(mo.id)"
+          >Marcar entregado</button>
+          <span v-else-if="mo.status === 'CONTACTED'" class="text-[10px] text-gray-500 text-center">Entregado · esperando al comprador</span>
+          <button
             v-for="ns in MKT_NEXT_STATUS[mo.status]"
             :key="ns"
             class="text-xs px-2 py-1 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -87,7 +95,7 @@ import { useDateFormat } from '~/composables/core/useDateFormat'
 type MktOrderStatus = 'PENDING' | 'SEEN' | 'CONTACTED' | 'CLOSED'
 type MktDeliveryType = 'HOME_DELIVERY' | 'PICKUP' | 'DIGITAL'
 interface MktOrderItem { productId: string; productName: string; unitPrice: number; quantity: number; isBundle: boolean }
-interface MktOrder { id: string; items: MktOrderItem[]; deliveryType: MktDeliveryType; address?: string; city?: string; buyerName: string; buyerPhone: string; buyerEmail?: string; notes?: string; totalEstimate?: number; status: MktOrderStatus; createdAt: string }
+interface MktOrder { id: string; commerceCompletedAt?: string | null; items: MktOrderItem[]; deliveryType: MktDeliveryType; address?: string; city?: string; buyerName: string; buyerPhone: string; buyerEmail?: string; notes?: string; totalEstimate?: number; status: MktOrderStatus; createdAt: string }
 
 function itemsSummary(order: MktOrder): string {
   if (!order.items?.length) return ''
@@ -98,7 +106,7 @@ function itemsSummary(order: MktOrder): string {
 
 const MKT_STATUS_LABELS: Record<MktOrderStatus, string>  = { PENDING: 'Pendiente', SEEN: 'Visto', CONTACTED: 'Contactado', CLOSED: 'Cerrado' }
 const MKT_STATUS_CLASSES: Record<MktOrderStatus, string>  = { PENDING: 'bg-orange-100 text-orange-700', SEEN: 'bg-blue-100 text-blue-700', CONTACTED: 'bg-green-100 text-green-700', CLOSED: 'bg-gray-100 text-gray-500' }
-const MKT_NEXT_STATUS: Record<MktOrderStatus, MktOrderStatus[]> = { PENDING: ['SEEN', 'CONTACTED'], SEEN: ['CONTACTED'], CONTACTED: ['CLOSED'], CLOSED: [] }
+const MKT_NEXT_STATUS: Record<MktOrderStatus, MktOrderStatus[]> = { PENDING: ['SEEN', 'CONTACTED'], SEEN: ['CONTACTED'], CONTACTED: [], CLOSED: [] }
 const MKT_DELIVERY_LABELS: Record<MktDeliveryType, string> = { HOME_DELIVERY: '🛵 Domicilio', PICKUP: '🏪 Recoger', DIGITAL: '💻 Digital' }
 
 const { formatDateTimeShort } = useDateFormat()
@@ -130,6 +138,21 @@ async function updateStatus(id: string, status: MktOrderStatus) {
     await patch(`/catalog/orders/${id}/status`, { status })
     const o = orders.value.find(o => o.id === id)
     if (o) o.status = status
+  } catch { } finally {
+    updatingId.value = null
+  }
+}
+
+// El cierre (CLOSED) lo hace el comprador o el cierre automático; el comercio
+// solo avisa que entregó.
+async function markDelivered(id: string) {
+  if (updatingId.value) return
+  updatingId.value = id
+  try {
+    const { patch } = useApi()
+    await patch(`/catalog/orders/${id}/delivered`, {})
+    const o = orders.value.find(o => o.id === id)
+    if (o) o.commerceCompletedAt = new Date().toISOString()
   } catch { } finally {
     updatingId.value = null
   }

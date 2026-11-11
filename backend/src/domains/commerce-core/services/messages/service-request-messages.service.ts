@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -6,6 +7,11 @@ import {
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { NotificationsService } from '../../../engagement/notifications/notifications.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import {
+  CONTACT_INFO_NOT_ALLOWED_MESSAGE,
+  detectContactInfo,
+  redactContacts,
+} from '../../../../common/utils/contact-redaction.util';
 
 @Injectable()
 export class ServiceRequestMessagesService {
@@ -28,6 +34,7 @@ export class ServiceRequestMessagesService {
         providerName: true,
         serviceName: true,
         clientName: true,
+        status: true,
       },
     });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
@@ -41,7 +48,7 @@ export class ServiceRequestMessagesService {
 
   async list(serviceRequestId: string, userId: string) {
     await this.assertParticipant(serviceRequestId, userId);
-    return this.prisma.serviceRequestMessage.findMany({
+    const messages = await this.prisma.serviceRequestMessage.findMany({
       where: { serviceRequestId },
       orderBy: { createdAt: 'asc' },
       include: {
@@ -50,13 +57,23 @@ export class ServiceRequestMessagesService {
         },
       },
     });
+    // Mensajes enviados antes del filtro: se muestran con el contacto oculto.
+    return messages.map((m) => ({ ...m, body: redactContacts(m.body).text }));
   }
 
   async send(serviceRequestId: string, userId: string, dto: CreateMessageDto) {
     const req = await this.assertParticipant(serviceRequestId, userId);
 
+    // Toda la conversación se hace dentro de WorkPlace: no se aceptan
+    // teléfonos, correos, enlaces de mensajería ni usuarios de redes, en
+    // ningún estado. El DTO ya lo valida; esto es la segunda barrera.
+    const body = dto.body.trim();
+    if (detectContactInfo(body).length) {
+      throw new BadRequestException(CONTACT_INFO_NOT_ALLOWED_MESSAGE);
+    }
+
     const message = await this.prisma.serviceRequestMessage.create({
-      data: { serviceRequestId, senderId: userId, body: dto.body.trim() },
+      data: { serviceRequestId, senderId: userId, body },
       include: {
         sender: {
           select: { id: true, firstName: true, lastName: true, avatar: true },
