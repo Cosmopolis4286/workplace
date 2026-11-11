@@ -187,13 +187,16 @@
 
               <!-- Datos de contacto (solo proveedor) -->
               <div v-if="isProvider" class="border border-gray-100 rounded-xl p-4">
-                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Datos de contacto</p>
+                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Cliente</p>
                 <div class="space-y-2">
                   <div class="flex items-center gap-2.5">
                     <UserIcon class="h-3.5 w-3.5 text-gray-400" />
                     <span class="text-sm text-gray-900 font-medium">{{ req.clientName }}</span>
                   </div>
-                  <div class="flex items-center gap-2.5">
+                  <p v-if="req.contactHidden" class="text-xs text-gray-500">
+                    Coordina con el cliente por el chat de la solicitud. Sus datos de contacto no se comparten.
+                  </p>
+                  <div v-if="req.clientPhone" class="flex items-center gap-2.5">
                     <PhoneIcon class="h-3.5 w-3.5 text-gray-400" />
                     <a :href="`tel:${req.clientPhone}`" class="text-sm text-blue-600 hover:underline font-medium">{{ req.clientPhone }}</a>
                   </div>
@@ -484,8 +487,9 @@ interface ServiceRequest {
   address?: string
   city?: string
   clientName: string
-  clientPhone: string
-  clientEmail?: string
+  clientPhone: string | null
+  clientEmail?: string | null
+  contactHidden?: boolean
   description?: string
   price?: number
   priceUnit?: string

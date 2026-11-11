@@ -14,6 +14,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CatalogDeliveryType } from '@prisma/client';
+import { NoContactInfo } from '../../../../common/validators/no-contact-info.validator';
 
 export class CreateCatalogOrderItemDto {
   @IsString()
@@ -64,5 +65,6 @@ export class CreateCatalogOrderDto {
   @IsOptional()
   @IsString()
   @MaxLength(500)
+  @NoContactInfo()
   notes?: string;
 }

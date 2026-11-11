@@ -107,6 +107,15 @@ export class CatalogController {
     return this.catalogService.updateOrderStatus(id, commerceId, status);
   }
 
+  @Patch('orders/:id/delivered')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard)
+  @RequireCapability('HAS_COMMERCE')
+  @RequirePermission('catalog:manage_orders')
+  async markDelivered(@Param('id') id: string, @CurrentUser() user: any) {
+    const commerceId = await this.commerceResolver.resolve(user.id);
+    return this.catalogService.markOrderDelivered(id, commerceId);
+  }
+
   @Patch('orders/:id/confirm-completion')
   @UseGuards(JwtAuthGuard)
   confirmCompletion(@Param('id') id: string, @CurrentUser() user: any) {

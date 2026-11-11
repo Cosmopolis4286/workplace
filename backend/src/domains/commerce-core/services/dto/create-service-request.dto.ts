@@ -17,6 +17,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateServiceRequestItemDto } from './create-service-request-item.dto';
+import { NoContactInfo } from '../../../../common/validators/no-contact-info.validator';
 
 @ValidatorConstraint({ name: 'isFutureDate' })
 export class IsFutureDateConstraint implements ValidatorConstraintInterface {
@@ -98,6 +99,7 @@ export class CreateServiceRequestDto {
   @IsString()
   @IsOptional()
   @MaxLength(600, { message: 'La descripción no puede superar 600 caracteres' })
+  @NoContactInfo()
   description?: string;
 
   @IsNumber()

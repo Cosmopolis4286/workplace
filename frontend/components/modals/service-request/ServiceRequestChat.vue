@@ -28,6 +28,10 @@
       </div>
     </div>
 
+    <p class="px-3 pt-2 text-[11px] text-gray-500">
+      Coordina todo por este chat. Por seguridad no se permiten teléfonos, correos, enlaces ni usuarios de redes.
+    </p>
+    <p v-if="sendError" class="px-3 pt-1 text-xs text-red-600">{{ sendError }}</p>
     <form class="flex items-center gap-2 border-t border-gray-100 p-3" @submit.prevent="handleSendMessage">
       <input
         v-model="messageInput"
@@ -51,6 +55,7 @@
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { ChatBubbleLeftRightIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline'
 import { useServiceRequestMessages, type ServiceRequestMessage } from '~/composables/services/useServiceRequestMessages'
+import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 const props = defineProps<{
   requestId: string
@@ -64,6 +69,7 @@ const { fetchMessages, sendMessage, markRead } = useServiceRequestMessages()
 const messages = ref<ServiceRequestMessage[]>([])
 const loadingMessages = ref(false)
 const sendingMessage = ref(false)
+const sendError = ref<string | null>(null)
 const messageInput = ref('')
 const messagesScrollEl = ref<HTMLElement | null>(null)
 let messagesPollTimer: ReturnType<typeof setInterval> | null = null
@@ -108,13 +114,16 @@ async function handleSendMessage() {
   const body = messageInput.value.trim()
   if (!body || sendingMessage.value) return
   sendingMessage.value = true
+  sendError.value = null
   try {
     const created = await sendMessage(props.requestId, body)
     messages.value.push(created)
     messageInput.value = ''
     scrollMessagesToBottom()
-  } catch {
-    // el error queda expuesto vía `error` del composable si se necesita mostrar
+  } catch (e) {
+    // El backend rechaza datos de contacto: se muestra el motivo y el texto
+    // queda en el campo para corregirlo.
+    sendError.value = getApiErrorMessage(e, 'No se pudo enviar el mensaje')
   } finally {
     sendingMessage.value = false
   }

@@ -7,6 +7,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { ServiceRequestStatus } from '@prisma/client';
+import { NoContactInfo } from '../../../../common/validators/no-contact-info.validator';
 
 export class UpdateServiceRequestDto {
   @IsOptional()
@@ -16,6 +17,7 @@ export class UpdateServiceRequestDto {
   @IsOptional()
   @IsString()
   @MaxLength(500)
+  @NoContactInfo()
   providerNotes?: string;
 
   @IsOptional()

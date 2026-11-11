@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateServiceRequestItemDto } from './create-service-request-item.dto';
+import { NoContactInfo } from '../../../../common/validators/no-contact-info.validator';
 
 export class CreatePriceChangeProposalDto {
   @IsNumber()
@@ -20,6 +21,7 @@ export class CreatePriceChangeProposalDto {
   @IsOptional()
   @IsString()
   @MaxLength(500)
+  @NoContactInfo()
   note?: string;
 
   @IsArray()

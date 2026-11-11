@@ -107,6 +107,33 @@ function attachRating<
   return { ...item, user: { ...userWithoutReviews, rating, reviewsCount } };
 }
 
+// Toda la conversación entre cliente y proveedor se hace por el chat de la
+// solicitud: el proveedor nunca recibe el teléfono ni el correo del cliente.
+// La dirección del servicio solo se muestra cuando el proveedor ya aceptó
+// (CONTACTED en adelante), porque la necesita para hacer el trabajo.
+// Antes recibía todo desde que entraba la solicitud y podía cerrar el trato
+// por fuera (rechazándola en la app) sin que la plataforma participara.
+const ADDRESS_HIDDEN_STATUSES = ['PENDING', 'SEEN', 'REJECTED', 'CANCELLED'];
+
+export function withClientContactForViewer<
+  T extends {
+    providerId: string;
+    status: string;
+    clientPhone: string | null;
+    clientEmail: string | null;
+    address: string | null;
+  },
+>(req: T, viewerId: string | null): T & { contactHidden: boolean } {
+  if (viewerId !== req.providerId) return { ...req, contactHidden: false };
+  return {
+    ...req,
+    clientPhone: null,
+    clientEmail: null,
+    address: ADDRESS_HIDDEN_STATUSES.includes(req.status) ? null : req.address,
+    contactHidden: true,
+  };
+}
+
 @Injectable()
 export class ServicesService {
   private readonly logger = new Logger(ServicesService.name);
@@ -856,8 +883,9 @@ export class ServicesService {
       }),
       this.prisma.serviceRequest.count({ where }),
     ]);
+    const withAvatars = await this.withAvatars(data);
     return {
-      data: await this.withAvatars(data),
+      data: withAvatars.map((r) => withClientContactForViewer(r, userId)),
       total,
       page,
       limit,
@@ -941,7 +969,8 @@ export class ServicesService {
     if (req.providerId !== userId && req.requesterId !== userId)
       throw new ForbiddenException('No tienes permiso');
 
-    const [withAvatar] = await this.withAvatars([req]);
+    const [avatarRow] = await this.withAvatars([req]);
+    const withAvatar = withClientContactForViewer(avatarRow, userId);
 
     // Sugerencia de precio para el proveedor: solo tiene sentido antes de cerrar el trato.
     if (
@@ -1204,7 +1233,7 @@ export class ServicesService {
       }
     }
 
-    return updated;
+    return withClientContactForViewer(updated, userId);
   }
 
   // Empuja al cliente a dejar una reseña verificada apenas se cierra el trato,
