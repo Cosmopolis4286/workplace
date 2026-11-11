@@ -71,7 +71,7 @@
         <WalletIcon class="h-7 w-7 text-workplace-red" />
       </div>
       <h3 class="text-base font-semibold text-gray-900 mb-1">Todavía no tienes billetera</h3>
-      <p class="text-sm text-gray-500 mb-5">Aquí recibes devoluciones y cobros de Pago Protegido, y los retiras a tu banco.</p>
+      <p class="text-sm text-gray-500 mb-5">Aquí aparece el saldo de operaciones con garantía (devoluciones o cobros), y lo retiras a tu banco.</p>
       <button class="btn-primary inline-flex items-center gap-2" @click="$emit('create')">
         <PlusIcon class="h-5 w-5" />Crear mi billetera
       </button>
