@@ -28,6 +28,8 @@ Severidad:
 | M2 KYC | ✅ Decisión: KYC para toda compra. Ya se exige en pedidos de catálogo, solicitudes de servicio y viajes. |
 | A9 doble aprobación de depósito | ✅ Resuelto en PR #84. |
 | A5 stock del POS | ✅ Vender descuenta el stock (los combos, sus componentes); sin stock suficiente la venta no se bloquea y el stock queda en 0; cancelar o borrar el pedido lo devuelve. |
+| A2 conciliación / ingresos de plataforma | ✅ Parcial: la conciliación usa la tabla `Escrow` (servicios y catálogo; HELD + DISPUTED) y separa las comisiones retenidas (entrado − liberado − reembolsado de cada garantía cerrada), visibles en el panel de wallets. Sigue pendiente mover esas comisiones a una cuenta propia de ingresos. Garantías anteriores a la tabla `Escrow` (sep. 2026) no se cuentan: no hay datos de producción. |
+| M1 idempotencia de garantías | ✅ Ya resuelto: retención, liberación y reembolso usan referencias deterministas `ESCROW-*` bajo bloqueo de la wallet de sistema y de la fila `Escrow`; un reintento devuelve el movimiento existente y el débito falla en vez de dejar saldo negativo. |
 | M3 reportar productos/comercios | ✅ `ReportEntityType` suma `PRODUCT` y `COMMERCE`. Cualquier usuario autenticado reporta desde la tienda pública (no el dueño); un mismo usuario no duplica un reporte abierto. |
 | M5 rótulos de garantía | ✅ Los movimientos de un pedido de catálogo dicen "pedido del catálogo" y llevan `metadata.catalogOrderId`. Las referencias `ESCROW-*` (clave de idempotencia) no cambian. |
 | M6 usuario de sistema admin | ✅ Se crea con rol NORMAL y desactivado; una migración corrige el existente. |

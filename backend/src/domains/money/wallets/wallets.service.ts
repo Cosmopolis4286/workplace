@@ -650,35 +650,66 @@ export class WalletsService {
     const systemUserId = await this.ensureEscrowSystemUserId();
     const systemWallet = await this.ensureWalletForUser(systemUserId);
 
-    const [heldAggregate, pendingFundsAggregate, pendingFundsCount] =
-      await Promise.all([
-        this.prisma.serviceRequest.aggregate({
-          where: { escrowStatus: 'HELD' },
-          _sum: { escrowAmount: true },
-          _count: true,
-        }),
-        this.prisma.serviceRequest.aggregate({
-          where: { escrowStatus: 'PENDING_FUNDS' },
-          _sum: { escrowAmount: true },
-        }),
-        this.prisma.serviceRequest.count({
-          where: { escrowStatus: 'PENDING_FUNDS' },
-        }),
-      ]);
+    // Fuente: la tabla Escrow, que cubre solicitudes de servicio Y pedidos
+    // de catálogo. Antes solo se sumaban ServiceRequest en HELD, así que
+    // cualquier garantía de catálogo, en disputa o comisión retenida se
+    // veía como descuadre permanente.
+    const [byStatus, retainedRows] = await Promise.all([
+      this.prisma.escrow.groupBy({
+        by: ['status'],
+        where: { status: { in: ['HELD', 'DISPUTED', 'PENDING_FUNDS'] } },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      // Comisiones retenidas: de cada garantía cerrada, lo que entró a la
+      // wallet de sistema menos lo que salió (liberado + reembolsado). Esa
+      // diferencia es ingreso de la plataforma que sigue en esta wallet.
+      this.prisma.$queryRaw<{ retained: Prisma.Decimal | null }[]>`
+        WITH closed AS (
+          SELECT "entityId", amount FROM "escrows"
+          WHERE status IN ('RELEASED', 'REFUNDED')
+        )
+        SELECT
+          (SELECT COALESCE(SUM(amount), 0) FROM closed)
+          - (
+            SELECT COALESCE(SUM(t.amount), 0)
+            FROM "wallet_transactions" t
+            JOIN closed c
+              ON t.reference IN (
+                'ESCROW-RELEASE-' || c."entityId",
+                'ESCROW-REFUND-' || c."entityId"
+              )
+            WHERE t."walletId" = ${systemWallet.id} AND t.type = 'DEBIT'
+          ) AS retained
+      `,
+    ]);
 
+    const sumOf = (...statuses: string[]) =>
+      byStatus
+        .filter((r) => statuses.includes(r.status))
+        .reduce((acc, r) => add(acc, r._sum.amount ?? 0), toDecimal(0));
+    const countOf = (...statuses: string[]) =>
+      byStatus
+        .filter((r) => statuses.includes(r.status))
+        .reduce((acc, r) => acc + r._count, 0);
+
+    // En disputa el dinero sigue en la wallet de sistema hasta que un admin
+    // la resuelva. PENDING_FUNDS es dinero que el cliente no depositó: no
+    // está en la wallet, se reporta aparte como referencia.
+    const heldTotal = sumOf('HELD', 'DISPUTED');
+    const retainedFeesTotal = toDecimal(retainedRows[0]?.retained ?? 0);
     const actualBalance = systemWallet.balance;
-    // "Esperado" = solo lo efectivamente retenido (HELD). PENDING_FUNDS es
-    // dinero que el cliente todavía no depositó — no debería estar en la
-    // wallet de plataforma, se reporta aparte como referencia.
-    const expectedBalance = heldAggregate._sum.escrowAmount ?? 0;
+    const expectedBalance = add(heldTotal, retainedFeesTotal);
     const discrepancy = toNumber(sub(actualBalance, expectedBalance));
 
     return {
       systemWalletBalance: toNumber(actualBalance),
-      heldTotal: toNumber(expectedBalance),
-      heldCount: heldAggregate._count,
-      pendingFundsTotal: toNumber(pendingFundsAggregate._sum.escrowAmount ?? 0),
-      pendingFundsCount,
+      heldTotal: toNumber(heldTotal),
+      heldCount: countOf('HELD', 'DISPUTED'),
+      retainedFeesTotal: toNumber(retainedFeesTotal),
+      expectedBalance: toNumber(expectedBalance),
+      pendingFundsTotal: toNumber(sumOf('PENDING_FUNDS')),
+      pendingFundsCount: countOf('PENDING_FUNDS'),
       discrepancy,
       isBalanced: Math.abs(discrepancy) < 0.01,
     };

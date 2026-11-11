@@ -23,14 +23,18 @@
           <p class="text-sm font-bold" :class="reconciliation.isBalanced ? 'text-green-800' : 'text-red-800'">
             {{ reconciliation.isBalanced ? 'Escrow cuadrado' : 'Descuadre detectado en escrow' }}
           </p>
-          <div class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div class="mt-2 grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
             <div>
               <p class="text-gray-500">Saldo real (wallet plataforma)</p>
               <p class="font-bold text-gray-900">${{ reconciliation.systemWalletBalance.toFixed(2) }}</p>
             </div>
             <div>
-              <p class="text-gray-500">Retenido esperado ({{ reconciliation.heldCount }} solicitudes)</p>
+              <p class="text-gray-500">Garantías retenidas ({{ reconciliation.heldCount }}, incl. en disputa)</p>
               <p class="font-bold text-gray-900">${{ reconciliation.heldTotal.toFixed(2) }}</p>
+            </div>
+            <div>
+              <p class="text-gray-500">Comisiones retenidas (ingreso plataforma)</p>
+              <p class="font-bold text-gray-900">${{ reconciliation.retainedFeesTotal.toFixed(2) }}</p>
             </div>
             <div>
               <p class="text-gray-500">Diferencia</p>
