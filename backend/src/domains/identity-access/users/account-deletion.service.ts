@@ -41,7 +41,15 @@ export class AccountDeletionService {
    * El frontend lo muestra antes de pedir la confirmación.
    */
   async getBlockers(userId: string): Promise<string[]> {
-    const [user, wallet, openEscrows, pendingDeposits] = await Promise.all([
+    const [
+      user,
+      wallet,
+      openEscrows,
+      pendingDeposits,
+      unpaidStatements,
+      unbilledCharges,
+      pendingWithdrawals,
+    ] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
         select: { role: true },
@@ -57,6 +65,21 @@ export class AccountDeletionService {
         },
       }),
       this.prisma.walletDepositRequest.count({
+        where: { userId, status: 'PENDING' },
+      }),
+      // Deudas con la plataforma: sin esto, un vendedor borraba la cuenta y
+      // su estado de cuenta (o las comisiones de la semana) quedaba incobrable.
+      this.prisma.sellerStatement.aggregate({
+        where: { sellerUserId: userId, status: { not: 'PAID' } },
+        _sum: { totalAmount: true },
+        _count: true,
+      }),
+      this.prisma.sellerCommissionCharge.aggregate({
+        where: { sellerUserId: userId, status: 'PENDING', statementId: null },
+        _sum: { amount: true },
+      }),
+      // Dinero que la plataforma le debe pagar: hay que terminar el retiro.
+      this.prisma.walletWithdrawalRequest.count({
         where: { userId, status: 'PENDING' },
       }),
     ]);
@@ -75,6 +98,21 @@ export class AccountDeletionService {
     if (pendingDeposits > 0) {
       blockers.push(
         `Tienes ${pendingDeposits} depósito(s) pendiente(s) de revisión. Espera a que se aprueben o se rechacen.`
+      );
+    }
+    if (unpaidStatements._count > 0) {
+      blockers.push(
+        `Tienes ${unpaidStatements._count} estado(s) de cuenta sin pagar ($${unpaidStatements._sum.totalAmount ?? 0}). Págalos en "Estado de cuenta" antes de eliminar la cuenta.`
+      );
+    }
+    if (isPositive(unbilledCharges._sum.amount)) {
+      blockers.push(
+        `Tienes $${unbilledCharges._sum.amount} en comisiones de esta semana. Se facturan el próximo lunes; págalas para poder eliminar la cuenta.`
+      );
+    }
+    if (pendingWithdrawals > 0) {
+      blockers.push(
+        'Tienes un retiro en proceso. Espera a que se pague o se rechace antes de eliminar la cuenta.'
       );
     }
     if (user?.role === Role.SUPERADMIN) {

@@ -2,7 +2,7 @@
   <div>
     <PageHeader
       title="Billetera"
-      description="Tu saldo de devoluciones y cobros de Pago Protegido. Retíralo a tu banco cuando quieras."
+      description="Saldo de operaciones con garantía (devoluciones o cobros). Retíralo a tu banco cuando quieras."
       :icon="WalletIcon"
       :breadcrumb="[{ label: 'Billetera' }]"
       :stats="headerStats"
@@ -45,9 +45,8 @@
     <div class="mb-6 p-4 rounded-xl border border-blue-100 bg-blue-50 flex gap-3 text-sm text-blue-900">
       <InformationCircleIcon class="h-5 w-5 flex-shrink-0 text-blue-600" />
       <p>
-        La billetera ya no se recarga ni transfiere entre usuarios. Pagas directo al vendedor, y si usas
-        <strong>Pago Protegido</strong>, pagas la garantía de cada solicitud a una cuenta de la plataforma.
-        Lo que quede aquí (devoluciones o cobros) lo puedes retirar a tu banco.
+        La billetera no se recarga ni transfiere entre usuarios: los pagos se hacen directo al vendedor.
+        Aquí solo aparece el saldo de operaciones con garantía (devoluciones o cobros), que puedes retirar a tu banco.
       </p>
     </div>
 

@@ -2074,50 +2074,59 @@ export class ServicesService {
       deltaWithFee = add(proposal.deltaAmount, feeAmount);
     }
 
-    const escrowReference = `ESCROW-HOLD-INCREASE-${proposal.id}`;
+    // Solo se retiene el delta si la solicitud ya tiene una garantía retenida.
+    // Con pago directo (sin garantía) el aumento solo cambia el precio: antes
+    // también intentaba retener (y con Pago Protegido apagado, hold() lo
+    // rechaza, así que el cliente no podía aprobar ningún aumento).
+    const hasHeldEscrow = req.escrowStatus === 'HELD';
+    const escrowReference = hasHeldEscrow
+      ? `ESCROW-HOLD-INCREASE-${proposal.id}`
+      : null;
 
-    try {
-      await this.escrow.hold({
-        entityType: 'SERVICE_REQUEST',
-        entityId: req.id,
-        payerId: clientUserId,
-        payeeId: req.providerId,
-        deltaAmount: deltaWithFee,
-        referenceOverride: escrowReference,
-      });
-    } catch (err) {
-      if (!(err instanceof InsufficientEscrowFundsError)) throw err;
+    if (hasHeldEscrow) {
+      try {
+        await this.escrow.hold({
+          entityType: 'SERVICE_REQUEST',
+          entityId: req.id,
+          payerId: clientUserId,
+          payeeId: req.providerId,
+          deltaAmount: deltaWithFee,
+          referenceOverride: escrowReference!,
+        });
+      } catch (err) {
+        if (!(err instanceof InsufficientEscrowFundsError)) throw err;
 
-      await this.prisma.$transaction([
-        this.prisma.serviceRequestPriceChangeProposal.update({
+        await this.prisma.$transaction([
+          this.prisma.serviceRequestPriceChangeProposal.update({
+            where: { id: proposalId },
+            data: {
+              status: 'APPROVED_PENDING_FUNDS',
+              deltaAmount: deltaWithFee,
+              resolvedBy: clientUserId,
+              resolvedAt: new Date(),
+              escrowReference,
+            },
+          }),
+          this.prisma.serviceRequest.update({
+            where: { id: req.id },
+            data: { escrowStatus: 'PENDING_FUNDS' },
+          }),
+        ]);
+
+        this.notifications
+          .notifyPriceChangeApprovedPendingFunds(
+            clientUserId,
+            req.providerName,
+            req.serviceName,
+            toNumber(deltaWithFee)
+          )
+          .catch(() => {});
+
+        return this.prisma.serviceRequestPriceChangeProposal.findUnique({
           where: { id: proposalId },
-          data: {
-            status: 'APPROVED_PENDING_FUNDS',
-            deltaAmount: deltaWithFee,
-            resolvedBy: clientUserId,
-            resolvedAt: new Date(),
-            escrowReference,
-          },
-        }),
-        this.prisma.serviceRequest.update({
-          where: { id: req.id },
-          data: { escrowStatus: 'PENDING_FUNDS' },
-        }),
-      ]);
-
-      this.notifications
-        .notifyPriceChangeApprovedPendingFunds(
-          clientUserId,
-          req.providerName,
-          req.serviceName,
-          toNumber(deltaWithFee)
-        )
-        .catch(() => {});
-
-      return this.prisma.serviceRequestPriceChangeProposal.findUnique({
-        where: { id: proposalId },
-        include: { items: true },
-      });
+          include: { items: true },
+        });
+      }
     }
 
     const existingMaxSortOrder = await this.prisma.serviceRequestItem.aggregate(
@@ -2133,7 +2142,9 @@ export class ServicesService {
         where: { id: req.id },
         data: {
           price: add(req.price ?? 0, deltaWithFee),
-          escrowAmount: add(req.escrowAmount ?? 0, deltaWithFee),
+          ...(hasHeldEscrow
+            ? { escrowAmount: add(req.escrowAmount ?? 0, deltaWithFee) }
+            : {}),
           ...(feeConfig?.payer === 'CLIENT'
             ? {
                 platformFeeAmount: add(

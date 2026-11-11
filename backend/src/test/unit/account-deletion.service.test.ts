@@ -33,6 +33,15 @@ describe('AccountDeletionService', () => {
       },
       escrow: { count: jest.fn().mockResolvedValue(0) },
       walletDepositRequest: { count: jest.fn().mockResolvedValue(0) },
+      sellerStatement: {
+        aggregate: jest
+          .fn()
+          .mockResolvedValue({ _count: 0, _sum: { totalAmount: null } }),
+      },
+      sellerCommissionCharge: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { amount: null } }),
+      },
+      walletWithdrawalRequest: { count: jest.fn().mockResolvedValue(0) },
       $transaction: jest.fn().mockResolvedValue([]),
     };
     for (const model of [
@@ -97,6 +106,29 @@ describe('AccountDeletionService', () => {
     it('bloquea con depósitos pendientes', async () => {
       prisma.walletDepositRequest.count.mockResolvedValue(1);
       expect(await service.getBlockers(userId)).toHaveLength(1);
+    });
+
+    it('bloquea a un vendedor con estados de cuenta sin pagar (la deuda no se borra)', async () => {
+      prisma.sellerStatement.aggregate.mockResolvedValue({
+        _count: 1,
+        _sum: { totalAmount: 14.5 },
+      });
+      const blockers = await service.getBlockers(userId);
+      expect(blockers.join(' ')).toContain('estado(s) de cuenta sin pagar');
+    });
+
+    it('bloquea con comisiones de la semana aún sin facturar', async () => {
+      prisma.sellerCommissionCharge.aggregate.mockResolvedValue({
+        _sum: { amount: 3 },
+      });
+      const blockers = await service.getBlockers(userId);
+      expect(blockers.join(' ')).toContain('comisiones de esta semana');
+    });
+
+    it('bloquea con un retiro en proceso', async () => {
+      prisma.walletWithdrawalRequest.count.mockResolvedValue(1);
+      const blockers = await service.getBlockers(userId);
+      expect(blockers.join(' ')).toContain('retiro en proceso');
     });
 
     it('bloquea al único SUPERADMIN activo, no si hay otro', async () => {

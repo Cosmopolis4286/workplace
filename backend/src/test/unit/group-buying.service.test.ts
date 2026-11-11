@@ -314,6 +314,14 @@ describe('GroupBuyingService', () => {
         where: { id: 'pledge-1' },
         data: { platformFeeRate: 5, platformFeeAmount: 60 },
       });
+      // La comisión de toda la campaña va al estado de cuenta del organizador.
+      expect(mockPlatformFeesFacade.chargeProviderFee).toHaveBeenCalledWith(
+        'GROUP_BUYING',
+        organizerId,
+        110,
+        'FEE-GB-campaign-1',
+        { campaignId: 'campaign-1', pledges: 2 }
+      );
     });
 
     it('does not charge any fee when no platform fee is configured for GROUP_BUYING', async () => {
@@ -337,6 +345,7 @@ describe('GroupBuyingService', () => {
 
       expect(mockPlatformFeesFacade.calculateFee).not.toHaveBeenCalled();
       expect(mockPrismaService.pledge.update).not.toHaveBeenCalled();
+      expect(mockPlatformFeesFacade.chargeProviderFee).not.toHaveBeenCalled();
     });
   });
 

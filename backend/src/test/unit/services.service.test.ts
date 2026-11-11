@@ -615,6 +615,7 @@ describe('ServicesService — service request status transitions', () => {
           status: 'CONTACTED',
           price: 100,
           escrowAmount: 100,
+          escrowStatus: 'HELD',
         }),
         ...overrides,
       };
@@ -710,6 +711,39 @@ describe('ServicesService — service request status transitions', () => {
       expect(
         mockNotificationsService.notifyPriceChangeApprovedPendingFunds
       ).toHaveBeenCalled();
+    });
+
+    it('con pago directo (sin garantía) el aumento solo cambia el precio, aun con Pago Protegido apagado', async () => {
+      const prev = process.env.PROTECTED_PAYMENTS_ENABLED;
+      delete process.env.PROTECTED_PAYMENTS_ENABLED;
+      try {
+        mockPrismaService.serviceRequestPriceChangeProposal.findUnique.mockResolvedValue(
+          baseProposal({
+            serviceRequest: baseRequest({
+              status: 'CONTACTED',
+              price: 100,
+              escrowStatus: 'NONE',
+            }),
+          })
+        );
+
+        await service.approvePriceChangeProposal('proposal-1', 'client-1');
+
+        expect(mockEscrowService.hold).not.toHaveBeenCalled();
+        const [args] = mockPrismaService.serviceRequest.update.mock.calls[0];
+        expect(args.data.price.toString()).toBe('150');
+        expect(args.data).not.toHaveProperty('escrowAmount');
+        expect(
+          mockPrismaService.serviceRequestPriceChangeProposal.update
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ status: 'APPROVED' }),
+          })
+        );
+      } finally {
+        if (prev === undefined) delete process.env.PROTECTED_PAYMENTS_ENABLED;
+        else process.env.PROTECTED_PAYMENTS_ENABLED = prev;
+      }
     });
   });
 

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { WalletsService } from '../../domains/money/wallets/wallets.service';
 import { InsufficientEscrowFundsError } from '../../domains/money/wallets/wallet.errors';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -64,10 +64,7 @@ describe('WalletsService — escrow', () => {
             Promise.resolve({ id: 'tx-1', ...data })
           ),
       },
-      serviceRequest: {
-        aggregate: jest.fn(),
-        count: jest.fn(),
-      },
+      escrow: { groupBy: jest.fn() },
       $transaction: jest.fn((callback: (tx: any) => unknown) =>
         callback(mockPrismaService)
       ),
@@ -260,6 +257,23 @@ describe('WalletsService — escrow', () => {
         })
       );
     });
+
+    it('describe la garantía de un pedido de catálogo como pedido, no como servicio', async () => {
+      mockPrismaService.$queryRaw = makeQueryRawSequence([
+        { id: 'wallet-system-escrow-1' },
+        { new_balance: 0 },
+        { new_balance: 45 },
+      ]);
+
+      await service.releaseEscrow('order-1', PROVIDER_ID, 45, 'CATALOG_ORDER');
+
+      const { data } =
+        mockPrismaService.walletTransaction.create.mock.calls[1][0];
+      expect(data.description).toBe('Pago de pedido (garantía liberada)');
+      expect(data.metadata).toEqual({ catalogOrderId: 'order-1' });
+      // La referencia (clave de idempotencia) no cambia de formato.
+      expect(data.reference).toBe('ESCROW-RELEASE-order-1');
+    });
   });
 
   describe('releaseEscrow idempotency', () => {
@@ -348,47 +362,60 @@ describe('WalletsService — escrow', () => {
   });
 
   describe('getEscrowReconciliation', () => {
-    it('reporta isBalanced=true cuando el saldo real coincide con lo retenido (HELD)', async () => {
+    const groups = (rows: [string, number, number][]) =>
+      rows.map(([status, amount, count]) => ({
+        status,
+        _sum: { amount: new Prisma.Decimal(amount) },
+        _count: count,
+      }));
+
+    it('cuadra con garantías retenidas, en disputa y comisiones retenidas', async () => {
       mockPrismaService.wallet.upsert.mockResolvedValue(
-        wallet({ userId: SYSTEM_USER_ID, balance: 300 })
+        wallet({ userId: SYSTEM_USER_ID, balance: 315 })
       );
-      mockPrismaService.serviceRequest.aggregate.mockImplementation(
-        ({ where }: any) => {
-          if (where.escrowStatus === 'HELD')
-            return Promise.resolve({ _sum: { escrowAmount: 300 }, _count: 2 });
-          return Promise.resolve({ _sum: { escrowAmount: 0 } });
-        }
+      // HELD (servicio + catálogo) 250 + DISPUTED 50 + comisiones 15 = 315
+      mockPrismaService.escrow.groupBy.mockResolvedValue(
+        groups([
+          ['HELD', 250, 2],
+          ['DISPUTED', 50, 1],
+          ['PENDING_FUNDS', 40, 1],
+        ])
       );
-      mockPrismaService.serviceRequest.count.mockResolvedValue(0);
+      mockPrismaService.$queryRaw = jest
+        .fn()
+        .mockResolvedValue([{ retained: new Prisma.Decimal(15) }]);
 
       const result = await service.getEscrowReconciliation(Role.SUPERADMIN);
 
-      expect(result.systemWalletBalance).toBe(300);
-      expect(result.heldTotal).toBe(300);
-      expect(result.heldCount).toBe(2);
-      expect(result.discrepancy).toBe(0);
-      expect(result.isBalanced).toBe(true);
+      expect(result).toMatchObject({
+        systemWalletBalance: 315,
+        heldTotal: 300,
+        heldCount: 3,
+        retainedFeesTotal: 15,
+        expectedBalance: 315,
+        pendingFundsTotal: 40,
+        pendingFundsCount: 1,
+        discrepancy: 0,
+        isBalanced: true,
+      });
     });
 
-    it('reporta la discrepancia cuando el saldo real no coincide con lo retenido', async () => {
+    it('reporta la discrepancia cuando el saldo real no coincide', async () => {
       mockPrismaService.wallet.upsert.mockResolvedValue(
         wallet({ userId: SYSTEM_USER_ID, balance: 250 })
       );
-      mockPrismaService.serviceRequest.aggregate.mockImplementation(
-        ({ where }: any) => {
-          if (where.escrowStatus === 'HELD')
-            return Promise.resolve({ _sum: { escrowAmount: 300 }, _count: 2 });
-          return Promise.resolve({ _sum: { escrowAmount: 40 } });
-        }
+      mockPrismaService.escrow.groupBy.mockResolvedValue(
+        groups([['HELD', 300, 2]])
       );
-      mockPrismaService.serviceRequest.count.mockResolvedValue(1);
+      mockPrismaService.$queryRaw = jest
+        .fn()
+        .mockResolvedValue([{ retained: null }]);
 
       const result = await service.getEscrowReconciliation(Role.ADMIN);
 
       expect(result.discrepancy).toBe(-50);
       expect(result.isBalanced).toBe(false);
-      expect(result.pendingFundsTotal).toBe(40);
-      expect(result.pendingFundsCount).toBe(1);
+      expect(result.pendingFundsCount).toBe(0);
     });
 
     it('rechaza a un usuario que no es admin', async () => {

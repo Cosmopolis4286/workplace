@@ -117,6 +117,7 @@ export class GroupBuyingService {
       organizerId
     );
 
+    let totalFee = 0;
     await this.prisma.$transaction(async (tx) => {
       await tx.groupBuyingCampaign.update({
         where: { id },
@@ -130,6 +131,7 @@ export class GroupBuyingService {
             baseAmount,
             feeConfig
           );
+          totalFee += feeAmount;
           await tx.pledge.update({
             where: { id: pledge.id },
             data: {
@@ -140,6 +142,20 @@ export class GroupBuyingService {
         }
       }
     });
+
+    // Al cerrar quedan fijos precio y cantidades, y los comercios le pagan al
+    // organizador por fuera: la comisión de toda la campaña va a su estado
+    // de cuenta. Antes se calculaba por compromiso pero no se cobraba nunca.
+    // Idempotente por referencia.
+    if (totalFee > 0) {
+      await this.platformFees.chargeProviderFee(
+        FeeTransactionType.GROUP_BUYING,
+        organizerId,
+        Math.round(totalFee * 100) / 100,
+        `FEE-GB-${id}`,
+        { campaignId: id, pledges: campaign.pledges.length }
+      );
+    }
 
     return this.getCampaign(id);
   }

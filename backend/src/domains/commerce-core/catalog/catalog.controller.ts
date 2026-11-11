@@ -20,14 +20,12 @@ import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CatalogOrderStatus } from '@prisma/client';
-import { PrismaService } from '../../../prisma/prisma.service';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 
 @Controller('catalog')
 export class CatalogController {
   constructor(
     private readonly catalogService: CatalogService,
-    private readonly prisma: PrismaService,
     private readonly commerceResolver: CommerceResolverService
   ) {}
 
@@ -81,13 +79,12 @@ export class CatalogController {
     @Query('page') page?: string,
     @Query('limit') limit?: string
   ) {
-    const commerce = await this.prisma.commerce.findUnique({
-      where: { userId: user.id },
-      select: { id: true },
-    });
-    if (!commerce)
+    // Mismo resolvedor que PATCH status: si algún día un comercio admite
+    // varias cuentas, listar y atender pedidos cambian a la vez.
+    const commerceId = await this.commerceResolver.find(user.id);
+    if (!commerceId)
       return { data: [], total: 0, page: 1, limit: 50, totalPages: 0 };
-    return this.catalogService.getOrdersForCommerce(commerce.id, {
+    return this.catalogService.getOrdersForCommerce(commerceId, {
       status,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 50,

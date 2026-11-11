@@ -160,6 +160,7 @@ const STATUS_CLASSES: Record<ReportStatus, string> = {
 }
 const ENTITY_LABELS: Record<ReportEntityType, string> = {
   CATALOG_ORDER: 'Pedido de catálogo', SERVICE_REQUEST: 'Solicitud de servicio', SERVICE: 'Servicio publicado', ORDER: 'Pedido', GENERAL: 'General',
+  PRODUCT: 'Producto del catálogo', COMMERCE: 'Comercio',
 }
 
 const headerStats = computed(() => [

@@ -65,6 +65,8 @@ export interface EscrowReconciliation {
   systemWalletBalance: number
   heldTotal: number
   heldCount: number
+  retainedFeesTotal: number
+  expectedBalance: number
   pendingFundsTotal: number
   pendingFundsCount: number
   discrepancy: number

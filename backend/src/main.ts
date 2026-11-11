@@ -45,8 +45,9 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Archivos públicos subidos por usuarios (avatares, portadas, posts…).
-  // uploads/service-requests es privado: se corta aquí antes del estático y
-  // solo se sirve con auth en GET /api/services/requests/media/:filename.
+  // uploads/service-requests y uploads/expenses son privados: se cortan aquí
+  // antes del estático y solo se sirven con auth (GET
+  // /api/services/requests/media/:filename y GET /api/expenses/:id/receipt-image).
   // Se compara contra la ruta decodificada y normalizada, igual que la
   // resolverá express.static (%2D, ./, // no deben saltarse el corte).
   app.use('/uploads', (req: any, res: any, next: () => void) => {
@@ -56,7 +57,11 @@ async function bootstrap() {
     } catch {
       path = '';
     }
-    if (!path || path.startsWith('/service-requests')) {
+    if (
+      !path ||
+      path.startsWith('/service-requests') ||
+      path.startsWith('/expenses')
+    ) {
       res.status(404).json({ statusCode: 404, message: 'Not Found' });
       return;
     }

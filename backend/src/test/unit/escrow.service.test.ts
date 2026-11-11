@@ -141,7 +141,8 @@ describe('EscrowService', () => {
         'client-1',
         100,
         'req-1',
-        undefined
+        undefined,
+        'SERVICE_REQUEST'
       );
     });
 
@@ -213,7 +214,8 @@ describe('EscrowService', () => {
         'c1',
         50,
         'req-1',
-        undefined
+        undefined,
+        'SERVICE_REQUEST'
       ); // solo el delta se debita
     });
 
@@ -245,7 +247,8 @@ describe('EscrowService', () => {
         'c1',
         50,
         'req-1',
-        'ESCROW-HOLD-INCREASE-proposal-1'
+        'ESCROW-HOLD-INCREASE-proposal-1',
+        'SERVICE_REQUEST'
       );
     });
   });
@@ -285,7 +288,8 @@ describe('EscrowService', () => {
       expect(mockWalletsService.releaseEscrow).toHaveBeenCalledWith(
         'req-1',
         'p1',
-        90
+        90,
+        'SERVICE_REQUEST'
       );
       expect(mockPrismaService.escrow.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -331,7 +335,8 @@ describe('EscrowService', () => {
       expect(mockWalletsService.refundEscrow).toHaveBeenCalledWith(
         'order-1',
         'buyer-1',
-        200
+        200,
+        'CATALOG_ORDER'
       );
       expect(result.status).toBe('REFUNDED');
     });
@@ -521,7 +526,8 @@ describe('EscrowService', () => {
       expect(mockWalletsService.releaseEscrow).toHaveBeenCalledWith(
         'req-1',
         'provider-1',
-        money(100)
+        money(100),
+        'SERVICE_REQUEST'
       );
       expect(mockWalletsService.refundEscrow).not.toHaveBeenCalled();
     });
@@ -538,7 +544,8 @@ describe('EscrowService', () => {
       expect(mockWalletsService.refundEscrow).toHaveBeenCalledWith(
         'req-1',
         'client-1',
-        money(100)
+        money(100),
+        'SERVICE_REQUEST'
       );
       expect(mockWalletsService.releaseEscrow).not.toHaveBeenCalled();
     });
@@ -584,12 +591,14 @@ describe('EscrowService', () => {
       expect(mockWalletsService.releaseEscrow).toHaveBeenCalledWith(
         'req-1',
         'provider-1',
-        money(60)
+        money(60),
+        'SERVICE_REQUEST'
       );
       expect(mockWalletsService.refundEscrow).toHaveBeenCalledWith(
         'req-1',
         'client-1',
-        money(40)
+        money(40),
+        'SERVICE_REQUEST'
       );
     });
 
@@ -619,7 +628,8 @@ describe('EscrowService', () => {
       expect(mockWalletsService.releaseEscrow).toHaveBeenCalledWith(
         'req-1',
         'provider-1',
-        money('33.33')
+        money('33.33'),
+        'SERVICE_REQUEST'
       );
     });
 

@@ -24,10 +24,17 @@ Severidad:
 | A4 totalSpent doble | ✅ Resuelto. |
 | A6 comisión en ventas POS | ✅ Decisión del dueño: **no** se cobra comisión sobre las ventas del POS. Se quitó del código. |
 | A7 tasas por defecto | ✅ Seed: CATALOG_ORDER 5 % (paga el comercio), SERVICE_REQUEST 10 %. Editables por SUPERADMIN. |
-| A8 BNPL | ✅ Decisión: oculto hasta tener credenciales (`BNPL_ENABLED` / `NUXT_PUBLIC_BNPL_ENABLED`, apagados por defecto). Endurecer el webhook queda para cuando se integre. |
+| A8 BNPL | ✅ Decisión: oculto hasta tener credenciales (`BNPL_ENABLED`, apagado por defecto). El webhook ya está endurecido: solo resuelve transacciones PENDING, de forma atómica, y compara el secreto en tiempo constante. |
 | M2 KYC | ✅ Decisión: KYC para toda compra. Ya se exige en pedidos de catálogo, solicitudes de servicio y viajes. |
 | A9 doble aprobación de depósito | ✅ Resuelto en PR #84. |
-| A2, A5, M1, M3–M8 | Pendientes. |
+| A5 stock del POS | ✅ Vender descuenta el stock (los combos, sus componentes); sin stock suficiente la venta no se bloquea y el stock queda en 0; cancelar o borrar el pedido lo devuelve. |
+| A2 conciliación / ingresos de plataforma | ✅ Parcial: la conciliación usa la tabla `Escrow` (servicios y catálogo; HELD + DISPUTED) y separa las comisiones retenidas (entrado − liberado − reembolsado de cada garantía cerrada), visibles en el panel de wallets. Sigue pendiente mover esas comisiones a una cuenta propia de ingresos. Garantías anteriores a la tabla `Escrow` (sep. 2026) no se cuentan: no hay datos de producción. |
+| M1 idempotencia de garantías | ✅ Ya resuelto: retención, liberación y reembolso usan referencias deterministas `ESCROW-*` bajo bloqueo de la wallet de sistema y de la fila `Escrow`; un reintento devuelve el movimiento existente y el débito falla en vez de dejar saldo negativo. |
+| M3 reportar productos/comercios | ✅ `ReportEntityType` suma `PRODUCT` y `COMMERCE`. Cualquier usuario autenticado reporta desde la tienda pública (no el dueño); un mismo usuario no duplica un reporte abierto. |
+| M5 rótulos de garantía | ✅ Los movimientos de un pedido de catálogo dicen "pedido del catálogo" y llevan `metadata.catalogOrderId`. Las referencias `ESCROW-*` (clave de idempotencia) no cambian. |
+| M6 usuario de sistema admin | ✅ Se crea con rol NORMAL y desactivado; una migración corrige el existente. |
+| M8 empleados y pedidos | ⚠️ Premisa incorrecta: `Employee` no tiene cuenta de usuario (sin `userId`) y `commerceResolver` solo resuelve al dueño, así que hoy ningún empleado inicia sesión en el comercio. `GET orders/mine` ya usa el mismo resolvedor que `PATCH status`. Acceso de empleados = función nueva (cuentas por comercio), no un bug. |
+| A2, M1, M3–M8 | Pendientes. |
 
 ---
 

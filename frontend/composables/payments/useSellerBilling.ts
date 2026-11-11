@@ -42,6 +42,10 @@ export interface SellerStatement {
   periodEnd: string
   currency: string
   totalAmount: number
+  // totalAmount = commissionsAmount + vatAmount (IVA sobre la comisión).
+  commissionsAmount?: number
+  vatRate?: number
+  vatAmount?: number
   status: SellerStatementStatus
   issuedAt: string
   dueAt: string

@@ -65,7 +65,8 @@ export class EscrowService implements EscrowFacade {
       params.payerId,
       params.deltaAmount,
       params.entityId,
-      params.referenceOverride
+      params.referenceOverride,
+      params.entityType
     );
 
     const existing = await this.prisma.escrow.findUnique({
@@ -147,7 +148,8 @@ export class EscrowService implements EscrowFacade {
       await this.wallets.releaseEscrow(
         params.entityId,
         params.payeeId,
-        params.amount
+        params.amount,
+        params.entityType
       );
       return tx.escrow.update({
         where: {
@@ -201,7 +203,8 @@ export class EscrowService implements EscrowFacade {
       await this.wallets.refundEscrow(
         params.entityId,
         params.payerId,
-        params.amount
+        params.amount,
+        params.entityType
       );
       return tx.escrow.update({
         where: {
@@ -430,14 +433,16 @@ export class EscrowService implements EscrowFacade {
         await this.wallets.releaseEscrow(
           escrow.entityId,
           escrow.payeeId,
-          releaseAmount
+          releaseAmount,
+          escrow.entityType
         );
       }
       if (gt(refundAmount, 0)) {
         await this.wallets.refundEscrow(
           escrow.entityId,
           escrow.payerId,
-          refundAmount
+          refundAmount,
+          escrow.entityType
         );
       }
 
