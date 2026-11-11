@@ -132,6 +132,16 @@
           <p class="text-xs text-gray-400">Pedido realizado {{ timeAgo(selectedOrder.createdAt) }}</p>
         </div>
 
+        <div v-if="currentUserId" class="px-4 pb-4">
+          <ConversationChat
+            thread-type="CATALOG_ORDER"
+            :thread-id="selectedOrder.id"
+            :current-user-id="currentUserId"
+            :title="`Chat con ${selectedOrder.commerceName}`"
+            hint="Coordina tu pedido por aquí. Por seguridad no se comparten teléfonos ni correos."
+          />
+        </div>
+
         <!-- Pago directo al comercio (sin garantía interna): mismas condiciones
              que CatalogOrderPaymentSourceResolver -->
         <div v-if="canPayDirect(selectedOrder)" class="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-3">
@@ -211,6 +221,11 @@ import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 import PayToSellerModal from '~/components/payments/PayToSellerModal.vue'
 import { useApi } from '~/composables/core/useApi'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import ConversationChat from '~/components/conversations/ConversationChat.vue'
+import { useAuth } from '~/composables/auth/useAuth'
+
+const { user: chatUser } = useAuth()
+const currentUserId = computed(() => chatUser.value?.id ?? '')
 
 const props = defineProps<{
   active: boolean

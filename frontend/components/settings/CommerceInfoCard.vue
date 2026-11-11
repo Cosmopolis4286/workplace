@@ -148,6 +148,29 @@
         </button>
       </div>
 
+      <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+        <div>
+          <p class="text-sm font-semibold text-gray-700">Mostrar teléfono, correo y WhatsApp en tu tienda</p>
+          <p class="text-xs text-gray-500">
+            Si lo desactivas, tus clientes te escriben por el chat de cada pedido.
+            La plataforma también puede ocultarlo para todas las tiendas.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="form.showPublicContact"
+          class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0"
+          :class="form.showPublicContact ? 'bg-blue-600' : 'bg-gray-300'"
+          @click="form.showPublicContact = !form.showPublicContact"
+        >
+          <span
+            class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+            :class="form.showPublicContact ? 'translate-x-6' : 'translate-x-1'"
+          />
+        </button>
+      </div>
+
       <button :disabled="saving" class="btn-save btn-blue" @click="$emit('save', { ...form })">
         <span v-if="saving" class="flex items-center justify-center gap-2">
           <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -184,6 +207,7 @@ export interface CommerceInfoForm {
   parish: string
   description: string
   isPublic: boolean
+  showPublicContact: boolean
   socialLinks: SocialLinks
 }
 
@@ -200,7 +224,7 @@ function emptyForm(): CommerceInfoForm {
   return {
     name: '', type: '', address: '', phone: '', email: '', schedule: '',
     country: '', state: '', city: '', municipality: '', parish: '',
-    description: '', isPublic: true, socialLinks: {},
+    description: '', isPublic: true, showPublicContact: true, socialLinks: {},
   }
 }
 
@@ -222,6 +246,7 @@ watch(() => props.commerce, (commerce) => {
     parish: commerce.parish ?? '',
     description: commerce.description ?? '',
     isPublic: commerce.isPublic ?? true,
+    showPublicContact: commerce.showPublicContact ?? true,
     socialLinks: { ...(commerce.socialLinks ?? {}) },
   }
 }, { immediate: true })

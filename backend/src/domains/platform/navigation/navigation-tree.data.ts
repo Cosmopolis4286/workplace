@@ -537,6 +537,17 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         },
       },
       {
+        id: 'admin-platform-settings',
+        to: '/platform-settings',
+        label: 'Ajustes de la plataforma',
+        icon: 'settings',
+        order: 3.5,
+        condition: {
+          permission: null,
+          rolesOnly: [Role.SUPERADMIN, Role.ADMIN],
+        },
+      },
+      {
         id: 'admin-disputes',
         to: '/disputes-admin',
         label: 'Disputas',

@@ -38,6 +38,12 @@ import {
   toNumber,
 } from '../../../common/money/money';
 
+function withoutWhatsapp(links: Prisma.JsonValue | null) {
+  if (!links || typeof links !== 'object' || Array.isArray(links)) return links;
+  const { whatsapp: _hidden, ...others } = links as Record<string, unknown>;
+  return others as Prisma.JsonValue;
+}
+
 // Plazo del comprador para confirmar o reportar tras "entregado".
 export const CATALOG_AUTO_CLOSE_HOURS = 72;
 
@@ -187,6 +193,7 @@ export class CatalogService {
         description: true,
         isPublic: true,
         socialLinks: true,
+        showPublicContact: true,
         settings: {
           select: {
             avgPrepTime: true,
@@ -227,7 +234,19 @@ export class CatalogService {
       throw new NotFoundException('Tienda no encontrada');
     }
 
-    const { _count, userId, user, ...rest } = commerce;
+    const { _count, userId, user, showPublicContact, ...store } = commerce;
+    // Contacto directo de la tienda: solo si lo permiten el admin (ajuste
+    // global store.publicContact) y el propio comercio.
+    const platformAllows = await this.isPublicStoreContactAllowed();
+    const rest =
+      platformAllows && showPublicContact
+        ? store
+        : {
+            ...store,
+            phone: null,
+            email: null,
+            socialLinks: withoutWhatsapp(store.socialLinks),
+          };
     return {
       data: {
         ...rest,
@@ -852,6 +871,13 @@ export class CatalogService {
     return { data: order };
   }
 
+  private async isPublicStoreContactAllowed() {
+    const row = await this.prisma.platformSetting.findUnique({
+      where: { key: 'store.publicContact' },
+    });
+    return row ? row.value !== false : true;
+  }
+
   async getOrdersForCommerce(
     commerceId: string,
     query?: { status?: string; page?: number; limit?: number }
@@ -872,8 +898,16 @@ export class CatalogService {
       }),
       this.prisma.catalogOrder.count({ where }),
     ]);
+    // La conversación con el comprador va por el chat del pedido: el comercio
+    // no recibe su teléfono ni su correo. La dirección sí (la necesita para
+    // entregar).
     return {
-      data: orders,
+      data: orders.map((o) => ({
+        ...o,
+        buyerPhone: null,
+        buyerEmail: null,
+        contactHidden: true,
+      })),
       total,
       page,
       limit,

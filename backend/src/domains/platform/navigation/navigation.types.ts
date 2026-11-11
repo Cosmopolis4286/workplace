@@ -37,6 +37,7 @@ export type NavIconKey =
   | 'kyc'
   | 'plan'
   | 'commissions'
+  | 'settings'
   | 'categories'
   | 'pricing'
   | 'search_tabs'

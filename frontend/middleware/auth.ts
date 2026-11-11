@@ -33,7 +33,7 @@ const ADMIN_ONLY_ROUTES: string[] = [
   '/kyc-admin', '/landing-admin', '/proposed-categories-admin', '/service-requests-admin',
   '/wallet-deposit-requests-admin', '/reports-admin',
   '/wallets-admin', '/service-categories-admin', '/profile-activations-admin',
-  '/billing-admin', '/disputes-admin', '/ride-drivers-admin',
+  '/billing-admin', '/disputes-admin', '/ride-drivers-admin', '/platform-settings',
 ]
 
 // ─── Excluidas del chequeo de onboarding ─────────────────────────────────────
