@@ -4,6 +4,24 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Fugas de cobro y auditoría de comercio (2026-11-02 → 2026-11-11)
+
+- **Cobros**
+  - Las compras agrupadas cobran la comisión al organizador al cerrar la campaña.
+  - El estado de cuenta del vendedor separa comisiones e IVA (`PLATFORM_VAT_RATE`, 16 % por defecto).
+  - Aprobar un aumento de precio sin garantía ya no falla con Pago Protegido apagado.
+  - Webhook BNPL endurecido: solo resuelve transacciones pendientes y compara el secreto en tiempo constante.
+- **Fugas de flujo**
+  - Las ventas del POS descuentan inventario; cancelar o borrar el pedido lo devuelve.
+  - No se puede borrar la cuenta con estados de cuenta sin pagar, comisiones de la semana o un retiro en curso.
+  - Las fotos de recibos de gastos dejan de ser públicas.
+- **Moderación y administración**
+  - Se pueden reportar productos y comercios desde la tienda pública.
+  - La conciliación de garantías cubre servicios y catálogo, y muestra las comisiones retenidas.
+  - El usuario técnico de garantías deja de ser admin.
+- **Términos**: pagos entre usuarios, comisiones con IVA y que la plataforma no custodia fondos.
+- **CI**: Dependabot desactivado; las dependencias se actualizan a mano.
+
 ### Cobro tipo Cashea, flujo del prestador y delivery (2026-10-28 → 2026-11-01)
 
 - **Billetera y Pago Protegido**
