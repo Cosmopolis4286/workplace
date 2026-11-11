@@ -22,8 +22,8 @@ Este repositorio utiliza una arquitectura **híbrida YAML + Shell** para CI/CD e
 │   └── README.md             # Esta documentación
 ├── ISSUE_TEMPLATE/           # Formularios de bug y propuesta
 ├── PULL_REQUEST_TEMPLATE.md
-├── CODEOWNERS
-└── dependabot.yml            # npm (lockfile raíz) + GitHub Actions
+└── CODEOWNERS
+# (Dependabot desactivado desde 2026-11-11: las dependencias se actualizan a mano)
 
 scripts/                      # Lógica de shell invocada por los workflows
 ├── ci/                       # run-tests.sh, run-e2e-optimized.sh…
