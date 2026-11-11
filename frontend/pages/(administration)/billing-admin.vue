@@ -10,7 +10,7 @@
 
     <div class="flex flex-wrap gap-2 mb-5">
       <button
-        v-for="t in TABS"
+        v-for="t in visibleTabs"
         :key="t.value"
         class="px-3 py-1.5 rounded-full text-sm font-semibold transition-colors"
         :class="tab === t.value ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50'"
@@ -135,6 +135,9 @@
       </ul>
     </template>
 
+    <!-- Compras de créditos de uso -->
+    <AdminCreditPurchasesQueue v-else-if="tab === 'credits'" />
+
     <!-- Cuentas de la plataforma -->
     <SellerPaymentAccountsCard v-else scope="platform" @saved="() => {}" />
 
@@ -188,6 +191,8 @@ import { ref, computed, onMounted } from 'vue'
 import { ReceiptPercentIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import SellerPaymentAccountsCard from '~/components/settings/SellerPaymentAccountsCard.vue'
+import AdminCreditPurchasesQueue from '~/components/payments/AdminCreditPurchasesQueue.vue'
+import { useFeatures } from '~/composables/core/useFeatures'
 import {
   useSellerBilling,
   STATEMENT_STATUS_CLASSES,
@@ -205,11 +210,12 @@ import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 definePageMeta({ middleware: 'auth' })
 
-type Tab = 'payments' | 'escrow' | 'withdrawals' | 'statements' | 'accounts'
+type Tab = 'payments' | 'escrow' | 'withdrawals' | 'credits' | 'statements' | 'accounts'
 const TABS: { value: Tab; label: string }[] = [
   { value: 'payments', label: 'Comisiones por verificar' },
   { value: 'escrow', label: 'Garantías por verificar' },
   { value: 'withdrawals', label: 'Retiros por pagar' },
+  { value: 'credits', label: 'Compras de créditos' },
   { value: 'statements', label: 'Estados de cuenta' },
   { value: 'accounts', label: 'Cuentas de cobro' },
 ]
@@ -221,6 +227,9 @@ const escrowFunding = useEscrowFunding()
 const walletWithdrawals = useWalletWithdrawals()
 const { confirm } = useConfirm()
 
+// La pestaña de créditos solo existe con USAGE_CREDITS_ENABLED.
+const { features } = useFeatures()
+const visibleTabs = computed(() => TABS.filter(t => t.value !== 'credits' || features.value.usageCredits))
 const isSuperAdmin = computed(() => user.value?.role === 'SUPERADMIN')
 const tab = ref<Tab>('payments')
 const payments = ref<AdminStatementPayment[]>([])
@@ -248,7 +257,7 @@ const headerStats = computed(() => {
 })
 
 async function load() {
-  if (tab.value === 'accounts') return
+  if (tab.value === 'accounts' || tab.value === 'credits') return
   loading.value = true
   error.value = null
   try {

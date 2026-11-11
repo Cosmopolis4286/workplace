@@ -5,6 +5,7 @@ import { PrismaModule } from '../../../prisma/prisma.module';
 import { MailModule } from '../mail/mail.module';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
+import { NOTIFICATIONS_FACADE } from './notifications.facade';
 import { NotificationsGateway } from './notifications.gateway';
 import { PushService } from './push.service';
 
@@ -21,7 +22,12 @@ import { PushService } from './push.service';
     }),
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsGateway, NotificationsService, PushService],
-  exports: [NotificationsService],
+  providers: [
+    NotificationsGateway,
+    NotificationsService,
+    PushService,
+    { provide: NOTIFICATIONS_FACADE, useExisting: NotificationsService },
+  ],
+  exports: [NotificationsService, NOTIFICATIONS_FACADE],
 })
 export class NotificationsModule {}

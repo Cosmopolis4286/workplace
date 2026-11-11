@@ -57,14 +57,17 @@ model User {
   freelancerApplications         FreelancerApplication[] @relation("FreelancerApplicant")
   reviewedFreelancerApplications FreelancerApplication[] @relation("FreelancerApplicationReviewer")
 
-  walletDepositRequests         WalletDepositRequest[] @relation("WalletDepositRequester")
+  walletDepositRequests         WalletDepositRequest[]    @relation("WalletDepositRequester")
+  usageCreditPurchases          UsageCreditPurchase[]
+  usageCreditLots               UsageCreditLot[]
+  usageCreditMovements          UsageCreditMovement[]
   sellerPaymentAccounts         SellerPaymentAccount[]
   sellerCommissionCharges       SellerCommissionCharge[]
   sellerStatements              SellerStatement[]
   walletWithdrawalRequests      WalletWithdrawalRequest[]
   rideDriverProfile             RideDriverProfile?
   escrowFundingReports          EscrowFundingReport[]
-  reviewedWalletDepositRequests WalletDepositRequest[] @relation("WalletDepositRequestReviewer")
+  reviewedWalletDepositRequests WalletDepositRequest[]    @relation("WalletDepositRequestReviewer")
 
   termsAcceptedAt   DateTime?
   termsVersion      String?
@@ -923,7 +926,7 @@ model Delivery {
   failureReason   String?
   // Lo que el repartidor dice haber cobrado al entregar, para conciliar con
   // el comercio (efectivo, transferencia o ya pagado).
-  amountCollected Decimal?           @db.Decimal(20, 2)
+  amountCollected Decimal?            @db.Decimal(20, 2)
   collectedMethod DeliveryCollection?
 
   createdAt DateTime @default(now())
@@ -3386,7 +3389,6 @@ model Pledge {
 
 // ─── Wallets & Transactions ─────────────────────────────────────────────────────
 
-
 // External payment orchestration. These records do not constitute a wallet
 // and do not authorize WorkPlace to hold third-party funds.
 enum ExternalPaymentProvider {
@@ -3395,10 +3397,12 @@ enum ExternalPaymentProvider {
   BDV
   MANUAL
 }
+
 enum PlatformPaymentEnvironment {
   SANDBOX
   PRODUCTION
 }
+
 enum ExternalPaymentStatus {
   DRAFT
   REQUIRES_ACTION
@@ -3412,16 +3416,19 @@ enum ExternalPaymentStatus {
   REFUNDED
   REQUIRES_RECONCILIATION
 }
+
 enum ExternalSettlementMode {
   PROVIDER_SPLIT
   DIRECT_TO_SELLER
   COMMISSION_INVOICE
 }
+
 enum ExternalCommissionCollectionMode {
   AUTOMATIC_SPLIT
   PERIODIC_INVOICE
   MANUAL_COLLECTION
 }
+
 enum ExternalCommissionStatus {
   PENDING
   EARNED
@@ -3430,6 +3437,7 @@ enum ExternalCommissionStatus {
   REVERSED
   DISPUTED
 }
+
 enum ExternalRefundStatus {
   REQUESTED
   UNDER_REVIEW
@@ -3439,6 +3447,7 @@ enum ExternalRefundStatus {
   FAILED
   REJECTED
 }
+
 enum ExternalWebhookStatus {
   RECEIVED
   PROCESSING
@@ -3446,6 +3455,7 @@ enum ExternalWebhookStatus {
   FAILED
   IGNORED
 }
+
 enum ExternalSettlementStatus {
   NOT_ELIGIBLE
   PENDING
@@ -3455,6 +3465,7 @@ enum ExternalSettlementStatus {
   FAILED
   ON_HOLD
 }
+
 enum ExternalReconciliationStatus {
   OPEN
   MATCHED
@@ -3463,21 +3474,21 @@ enum ExternalReconciliationStatus {
 }
 
 model ExternalPaymentIntent {
-  id                  String @id @default(uuid())
-  idempotencyKey      String @unique
+  id                  String                           @id @default(uuid())
+  idempotencyKey      String                           @unique
   sourceType          String
   sourceId            String
   payerUserId         String?
   sellerUserId        String
   provider            ExternalPaymentProvider
-  status              ExternalPaymentStatus @default(DRAFT)
+  status              ExternalPaymentStatus            @default(DRAFT)
   currency            String
-  baseAmount          Decimal @db.Decimal(20, 2)
-  amount              Decimal @db.Decimal(20, 2)
-  commissionAmount    Decimal @default(0) @db.Decimal(20, 2)
-  sellerNetAmount     Decimal @db.Decimal(20, 2)
-  commissionRateBps   Int @default(0)
-  commissionPayer     FeePayer @default(PROVIDER)
+  baseAmount          Decimal                          @db.Decimal(20, 2)
+  amount              Decimal                          @db.Decimal(20, 2)
+  commissionAmount    Decimal                          @default(0) @db.Decimal(20, 2)
+  sellerNetAmount     Decimal                          @db.Decimal(20, 2)
+  commissionRateBps   Int                              @default(0)
+  commissionPayer     FeePayer                         @default(PROVIDER)
   settlementMode      ExternalSettlementMode
   collectionMode      ExternalCommissionCollectionMode
   providerPaymentId   String?
@@ -3488,8 +3499,8 @@ model ExternalPaymentIntent {
   expiresAt           DateTime?
   succeededAt         DateTime?
   metadata            Json?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime                         @default(now())
+  updatedAt           DateTime                         @updatedAt
   commission          ExternalPaymentCommission?
   refunds             ExternalPaymentRefund[]
   settlements         ExternalPaymentSettlement[]
@@ -3508,17 +3519,17 @@ model ExternalPaymentIntent {
 // hasta que una verificación operacional explícita registre verifiedAt.
 model PlatformPaymentRecipient {
   id                 String                     @id @default(uuid())
-  provider            ExternalPaymentProvider
-  currency            String
-  environment         PlatformPaymentEnvironment
-  recipientReference  String
-  displayName         String?
-  isEnabled           Boolean                    @default(false)
-  verifiedAt          DateTime?
-  createdById         String?
-  updatedById         String?
-  createdAt           DateTime                   @default(now())
-  updatedAt           DateTime                   @updatedAt
+  provider           ExternalPaymentProvider
+  currency           String
+  environment        PlatformPaymentEnvironment
+  recipientReference String
+  displayName        String?
+  isEnabled          Boolean                    @default(false)
+  verifiedAt         DateTime?
+  createdById        String?
+  updatedById        String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
 
   @@unique([provider, currency, environment])
   @@index([isEnabled, provider, currency])
@@ -3526,23 +3537,23 @@ model PlatformPaymentRecipient {
 }
 
 model ExternalPaymentCommission {
-  id               String @id @default(uuid())
-  paymentIntentId  String @unique
-  paymentIntent    ExternalPaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
+  id               String                           @id @default(uuid())
+  paymentIntentId  String                           @unique
+  paymentIntent    ExternalPaymentIntent            @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
   sellerUserId     String
   currency         String
-  baseAmount       Decimal @db.Decimal(20, 2)
-  feeAmount        Decimal @db.Decimal(20, 2)
-  sellerNetAmount  Decimal @db.Decimal(20, 2)
+  baseAmount       Decimal                          @db.Decimal(20, 2)
+  feeAmount        Decimal                          @db.Decimal(20, 2)
+  sellerNetAmount  Decimal                          @db.Decimal(20, 2)
   rateBps          Int
   payer            FeePayer
   collectionMode   ExternalCommissionCollectionMode
-  status           ExternalCommissionStatus @default(PENDING)
+  status           ExternalCommissionStatus         @default(PENDING)
   invoiceReference String?
   collectedAt      DateTime?
   reversedAt       DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
 
   @@index([sellerUserId, status, createdAt])
   @@index([status, createdAt])
@@ -3550,21 +3561,21 @@ model ExternalPaymentCommission {
 }
 
 model ExternalPaymentRefund {
-  id                String @id @default(uuid())
+  id                String                @id @default(uuid())
   paymentIntentId   String
   paymentIntent     ExternalPaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
-  amount            Decimal @db.Decimal(20, 2)
+  amount            Decimal               @db.Decimal(20, 2)
   currency          String
   reason            String
-  status            ExternalRefundStatus @default(REQUESTED)
+  status            ExternalRefundStatus  @default(REQUESTED)
   requestedByUserId String?
-  providerRefundId  String? @unique
-  idempotencyKey    String @unique
+  providerRefundId  String?               @unique
+  idempotencyKey    String                @unique
   providerMessage   String?
   approvedByUserId  String?
   processedAt       DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
 
   @@index([paymentIntentId, status])
   @@index([status, createdAt])
@@ -3572,15 +3583,15 @@ model ExternalPaymentRefund {
 }
 
 model ExternalPaymentWebhookEvent {
-  id                String @id @default(uuid())
+  id                String                  @id @default(uuid())
   provider          ExternalPaymentProvider
   providerEventId   String
   eventType         String
-  signatureVerified Boolean @default(false)
-  status            ExternalWebhookStatus @default(RECEIVED)
+  signatureVerified Boolean                 @default(false)
+  status            ExternalWebhookStatus   @default(RECEIVED)
   payload           Json
   processingError   String?
-  receivedAt        DateTime @default(now())
+  receivedAt        DateTime                @default(now())
   processedAt       DateTime?
 
   @@unique([provider, providerEventId])
@@ -3589,21 +3600,21 @@ model ExternalPaymentWebhookEvent {
 }
 
 model ExternalPaymentSettlement {
-  id                String @id @default(uuid())
+  id                String                   @id @default(uuid())
   paymentIntentId   String?
-  paymentIntent     ExternalPaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
+  paymentIntent     ExternalPaymentIntent?   @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
   sellerUserId      String
   provider          ExternalPaymentProvider
   currency          String
-  amount            Decimal @db.Decimal(20, 2)
+  amount            Decimal                  @db.Decimal(20, 2)
   status            ExternalSettlementStatus @default(PENDING)
   providerPayoutId  String?
-  externalReference String @unique
+  externalReference String                   @unique
   expectedAt        DateTime?
   paidAt            DateTime?
   failureReason     String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
 
   @@unique([provider, providerPayoutId])
   @@index([sellerUserId, status, createdAt])
@@ -3612,17 +3623,17 @@ model ExternalPaymentSettlement {
 }
 
 model ExternalPaymentReconciliationRun {
-  id              String @id @default(uuid())
+  id              String                              @id @default(uuid())
   provider        ExternalPaymentProvider
   currency        String?
   periodStart     DateTime
   periodEnd       DateTime
-  status          ExternalReconciliationStatus @default(OPEN)
-  totalExpected   Decimal @default(0) @db.Decimal(20, 2)
-  totalReported   Decimal @default(0) @db.Decimal(20, 2)
-  differenceCount Int @default(0)
+  status          ExternalReconciliationStatus        @default(OPEN)
+  totalExpected   Decimal                             @default(0) @db.Decimal(20, 2)
+  totalReported   Decimal                             @default(0) @db.Decimal(20, 2)
+  differenceCount Int                                 @default(0)
   notes           String?
-  startedAt       DateTime @default(now())
+  startedAt       DateTime                            @default(now())
   completedAt     DateTime?
   items           ExternalPaymentReconciliationItem[]
 
@@ -3632,19 +3643,19 @@ model ExternalPaymentReconciliationRun {
 }
 
 model ExternalPaymentReconciliationItem {
-  id             String @id @default(uuid())
+  id             String                           @id @default(uuid())
   runId          String
   run            ExternalPaymentReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   externalRef    String?
   internalRef    String?
   currency       String
-  expectedAmount Decimal? @db.Decimal(20, 2)
-  reportedAmount Decimal? @db.Decimal(20, 2)
-  status         ExternalReconciliationStatus @default(OPEN)
+  expectedAmount Decimal?                         @db.Decimal(20, 2)
+  reportedAmount Decimal?                         @db.Decimal(20, 2)
+  status         ExternalReconciliationStatus     @default(OPEN)
   reason         String?
   resolvedBy     String?
   resolvedAt     DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime                         @default(now())
 
   @@index([runId, status])
   @@index([externalRef])
@@ -3866,25 +3877,25 @@ enum WithdrawalStatus {
 }
 
 model WalletWithdrawalRequest {
-  id                  String           @id @default(uuid())
-  userId              String
-  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount              Decimal          @db.Decimal(20, 2)
-  currency            String           @default("USD")
+  id              String           @id @default(uuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount          Decimal          @db.Decimal(20, 2)
+  currency        String           @default("USD")
   // Cuenta de destino (mismos campos que SellerPaymentAccount), copiada al pedir.
-  destination         Json
+  destination     Json
   // Monto a transferir en la moneda de la cuenta de destino, a la tasa del momento.
-  payoutCurrency      String
-  payoutAmount        Decimal          @db.Decimal(20, 2)
-  exchangeRate        Decimal?         @db.Decimal(20, 8)
-  status              WithdrawalStatus @default(PENDING)
+  payoutCurrency  String
+  payoutAmount    Decimal          @db.Decimal(20, 2)
+  exchangeRate    Decimal?         @db.Decimal(20, 8)
+  status          WithdrawalStatus @default(PENDING)
   // Referencia de la transferencia que hizo la plataforma al pagar.
-  payoutReference     String?
-  rejectionReason     String?
-  reviewedById        String?
-  reviewedAt          DateTime?
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  payoutReference String?
+  rejectionReason String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([status, createdAt])
   @@index([userId, createdAt(sort: Desc)])
@@ -3923,4 +3934,119 @@ model EscrowFundingReport {
   @@index([sourceType, sourceId])
   @@index([reference])
   @@map("escrow_funding_reports")
+}
+
+// ─── Créditos de uso (entitlements, no dinero) ───────────────────────────────
+// Unidades prepagadas para pagar cargos de la propia plataforma (cargo por
+// oportunidad, comisión de éxito). No se transfieren, no se retiran ni se
+// convierten en dinero. Detrás de USAGE_CREDITS_ENABLED (apagado) hasta el
+// dictamen legal: ver docs/legal/CREDITOS_DE_USO_BORRADOR.md y
+// docs/MARKETPLACE_CREDIT_MONETIZATION_REVIEW.md. 1 crédito = 1 USD.
+
+enum UsageCreditLotKind {
+  PURCHASED // comprado: no vence
+  PROMOTIONAL // regalo: se consume primero y vence
+}
+
+enum UsageCreditMovementType {
+  GRANT // alta de unidades (compra o promoción)
+  CONSUME // cargo consumido
+  EXPIRE // vencimiento de unidades promocionales
+  REVERSAL // devolución de un consumo (movimiento compensatorio)
+}
+
+enum UsageCreditConcept {
+  PURCHASE
+  PROMOTION
+  LEAD_FEE
+  SUCCESS_FEE
+  EXPIRATION
+  REVERSAL
+  ADJUSTMENT
+}
+
+model UsageCreditPurchase {
+  id                String                    @id @default(uuid())
+  userId            String
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageCode       String
+  units             Decimal                   @db.Decimal(20, 2)
+  priceUsd          Decimal                   @db.Decimal(20, 2)
+  platformAccountId String?
+  // Copia de la cuenta de la plataforma al momento del pago.
+  destination       Json
+  reference         String
+  payerBankCode     String?
+  paidAt            DateTime
+  paidCurrency      String
+  paidAmount        Decimal                   @db.Decimal(20, 2)
+  exchangeRate      Decimal?                  @db.Decimal(20, 8)
+  status            ManualPaymentReportStatus @default(SUBMITTED)
+  rejectionReason   String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  lots              UsageCreditLot[]
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([reference])
+  @@map("usage_credit_purchases")
+}
+
+model UsageCreditLot {
+  id         String                @id @default(uuid())
+  userId     String
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       UsageCreditLotKind
+  units      Decimal               @db.Decimal(20, 2)
+  remaining  Decimal               @db.Decimal(20, 2)
+  expiresAt  DateTime?
+  purchaseId String?
+  purchase   UsageCreditPurchase?  @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  reason     String?
+  createdAt  DateTime              @default(now())
+  movements  UsageCreditMovement[]
+
+  @@index([userId, kind, remaining])
+  @@index([kind, expiresAt])
+  @@map("usage_credit_lots")
+}
+
+// Libro inmutable: nunca se edita ni se borra; las correcciones son
+// movimientos compensatorios. units con signo (+ alta, − consumo/vencimiento).
+model UsageCreditMovement {
+  id        String                  @id @default(uuid())
+  userId    String
+  user      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lotId     String?
+  lot       UsageCreditLot?         @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  eventId   String
+  event     UsageCreditEvent        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  type      UsageCreditMovementType
+  concept   UsageCreditConcept
+  units     Decimal                 @db.Decimal(20, 2)
+  createdAt DateTime                @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([eventId])
+  @@map("usage_credit_movements")
+}
+
+// Un evento por operación de negocio (compra, cargo, devolución...). La
+// referencia única impide aplicar dos veces el mismo cargo ante reintentos o
+// concurrencia: el segundo insert falla y la transacción se revierte.
+model UsageCreditEvent {
+  id        String                @id @default(uuid())
+  reference String                @unique
+  userId    String
+  concept   UsageCreditConcept
+  units     Decimal               @db.Decimal(20, 2)
+  metadata  Json?
+  createdAt DateTime              @default(now())
+  movements UsageCreditMovement[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("usage_credit_events")
 }
