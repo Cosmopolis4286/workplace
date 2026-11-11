@@ -86,6 +86,7 @@ describe('CatalogService', () => {
       catalogOrderItem: { findMany: jest.fn().mockResolvedValue([]) },
       productBundleItem: { findMany: jest.fn().mockResolvedValue([]) },
       commerce: { findUnique: jest.fn() },
+      platformSetting: { findUnique: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn((callback: (tx: any) => unknown) =>
         callback(mockPrismaService)
       ),

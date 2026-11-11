@@ -43,8 +43,16 @@
             <span class="badge" :class="MKT_STATUS_CLASSES[mo.status]">{{ MKT_STATUS_LABELS[mo.status] }}</span>
           </div>
           <p class="text-xs text-gray-500 truncate">{{ itemsSummary(mo) }}</p>
-          <p class="text-xs text-gray-400">{{ mo.buyerPhone }}<span v-if="mo.buyerEmail"> · {{ mo.buyerEmail }}</span></p>
           <p v-if="mo.address" class="text-xs text-gray-400 mt-0.5">📍 {{ mo.address }}{{ mo.city ? `, ${mo.city}` : '' }}</p>
+          <ConversationChat
+            v-if="chatOrderId === mo.id && currentUserId"
+            class="mt-3"
+            thread-type="CATALOG_ORDER"
+            :thread-id="mo.id"
+            :current-user-id="currentUserId"
+            :title="`Chat con ${mo.buyerName}`"
+            hint="Coordina la entrega por aquí. Por seguridad no se comparten teléfonos ni correos."
+          />
         </div>
         <div class="flex-shrink-0 text-right space-y-1">
           <p v-if="mo.totalEstimate" class="text-sm font-bold text-gray-900">${{ formatPrice(mo.totalEstimate) }}</p>
@@ -68,10 +76,10 @@
             :disabled="updatingId === mo.id"
             @click="updateStatus(mo.id, ns)"
           >{{ MKT_STATUS_LABELS[ns] }}</button>
-          <a v-if="mo.buyerPhone" :href="`https://wa.me/${mo.buyerPhone.replace(/\D/g,'')}`" target="_blank"
-            class="text-xs px-2 py-1 rounded-lg font-medium bg-green-100 hover:bg-green-200 text-green-700 transition-colors text-center">
-            WhatsApp
-          </a>
+          <button
+            class="text-xs px-2 py-1 rounded-lg font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors"
+            @click="chatOrderId = chatOrderId === mo.id ? null : mo.id"
+          >{{ chatOrderId === mo.id ? 'Cerrar chat' : 'Chat' }}</button>
         </div>
       </div>
     </div>
@@ -91,6 +99,12 @@ import { ref, computed, onMounted } from 'vue'
 import { ArrowPathIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import ConversationChat from '~/components/conversations/ConversationChat.vue'
+import { useAuth } from '~/composables/auth/useAuth'
+
+const { user: authUser } = useAuth()
+const currentUserId = computed(() => authUser.value?.id ?? '')
+const chatOrderId = ref<string | null>(null)
 
 type MktOrderStatus = 'PENDING' | 'SEEN' | 'CONTACTED' | 'CLOSED'
 type MktDeliveryType = 'HOME_DELIVERY' | 'PICKUP' | 'DIGITAL'

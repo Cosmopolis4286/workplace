@@ -106,6 +106,19 @@
                 </span>
               </div>
               <p class="text-xs text-gray-400">{{ formatDate(report.createdAt) }}</p>
+              <button
+                type="button"
+                class="mt-2 text-xs font-semibold text-blue-600 hover:underline"
+                @click="openChatId = openChatId === report.id ? null : report.id"
+              >{{ openChatId === report.id ? 'Ocultar conversación' : 'Conversar con soporte' }}</button>
+              <ConversationChat
+                v-if="openChatId === report.id && currentUserId"
+                class="mt-2"
+                thread-type="REPORT"
+                :thread-id="report.id"
+                :current-user-id="currentUserId"
+                title="Soporte WorkPlace"
+              />
             </div>
           </div>
         </div>
@@ -115,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
   ExclamationTriangleIcon,
   FlagIcon,
@@ -126,6 +139,12 @@ import {
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useReports, type Report } from '~/composables/dashboard/useReports'
 import { useDateFormat } from '~/composables/core/useDateFormat'
+import ConversationChat from '~/components/conversations/ConversationChat.vue'
+import { useAuth } from '~/composables/auth/useAuth'
+
+const { user: chatUser } = useAuth()
+const currentUserId = computed(() => chatUser.value?.id ?? '')
+const openChatId = ref<string | null>(null)
 
 definePageMeta({ middleware: 'auth' })
 

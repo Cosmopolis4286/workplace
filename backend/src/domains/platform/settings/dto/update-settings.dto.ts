@@ -30,6 +30,11 @@ export class SocialLinksDto {
 }
 
 export class UpdateCommerceInfoDto {
+  // Mostrar teléfono, correo y WhatsApp en la página pública de la tienda.
+  @IsOptional()
+  @IsBoolean()
+  showPublicContact?: boolean;
+
   @IsOptional()
   @IsString()
   name?: string;

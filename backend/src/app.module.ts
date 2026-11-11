@@ -52,6 +52,8 @@ import { ServiceRequestMessagesModule } from './domains/commerce-core/services/m
 import { PlansModule } from './domains/money/plans/plans.module';
 import { ExchangeRatesModule } from './domains/money/exchange-rates/exchange-rates.module';
 import { HealthModule } from './domains/platform/health/health.module';
+import { ConversationsModule } from './domains/engagement/conversations/conversations.module';
+import { PlatformSettingsModule } from './domains/platform/platform-settings/platform-settings.module';
 import { UsageCreditsModule } from './domains/money/usage-credits/usage-credits.module';
 import { CategoriesGlobalModule } from './domains/commerce-core/categories-global/categories-global.module';
 import { RidesModule } from './domains/operations/rides/rides.module';
@@ -145,6 +147,8 @@ import { EscrowFundingModule } from './domains/money/escrow-funding/escrow-fundi
     PlansModule,
     ExchangeRatesModule,
     HealthModule,
+    ConversationsModule,
+    PlatformSettingsModule,
     UsageCreditsModule,
     CategoriesGlobalModule,
     RidesModule,

@@ -50,6 +50,18 @@
           <p v-if="item.description" class="text-sm text-gray-600 bg-gray-50 rounded-xl p-3">{{ item.description }}</p>
           <p v-if="item.entityId" class="text-xs text-gray-400 font-mono">ID: {{ item.entityId }}</p>
           <p v-if="item.adminNotes" class="text-xs text-gray-500 italic">Notas previas: {{ item.adminNotes }}</p>
+          <button
+            type="button"
+            class="text-xs font-semibold text-blue-600 hover:underline"
+            @click="openChatId = openChatId === item.id ? null : item.id"
+          >{{ openChatId === item.id ? 'Ocultar conversación' : 'Conversar con quien reportó' }}</button>
+          <ConversationChat
+            v-if="openChatId === item.id && currentUserId"
+            thread-type="REPORT"
+            :thread-id="item.id"
+            :current-user-id="currentUserId"
+            :title="`Conversación con ${item.reporter?.firstName ?? 'el usuario'}`"
+          />
         </div>
 
         <div v-if="item.status === 'PENDING' || item.status === 'IN_REVIEW'" class="px-6 pb-4">
@@ -121,6 +133,12 @@ import { useReports, type Report, type ReportStatus, type ReportEntityType } fro
 import { useApi } from '~/composables/core/useApi'
 import { useConfirm } from '~/composables/ui/useConfirm'
 import PageHeader from '~/components/ui/PageHeader.vue'
+import ConversationChat from '~/components/conversations/ConversationChat.vue'
+import { useAuth } from '~/composables/auth/useAuth'
+
+const { user: chatUser } = useAuth()
+const currentUserId = computed(() => chatUser.value?.id ?? '')
+const openChatId = ref<string | null>(null)
 
 // El guard vive en middleware/auth.ts vía permiso reviews:moderate (ver
 // PermissionsGuard en el backend) — esta página no necesita chequeo propio.

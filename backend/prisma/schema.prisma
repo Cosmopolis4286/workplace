@@ -131,6 +131,7 @@ model User {
   jobApplications JobApplication[]
 
   groupBuyingCampaigns GroupBuyingCampaign[]
+  ConversationMessage  ConversationMessage[]
 
   @@index([categoryId])
   @@index([subcategoryId])
@@ -234,14 +235,18 @@ model Commerce {
   slugUpdatedAt DateTime?
 
   // Contenido de la página pública de la tienda (/loja/:slug).
-  description String?
+  description       String?
   // Permite ocultar la tienda pública sin afectar el resto de la app (el
   // comercio sigue operando en dashboard/catálogo interno). Default true:
   // comercios existentes no deben desaparecer de /loja al desplegar esto.
-  isPublic    Boolean @default(true)
+  isPublic          Boolean @default(true)
+  // Mostrar teléfono, correo y WhatsApp en la página pública de la tienda.
+  // Solo se muestran si además lo permite el ajuste global
+  // store.publicContact (PlatformSetting) que controla el admin.
+  showPublicContact Boolean @default(true)
   // Estructura libre {instagram, facebook, whatsapp, tiktok, ...} — evita una
   // tabla nueva para algo que no se consulta ni se filtra, solo se muestra.
-  socialLinks Json?
+  socialLinks       Json?
 
   userId             String                 @unique
   user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -4061,4 +4066,42 @@ model UsageCreditEvent {
 
   @@index([userId, createdAt(sort: Desc)])
   @@map("usage_credit_events")
+}
+
+// ─── Ajustes globales de la plataforma (admin) ───────────────────────────────
+// Clave/valor para ajustes que el SUPERADMIN cambia sin desplegar, p. ej.
+// store.publicContact (mostrar el contacto de las tiendas en su página).
+model PlatformSetting {
+  key         String   @id
+  value       Json
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+// ─── Conversaciones (chat de pedidos de catálogo y de reportes) ──────────────
+// El chat de solicitudes de servicio vive en ServiceRequestMessage. Este es
+// el chat genérico para los demás hilos: pedido de catálogo (comprador ↔
+// comercio) y reporte de un problema (quien reporta ↔ soporte).
+enum ConversationThreadType {
+  CATALOG_ORDER
+  REPORT
+}
+
+model ConversationMessage {
+  id          String                 @id @default(uuid())
+  threadType  ConversationThreadType
+  threadId    String
+  senderId    String
+  sender      User                   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  // true cuando escribe soporte (admin) en un hilo de reporte.
+  fromSupport Boolean                @default(false)
+  body        String
+  readAt      DateTime?
+  createdAt   DateTime               @default(now())
+
+  @@index([threadType, threadId, createdAt])
+  @@index([senderId])
+  @@map("conversation_messages")
 }

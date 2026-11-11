@@ -25,6 +25,7 @@ export interface CommerceInfo {
   slugUpdatedAt?: string | null
   description?: string | null
   isPublic?: boolean
+  showPublicContact?: boolean
   socialLinks?: SocialLinks | null
   latitude?: number | null
   longitude?: number | null
