@@ -172,7 +172,11 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         label: 'Billetera',
         icon: 'wallet',
         order: 7,
-        condition: { permission: 'wallets:use', requiresModule: true },
+        condition: {
+          permission: 'wallets:use',
+          requiresModule: true,
+          requiresFeature: 'protectedPayments',
+        },
       },
       {
         id: 'my-orders',

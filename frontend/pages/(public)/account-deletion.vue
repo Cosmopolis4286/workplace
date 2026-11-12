@@ -58,7 +58,7 @@
         que dejaste a otros usuarios se mantienen firmadas como «Usuario eliminado».
       </p>
       <p class="text-gray-700">
-        Si tienes saldo en tu wallet, pagos protegidos en curso o depósitos pendientes, tendrás que
+        Si tienes pagos protegidos en curso, estados de cuenta sin pagar o un retiro en proceso, tendrás que
         resolverlos antes: la app te indica cuáles.
       </p>
     </section>

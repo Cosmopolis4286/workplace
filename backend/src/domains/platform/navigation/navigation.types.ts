@@ -75,6 +75,11 @@ export interface NavNodeCondition {
    * Commerce" (esto).
    */
   requiresCapability?: Capability;
+  /**
+   * Interruptor de common/config/features que debe estar encendido (ej. la
+   * billetera solo existe con el Pago Protegido).
+   */
+  requiresFeature?: 'protectedPayments';
   /** Al menos una de estas capacidades (ej. "tiene algún perfil de negocio"). */
   requiresAnyCapability?: Capability[];
   /** Se oculta si tiene cualquiera de estas capacidades. */

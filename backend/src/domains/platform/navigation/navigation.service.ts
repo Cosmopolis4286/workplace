@@ -17,6 +17,7 @@ import {
   NAVIGATION_TREE,
 } from './navigation-tree.data';
 import { NavItemDef, NavigationResponse } from './navigation.types';
+import { features } from '../../../common/config/features';
 
 @Injectable()
 export class NavigationService {
@@ -62,6 +63,7 @@ export class NavigationService {
 
     const visible = (item: NavItemDef): boolean => {
       const c = item.condition;
+      if (c.requiresFeature && !features[c.requiresFeature]()) return false;
       if (c.rolesOnly && !c.rolesOnly.includes(role)) return false;
       if (c.excludeRoles && c.excludeRoles.includes(role)) return false;
       if (c.requiresCapability && !has(c.requiresCapability)) return false;

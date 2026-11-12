@@ -33,6 +33,7 @@ Severidad:
 | M3 reportar productos/comercios | ✅ `ReportEntityType` suma `PRODUCT` y `COMMERCE`. Cualquier usuario autenticado reporta desde la tienda pública (no el dueño); un mismo usuario no duplica un reporte abierto. |
 | M5 rótulos de garantía | ✅ Los movimientos de un pedido de catálogo dicen "pedido del catálogo" y llevan `metadata.catalogOrderId`. Las referencias `ESCROW-*` (clave de idempotencia) no cambian. |
 | M6 usuario de sistema admin | ✅ Se crea con rol NORMAL y desactivado; una migración corrige el existente. |
+| M7 pagar el estado de cuenta con saldo | ❌ Descartado: la plataforma no custodia fondos (SUDEBAN). El estado de cuenta se paga por transferencia o Pago Móvil a la cuenta de la plataforma, que es ingreso propio. Además la billetera queda oculta y cerrada (403) mientras `PROTECTED_PAYMENTS_ENABLED` esté apagado. |
 | M8 empleados y pedidos | ⚠️ Premisa incorrecta: `Employee` no tiene cuenta de usuario (sin `userId`) y `commerceResolver` solo resuelve al dueño, así que hoy ningún empleado inicia sesión en el comercio. `GET orders/mine` ya usa el mismo resolvedor que `PATCH status`. Acceso de empleados = función nueva (cuentas por comercio), no un bug. |
 | A2, M1, M3–M8 | Pendientes. |
 

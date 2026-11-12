@@ -142,7 +142,7 @@
                   Configuración
                 </NuxtLink>
                 <NuxtLink
-                  v-if="can('wallets:use')"
+                  v-if="can('wallets:use') && features.protectedPayments"
                   to="/wallet"
                   @click="showProfileMenu = false"
                   class="flex items-center px-4 py-2.5 text-sm transition-all duration-200 gap-3"
@@ -225,6 +225,7 @@ import {
   WalletIcon,
   ArrowTopRightOnSquareIcon,
 } from '@heroicons/vue/24/outline'
+import { useFeatures } from '~/composables/core/useFeatures'
 import { useAuth } from '~/composables/auth/useAuth'
 
 defineProps({
@@ -235,6 +236,8 @@ defineEmits(['toggle-sidebar'])
 const route = useRoute()
 const { logout, user } = useAuth()
 const { can } = usePermissions()
+// La billetera solo existe con el Pago Protegido encendido.
+const { features } = useFeatures()
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl
 

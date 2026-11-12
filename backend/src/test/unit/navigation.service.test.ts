@@ -469,7 +469,37 @@ describe('NavigationService', () => {
       activitySection?.items.find((i) => i.id === 'opportunities')
     ).toBeDefined();
     expect(activitySection?.items.find((i) => i.id === 'rides')).toBeDefined();
-    expect(activitySection?.items.find((i) => i.id === 'wallet')).toBeDefined();
+    // Sin Pago Protegido no hay billetera (la plataforma no custodia fondos).
+    expect(
+      activitySection?.items.find((i) => i.id === 'wallet')
+    ).toBeUndefined();
+  });
+
+  it('shows the wallet only when PROTECTED_PAYMENTS_ENABLED is on', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue(['wallets:use']);
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['wallets'],
+      categoryName: null,
+    });
+    currentCapabilities = BUSINESS_WITH_COMMERCE;
+    const ids = async () =>
+      (
+        await service.buildNavigationForUser({
+          id: 'u1',
+          role: Role.PROFESIONAL,
+        })
+      ).sections.flatMap((s) => s.items.map((i) => i.id));
+
+    const previous = process.env.PROTECTED_PAYMENTS_ENABLED;
+    try {
+      delete process.env.PROTECTED_PAYMENTS_ENABLED;
+      expect(await ids()).not.toContain('wallet');
+      process.env.PROTECTED_PAYMENTS_ENABLED = 'true';
+      expect(await ids()).toContain('wallet');
+    } finally {
+      if (previous === undefined) delete process.env.PROTECTED_PAYMENTS_ENABLED;
+      else process.env.PROTECTED_PAYMENTS_ENABLED = previous;
+    }
   });
 
   describe('getRouteMaps', () => {

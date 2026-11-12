@@ -14,6 +14,7 @@ import { join } from 'path';
 import type { Response } from 'express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { WalletEnabledGuard } from '../../../common/guards/wallet-enabled.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -32,7 +33,7 @@ const DEPOSIT_PROOF_DIR = join(
   'wallet-deposit-proofs'
 );
 
-@UseGuards(JwtAuthGuard, RolesGuard, RateLimitGuard)
+@UseGuards(WalletEnabledGuard, JwtAuthGuard, RolesGuard, RateLimitGuard)
 @Controller('wallet-deposit-requests')
 export class WalletDepositRequestsController {
   constructor(private readonly service: WalletDepositRequestsService) {}
