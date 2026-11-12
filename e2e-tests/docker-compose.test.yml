@@ -1,6 +1,9 @@
 # Docker Compose específico para E2E Tests - Ultra optimizado
 
 services:
+  # Sin "ports:": todo se habla por la red interna (test-runner usa
+  # test-frontend/test-backend). Publicar 3000/3001/5432/6379 en el host choca con
+  # producción cuando el runner self-hosted es la misma máquina.
   # Backend para tests - versión ultra ligera
   test-backend:
     build:
@@ -25,8 +28,6 @@ services:
       GOOGLE_CLIENT_ID: test-client-id
       GOOGLE_CLIENT_SECRET: test-client-secret
       PORT: 3001
-    ports:
-      - "3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,8 +53,6 @@ services:
       APP_ENV: test
       PORT: 3000
       NUXT_PUBLIC_API_URL: http://localhost:3001
-    ports:
-      - "3000:3000"
     depends_on:
       test-backend:
         condition: service_healthy
@@ -75,8 +74,6 @@ services:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
     networks:
@@ -92,8 +89,6 @@ services:
   # Redis para tests - lightweight
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis_test_data:/data
     networks:

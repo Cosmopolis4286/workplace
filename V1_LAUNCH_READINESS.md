@@ -15,6 +15,8 @@ manualmente** (no solo implementado y con tests unitarios).
 
 ---
 
+> **Auditoría v1 (2026-11-12):** ver `AUDITORIA_V1_FUNCIONAL.md` para lo que falta lanzar.
+
 ## 🔄 Estado al 2026-11-02 — cobro tipo Cashea y flujos de v1 (PRs #78, #80, #84 y siguientes)
 
 Lo de esta sección **reemplaza** a los ítems viejos que contradice (marcados más abajo).
