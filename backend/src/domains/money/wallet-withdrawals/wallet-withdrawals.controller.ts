@@ -14,6 +14,7 @@ import { RequirePermission } from '../../../common/decorators/require-permission
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { EmailVerifiedGuard } from '../../../common/guards/email-verified.guard';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { WalletEnabledGuard } from '../../../common/guards/wallet-enabled.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import {
@@ -30,7 +31,13 @@ import { WalletWithdrawalsService } from './wallet-withdrawals.service';
 
 /** Solicitudes de retiro del saldo de la billetera a una cuenta bancaria. */
 @Controller('wallet-withdrawals')
-@UseGuards(JwtAuthGuard, PermissionsGuard, RolesGuard, RateLimitGuard)
+@UseGuards(
+  WalletEnabledGuard,
+  JwtAuthGuard,
+  PermissionsGuard,
+  RolesGuard,
+  RateLimitGuard
+)
 export class WalletWithdrawalsController {
   constructor(private readonly withdrawals: WalletWithdrawalsService) {}
 

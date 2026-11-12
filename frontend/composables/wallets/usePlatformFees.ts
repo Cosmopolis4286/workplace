@@ -36,7 +36,7 @@ export const FEE_TYPE_LABELS: Record<FeeTransactionType, string> = {
 
 export const FEE_PAYER_LABELS: Record<FeePayer, string> = {
   CLIENT: 'Cliente (se suma al precio)',
-  PROVIDER: 'Proveedor (se descuenta de su billetera)',
+  PROVIDER: 'Proveedor (va a su estado de cuenta semanal)',
 }
 
 // Tasas públicas (solo payer=CLIENT) — singleton compartido entre los modales

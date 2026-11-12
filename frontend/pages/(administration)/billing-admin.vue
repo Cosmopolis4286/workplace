@@ -229,7 +229,13 @@ const { confirm } = useConfirm()
 
 // La pestaña de créditos solo existe con USAGE_CREDITS_ENABLED.
 const { features } = useFeatures()
-const visibleTabs = computed(() => TABS.filter(t => t.value !== 'credits' || features.value.usageCredits))
+// Garantías y retiros solo existen con el Pago Protegido (sin él, la
+// plataforma no custodia fondos ni hay billetera de la que retirar).
+const visibleTabs = computed(() => TABS.filter((t) => {
+  if (t.value === 'credits') return features.value.usageCredits
+  if (t.value === 'escrow' || t.value === 'withdrawals') return features.value.protectedPayments
+  return true
+}))
 const isSuperAdmin = computed(() => user.value?.role === 'SUPERADMIN')
 const tab = ref<Tab>('payments')
 const payments = ref<AdminStatementPayment[]>([])

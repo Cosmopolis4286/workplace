@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { WalletEnabledGuard } from '../../../common/guards/wallet-enabled.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { EmailVerifiedGuard } from '../../../common/guards/email-verified.guard';
@@ -28,7 +29,13 @@ import { QueryWalletTransactionsDto } from './dto/query-wallet-transactions.dto'
 import { AdjustDto } from './dto/adjust.dto';
 import { SetPinDto, ChangePinDto } from './dto/set-pin.dto';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard, RolesGuard, RateLimitGuard)
+@UseGuards(
+  WalletEnabledGuard,
+  JwtAuthGuard,
+  PermissionsGuard,
+  RolesGuard,
+  RateLimitGuard
+)
 @Controller('wallets')
 export class WalletsController {
   constructor(private readonly walletsService: WalletsService) {}

@@ -21,6 +21,7 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
   - El usuario técnico de garantías deja de ser admin.
 - **Términos**: pagos entre usuarios, comisiones con IVA y que la plataforma no custodia fondos.
 - **CI**: Dependabot desactivado; las dependencias se actualizan a mano.
+- **Billetera**: oculta y cerrada (403) mientras el Pago Protegido esté apagado; la comisión se paga solo por transferencia o Pago Móvil.
 
 ### Cobro tipo Cashea, flujo del prestador y delivery (2026-10-28 → 2026-11-01)
 
