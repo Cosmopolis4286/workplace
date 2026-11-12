@@ -4,6 +4,30 @@ Fecha: 2026-11-07
 Rama: `docs/marketplace-credit-monetization-review`  
 Base: `main`
 
+## Estado de implementación (2026-11-12)
+
+Implementado detrás de `USAGE_CREDITS_ENABLED` (apagado por defecto, pendiente del dictamen legal):
+
+- `GET /services/requests/:id/lead-fee-quote`: el proveedor ve el cargo por oportunidad (tramos de `leadFeeUnits`), la comisión estimada, el total y su saldo de créditos.
+- `POST /services/requests/:id/accept` con `{ policyVersion, leadFee }`:
+  - exige que coincidan con la cotización vigente;
+  - exige saldo para el cargo más la comisión estimada.
+  - En una sola transacción:
+    - reclama la solicitud (`PENDING|SEEN → CONTACTED`, con `updateMany` condicionado);
+    - registra el historial;
+    - guarda el consentimiento en `ServiceLeadAcceptance` (versión, importes, base, referencia única);
+    - descuenta `LEAD-SVC-{id}` en créditos.
+- Con el interruptor encendido, el PATCH genérico ya no puede pasar a `CONTACTED`. Devuelve `LEAD_FEE_ACCEPTANCE_REQUIRED`.
+- Al cerrar, si la solicitud tiene aceptación y no hay garantía retenida:
+  - la comisión real (`FEE-SVC-{id}`) se registra `COLLECTED` y se descuenta en créditos (`SUCCESS-SVC-{id}`), en la misma transacción;
+  - sin saldo suficiente, cae al estado de cuenta semanal: al cliente no se le bloquea el cierre.
+- Frontend: "Aceptar solicitud" abre la cotización con consentimiento explícito y un enlace para comprar créditos.
+
+Pendiente de producto y legal antes de encenderlo:
+- devolución del cargo por oportunidad (contacto inválido, duplicado, fraude); `reverse` ya existe en la fachada;
+- texto de términos del cargo;
+- validar la economía unitaria (cargo + comisión).
+
 ## Objetivo
 
 Evaluar cómo incorporar a WorkPlace una monetización para servicios originados en el marketplace, con cargos por adquisición/asignación de oportunidades, comisión por servicio completado y recompensas de fidelización, sin duplicar los dominios financieros existentes ni mezclar dinero de terceros con ingresos de la plataforma.

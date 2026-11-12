@@ -31,6 +31,7 @@ import { QueryServicesDto } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { UpdateServiceRequestDto } from './dto/update-service-request.dto';
+import { AcceptLeadFeeDto } from './dto/accept-lead-fee.dto';
 import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
 import { RejectPriceChangeProposalDto } from './dto/reject-price-change-proposal.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
@@ -425,6 +426,28 @@ export class ServicesController {
     @Body() body: UpdateServiceRequestDto
   ) {
     return this.servicesService.updateServiceRequest(id, user.id, body);
+  }
+
+  // Créditos de uso (apagado con USAGE_CREDITS_ENABLED): el proveedor ve el
+  // cargo por oportunidad y la comisión estimada, y acepta explícitamente.
+  @Get('requests/:id/lead-fee-quote')
+  @UseGuards(JwtAuthGuard)
+  getLeadFeeQuote(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.servicesService.getLeadFeeQuote(id, user.id);
+  }
+
+  @Post('requests/:id/accept')
+  @UseGuards(JwtAuthGuard)
+  acceptWithLeadFee(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() body: AcceptLeadFeeDto
+  ) {
+    return this.servicesService.acceptServiceRequestWithLeadFee(
+      id,
+      user.id,
+      body
+    );
   }
 
   @Patch('requests/:id/status')

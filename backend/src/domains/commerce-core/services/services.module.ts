@@ -11,6 +11,8 @@ import { MailModule } from '../../engagement/mail/mail.module';
 import { PlansModule } from '../../money/plans/plans.module';
 import { EscrowModule } from '../../money/escrow/escrow.module';
 import { ReputationModule } from '../../reputation/reputation.module';
+import { UsageCreditsModule } from '../../money/usage-credits/usage-credits.module';
+import { ServiceLeadFeeService } from './service-lead-fee.service';
 
 @Module({
   // ServicesService necesita EscrowFacade para retener/liberar/reembolsar
@@ -25,9 +27,11 @@ import { ReputationModule } from '../../reputation/reputation.module';
     PlansModule,
     EscrowModule,
     ReputationModule,
+    UsageCreditsModule,
   ],
   providers: [
     ServicesService,
+    ServiceLeadFeeService,
     { provide: SERVICES_FACADE, useExisting: ServicesService },
     ServiceRequestReminderScheduler,
     EscrowRetryScheduler,

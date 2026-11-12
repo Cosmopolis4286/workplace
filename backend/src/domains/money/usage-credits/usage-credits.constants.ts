@@ -32,3 +32,10 @@ export function leadFeeUnits(serviceAmountUsd: Prisma.Decimal | number | null) {
   if (amount.lte(30)) return new Prisma.Decimal('0.50');
   return new Prisma.Decimal('1.00');
 }
+
+/**
+ * Versión de la política de cargo por oportunidad que se le muestra al
+ * proveedor antes de aceptar. Cambiarla invalida las cotizaciones abiertas:
+ * el proveedor tiene que volver a ver y aceptar el cargo vigente.
+ */
+export const LEAD_FEE_POLICY_VERSION = '2026-11-v1';

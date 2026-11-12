@@ -4,6 +4,12 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Cobro en créditos al aceptar un servicio (2026-11-12, apagado con `USAGE_CREDITS_ENABLED`)
+
+- El prestador ve el cargo por oportunidad y la comisión estimada antes de aceptar una solicitud, y los acepta explícitamente (queda registro auditable del consentimiento).
+- El cargo por oportunidad se descuenta en créditos al aceptar, en la misma transacción que la aceptación; la comisión, al cerrar, con el precio final.
+- Sin créditos suficientes al cerrar, la comisión va al estado de cuenta semanal.
+
 ### Fugas de cobro y auditoría de comercio (2026-11-02 → 2026-11-11)
 
 - **Cobros**
