@@ -19,6 +19,9 @@
           :class="msg.senderId === currentUserId ? 'bg-red-500 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'"
         >
           <p v-if="msg.fromSupport && msg.senderId !== currentUserId" class="text-[10px] font-semibold text-blue-700">Soporte WorkPlace</p>
+          <p v-else-if="showSenderNames && msg.senderId !== currentUserId && msg.sender" class="text-[10px] font-semibold text-gray-500">
+            {{ senderLabel(msg) }}
+          </p>
           <p class="whitespace-pre-wrap break-words">{{ msg.body }}</p>
           <p class="text-[10px] mt-0.5 text-right" :class="msg.senderId === currentUserId ? 'text-white/70' : 'text-gray-400'">
             {{ new Date(msg.createdAt).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) }}
@@ -27,8 +30,24 @@
       </div>
     </div>
 
+    <p v-if="readOnly" class="px-3 py-2 text-[11px] text-gray-500 border-t border-gray-100 bg-gray-50">
+      {{ readOnlyText }}
+    </p>
+    <template v-else>
     <p v-if="hint" class="px-3 pt-2 text-[11px] text-gray-500">{{ hint }}</p>
     <p v-if="sendError" class="px-3 pt-1 text-xs text-red-600">{{ sendError }}</p>
+    <div v-if="quickReplies.length" class="flex gap-1.5 overflow-x-auto px-3 pt-2 pb-0.5">
+      <button
+        v-for="reply in quickReplies"
+        :key="reply"
+        type="button"
+        class="flex-shrink-0 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        :disabled="sending"
+        @click="sendText(reply)"
+      >
+        {{ reply }}
+      </button>
+    </div>
     <form class="flex items-center gap-2 border-t border-gray-100 p-3" @submit.prevent="send">
       <input
         v-model="input"
@@ -45,6 +64,7 @@
         <PaperAirplaneIcon class="h-4 w-4" />
       </button>
     </form>
+    </template>
   </div>
 </template>
 
@@ -60,18 +80,39 @@ interface ConversationMessage {
   fromSupport: boolean
   body: string
   createdAt: string
+  sender?: { id: string; firstName: string | null; lastName: string | null } | null
 }
 
 const props = withDefaults(defineProps<{
-  threadType: 'CATALOG_ORDER' | 'REPORT'
+  threadType: 'CATALOG_ORDER' | 'REPORT' | 'DELIVERY'
   threadId: string
   currentUserId: string
   title?: string
   hint?: string
+  // Respuestas de un toque (ej. el repartidor en la calle: "Llegué").
+  quickReplies?: string[]
+  // Operación terminada: se ve el historial pero no se escribe.
+  readOnly?: boolean
+  readOnlyText?: string
+  // Hilos de más de dos personas (entregas): quién escribió cada mensaje.
+  showSenderNames?: boolean
+  // Nombre a mostrar por id de remitente (ej. "Repartidor", "Comercio").
+  senderRoles?: Record<string, string>
 }>(), {
   title: 'Conversación',
   hint: '',
+  quickReplies: () => [],
+  readOnly: false,
+  readOnlyText: 'Esta conversación ya se cerró.',
+  showSenderNames: false,
+  senderRoles: () => ({}),
 })
+
+function senderLabel(msg: ConversationMessage) {
+  const role = props.senderRoles[msg.senderId]
+  const name = msg.sender?.firstName ?? ''
+  return role ? (name ? `${name} · ${role}` : role) : name
+}
 
 const { get, post, patch } = useApi()
 const messages = ref<ConversationMessage[]>([])
@@ -103,14 +144,19 @@ async function load(showLoading = true) {
 }
 
 async function send() {
-  const body = input.value.trim()
-  if (!body || sending.value) return
+  await sendText(input.value)
+}
+
+async function sendText(text: string) {
+  const body = text.trim()
+  if (!body || sending.value || props.readOnly) return
   sending.value = true
   sendError.value = null
   try {
     const created = await post<ConversationMessage>(`${base()}/messages`, { body })
     messages.value.push(created)
-    input.value = ''
+    // Una respuesta rápida no borra lo que el usuario ya estaba escribiendo.
+    if (text === input.value) input.value = ''
     scrollToBottom()
   } catch (e) {
     // Se rechazan datos de contacto: el texto queda para corregirlo.

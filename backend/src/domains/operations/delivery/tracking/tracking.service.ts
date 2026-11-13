@@ -67,11 +67,12 @@ export interface TrackingSnapshot {
   deliveryId: string;
   status: DeliveryStatus;
   trackingActive: boolean;
+  // Sin teléfono: el snapshot también viaja por WebSocket a todos los que
+  // siguen la entrega (cliente incluido). Se hablan por el chat de la entrega.
   driver: {
     id: string;
     name: string;
     vehicleType: string;
-    phone: string | null;
   } | null;
   location: LocationSnapshot | null;
   pickup: { lat: number; lng: number } | null;
@@ -114,11 +115,47 @@ export class TrackingService {
       orderBy: { createdAt: 'asc' },
     });
     // El código de entrega es la prueba de que el cliente recibió: el
-    // repartidor nunca lo ve, se lo pide al cliente.
+    // repartidor nunca lo ve, se lo pide al cliente. El teléfono del cliente
+    // solo se muestra si no tiene cuenta (entrega cargada a mano por el
+    // comercio): con cuenta, se hablan por el chat de la entrega.
     return deliveries.map(({ deliveryCode: _code, ...rest }) => ({
       ...rest,
+      customerPhone: rest.customerUserId ? null : rest.customerPhone,
+      chatAvailable: !!rest.customerUserId,
       hasDeliveryCode: !!_code,
     }));
+  }
+
+  // ─── Vista del cliente ──────────────────────────────────────────────────
+  // Entregas a nombre del usuario (las en curso primero). Sin código de
+  // entrega: se ve en la página de seguimiento.
+  async findMyCustomerDeliveries(userId: string) {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const deliveries = await this.prisma.delivery.findMany({
+      where: { customerUserId: userId, createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        deliveryAddress: true,
+        createdAt: true,
+        deliveredAt: true,
+        commerce: { select: { name: true } },
+        driver: { select: { name: true, vehicleType: true } },
+        rating: { select: { stars: true } },
+      },
+    });
+    const active: DeliveryStatus[] = [
+      DeliveryStatus.PENDING,
+      DeliveryStatus.ASSIGNED,
+      DeliveryStatus.PICKING_UP,
+      DeliveryStatus.IN_TRANSIT,
+    ];
+    return deliveries
+      .map((d) => ({ ...d, active: active.includes(d.status) }))
+      .sort((a, b) => Number(b.active) - Number(a.active));
   }
 
   // ─── Autorización ───────────────────────────────────────────────────────
@@ -317,7 +354,7 @@ export class TrackingService {
       where: { id: deliveryId },
       include: {
         driver: {
-          select: { id: true, name: true, vehicleType: true, phone: true },
+          select: { id: true, name: true, vehicleType: true },
         },
       },
     });

@@ -9,6 +9,7 @@ import {
   Max,
   MaxLength,
   IsPositive,
+  IsEmail,
 } from 'class-validator';
 import { DeliveryStatus } from '@prisma/client';
 
@@ -63,6 +64,13 @@ export class CreateDeliveryDto {
   @IsOptional()
   @IsString()
   customerUserId?: string;
+
+  // Correo de la cuenta del cliente en WorkPlace: el backend lo resuelve a
+  // customerUserId.
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(254)
+  customerEmail?: string;
 
   @IsOptional()
   @IsNumber()

@@ -31,6 +31,16 @@ describe('ConversationsService', () => {
       report: {
         findUnique: jest.fn().mockResolvedValue({ reporterId: 'buyer' }),
       },
+      delivery: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'd1',
+          status: 'IN_TRANSIT',
+          orderNumber: '1001',
+          customerUserId: 'buyer',
+          driver: { userId: 'driver' },
+          commerce: { userId: 'seller', name: 'Pizzería' },
+        }),
+      },
       conversationMessage: {
         findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(({ data }: any) =>
@@ -46,6 +56,49 @@ describe('ConversationsService', () => {
     };
     notifications = { createForUser: jest.fn().mockResolvedValue({}) };
     service = new ConversationsService(prisma, resolver, notifications);
+  });
+
+  describe('entrega', () => {
+    const DRIVER = { id: 'driver', role: Role.NORMAL };
+
+    it('cliente, repartidor y comercio conversan; avisa a los otros dos', async () => {
+      await service.send('DELIVERY', 'd1', DRIVER, 'Llegué, estoy afuera');
+      const notified = notifications.createForUser.mock.calls.map(
+        (c: any[]) => [c[0], c[1].link]
+      );
+      expect(notified).toEqual([
+        ['buyer', '/delivery-tracking/d1'],
+        ['seller', '/delivery'],
+      ]);
+    });
+
+    it('nadie fuera de la entrega puede leer', async () => {
+      await expect(
+        service.list('DELIVERY', 'd1', { id: 'otro', role: Role.NORMAL })
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('no deja pasar teléfonos ni correos', async () => {
+      await expect(
+        service.send('DELIVERY', 'd1', BUYER, 'llámame al 0412-555-1234')
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.conversationMessage.create).not.toHaveBeenCalled();
+    });
+
+    it('terminada la entrega, queda de solo lectura', async () => {
+      prisma.delivery.findUnique.mockResolvedValue({
+        id: 'd1',
+        status: 'DELIVERED',
+        orderNumber: '1001',
+        customerUserId: 'buyer',
+        driver: { userId: 'driver' },
+        commerce: { userId: 'seller', name: 'Pizzería' },
+      });
+      await expect(
+        service.send('DELIVERY', 'd1', DRIVER, 'Hola')
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.list('DELIVERY', 'd1', BUYER)).resolves.toEqual([]);
+    });
   });
 
   describe('pedido de catálogo', () => {

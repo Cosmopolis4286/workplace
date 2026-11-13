@@ -104,6 +104,9 @@ export interface Delivery {
   // solo le llega hasDeliveryCode (se lo pide al cliente).
   deliveryCode?: string | null
   hasDeliveryCode?: boolean
+  // Vista del repartidor: el cliente tiene cuenta, así que se hablan por el
+  // chat de la entrega (y el backend no manda su teléfono).
+  chatAvailable?: boolean
   failureReason?: string | null
   amountCollected?: number | null
   collectedMethod?: DeliveryCollectionMethod | null
@@ -167,6 +170,8 @@ export interface CreateDeliveryPayload {
   driverId?: string
   status?: DeliveryStatus
   customerUserId?: string
+  // Correo de la cuenta del cliente: el backend lo resuelve a customerUserId.
+  customerEmail?: string
   pickupLat?: number
   pickupLng?: number
   destLat?: number

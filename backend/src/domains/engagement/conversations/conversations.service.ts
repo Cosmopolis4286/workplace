@@ -26,7 +26,21 @@ interface Thread {
   blockContactInfo: boolean;
   title: string;
   link: { buyer: string; seller: string };
+  // Hilos de más de dos lados (entregas): a quién avisar y con qué enlace.
+  // Si está, reemplaza a buyerSide/sellerSide para las notificaciones.
+  participants?: { userId: string; link: string }[];
+  // Solo lectura: la operación terminó y ya no se puede escribir.
+  closed?: boolean;
 }
+
+// La conversación de una entrega solo sirve mientras está en curso; después
+// queda como historial (los problemas se reportan aparte).
+const ACTIVE_DELIVERY_STATUSES = [
+  'PENDING',
+  'ASSIGNED',
+  'PICKING_UP',
+  'IN_TRANSIT',
+];
 
 /**
  * Chat de los hilos que no son solicitudes de servicio:
@@ -34,6 +48,9 @@ interface Thread {
  *   se hace aquí: el comercio no recibe el teléfono ni el correo del
  *   comprador, y no se aceptan datos de contacto en los mensajes.
  * - REPORT: quien reportó ↔ soporte (admins).
+ * - DELIVERY: cliente ↔ repartidor ↔ comercio. Reemplaza el teléfono: ni el
+ *   repartidor ve el del cliente (si tiene cuenta) ni el cliente el del
+ *   repartidor. Se escribe solo mientras la entrega está en curso.
  */
 @Injectable()
 export class ConversationsService {
@@ -73,6 +90,45 @@ export class ConversationsService {
         blockContactInfo: true,
         title: `tu pedido en ${o.commerceName}`,
         link: { buyer: '/my-orders', seller: '/orders' },
+      };
+    }
+
+    if (type === ConversationThreadType.DELIVERY) {
+      const d = await this.prisma.delivery.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          status: true,
+          orderNumber: true,
+          customerUserId: true,
+          driver: { select: { userId: true } },
+          commerce: { select: { userId: true, name: true } },
+        },
+      });
+      if (!d) throw new NotFoundException('Entrega no encontrada');
+      const isCustomer = !!d.customerUserId && d.customerUserId === user.id;
+      const isDriver = !!d.driver?.userId && d.driver.userId === user.id;
+      const isCommerce = d.commerce.userId === user.id;
+      if (!isCustomer && !isDriver && !isCommerce) {
+        throw new ForbiddenException('No tienes acceso a esta conversación');
+      }
+      const participants = [
+        d.customerUserId && {
+          userId: d.customerUserId,
+          link: `/delivery-tracking/${d.id}`,
+        },
+        d.driver?.userId && { userId: d.driver.userId, link: '/my-deliveries' },
+        { userId: d.commerce.userId, link: '/delivery' },
+      ].filter((p): p is { userId: string; link: string } => !!p);
+      return {
+        buyerSide: d.customerUserId ? [d.customerUserId] : [],
+        sellerSide: [d.commerce.userId],
+        viewerSide: isCustomer ? 'buyer' : 'seller',
+        blockContactInfo: true,
+        title: `la entrega #${d.orderNumber} de ${d.commerce.name}`,
+        link: { buyer: `/delivery-tracking/${d.id}`, seller: '/delivery' },
+        participants,
+        closed: !ACTIVE_DELIVERY_STATUSES.includes(d.status),
       };
     }
 
@@ -124,6 +180,11 @@ export class ConversationsService {
     rawBody: string
   ) {
     const thread = await this.resolveThread(type, id, user);
+    if (thread.closed) {
+      throw new BadRequestException(
+        'Esta conversación se cerró. Si hubo un problema, repórtalo.'
+      );
+    }
     const body = rawBody.trim();
     if (!body) throw new BadRequestException('Escribe un mensaje');
     if (thread.blockContactInfo && detectContactInfo(body).length) {
@@ -147,15 +208,28 @@ export class ConversationsService {
 
     // Avisa al otro lado (los hilos de reporte sin respuesta los ve soporte
     // en su bandeja; no se notifica a todos los admins).
-    const recipients =
-      thread.viewerSide === 'buyer' ? thread.sellerSide : thread.buyerSide;
-    const link =
-      thread.viewerSide === 'buyer' ? thread.link.seller : thread.link.buyer;
-    for (const recipientId of recipients) {
-      if (recipientId === user.id) continue;
+    const recipients = thread.participants
+      ? thread.participants
+      : (thread.viewerSide === 'buyer'
+          ? thread.sellerSide
+          : thread.buyerSide
+        ).map((userId) => ({
+          userId,
+          link:
+            thread.viewerSide === 'buyer'
+              ? thread.link.seller
+              : thread.link.buyer,
+        }));
+    const notifiedIds = new Set<string>();
+    for (const { userId: recipientId, link } of recipients) {
+      if (recipientId === user.id || notifiedIds.has(recipientId)) continue;
+      notifiedIds.add(recipientId);
       this.notifications
         .createForUser(recipientId, {
-          type: NotificationType.ORDER,
+          type:
+            type === ConversationThreadType.DELIVERY
+              ? NotificationType.DELIVERY
+              : NotificationType.ORDER,
           title: '💬 Nuevo mensaje',
           message: `Tienes un mensaje nuevo sobre ${thread.title}`,
           link,

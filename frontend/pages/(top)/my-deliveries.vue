@@ -22,6 +22,19 @@
     <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div v-for="delivery in deliveries" :key="delivery.id" class="space-y-3">
       <DriverDeliveryActions :delivery="delivery" @updated="onUpdated" />
+      <ConversationChat
+        v-if="delivery.chatAvailable && user"
+        thread-type="DELIVERY"
+        :thread-id="delivery.id"
+        :current-user-id="user.id"
+        :title="`Chat con ${delivery.customerName}`"
+        hint="Por seguridad, no compartas teléfonos ni correos: todo queda aquí."
+        :quick-replies="DRIVER_QUICK_REPLIES"
+        show-sender-names
+      />
+      <button class="text-xs text-gray-400 hover:text-red-600 hover:underline" @click="reportingId = delivery.id">
+        Reportar un problema con esta entrega
+      </button>
       <DriverTrackingPanel
         :delivery-id="delivery.id"
         :order-number="delivery.orderNumber"
@@ -33,15 +46,38 @@
       />
       </div>
     </div>
+
+    <ReportProblemModal
+      v-if="reportingId"
+      :model-value="true"
+      entity-type="DELIVERY"
+      :entity-id="reportingId"
+      @update:model-value="reportingId = null"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { TruckIcon } from '@heroicons/vue/24/outline'
 import DriverDeliveryActions from '~/components/delivery/DriverDeliveryActions.vue'
+import ConversationChat from '~/components/conversations/ConversationChat.vue'
+import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
+import { useAuth } from '~/composables/auth/useAuth'
 import type { Delivery } from '~/composables/delivery/useDelivery'
 
 definePageMeta({ middleware: 'auth' })
+
+const { user } = useAuth()
+const reportingId = ref<string | null>(null)
+
+// En la calle, con el casco puesto: mensajes de un toque.
+const DRIVER_QUICK_REPLIES = [
+  'Ya recogí tu pedido',
+  'Voy en camino',
+  'Llego en 5 minutos',
+  'Llegué, estoy afuera',
+  'No encuentro la dirección, ¿me das una referencia?',
+]
 
 const { deliveries, loading, error, fetchMyDeliveries } = useDriverDeliveries()
 

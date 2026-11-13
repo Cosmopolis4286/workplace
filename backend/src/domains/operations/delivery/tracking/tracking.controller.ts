@@ -36,12 +36,22 @@ export class TrackingController {
     const snapshot = await this.trackingService.getSnapshot(id);
     // El código de entrega lo ven el cliente (para dárselo al repartidor) y
     // el comercio; nunca el repartidor.
-    const canSeeCode =
-      delivery.customerUserId === user.id ||
-      delivery.commerce.userId === user.id;
-    return canSeeCode
-      ? { ...snapshot, deliveryCode: delivery.deliveryCode }
-      : snapshot;
+    const viewerRole =
+      delivery.customerUserId === user.id
+        ? 'CUSTOMER'
+        : delivery.commerce.userId === user.id
+          ? 'COMMERCE'
+          : 'DRIVER';
+    // El chat de la entrega solo existe si el cliente tiene cuenta.
+    const chatAvailable = !!delivery.customerUserId;
+    return viewerRole === 'DRIVER'
+      ? { ...snapshot, viewerRole, chatAvailable }
+      : {
+          ...snapshot,
+          viewerRole,
+          chatAvailable,
+          deliveryCode: delivery.deliveryCode,
+        };
   }
 
   // Alternativa HTTP a el evento WS driver:location — mismo throttling y
