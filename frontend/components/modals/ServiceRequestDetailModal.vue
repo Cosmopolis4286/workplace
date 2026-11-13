@@ -271,7 +271,7 @@
                   :disabled="updating"
                   class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
                   :class="action.class"
-                  @click="doStatusChange(action.status)"
+                  @click="onAction(action.status)"
                 >
                   <component :is="action.icon" class="h-4 w-4" />
                   {{ action.label }}
@@ -412,6 +412,12 @@
   />
 
   <ReportProblemModal v-model="showReportModal" entity-type="SERVICE_REQUEST" :entity-id="req.id" />
+  <LeadFeeAcceptModal
+    v-if="showLeadFee"
+    v-model="showLeadFee"
+    :request-id="req.id"
+    @accepted="onLeadFeeAccepted"
+  />
   <EscrowFundingModal
     v-if="showEscrowFunding"
     :request-id="req.id"
@@ -459,6 +465,7 @@ import ServiceRequestChat from '~/components/modals/service-request/ServiceReque
 import ServiceRequestNotesEditor from '~/components/modals/service-request/ServiceRequestNotesEditor.vue'
 import ServiceRequestPriceProposal from '~/components/modals/service-request/ServiceRequestPriceProposal.vue'
 import ServiceRequestItemsList from '~/components/modals/service-request/ServiceRequestItemsList.vue'
+import LeadFeeAcceptModal from '~/components/modals/service-request/LeadFeeAcceptModal.vue'
 import type { ServiceRequestPriceChangeProposal } from '~/composables/services/useServiceRequestPriceProposals'
 import {
   type ServiceRequestStatus,
@@ -682,7 +689,12 @@ const contactInitial = computed(() =>
 const nextActions = computed(() => {
   if (!props.isProvider) return []
   if (props.req.status === 'PENDING' || props.req.status === 'SEEN') return [
-    { status: 'CONTACTED', label: 'Marcar contactado', icon: PhoneArrowUpRightIcon, class: 'bg-blue-600 text-white hover:bg-blue-700' },
+    {
+      status: 'CONTACTED',
+      label: features.value.usageCredits ? 'Aceptar solicitud' : 'Marcar contactado',
+      icon: PhoneArrowUpRightIcon,
+      class: 'bg-blue-600 text-white hover:bg-blue-700',
+    },
     { status: 'REJECTED', label: 'Rechazar', icon: XCircleIcon, class: 'bg-red-50 text-red-600 hover:bg-red-100' },
   ]
   // CONTACTED: el proveedor ya no puede forzar el cierre — solo el cliente puede
@@ -704,6 +716,21 @@ function onProposalApproved(proposal: ServiceRequestPriceChangeProposal) {
 
 // Cambio de estado
 const updating = ref(false)
+
+// Con créditos de uso, aceptar (CONTACTED) pasa por ver y aceptar el cargo
+// por oportunidad; el backend rechaza el cambio directo.
+const showLeadFee = ref(false)
+function onAction(status: string) {
+  if (status === 'CONTACTED' && features.value.usageCredits) {
+    clearError()
+    showLeadFee.value = true
+    return
+  }
+  doStatusChange(status)
+}
+function onLeadFeeAccepted(updated: Record<string, unknown>) {
+  emit('updated', { ...props.req, statusUpdatedAt: new Date().toISOString(), ...updated })
+}
 
 async function doStatusChange(status: string) {
   if (updating.value) return

@@ -2422,6 +2422,7 @@ model ServiceRequest {
   statusHistory        ServiceRequestStatusHistory[]
   messages             ServiceRequestMessage[]
   priceChangeProposals ServiceRequestPriceChangeProposal[]
+  leadAcceptance       ServiceLeadAcceptance?
   createdAt            DateTime                            @default(now())
   updatedAt            DateTime                            @updatedAt
 
@@ -4066,6 +4067,30 @@ model UsageCreditEvent {
 
   @@index([userId, createdAt(sort: Desc)])
   @@map("usage_credit_events")
+}
+
+// Aceptación explícita del cargo por oportunidad (créditos de uso): el
+// proveedor vio el cargo y la comisión estimada antes de aceptar la
+// solicitud, y lo aceptó. Guarda lo que se le mostró (versión de política,
+// importes y base) para que el consentimiento sea auditable. Una por
+// solicitud; el cargo en créditos usa leadFeeReference como clave única.
+model ServiceLeadAcceptance {
+  id                       String         @id @default(uuid())
+  serviceRequestId         String         @unique
+  serviceRequest           ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  providerId               String
+  policyVersion            String
+  leadFeeUnits             Decimal        @db.Decimal(20, 2)
+  // Comisión estimada con el precio conocido al aceptar (null si aún no hay
+  // precio). Se cobra al cerrar, con el precio final.
+  commissionRate           Decimal?       @db.Decimal(20, 8)
+  estimatedCommissionUnits Decimal?       @db.Decimal(20, 2)
+  basePrice                Decimal?       @db.Decimal(20, 2)
+  leadFeeReference         String         @unique
+  acceptedAt               DateTime       @default(now())
+
+  @@index([providerId, acceptedAt(sort: Desc)])
+  @@map("service_lead_acceptances")
 }
 
 // ─── Ajustes globales de la plataforma (admin) ───────────────────────────────

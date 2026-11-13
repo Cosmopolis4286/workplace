@@ -21,6 +21,7 @@ import {
   ESCROW_FACADE,
 } from '../../domains/money/escrow/escrow.facade';
 import { CategoryScopeService } from '../../common/category-scope/category-scope.service';
+import { ServiceLeadFeeService } from '../../domains/commerce-core/services/service-lead-fee.service';
 import { money } from '../money-matcher';
 
 describe('ServicesService — service request status transitions', () => {
@@ -45,6 +46,12 @@ describe('ServicesService — service request status transitions', () => {
   let mockPlanLimitsService: Partial<PlanLimitsFacade>;
   let mockEscrowService: Partial<EscrowFacade>;
   let mockReputationService: Partial<ReputationFacade>;
+  let mockLeadFees: {
+    isEnabled: jest.Mock;
+    chargeSuccessFeeInCredits: jest.Mock;
+    quote: jest.Mock;
+    accept: jest.Mock;
+  };
 
   function baseRequest(overrides: Partial<any> = {}) {
     return {
@@ -146,6 +153,14 @@ describe('ServicesService — service request status transitions', () => {
       getScore: jest.fn().mockResolvedValue(null),
     };
 
+    // Créditos de uso apagados por defecto: el flujo de siempre.
+    mockLeadFees = {
+      isEnabled: jest.fn().mockReturnValue(false),
+      chargeSuccessFeeInCredits: jest.fn().mockResolvedValue(false),
+      quote: jest.fn(),
+      accept: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ServicesService,
@@ -155,6 +170,7 @@ describe('ServicesService — service request status transitions', () => {
         { provide: PLAN_LIMITS_FACADE, useValue: mockPlanLimitsService },
         { provide: ESCROW_FACADE, useValue: mockEscrowService },
         { provide: REPUTATION_FACADE, useValue: mockReputationService },
+        { provide: ServiceLeadFeeService, useValue: mockLeadFees },
         {
           provide: CategoryScopeService,
           useValue: {
@@ -235,6 +251,20 @@ describe('ServicesService — service request status transitions', () => {
       expect(
         mockNotificationsService.notifyServiceRequestRejected
       ).toHaveBeenCalledWith('client-1', 'Proveedor Uno', 'Servicio Uno');
+    });
+
+    it('con créditos de uso, el PATCH no acepta (CONTACTED): hay que aceptar el cargo aparte', async () => {
+      mockLeadFees.isEnabled.mockReturnValue(true);
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({ status: 'SEEN' })
+      );
+
+      await expect(
+        service.updateServiceRequest('req-1', 'provider-1', {
+          status: 'CONTACTED',
+        })
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrismaService.serviceRequest.update).not.toHaveBeenCalled();
     });
 
     it('allows the provider to reject from SEEN', async () => {
@@ -361,6 +391,70 @@ describe('ServicesService — service request status transitions', () => {
         { collected: false }
       );
       expect(mockEscrowService.release).not.toHaveBeenCalled();
+    });
+
+    it('con créditos de uso y aceptación previa, la comisión se paga en créditos y no va al estado de cuenta', async () => {
+      mockLeadFees.chargeSuccessFeeInCredits.mockResolvedValue(true);
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({
+          status: 'CONTACTED',
+          price: 55,
+          platformFeePayer: 'CLIENT',
+          platformFeeAmount: 5,
+          escrowStatus: 'NONE',
+        })
+      );
+
+      await service.confirmServiceRequestCompletion('req-1', 'client-1');
+
+      expect(mockLeadFees.chargeSuccessFeeInCredits).toHaveBeenCalledWith({
+        serviceRequestId: 'req-1',
+        providerId: 'provider-1',
+        feeAmount: 5,
+        metadata: { serviceRequestId: 'req-1', payer: 'CLIENT' },
+      });
+      expect(mockPlatformFeesService.chargeProviderFee).not.toHaveBeenCalled();
+    });
+
+    it('sin créditos suficientes al cerrar, la comisión cae al estado de cuenta', async () => {
+      mockLeadFees.chargeSuccessFeeInCredits.mockResolvedValue(false);
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({
+          status: 'CONTACTED',
+          price: 55,
+          platformFeePayer: 'CLIENT',
+          platformFeeAmount: 5,
+          escrowStatus: 'NONE',
+        })
+      );
+
+      await service.confirmServiceRequestCompletion('req-1', 'client-1');
+
+      expect(mockPlatformFeesService.chargeProviderFee).toHaveBeenCalledWith(
+        'SERVICE_REQUEST',
+        'provider-1',
+        5,
+        'FEE-SVC-req-1',
+        { serviceRequestId: 'req-1', payer: 'CLIENT' },
+        { collected: false }
+      );
+    });
+
+    it('con garantía retenida no intenta cobrar en créditos (se descuenta de lo liberado)', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({
+          status: 'CONTACTED',
+          price: 55,
+          platformFeePayer: 'CLIENT',
+          platformFeeAmount: 5,
+          escrowStatus: 'HELD',
+          escrowAmount: 55,
+        })
+      );
+
+      await service.confirmServiceRequestCompletion('req-1', 'client-1');
+
+      expect(mockLeadFees.chargeSuccessFeeInCredits).not.toHaveBeenCalled();
     });
 
     it('con garantía, descuenta de lo liberado la comisión que pagó el cliente', async () => {
@@ -1182,6 +1276,10 @@ describe('ServicesService — alta y edición de servicios', () => {
         { provide: PLAN_LIMITS_FACADE, useValue: planLimits },
         { provide: ESCROW_FACADE, useValue: {} },
         { provide: REPUTATION_FACADE, useValue: {} },
+        {
+          provide: ServiceLeadFeeService,
+          useValue: { isEnabled: () => false },
+        },
         { provide: CategoryScopeService, useValue: categoryScope },
       ],
     }).compile();

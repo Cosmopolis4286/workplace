@@ -32,6 +32,7 @@ import {
   REPUTATION_FACADE,
 } from '../../reputation/reputation.facade';
 import { CategoryScopeService } from '../../../common/category-scope/category-scope.service';
+import { ServiceLeadFeeService } from './service-lead-fee.service';
 import {
   normalizeTags,
   tagSearchCondition,
@@ -145,7 +146,8 @@ export class ServicesService {
     @Inject(PLAN_LIMITS_FACADE) private planLimits: PlanLimitsFacade,
     @Inject(ESCROW_FACADE) private escrow: EscrowFacade,
     @Inject(REPUTATION_FACADE) private reputation: ReputationFacade,
-    private readonly categoryScope: CategoryScopeService
+    private readonly categoryScope: CategoryScopeService,
+    private readonly leadFees: ServiceLeadFeeService
   ) {}
 
   // ─── Catalog (public) ─────────────────────────────────────────────────────
@@ -1075,6 +1077,16 @@ export class ServicesService {
           'Solo el cliente puede confirmar la finalización de una solicitud'
         );
       this.assertValidStatusTransition(req.status, data.status);
+      // Con créditos de uso, aceptar es un paso aparte: el proveedor ve y
+      // acepta el cargo por oportunidad (POST requests/:id/accept), que se
+      // descuenta en la misma transacción que el cambio a CONTACTED.
+      if (data.status === 'CONTACTED' && this.leadFees.isEnabled()) {
+        throw new BadRequestException({
+          message:
+            'Para aceptar esta solicitud revisa y acepta el cargo por oportunidad.',
+          errorCode: 'LEAD_FEE_ACCEPTANCE_REQUIRED',
+        });
+      }
       update.status = data.status;
       update.statusUpdatedAt = new Date();
     }
@@ -1254,6 +1266,38 @@ export class ServicesService {
     );
   }
 
+  /** Cotización del cargo por oportunidad (créditos de uso) antes de aceptar. */
+  async getLeadFeeQuote(id: string, providerId: string) {
+    return this.leadFees.quote(id, providerId);
+  }
+
+  /**
+   * El proveedor acepta la solicitud y el cargo por oportunidad que vio en la
+   * cotización. Pasa a CONTACTED y se descuentan los créditos en la misma
+   * transacción; después se avisa al cliente, igual que con el PATCH.
+   */
+  async acceptServiceRequestWithLeadFee(
+    id: string,
+    providerId: string,
+    presented: { policyVersion: string; leadFee: number }
+  ) {
+    await this.leadFees.accept(id, providerId, presented);
+    const updated = await this.prisma.serviceRequest.findUniqueOrThrow({
+      where: { id },
+    });
+    if (updated.requesterId) {
+      this.notifications
+        .notifyServiceRequestStatusChanged(
+          updated.requesterId,
+          updated.providerName,
+          updated.serviceName,
+          'CONTACTED'
+        )
+        .catch(() => {});
+    }
+    return withClientContactForViewer(updated, providerId);
+  }
+
   async updateServiceRequestStatus(id: string, userId: string, status: string) {
     return this.updateServiceRequest(id, userId, { status });
   }
@@ -1307,8 +1351,31 @@ export class ServicesService {
       }
     }
 
+    const escrowHeld =
+      req.escrowStatus === 'HELD' && isPositive(req.escrowAmount);
+    const clientFee =
+      req.platformFeePayer === 'CLIENT' && isPositive(req.platformFeeAmount)
+        ? req.platformFeeAmount
+        : null;
+
+    // Solicitud aceptada con cargo por oportunidad (créditos de uso): la
+    // comisión se descuenta en créditos. Con garantía retenida se sigue
+    // descontando de lo liberado; sin créditos suficientes, cae al estado de
+    // cuenta (abajo) — al cliente no se le bloquea el cierre.
+    const paidInCredits =
+      !escrowHeld &&
+      (await this.leadFees.chargeSuccessFeeInCredits({
+        serviceRequestId: id,
+        providerId: req.providerId,
+        feeAmount: feeData?.feeAmount ?? (clientFee ? toNumber(clientFee) : 0),
+        metadata: {
+          serviceRequestId: id,
+          ...(clientFee ? { payer: 'CLIENT' } : {}),
+        },
+      }));
+
     // Charge fee and update status atomically — if fee charge fails, status stays CONTACTED
-    if (feeData) {
+    if (feeData && !paidInCredits) {
       // Con garantía retenida, la comisión se descuenta de lo que se libera
       // (abajo): ya queda cobrada y no va al estado de cuenta.
       await this.platformFees.chargeProviderFee(
@@ -1329,13 +1396,7 @@ export class ServicesService {
     // se descuenta de lo liberado (COLLECTED); sin garantía va a su estado de
     // cuenta. Antes no se registraba en ningún lado y la plataforma nunca la
     // cobraba.
-    const escrowHeld =
-      req.escrowStatus === 'HELD' && isPositive(req.escrowAmount);
-    const clientFee =
-      req.platformFeePayer === 'CLIENT' && isPositive(req.platformFeeAmount)
-        ? req.platformFeeAmount
-        : null;
-    if (clientFee) {
+    if (clientFee && !paidInCredits) {
       await this.platformFees.chargeProviderFee(
         'SERVICE_REQUEST',
         req.providerId,
