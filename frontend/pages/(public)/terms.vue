@@ -14,7 +14,7 @@
           </div>
           <div>
             <h1 class="text-2xl font-bold text-gray-900">Términos de Servicio</h1>
-            <p class="text-sm text-gray-400 mt-1">Última actualización: enero 2026 · Versión 2.0</p>
+            <p class="text-sm text-gray-400 mt-1">Última actualización: noviembre 2026 · Versión 2.1</p>
             <p class="text-gray-500 mt-3 leading-relaxed">
               Al usar WorkPlace Manager, aceptas estos términos. Te recomendamos leerlos con atención
               para entender tus derechos y responsabilidades como usuario de la plataforma.
@@ -140,6 +140,13 @@ const sections = [
     paragraphs: [
       'Por cada venta, servicio, pedido, corrida o compra agrupada concretada a través de la plataforma, el vendedor o proveedor debe a WorkPlace Manager la comisión vigente para ese tipo de operación, más el IVA que corresponda sobre ella. Si la comisión la paga el cliente, va incluida en el precio que este paga y el vendedor la debe igualmente a la plataforma.',
       'Las comisiones de cada semana se agrupan en un estado de cuenta que se emite los lunes y debe pagarse dentro de los 5 días siguientes a una cuenta de la plataforma, reportando la referencia. Si vence sin pagarse, no podrás publicar ni reactivar servicios o productos; si pasan 48 horas más, se pausa todo lo que tengas publicado. Al confirmarse el pago, se reactiva lo que se pausó.',
+    ],
+  },
+  {
+    title: 'Comunicación dentro de la plataforma',
+    paragraphs: [
+      'La conversación entre clientes, vendedores y proveedores sobre una solicitud, un pedido o un reporte se hace en el chat de WorkPlace Manager. No se permite compartir teléfonos, correos, enlaces de mensajería ni usuarios de redes sociales en mensajes, descripciones o notas: la plataforma los bloquea u oculta.',
+      'Cerrar por fuera de la plataforma una operación que empezó en ella, para evitar la comisión, es un incumplimiento de estos términos y puede llevar a la suspensión de la cuenta. Los mensajes del chat pueden ser revisados por WorkPlace Manager cuando se reporta un problema.',
     ],
   },
   {
