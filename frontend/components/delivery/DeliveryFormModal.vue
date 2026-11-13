@@ -28,6 +28,14 @@
               <label class="block text-xs font-medium text-gray-700 mb-1">Teléfono del Cliente</label>
               <input v-model="form.customerPhone" placeholder="+58 412 000 0000" class="input-field" />
             </div>
+            <div v-if="!form.customerUserId">
+              <label class="block text-xs font-medium text-gray-700 mb-1">Correo de su cuenta WorkPlace (opcional)</label>
+              <input v-model="form.customerEmail" type="email" placeholder="cliente@correo.com" class="input-field" />
+              <p class="text-xs text-gray-400 mt-1">
+                Con su cuenta, el cliente sigue la entrega en vivo, recibe avisos y habla con el repartidor por chat sin compartir teléfonos.
+              </p>
+            </div>
+            <p v-else class="text-xs text-emerald-700">✓ Vinculada a la cuenta del cliente: seguimiento, avisos y chat activos.</p>
             <div>
               <label class="block text-xs font-medium text-gray-700 mb-1">Dirección de Entrega <span class="text-red-500">*</span></label>
               <input v-model="form.deliveryAddress" required placeholder="Calle, número..." class="input-field" />
@@ -72,11 +80,6 @@
                   <label class="block text-xs font-medium text-gray-700 mb-1">Punto de entrega</label>
                   <PlaceAutocomplete v-model="destPlace" placeholder="Busca la dirección de entrega..." />
                 </div>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">ID de usuario del cliente</label>
-                <input v-model="form.customerUserId" placeholder="Solo si el cliente tiene cuenta en WorkPlace" class="input-field" />
-                <p class="text-xs text-gray-400 mt-1">Sin esto, el cliente no podrá ver el seguimiento aunque haya coordenadas.</p>
               </div>
             </details>
 

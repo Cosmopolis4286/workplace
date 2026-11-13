@@ -515,6 +515,22 @@ export class DeliveryService {
     });
   }
 
+  private async resolveCustomerUserId(email: string): Promise<string> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        email: { equals: email.trim(), mode: 'insensitive' },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new BadRequestException(
+        'No hay una cuenta de WorkPlace con ese correo. Deja el campo vacío si el cliente no tiene cuenta.'
+      );
+    }
+    return user.id;
+  }
+
   async createDelivery(userId: string, dto: CreateDeliveryDto) {
     const commerceId = await this.getCommerceId(userId);
 
@@ -529,9 +545,17 @@ export class DeliveryService {
       await this.assertDriverAssignable(dto.driverId);
     }
 
+    // El comercio identifica al cliente por el correo de su cuenta (nadie
+    // conoce un id interno). Con cuenta, el cliente sigue la entrega, recibe
+    // los avisos y habla con el repartidor por chat en vez de por teléfono.
+    const { customerEmail, ...data } = dto;
+    if (customerEmail && !data.customerUserId) {
+      data.customerUserId = await this.resolveCustomerUserId(customerEmail);
+    }
+
     const delivery = await this.prisma.delivery.create({
       data: {
-        ...dto,
+        ...data,
         commerceId,
         status: dto.status ?? DeliveryStatus.PENDING,
         deliveryCode: generateDeliveryCode(),
@@ -580,9 +604,14 @@ export class DeliveryService {
       await this.assertDriverAssignable(dto.driverId);
     }
 
+    const { customerEmail, ...data } = dto;
+    if (customerEmail && !data.customerUserId) {
+      data.customerUserId = await this.resolveCustomerUserId(customerEmail);
+    }
+
     return this.prisma.delivery.update({
       where: { id: deliveryId },
-      data: dto,
+      data,
       include: {
         driver: {
           select: {
@@ -776,6 +805,25 @@ export class DeliveryService {
     this.notifications
       .notifyDeliveryStatusChange(commerceId, delivery.orderNumber, status)
       .catch(() => null);
+
+    // El cliente con cuenta se entera de cada paso (antes solo el comercio).
+    if (updated.customerUserId) {
+      this.prisma.commerce
+        .findUnique({ where: { id: commerceId }, select: { name: true } })
+        .then((commerce) =>
+          this.notifications.notifyCustomerDeliveryStatus(
+            updated.customerUserId!,
+            {
+              deliveryId,
+              orderNumber: delivery.orderNumber,
+              commerceName: commerce?.name ?? 'el comercio',
+              status,
+              failureReason: updated.failureReason,
+            }
+          )
+        )
+        .catch(() => null);
+    }
 
     if (delivery.customerPhone) {
       const customer = await this.prisma.customer.findFirst({

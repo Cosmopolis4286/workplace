@@ -4,6 +4,18 @@ Registro cronológico de cambios relevantes del proyecto. Formato inspirado en [
 
 ## [Unreleased]
 
+### Comunicación y seguridad entre repartidores y clientes (2026-11-13)
+
+- **Chat de la entrega** (cliente ↔ repartidor ↔ comercio): reemplaza el intercambio de teléfonos. Bloquea teléfonos y correos y queda de solo lectura al terminar la entrega. Incluye respuestas de un toque ("Llegué, estoy afuera", "Ya bajo"...).
+- **Privacidad:**
+  - el repartidor ya no ve el teléfono del cliente con cuenta;
+  - el cliente ya no ve el del repartidor;
+  - el seguimiento en vivo ya no lleva el teléfono, tampoco por WebSocket.
+- **Avisos al cliente** en cada paso de la entrega, con enlace al seguimiento. El código de entrega no va en el aviso.
+- **Seguimiento:** barra de progreso, chat, calificación del repartidor (1-5 ★, actualiza su promedio) y reportar un problema con la entrega.
+- **"Mis pedidos → Entregas":** el cliente encuentra sus entregas.
+- **El comercio vincula al cliente por el correo de su cuenta** (antes pedía un id interno).
+
 ### Cobro en créditos al aceptar un servicio (2026-11-12, apagado con `USAGE_CREDITS_ENABLED`)
 
 - El prestador ve el cargo por oportunidad y la comisión estimada antes de aceptar una solicitud, y los acepta explícitamente (queda registro auditable del consentimiento).

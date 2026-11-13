@@ -112,7 +112,8 @@ describe('DeliveryService — driver invitations & assignability', () => {
     mockNotificationsService = {
       notifyDriverInvitationAccepted: jest.fn().mockResolvedValue(undefined),
       notifyDeliveryStatusChange: jest.fn().mockResolvedValue(undefined),
-    };
+      notifyCustomerDeliveryStatus: jest.fn().mockResolvedValue(undefined),
+    } as any;
 
     mockMailService = {
       sendDriverInvitation: jest.fn().mockResolvedValue(undefined),
@@ -365,6 +366,52 @@ describe('DeliveryService — driver invitations & assignability', () => {
     });
   });
 
+  describe('vincular al cliente por el correo de su cuenta', () => {
+    beforeEach(() => {
+      mockPrismaService.user.findFirst = jest.fn();
+      mockPrismaService.delivery.create = jest.fn(({ data }: any) =>
+        Promise.resolve({ id: 'del-1', status: 'PENDING', ...data })
+      );
+    });
+
+    it('resuelve el correo a la cuenta del cliente', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValue({ id: 'cliente-1' });
+
+      await service.createDelivery('owner-1', {
+        orderNumber: 'A-1',
+        customerName: 'Ana',
+        deliveryAddress: 'Calle 1',
+        total: 10,
+        customerEmail: ' Ana@Correo.com ',
+      } as any);
+
+      expect(mockPrismaService.user.findFirst).toHaveBeenCalledWith({
+        where: {
+          email: { equals: 'Ana@Correo.com', mode: 'insensitive' },
+          isActive: true,
+        },
+        select: { id: true },
+      });
+      const { data } = mockPrismaService.delivery.create.mock.calls[0][0];
+      expect(data.customerUserId).toBe('cliente-1');
+      expect(data).not.toHaveProperty('customerEmail');
+    });
+
+    it('rechaza un correo sin cuenta en vez de crear una entrega mal vinculada', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValue(null);
+      await expect(
+        service.createDelivery('owner-1', {
+          orderNumber: 'A-1',
+          customerName: 'Ana',
+          deliveryAddress: 'Calle 1',
+          total: 10,
+          customerEmail: 'nadie@correo.com',
+        } as any)
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrismaService.delivery.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('el repartidor actualiza su entrega', () => {
     const delivery = (overrides: Partial<any> = {}) => ({
       id: 'del-1',
@@ -411,6 +458,52 @@ describe('DeliveryService — driver invitations & assignability', () => {
       expect(mockPrismaService.driver.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'driver-1' } })
       );
+    });
+
+    it('avisa al cliente con cuenta de cada paso, con enlace al seguimiento', async () => {
+      mockPrismaService.delivery.findUnique.mockResolvedValue(
+        delivery({ status: 'PICKING_UP' })
+      );
+      mockPrismaService.delivery.update.mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: 'del-1',
+          deliveryCode: '4821',
+          customerUserId: 'cliente-1',
+          failureReason: null,
+          ...data,
+        })
+      );
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        name: 'Pizzería',
+      });
+
+      await service.driverUpdateStatus('u-driver', 'del-1', {
+        status: 'IN_TRANSIT' as any,
+      });
+      await new Promise((r) => setImmediate(r));
+
+      expect(
+        (mockNotificationsService as any).notifyCustomerDeliveryStatus
+      ).toHaveBeenCalledWith('cliente-1', {
+        deliveryId: 'del-1',
+        orderNumber: 'A-1',
+        commerceName: 'Pizzería',
+        status: 'IN_TRANSIT',
+        failureReason: null,
+      });
+    });
+
+    it('sin cliente con cuenta, no hay aviso al cliente', async () => {
+      mockPrismaService.delivery.findUnique.mockResolvedValue(
+        delivery({ status: 'PICKING_UP' })
+      );
+      await service.driverUpdateStatus('u-driver', 'del-1', {
+        status: 'IN_TRANSIT' as any,
+      });
+      await new Promise((r) => setImmediate(r));
+      expect(
+        (mockNotificationsService as any).notifyCustomerDeliveryStatus
+      ).not.toHaveBeenCalled();
     });
 
     it('sin el código correcto no se puede marcar entregada', async () => {

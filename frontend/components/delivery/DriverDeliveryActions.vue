@@ -5,6 +5,9 @@
       <a v-if="delivery.customerPhone" :href="`tel:${delivery.customerPhone}`" class="text-sm font-semibold text-blue-600 hover:underline">
         📞 Llamar a {{ delivery.customerName }}
       </a>
+      <span v-else-if="delivery.chatAvailable" class="text-xs text-gray-500">
+        💬 Escríbele a {{ delivery.customerName }} por el chat
+      </span>
     </div>
     <p class="text-sm text-gray-600">
       {{ delivery.deliveryAddress }}

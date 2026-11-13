@@ -933,6 +933,7 @@ model Delivery {
   // el comercio (efectivo, transferencia o ya pagado).
   amountCollected Decimal?            @db.Decimal(20, 2)
   collectedMethod DeliveryCollection?
+  rating          DeliveryRating?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2606,6 +2607,7 @@ enum ReportEntityType {
   GENERAL
   PRODUCT // producto publicado en el catálogo de un comercio
   COMMERCE // el comercio en sí (su tienda pública)
+  DELIVERY // una entrega (cliente, repartidor o comercio)
 }
 
 enum ReportStatus {
@@ -4093,6 +4095,22 @@ model ServiceLeadAcceptance {
   @@map("service_lead_acceptances")
 }
 
+// Calificación que el cliente deja al repartidor después de recibir. Una por
+// entrega; alimenta Driver.rating (promedio).
+model DeliveryRating {
+  id             String   @id @default(uuid())
+  deliveryId     String   @unique
+  delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  driverId       String
+  customerUserId String
+  stars          Int
+  comment        String?
+  createdAt      DateTime @default(now())
+
+  @@index([driverId])
+  @@map("delivery_ratings")
+}
+
 // ─── Ajustes globales de la plataforma (admin) ───────────────────────────────
 // Clave/valor para ajustes que el SUPERADMIN cambia sin desplegar, p. ej.
 // store.publicContact (mostrar el contacto de las tiendas en su página).
@@ -4112,6 +4130,7 @@ model PlatformSetting {
 enum ConversationThreadType {
   CATALOG_ORDER
   REPORT
+  DELIVERY // cliente ↔ repartidor ↔ comercio, mientras la entrega está activa
 }
 
 model ConversationMessage {

@@ -32,7 +32,16 @@
       >
         Catálogo
       </button>
+      <button
+        class="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+        :class="activeSource === 'deliveries' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'"
+        @click="activeSource = 'deliveries'"
+      >
+        Entregas
+      </button>
     </div>
+
+    <CustomerDeliveriesView v-show="activeSource === 'deliveries'" :active="activeSource === 'deliveries'" />
 
     <CatalogOrdersView v-show="activeSource === 'catalog'" :active="activeSource === 'catalog'" />
 
@@ -64,12 +73,17 @@ import { ShoppingBagIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import ReportProblemModal from '~/components/modals/ReportProblemModal.vue'
 import CatalogOrdersView from '~/components/my-orders/CatalogOrdersView.vue'
+import CustomerDeliveriesView from '~/components/my-orders/CustomerDeliveriesView.vue'
 import FoodOrdersView, { type FoodOrder, type MyOrdersStats } from '~/components/my-orders/FoodOrdersView.vue'
 import { useApi } from '~/composables/core/useApi'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 // ─── Toggle de origen ───────────────────────────────────────────────────────────
-const activeSource = ref<'food' | 'catalog'>('food')
+// ?tab=deliveries abre directo las entregas (enlace desde el seguimiento).
+const route = useRoute()
+const activeSource = ref<'food' | 'catalog' | 'deliveries'>(
+  route.query.tab === 'deliveries' ? 'deliveries' : 'food'
+)
 
 const orderForReport = ref<FoodOrder | null>(null)
 const showOrderReportModal = ref(false)

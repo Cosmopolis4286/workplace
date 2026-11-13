@@ -518,6 +518,52 @@ export class NotificationsService {
     });
   }
 
+  /**
+   * Al cliente de la entrega (si tiene cuenta): cada cambio de estado, con
+   * enlace al seguimiento. El código de entrega NO va en el aviso (se ve en
+   * la pantalla bloqueada): solo dentro de la app.
+   */
+  async notifyCustomerDeliveryStatus(
+    customerUserId: string,
+    input: {
+      deliveryId: string;
+      orderNumber: string;
+      commerceName: string;
+      status: string;
+      failureReason?: string | null;
+    }
+  ) {
+    const messages: Record<string, string> = {
+      ASSIGNED:
+        'Ya tiene repartidor asignado. Ten a mano tu código de entrega.',
+      PICKING_UP: 'El repartidor va a recoger tu pedido.',
+      IN_TRANSIT: 'Tu pedido va en camino. Puedes seguirlo en el mapa.',
+      DELIVERED: '¡Entregado! Cuéntanos cómo te fue con el repartidor.',
+      CANCELLED: 'La entrega fue cancelada por el comercio.',
+      FAILED: input.failureReason
+        ? `No se pudo entregar: ${input.failureReason}`
+        : 'No se pudo entregar. Escríbele al comercio desde el seguimiento.',
+    };
+    const message = messages[input.status];
+    if (!message) return null;
+    return this.create(customerUserId, {
+      type: NotificationType.DELIVERY,
+      title: `📦 Tu pedido #${input.orderNumber} de ${input.commerceName}`,
+      message,
+      color: ['CANCELLED', 'FAILED'].includes(input.status)
+        ? 'red'
+        : input.status === 'DELIVERED'
+          ? 'green'
+          : 'blue',
+      link: `/delivery-tracking/${input.deliveryId}`,
+      metadata: {
+        deliveryId: input.deliveryId,
+        orderNumber: input.orderNumber,
+        status: input.status,
+      },
+    });
+  }
+
   async notifyDriverGraceExpiringSoon(
     commerceId: string,
     driverName: string,
@@ -893,6 +939,7 @@ export class NotificationsService {
       SERVICE: 'un servicio publicado',
       PRODUCT: 'un producto del catálogo',
       COMMERCE: 'un comercio',
+      DELIVERY: 'una entrega',
       GENERAL: 'la app',
     };
     const label = labels[entityType] ?? entityType.toLowerCase();

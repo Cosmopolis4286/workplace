@@ -3,6 +3,8 @@ import { DriverDeliveriesController } from './driver-deliveries.controller';
 import { DeliveryController } from './delivery.controller';
 import { DriverInvitationsController } from './driver-invitations.controller';
 import { DeliveryService } from './delivery.service';
+import { DeliveryFeedbackService } from './delivery-feedback.service';
+import { CustomerDeliveriesController } from './customer-deliveries.controller';
 import { DriverGraceReminderScheduler } from './driver-grace-reminder.scheduler';
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { NotificationsModule } from '../../engagement/notifications/notifications.module';
@@ -26,7 +28,12 @@ import { PlansModule } from '../../money/plans/plans.module';
     DeliveryController,
     DriverInvitationsController,
     DriverDeliveriesController,
+    CustomerDeliveriesController,
   ],
-  providers: [DeliveryService, DriverGraceReminderScheduler],
+  providers: [
+    DeliveryService,
+    DeliveryFeedbackService,
+    DriverGraceReminderScheduler,
+  ],
 })
 export class DeliveryModule {}

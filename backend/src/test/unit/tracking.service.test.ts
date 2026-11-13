@@ -116,6 +116,39 @@ describe('TrackingService', () => {
       expect(d).toMatchObject({ id: 'delivery-1', hasDeliveryCode: true });
     });
 
+    it('oculta el teléfono del cliente con cuenta (se hablan por chat) y lo deja si no tiene', async () => {
+      mockPrismaService.driver.findUnique.mockResolvedValue({
+        id: 'driver-1',
+        userId: 'driver-user-1',
+      });
+      mockPrismaService.delivery.findMany.mockResolvedValue([
+        {
+          id: 'con-cuenta',
+          status: DeliveryStatus.IN_TRANSIT,
+          customerUserId: 'cliente-1',
+          customerPhone: '+58 412 1111111',
+        },
+        {
+          id: 'sin-cuenta',
+          status: DeliveryStatus.IN_TRANSIT,
+          customerUserId: null,
+          customerPhone: '+58 412 2222222',
+        },
+      ]);
+
+      const [withAccount, withoutAccount] =
+        await service.findMyActiveDeliveries('driver-user-1');
+
+      expect(withAccount).toMatchObject({
+        customerPhone: null,
+        chatAvailable: true,
+      });
+      expect(withoutAccount).toMatchObject({
+        customerPhone: '+58 412 2222222',
+        chatAvailable: false,
+      });
+    });
+
     it('returns an empty list when the user has no linked Driver profile', async () => {
       mockPrismaService.driver.findUnique.mockResolvedValue(null);
 

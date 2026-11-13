@@ -192,7 +192,7 @@ const savingDelivery    = ref(false)
 const defaultDeliveryForm = (): CreateDeliveryPayload => ({
   orderNumber: '', customerName: '', customerPhone: '', deliveryAddress: '',
   notes: '', total: 0, deliveryFee: 0, estimatedTime: undefined, driverId: '',
-  customerUserId: '', pickupLat: undefined, pickupLng: undefined, destLat: undefined, destLng: undefined,
+  customerUserId: '', customerEmail: '', pickupLat: undefined, pickupLng: undefined, destLat: undefined, destLng: undefined,
 })
 const deliveryForm = ref<CreateDeliveryPayload>(defaultDeliveryForm())
 
@@ -219,6 +219,8 @@ async function saveDelivery() {
       ...deliveryForm.value,
       driverId: deliveryForm.value.driverId || undefined,
       customerUserId: deliveryForm.value.customerUserId || undefined,
+      // Vacío no se manda: el backend valida que sea un correo.
+      customerEmail: deliveryForm.value.customerEmail?.trim() || undefined,
       pickupLat: hasFullRoute ? deliveryForm.value.pickupLat : undefined,
       pickupLng: hasFullRoute ? deliveryForm.value.pickupLng : undefined,
       destLat: hasFullRoute ? deliveryForm.value.destLat : undefined,

@@ -73,6 +73,32 @@ describe('ReportsService — productos y comercios', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('una entrega la reportan solo quienes participan en ella', async () => {
+    prisma.delivery = {
+      findUnique: jest.fn().mockResolvedValue({
+        customerUserId: 'cliente',
+        driver: { userId: 'repartidor' },
+        commerce: { userId: 'owner-1' },
+      }),
+    };
+    for (const who of ['cliente', 'repartidor', 'owner-1']) {
+      await expect(
+        service.create(who, {
+          entityType: 'DELIVERY',
+          entityId: 'd1',
+          reason: 'Problema con la entrega',
+        })
+      ).resolves.toBeDefined();
+    }
+    await expect(
+      service.create('extraño', {
+        entityType: 'DELIVERY',
+        entityId: 'd1',
+        reason: 'Problema con la entrega',
+      })
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('no duplica el reporte si el mismo usuario ya tiene uno abierto', async () => {
     prisma.report.findFirst.mockResolvedValue({ id: 'open-1' });
     const report = await service.create('buyer-1', {

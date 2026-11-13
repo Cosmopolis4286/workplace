@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { useApi } from '../core/useApi'
 
-export type ReportEntityType = 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'SERVICE' | 'ORDER' | 'GENERAL' | 'PRODUCT' | 'COMMERCE'
+export type ReportEntityType = 'CATALOG_ORDER' | 'SERVICE_REQUEST' | 'SERVICE' | 'ORDER' | 'GENERAL' | 'PRODUCT' | 'COMMERCE' | 'DELIVERY'
 export type ReportStatus = 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'DISMISSED'
 
 export interface Report {

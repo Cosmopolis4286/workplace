@@ -25,7 +25,6 @@ export interface DeliveryTrackingDriver {
   id: string
   name: string
   vehicleType: string
-  phone: string | null
 }
 
 export interface DeliveryTrackingSnapshot {
@@ -40,6 +39,10 @@ export interface DeliveryTrackingSnapshot {
   // Solo para el cliente y el comercio: el código que el cliente le da al
   // repartidor al recibir (prueba de entrega). El repartidor no lo recibe.
   deliveryCode?: string | null
+  // Quién mira: decide qué se muestra (código, calificación, chat).
+  viewerRole?: 'CUSTOMER' | 'COMMERCE' | 'DRIVER'
+  // El chat de la entrega existe solo si el cliente tiene cuenta.
+  chatAvailable?: boolean
 }
 
 // Estados del enum DeliveryStatus del backend que aún permiten tracking en

@@ -220,6 +220,31 @@ export class ReportsService {
       return;
     }
 
+    // Una entrega la reportan quienes participan: el cliente, el repartidor
+    // asignado o el comercio (ej. conducta del repartidor, cliente ausente).
+    if (entityType === 'DELIVERY') {
+      const d = await this.prisma.delivery.findUnique({
+        where: { id: entityId },
+        select: {
+          customerUserId: true,
+          driver: { select: { userId: true } },
+          commerce: { select: { userId: true } },
+        },
+      });
+      if (!d) throw new NotFoundException('Entrega no encontrada');
+      const involved = [
+        d.customerUserId,
+        d.driver?.userId,
+        d.commerce.userId,
+      ].includes(userId);
+      if (!involved) {
+        throw new ForbiddenException(
+          'No tienes permiso para reportar esta entrega'
+        );
+      }
+      return;
+    }
+
     if (entityType === 'SERVICE_REQUEST') {
       const req = await this.prisma.serviceRequest.findUnique({
         where: { id: entityId },
