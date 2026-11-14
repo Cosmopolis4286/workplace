@@ -96,6 +96,11 @@ services:
       context: .
       dockerfile: frontend/Dockerfile.dev
     container_name: frontend-dev
+    # Mismo .env.dev que el backend: sin esto, dentro del contenedor no existe
+    # ../.env.dev (solo se monta ./frontend), `pnpm dev` no ve API_URL y
+    # manda lo que haya en frontend/.env (p. ej. el API de producción).
+    env_file:
+      - .env.dev
     environment:
       APP_ENV: development
       NITRO_HOST: 0.0.0.0
