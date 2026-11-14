@@ -64,6 +64,74 @@ npx cap sync android
 > descritos en la sección 9 (`AndroidManifest.xml`), ya que `cap sync` no los
 > agrega automáticamente.
 
+## 3b. Probar en el celular mientras desarrollas (recarga en vivo)
+
+Hay dos formas. Las dos necesitan que el celular y la PC estén en el
+**mismo WiFi** y que esté corriendo el entorno híbrido:
+
+```bash
+docker compose --env-file .env.dev -f docker-compose.hybrid.yml up -d
+cd frontend && pnpm dev
+```
+
+Antes de empezar:
+- Busca la IP de tu PC en la red: `ipconfig` (Windows) o `ip addr` (Linux),
+  p. ej. `192.168.1.50`.
+- Abre los puertos **3000** (frontend) y **3001** (backend) en el firewall
+  de la PC.
+- `.env.dev` debe tener `APP_ENV=development`: solo así el backend acepta
+  peticiones desde IPs de la red local (ver CORS en `backend/src/main.ts`).
+
+### Opción A — Navegador del celular (sin instalar nada)
+
+Abre `http://192.168.1.50:3000` en Chrome del celular. Los cambios se
+recargan solos. La app reescribe sola la URL del API a la IP de la PC
+(`plugins/runtime-config-host.client.ts`).
+
+Limitaciones:
+- Chrome bloquea **GPS y cámara** en `http://` que no sea `localhost`. Para
+  probarlos, en el celular abre
+  `chrome://flags/#unsafely-treat-insecure-origin-as-secure`, agrega
+  `http://192.168.1.50:3000` y reinicia Chrome.
+- Las notificaciones push (Firebase) son nativas: solo funcionan en la APK.
+
+### Opción B — APK con recarga en vivo (como Expo Go)
+
+La APK de depuración carga la app desde tu `pnpm dev` en vez de los archivos
+empaquetados. Se compila una vez; después cada cambio se ve al instante, y
+funcionan push, cámara, GPS y deep links.
+
+1. La primera vez, genera el build web (Capacitor exige que exista
+   `.output/public`, aunque en este modo no lo use):
+   ```bash
+   pnpm exec nuxt generate
+   ```
+2. Sincroniza apuntando a tu PC:
+   ```bash
+   CAP_SERVER_URL=http://192.168.1.50:3000 npx cap sync android
+   ```
+   En Windows / PowerShell:
+   ```powershell
+   $env:CAP_SERVER_URL="http://192.168.1.50:3000"; npx cap sync android
+   Remove-Item Env:CAP_SERVER_URL
+   ```
+   Verás el aviso `⚠️ Modo recarga en vivo…`.
+3. Conecta el celular por USB (con *Depuración USB* activada en Opciones de
+   desarrollador) y ejecuta:
+   ```bash
+   npx cap run android
+   ```
+   O ábrelo en Android Studio (`npx cap open android`) y dale ▶️.
+4. Edita código: la app del celular se recarga sola.
+
+Si la app se queda en blanco: revisa que `pnpm dev` esté corriendo, que el
+celular abra `http://192.168.1.50:3000` en el navegador (firewall) y que la
+IP no haya cambiado (el router puede reasignarla).
+
+> ⚠️ **Antes de compilar una APK para distribuir**, vuelve a sincronizar
+> **sin** la variable (`npx cap sync android`, paso 3). Si no, la APK
+> seguiría intentando cargar la app desde tu PC.
+
 ## 4. Iconos y splash screen
 
 Ya generados a partir de `frontend/capacitor-assets/icon.png` y `splash.png`
@@ -159,7 +227,7 @@ solo asegurarse de desplegar esta versión actualizada.
 ```bash
 cd frontend
 NUXT_PUBLIC_API_URL="https://playrke.com/api" pnpm exec nuxt generate
-npx cap sync android
+npx cap sync android   # SIN CAP_SERVER_URL (ver 3b)
 cd android
 ./gradlew assembleDebug   # o assembleRelease con keystore configurado
 ```
