@@ -1,9 +1,16 @@
 # 🚀 Docker Compose DEV HÍBRIDO
 # Backend en Docker + Frontend en host para máxima velocidad de desarrollo
 #
-# ⚠️ IMPORTANTE: Ejecutar SIEMPRE con --env-file .env.dev
-# Comando correcto:
+# ✅ Forma recomendada (revisa .env.dev y espera a que el backend esté listo):
+#   Windows:  .\scripts\dev\dev-hybrid.ps1        (-Build para reconstruir)
+#   Linux:    ./scripts/dev/dev-hybrid.sh          (--build para reconstruir)
+#
+# ⚠️ Si lo levantas a mano, SIEMPRE con --env-file .env.dev:
 #   docker compose --env-file .env.dev -f docker-compose.hybrid.yml up -d
+#
+# 🔑 La contraseña de Postgres se sincroniza sola con POSTGRES_PASSWORD de
+# .env.dev en cada arranque (docker/postgres/dev-entrypoint.sh): cambiarla en
+# .env.dev ya no deja al backend con "P1000: Authentication failed".
 #
 # ♻️ Después de un pull que cambie dependencias (package.json / pnpm-lock.yaml):
 #   docker compose --env-file .env.dev -f docker-compose.hybrid.yml up -d --build -V
@@ -21,6 +28,12 @@
 #   - Traefik Dashboard: http://localhost:8080
 #   - Mailhog: http://localhost:18025
 #   - Adminer: http://localhost:8081
+
+# Nombre de proyecto fijo: los volúmenes (workplace_postgres_data...) y la
+# red que usa Traefik (workplace_public_network) dependen de él. Sin esto,
+# levantar con otro nombre (p. ej. desde Docker Desktop o con -p) crea otro
+# volumen de Postgres vacío o con otra contraseña.
+name: workplace
 
 services:
   # 🌐 Traefik - Router para DEV
@@ -103,15 +116,22 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
+    # Sincroniza la contraseña del usuario con POSTGRES_PASSWORD en cada
+    # arranque (Postgres solo la aplica al crear el volumen): ver
+    # docker/postgres/dev-entrypoint.sh. Solo desarrollo.
+    entrypoint: ["/bin/sh", "/usr/local/bin/dev-entrypoint.sh"]
+    command: ["postgres"]
     volumes:
       - postgres_data:/var/lib/postgresql/data/pgdata
+      - ./docker/postgres/dev-entrypoint.sh:/usr/local/bin/dev-entrypoint.sh:ro
       - ./backend/prisma/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     ports:
       - "15432:5432"
     networks:
       - private_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      # Sano = acepta conexiones Y la contraseña ya coincide con .env.dev.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} && test -f /tmp/.password-synced"]
       interval: 10s
       timeout: 5s
       retries: 3
