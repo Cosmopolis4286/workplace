@@ -1,6 +1,17 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { defineNuxtConfig } from 'nuxt/config'
 
+// En desarrollo manda API_URL de .env.dev (`pnpm dev` carga ese archivo).
+// Nuxt también lee frontend/.env, y un NUXT_PUBLIC_API_URL ahí (p. ej. de
+// compilar la APK contra producción) pisaba en tiempo de ejecución la URL de
+// .env.dev: el frontend local llamaba al API de producción. Fijarlo aquí, antes
+// de que se lea frontend/.env, hace que .env.dev gane (dotenv no pisa
+// variables ya definidas). En build/generate no se toca: ahí
+// NUXT_PUBLIC_API_URL sigue siendo la forma de elegir el API.
+if (process.env.NODE_ENV !== 'production' && process.env.API_URL) {
+  process.env.NUXT_PUBLIC_API_URL = process.env.API_URL
+}
+
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
 
