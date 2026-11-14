@@ -146,8 +146,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
+    # Sincroniza la contraseña del usuario con POSTGRES_PASSWORD en cada
+    # arranque (Postgres solo la aplica al crear el volumen): ver
+    # docker/postgres/dev-entrypoint.sh. Solo desarrollo.
+    entrypoint: ["/bin/sh", "/usr/local/bin/dev-entrypoint.sh"]
+    command: ["postgres"]
     volumes:
       - postgres_data:/var/lib/postgresql/data/pgdata
+      - ./docker/postgres/dev-entrypoint.sh:/usr/local/bin/dev-entrypoint.sh:ro
     ports:
       # Acceso directo para herramientas DB
       - "5432:5432"
@@ -155,7 +161,8 @@ services:
       - private_network
     # Sin límites estrictos en DEV
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      # Sano = acepta conexiones Y la contraseña ya coincide con .env.dev.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} && test -f /tmp/.password-synced"]
       interval: 10s
       timeout: 5s
       retries: 3
