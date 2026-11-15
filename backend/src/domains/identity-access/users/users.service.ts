@@ -664,7 +664,12 @@ export class UsersService {
 
   async createSubcategory(
     categoryId: string,
-    data: { name: string; icon?: string; description?: string }
+    data: {
+      name: string;
+      icon?: string;
+      description?: string;
+      allowedModules?: string[];
+    }
   ) {
     const cat = await this.prisma.userCategory.findUnique({
       where: { id: categoryId },
@@ -681,6 +686,7 @@ export class UsersService {
         name: data.name,
         icon: data.icon,
         description: data.description,
+        allowedModules: data.allowedModules ?? [],
         categoryId,
       },
     });
@@ -688,7 +694,12 @@ export class UsersService {
 
   async updateSubcategory(
     id: string,
-    data: { name?: string; icon?: string; description?: string }
+    data: {
+      name?: string;
+      icon?: string;
+      description?: string;
+      allowedModules?: string[];
+    }
   ) {
     const sub = await this.prisma.userSubcategory.findUnique({ where: { id } });
     if (!sub)
@@ -702,7 +713,25 @@ export class UsersService {
           this.i18n.t('users.subcategory.name_taken')
         );
     }
-    return this.prisma.userSubcategory.update({ where: { id }, data });
+    if (!data.allowedModules) {
+      return this.prisma.userSubcategory.update({ where: { id }, data });
+    }
+    // Cambiar el techo de módulos afecta a todos los usuarios de la
+    // subcategoría: si ahora vende producto, el PROFESSIONAL necesita su
+    // Commerce (misma regla que al aprobar el perfil).
+    const affected = await this.prisma.user.findMany({
+      where: { subcategoryId: id },
+      select: { id: true },
+    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.userSubcategory.update({ where: { id }, data });
+      for (const u of affected) {
+        await this.commerceResolver.ensureForUser(tx, u.id);
+      }
+      return result;
+    });
+    await Promise.all(affected.map((u) => this.invalidateFindByIdCache(u.id)));
+    return updated;
   }
 
   async deleteSubcategory(id: string) {

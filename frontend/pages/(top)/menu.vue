@@ -1,8 +1,8 @@
 <template>
   <div>
     <PageHeader
-      title="Gestión de Menú"
-      description="Organiza y gestiona tu menú de productos"
+      :title="`Gestión de ${pageLabel}`"
+      description="Organiza y gestiona tus productos"
       :icon="DocumentTextIcon"
       :breadcrumb="breadcrumbItems"
       :stats="headerStats"
@@ -259,6 +259,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useNavigation } from '~/composables/core/useNavigation'
 import { useRoute, useRouter } from 'vue-router'
 
 // El middleware global auth.ts (bloque 4c) ya restringe /menu a usuarios con
@@ -519,9 +520,12 @@ const headerStats = computed(() => [
   },
 ])
 
-const breadcrumbItems = ref([
+// "Menú" en el rubro Comida, "Productos" en el resto (lo decide el backend).
+const { labelFor } = useNavigation()
+const pageLabel = computed(() => labelFor('/menu', 'Productos'))
+const breadcrumbItems = computed(() => [
   { label: 'Dashboard', to: '/' },
-  { label: 'Gestión de Menú' },
+  { label: `Gestión de ${pageLabel.value}` },
 ])
 
 // ─── Category handlers ───────────────────────────────────────────────────────

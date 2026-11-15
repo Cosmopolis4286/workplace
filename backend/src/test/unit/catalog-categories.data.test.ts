@@ -75,6 +75,22 @@ describe('catalog-categories.data — coherencia de seed', () => {
     expect(broken).toEqual([]);
   });
 
+  it('toda subcategoría con techo propio que vende producto incluye "menu"', () => {
+    const broken = USER_CATEGORIES.flatMap((c) =>
+      c.subcategories
+        .filter(
+          (s: any) =>
+            s.allowedModules?.length &&
+            (s.allowedModules.includes('inventory') ||
+              s.allowedModules.includes('orders')) &&
+            !s.allowedModules.includes('menu')
+        )
+        .map((s: any) => `${c.name} > ${s.name}`)
+    );
+
+    expect(broken).toEqual([]);
+  });
+
   it('no hay nombres de UserCategory duplicados', () => {
     const names = USER_CATEGORIES.map((c) => c.name);
     expect(names.length).toBe(new Set(names).size);

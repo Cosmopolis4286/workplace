@@ -12,7 +12,10 @@ describe('PlanLimitsService', () => {
   const mockPrismaService = {
     user: { findUnique: jest.fn() },
     subscription: { findFirst: jest.fn() },
+    // Plan gratuito de la base (sin suscripción). null = no existe → FREE_LIMITS.
+    plan: { findFirst: jest.fn().mockResolvedValue(null) },
     userCategory: { findUnique: jest.fn() },
+    userSubcategory: { findUnique: jest.fn() },
     commerce: { findUnique: jest.fn() },
     product: { count: jest.fn() },
     sellerStatement: { count: jest.fn().mockResolvedValue(0) },
@@ -176,6 +179,44 @@ describe('PlanLimitsService', () => {
       expect(limits.maxProducts).toBe(10);
     });
 
+    it('sin suscripción usa el plan gratuito de la base, no límites fijos', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: Role.PROFESIONAL,
+        categoryId: null,
+      });
+      mockPrismaService.subscription.findFirst.mockResolvedValue(null);
+      mockPrismaService.plan.findFirst.mockResolvedValueOnce({
+        name: 'Gratis',
+        maxProducts: 20,
+        maxEmployees: 1,
+        maxBranches: 1,
+        maxOrders: 50,
+        maxStorage: 100,
+        maxServices: 3,
+        maxServiceRequests: -1,
+        maxJobs: -1,
+        enabledModules: ['dashboard', 'menu', 'inventory'],
+      });
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        settings: null,
+      });
+
+      const limits = await service.getPlanLimits(userId);
+
+      expect(mockPrismaService.plan.findFirst).toHaveBeenCalledWith({
+        where: { status: 'ACTIVE', price: 0 },
+        orderBy: { sortOrder: 'asc' },
+      });
+      expect(limits.planName).toBe('Gratis');
+      expect(limits.maxProducts).toBe(20);
+      expect(limits.maxOrders).toBe(50);
+      expect(limits.effectiveModules).toEqual([
+        'dashboard',
+        'menu',
+        'inventory',
+      ]);
+    });
+
     it('intersects plan modules with category allowed modules', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         role: Role.PROFESIONAL,
@@ -205,6 +246,79 @@ describe('PlanLimitsService', () => {
       // incluya orders/delivery.
       expect(limits.effectiveModules).toEqual(['dashboard', 'menu']);
       expect(limits.categoryName).toBe('Servicios');
+    });
+
+    // "Tienda de Mascotas" vende producto aunque Mascotas sea un rubro de
+    // servicios: la subcategoría con techo propio reemplaza al del rubro.
+    it('usa el techo de la subcategoría cuando define uno propio', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: Role.PROFESIONAL,
+        categoryId: 'cat-mascotas',
+        subcategoryId: 'sub-tienda',
+      });
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        plan: {
+          name: 'Pro',
+          maxProducts: 50,
+          maxEmployees: 5,
+          maxBranches: 2,
+          maxOrders: 500,
+          maxStorage: 1000,
+          enabledModules: ['dashboard', 'menu', 'orders', 'services'],
+        },
+      });
+      mockPrismaService.userCategory.findUnique
+        .mockResolvedValueOnce({ allowedModules: ['dashboard', 'services'] })
+        .mockResolvedValueOnce({ name: 'Mascotas' });
+      mockPrismaService.userSubcategory.findUnique.mockResolvedValueOnce({
+        allowedModules: ['dashboard', 'services', 'menu', 'orders'],
+        categoryId: 'cat-mascotas',
+      });
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        settings: null,
+      });
+
+      const limits = await service.getPlanLimits(userId);
+
+      expect(limits.effectiveModules).toEqual([
+        'dashboard',
+        'menu',
+        'orders',
+        'services',
+      ]);
+    });
+
+    it('ignora una subcategoría sin techo propio (hereda el del rubro)', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: Role.PROFESIONAL,
+        categoryId: 'cat-mascotas',
+        subcategoryId: 'sub-vet',
+      });
+      mockPrismaService.subscription.findFirst.mockResolvedValue({
+        plan: {
+          name: 'Pro',
+          maxProducts: 50,
+          maxEmployees: 5,
+          maxBranches: 2,
+          maxOrders: 500,
+          maxStorage: 1000,
+          enabledModules: ['dashboard', 'menu', 'orders', 'services'],
+        },
+      });
+      mockPrismaService.userCategory.findUnique
+        .mockResolvedValueOnce({ allowedModules: ['dashboard', 'services'] })
+        .mockResolvedValueOnce({ name: 'Mascotas' });
+      mockPrismaService.userSubcategory.findUnique.mockResolvedValueOnce({
+        allowedModules: [],
+        categoryId: 'cat-mascotas',
+      });
+      mockPrismaService.commerce.findUnique.mockResolvedValue({
+        settings: null,
+      });
+
+      const limits = await service.getPlanLimits(userId);
+
+      expect(limits.effectiveModules).toEqual(['dashboard', 'services']);
     });
 
     it('widens a "comercio" category (no services) with the service-provider base modules for a FREELANCER/SERVICE_PROVIDER user', async () => {

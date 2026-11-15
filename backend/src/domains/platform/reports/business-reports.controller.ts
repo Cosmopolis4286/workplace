@@ -2,6 +2,8 @@ import { Controller, Get, UseGuards } from '@nestjs/common';
 import { BusinessReportsService } from './business-reports.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
+import { RequireModule } from '../../../common/decorators/require-module.decorator';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Role } from '@prisma/client';
@@ -11,7 +13,8 @@ import { Role } from '@prisma/client';
 // ReportsService/ReportsController ya existentes en
 // domains/engagement/reports (denuncias/moderación de pedidos y servicios,
 // un dominio completamente distinto pese al nombre compartido).
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+@RequireModule('reports')
 @Controller('reports')
 export class BusinessReportsController {
   constructor(private readonly reportsService: BusinessReportsService) {}

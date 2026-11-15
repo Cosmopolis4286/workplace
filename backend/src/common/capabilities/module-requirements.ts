@@ -43,3 +43,19 @@ export const isCommerceBoundModule = (module: string) =>
   COMMERCE_BOUND_MODULES.includes(module);
 export const includesProductModule = (modules: readonly string[]) =>
   modules.some((m) => PRODUCT_MODULES.includes(m));
+
+/**
+ * Techo de módulos del rubro de un usuario: el de su subcategoría si la
+ * subcategoría define uno propio (no vacío); si no, el de la categoría.
+ * Vacío = el rubro no restringe nada. Única regla compartida por
+ * PlanLimitsService (qué módulos ve) y CommerceResolverService (si se le
+ * crea un Commerce), para que nunca diverjan.
+ */
+export function rubroModuleCeiling(
+  category: { allowedModules: string[] } | null | undefined,
+  subcategory: { allowedModules: string[] } | null | undefined
+): string[] {
+  if (subcategory && subcategory.allowedModules.length > 0)
+    return subcategory.allowedModules;
+  return category?.allowedModules ?? [];
+}

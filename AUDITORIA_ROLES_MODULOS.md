@@ -49,18 +49,18 @@ Requisito: que al pedir el perfil elija el rubro **Comida**. Si elige otro rubro
 La migración `20261115100000_fix_category_and_plan_modules` es idempotente. Se probó en
 Postgres sobre una base vacía, con datos, y ejecutándola dos veces.
 
-## Pendiente: decisiones de producto
+## Decisiones tomadas e implementadas
 
-| # | Inconsistencia | Opciones |
+| # | Decisión | Implementación |
 |---|---|---|
-| D1 | **Los módulos se definen por rubro, no por subcategoría.** "Tienda de Mascotas" (Mascotas), "Accesorios", "Neumáticos" y "Venta de Autos" (Automotriz) venden producto, pero su rubro solo trae servicios: no tienen Menú ni Pedidos. | **(a, recomendada)** `allowedModules` opcional por subcategoría, que reemplaza al del rubro (migración + seed + panel de categorías). (b) Agregar `menu`/`orders` a esos rubros completos: a todo mecánico o veterinario se le crearía un comercio y vería Menú. |
-| D2 | Un negocio (`BUSINESS`) de Comida no tiene Servicios: Catering y Food Truck no pueden publicar servicios para eventos. Un autónomo de Comida sí los tiene. | Agregar `services`/`service_requests` a Comida, o resolverlo con D1 solo para Catering. |
-| D3 | **Inventario** solo existe en Enterprise, aunque el stock se maneja en Menú desde el Gratis. | Dejarlo como valor de Enterprise o bajarlo a Pro. |
-| D4 | El ítem se llama **"Menú"** también para tiendas, ferreterías o farmacias. | Renombrarlo a "Productos", o "Menú" solo en Comida. |
-| D5 | **Sin suscripción ≠ plan Gratis**: el respaldo `FREE_LIMITS` da 10 productos, 30 pedidos y 3 empleos; el plan "Gratis" da 20 productos, 50 pedidos y empleos ilimitados. | Unificar: que "sin suscripción" use el plan Gratis de la base. |
-| D6 | Servicios, Empleos, Analytics, Reportes, Ventas, Caja y Recibos tampoco validan el módulo en la API. Servicios y Empleos sí validan los límites de cantidad del plan. | Extender el guard después de revisar cada flujo: Analytics y Ventas alimentan el dashboard de todos. |
-| D7 | "Corridas y Fletes" exige el módulo `corridas`, que solo trae el rubro Transporte. Un comercio de otro rubro no puede **pedir** un flete desde el sidebar. Un usuario normal sí. | Separar "pedir" (sin módulo) de "conducir" (módulo `corridas`). |
-| D8 | El rol `PROFESIONAL` (legado) convive con los perfiles: 17 usos en código. Funciona porque `RoleResolver` lo recalcula, pero son dos fuentes de verdad. | Retirarlo de a poco después de la v1. |
+| D1 | Módulos por subcategoría | `UserSubcategory.allowedModules`: vacío = hereda del rubro, con valor lo reemplaza. Una sola regla (`rubroModuleCeiling`) decide qué módulos ve el usuario y si se le crea comercio interno. Editor en Usuarios → Categorías ("Módulos propios"). Tienda de Mascotas, Accesorios, Neumáticos y Venta de Autos venden producto; la migración crea el comercio interno a los autónomos que ya están en ellas. |
+| D2 | Catering y Food Truck con servicios | Sus subcategorías suman Servicios y Solicitudes; restaurantes y cafeterías no cambian. |
+| D3 | Inventario en todos los planes | Es otra vista del stock que ya se maneja en Menú. Los planes se diferencian por límites (productos/pedidos), no escondiendo la vista. |
+| D4 | "Menú" en Comida, "Productos" en el resto | `labelByCategory` en el sidebar; el título de la página y del encabezado usan la misma etiqueta. |
+| D5 | Sin suscripción = plan Gratis | Sin suscripción se usa el plan gratuito activo de la base (precio 0), editable por el admin. Los límites fijos en código quedan solo de respaldo. |
+| D6 | Proteger las APIs de gestión | Servicios (las 6 rutas del proveedor; el catálogo público sigue abierto), Empleos (publicar, editar y borrar) y Reportes. Analytics queda sin guard porque es la misma API del dashboard de todos los planes; Ventas usa la API de Pedidos, que ya estaba protegida. |
+| D7 | Pedir corridas sin módulo | Cualquier usuario puede pedir corridas y fletes. Conducir sigue exigiendo rubro Transporte y conductor aprobado. |
+| D8 | Retirar el rol `PROFESIONAL` | Se hace ahora, en un PR aparte porque toca autenticación y permisos. |
 
 ## Después de desplegar
 

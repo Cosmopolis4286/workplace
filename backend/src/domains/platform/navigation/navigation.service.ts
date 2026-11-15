@@ -100,7 +100,10 @@ export class NavigationService {
         .map((item) => ({
           id: item.id,
           to: item.to,
-          label: item.label,
+          label:
+            (limits.categoryName &&
+              item.labelByCategory?.[limits.categoryName]) ||
+            item.label,
           icon: item.icon,
           permission: item.condition.permission,
         })),

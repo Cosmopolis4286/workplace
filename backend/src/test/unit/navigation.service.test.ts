@@ -162,6 +162,46 @@ describe('NavigationService', () => {
     expect(await cashItem()).toBeUndefined();
   });
 
+  it('llama "Menú" al ítem en el rubro Comida y "Productos" en los demás', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue(['menu:view']);
+    currentCapabilities = BUSINESS_WITH_COMMERCE;
+    const menuLabel = async (categoryName: string | null) => {
+      planLimitsService.getPlanLimits.mockResolvedValue({
+        effectiveModules: ['menu'],
+        categoryName,
+      });
+      const result = await service.buildNavigationForUser({
+        id: 'u1',
+        role: Role.PROFESIONAL,
+      });
+      return result.sections
+        .flatMap((s) => s.items)
+        .find((i) => i.id === 'menu')?.label;
+    };
+
+    expect(await menuLabel('Comida')).toBe('Menú');
+    expect(await menuLabel('Comercio')).toBe('Productos');
+    expect(await menuLabel(null)).toBe('Productos');
+  });
+
+  it('muestra "Corridas y Fletes" a un comercio aunque su rubro no traiga el módulo corridas', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue(['corridas:view']);
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['menu', 'orders'],
+      categoryName: 'Comida',
+    });
+    currentCapabilities = BUSINESS_WITH_COMMERCE;
+
+    const result = await service.buildNavigationForUser({
+      id: 'u1',
+      role: Role.PROFESIONAL,
+    });
+
+    expect(
+      result.sections.flatMap((s) => s.items).find((i) => i.id === 'rides')
+    ).toBeDefined();
+  });
+
   it('hides /jobs for a NORMAL user even though jobs:view is granted at the role level', async () => {
     // Role.NORMAL tiene jobs:view/jobs:create en su matriz de permisos por
     // diseño (ver seed.js — alta directa), pero /jobs es "gestiona las

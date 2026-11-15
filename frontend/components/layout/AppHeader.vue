@@ -227,6 +227,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { useFeatures } from '~/composables/core/useFeatures'
 import { useAuth } from '~/composables/auth/useAuth'
+import { useNavigation } from '~/composables/core/useNavigation'
 
 defineProps({
   sidebarOpen: Boolean,
@@ -299,9 +300,12 @@ const PAGE_MAP = {
   '/logs':             { title: 'Logs del Sistema', icon: BellIcon },
 }
 
+const { labelFor } = useNavigation()
 const currentPage = computed(() => {
   const path = route.path
-  return PAGE_MAP[path] ?? null
+  const page = PAGE_MAP[path] ?? null
+  // Título del ítem del sidebar cuando existe ("Menú" vs "Productos" según rubro).
+  return page ? { ...page, title: labelFor(path, page.title) } : null
 })
 
 const currentPageTitle = computed(() => currentPage.value?.title ?? '')

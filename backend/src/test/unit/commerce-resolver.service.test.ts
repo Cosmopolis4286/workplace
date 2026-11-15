@@ -138,6 +138,34 @@ describe('CommerceResolverService', () => {
       expect(tx.commerce.create).not.toHaveBeenCalled();
     });
 
+    it('crea el Commerce si la subcategoría vende producto aunque el rubro sea de servicios', async () => {
+      tx.user.findUnique
+        .mockResolvedValueOnce({
+          ...userWith({
+            allowedModules: ['services', 'customers'],
+            profiles: [
+              {
+                id: 'p1',
+                type: ProfileType.PROFESSIONAL,
+                pendingCommerceName: null,
+              },
+            ],
+          }),
+          categoryId: 'cat-mascotas',
+          subcategory: {
+            allowedModules: ['services', 'menu', 'orders'],
+            categoryId: 'cat-mascotas',
+          },
+        })
+        .mockResolvedValueOnce({ firstName: 'Ana', lastName: 'Paz' });
+      tx.commerce.findUnique.mockResolvedValue(null);
+      tx.commerce.create.mockResolvedValue({ id: 'c-tienda' });
+
+      await expect(service.ensureForUser(tx as any, 'u1')).resolves.toBe(
+        'c-tienda'
+      );
+    });
+
     it('uses the BUSINESS profile (and its pendingCommerceName) when present', async () => {
       tx.user.findUnique.mockResolvedValueOnce(
         userWith({

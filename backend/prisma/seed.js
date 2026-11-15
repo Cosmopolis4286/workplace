@@ -251,7 +251,7 @@ async function seedPlans({ createOnly = false } = {}) {
       // Debe reflejar el mismo set que FREE_MODULES (plan-limits.service.ts) —
       // un freelancer suscrito EXPLÍCITAMENTE al plan Gratis (no solo el fallback
       // sin-suscripción) también necesita poder operar servicios/solicitudes/billetera.
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'settings', 'notifications', 'services', 'service_requests', 'wallets'],
+      enabledModules: ['dashboard', 'menu', 'inventory', 'orders', 'customers', 'settings', 'notifications', 'services', 'service_requests', 'wallets'],
       maxServices: 3,
       maxServiceRequests: -1,
     },
@@ -274,7 +274,7 @@ async function seedPlans({ createOnly = false } = {}) {
       features: ['100 productos', '3 empleados', '1 sucursal', '500 pedidos/mes', 'Soporte prioritario', 'Reportes básicos'],
       // Debe incluir todo lo del plan Gratis: subir de plan nunca quita módulos
       // (antes un proveedor perdía Servicios y Solicitudes al pagar Básico).
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'sales', 'reports', 'services', 'service_requests', 'wallets'],
+      enabledModules: ['dashboard', 'menu', 'inventory', 'orders', 'customers', 'analytics', 'expenses', 'sales', 'reports', 'services', 'service_requests', 'wallets'],
     },
     {
       name: 'Pro',
@@ -293,7 +293,7 @@ async function seedPlans({ createOnly = false } = {}) {
       maxOrders: 2000,
       maxStorage: 2000,
       features: ['500 productos', '10 empleados', '3 sucursales', '2,000 pedidos/mes', 'Soporte 24/7', 'Reportes avanzados', 'Múltiples usuarios', 'API access'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'services', 'jobs', 'service_requests', 'corridas', 'wallets', 'sales', 'reports', 'purchases', 'suppliers', 'accounts'],
+      enabledModules: ['dashboard', 'menu', 'inventory', 'orders', 'customers', 'analytics', 'expenses', 'employees', 'branches', 'delivery', 'appointments', 'services', 'jobs', 'service_requests', 'corridas', 'wallets', 'sales', 'reports', 'purchases', 'suppliers', 'accounts'],
     },
     {
       name: 'Enterprise',
@@ -836,10 +836,15 @@ async function seedUserCategories() {
         }
       })
 
+      // allowedModules propio (opcional): reemplaza al del rubro — ej. una
+      // "Tienda de Mascotas" vende producto aunque Mascotas sea de servicios.
+      const subModules = typeof sub === 'string' ? [] : (sub.allowedModules ?? [])
+
       const subData = {
         name: subName,
         icon: subIcon,
         description: subDescription,
+        allowedModules: subModules,
         categoryId: savedCategory.id
       }
 

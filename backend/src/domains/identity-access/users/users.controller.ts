@@ -135,7 +135,13 @@ export class UsersController {
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   createSubcategory(
     @Param('categoryId') categoryId: string,
-    @Body() body: { name: string; icon?: string; description?: string }
+    @Body()
+    body: {
+      name: string;
+      icon?: string;
+      description?: string;
+      allowedModules?: string[];
+    }
   ) {
     return this.usersService.createSubcategory(categoryId, body);
   }
@@ -144,7 +150,13 @@ export class UsersController {
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   updateSubcategory(
     @Param('id') id: string,
-    @Body() body: { name?: string; icon?: string; description?: string }
+    @Body()
+    body: {
+      name?: string;
+      icon?: string;
+      description?: string;
+      allowedModules?: string[];
+    }
   ) {
     return this.usersService.updateSubcategory(id, body);
   }

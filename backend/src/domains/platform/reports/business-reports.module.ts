@@ -8,6 +8,7 @@ import { ServicesModule } from '../../commerce-core/services/services.module';
 import { CommerceResolverModule } from '../../../common/commerce-resolver/commerce-resolver.module';
 import { AccountTypeModule } from '../../../common/account-type/account-type.module';
 import { PermissionsModule } from '../../identity-access/permissions/permissions.module';
+import { PlansModule } from '../../money/plans/plans.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PermissionsModule } from '../../identity-access/permissions/permissions
     CommerceResolverModule,
     AccountTypeModule,
     PermissionsModule,
+    PlansModule,
   ],
   controllers: [BusinessReportsController],
   providers: [BusinessReportsService],

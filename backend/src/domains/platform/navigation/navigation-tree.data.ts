@@ -83,7 +83,10 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
       {
         id: 'menu',
         to: '/menu',
-        label: 'Menú',
+        // "Menú" solo tiene sentido en comida; una tienda o farmacia gestiona
+        // "Productos" (misma página y datos).
+        label: 'Productos',
+        labelByCategory: { Comida: 'Menú' },
         icon: 'menu',
         order: 1,
         condition: {
@@ -160,9 +163,12 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         label: 'Corridas y Fletes',
         icon: 'rides',
         order: 6,
+        // Sin requiresModule: PEDIR una corrida o flete es de cualquier
+        // usuario (un restaurante que manda un pedido, una tienda que envía
+        // mercancía). CONDUCIR sigue restringido: la pestaña de conductor
+        // exige rubro Transporte y la API exige un RideDriverProfile aprobado.
         condition: {
           permission: 'corridas:view',
-          requiresModule: true,
           excludeRoles: [Role.SUPERADMIN, Role.ADMIN],
         },
       },

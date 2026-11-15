@@ -18,6 +18,8 @@ import {
 } from './jobs.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
+import { RequireModule } from '../../../common/decorators/require-module.decorator';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { CategoryScopeGuard } from '../../../common/guards/category-scope.guard';
@@ -129,8 +131,10 @@ export class JobsController {
     JwtAuthGuard,
     PermissionsGuard,
     KycApprovedGuard,
-    CategoryScopeGuard
+    CategoryScopeGuard,
+    ModuleAccessGuard
   )
+  @RequireModule('jobs')
   @RequirePermission('jobs:create')
   @RequireCategoryScope({ model: 'jobCategory', bodyField: 'categoryId' })
   @RateLimit({
@@ -146,7 +150,13 @@ export class JobsController {
     return { data: await this.jobsService.createJob(user.id, dto) };
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard, CategoryScopeGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    PermissionsGuard,
+    CategoryScopeGuard,
+    ModuleAccessGuard
+  )
+  @RequireModule('jobs')
   @RequirePermission('jobs:edit')
   @RequireCategoryScope({ model: 'jobCategory', bodyField: 'categoryId' })
   @Patch(':id')
@@ -158,7 +168,8 @@ export class JobsController {
     return { data: await this.jobsService.updateJob(id, user.id, dto) };
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @RequireModule('jobs')
   @RequirePermission('jobs:delete')
   @Delete(':id')
   async deleteJob(

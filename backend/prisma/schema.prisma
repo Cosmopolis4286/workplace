@@ -183,6 +183,10 @@ model UserSubcategory {
   // category.icon`).
   icon                   String?
   description            String?
+  // Techo de módulos propio de la subcategoría. Vacío = hereda el del rubro.
+  // Con valor REEMPLAZA al del rubro: "Tienda de Mascotas" vende producto
+  // (menu/orders) aunque Mascotas solo traiga servicios.
+  allowedModules         String[]                @default([])
   categoryId             String
   category               UserCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   users                  User[]
