@@ -166,6 +166,9 @@ function rehydrate(): void {
   }
 }
 
+// Tope para confirmar la sesión con el servidor (GET /auth/me).
+const SESSION_CHECK_TIMEOUT_MS = 10_000
+
 export const useAuth = () => {
   // useRuntimeConfig debe llamarse dentro del composable (contexto Nuxt)
   // El plugin runtime-config-host.client.ts ajusta apiUrl si la página se
@@ -390,7 +393,15 @@ export const useAuth = () => {
 
   async function fetchProfile(): Promise<User | null> {
     try {
-      const profile = await authFetch<User>(`${apiUrl}/auth/me`, { credentials: 'include' })
+      // Con tope de tiempo: el layout y el middleware esperan esta llamada
+      // antes de mostrar la página; si el API tarda (p. ej. el backend aún
+      // arrancando), se sigue con la sesión guardada en vez de dejar la
+      // pantalla congelada. Un error o timeout no cierra la sesión: solo un
+      // refresh fallido lo hace (ver authFetch).
+      const profile = await authFetch<User>(`${apiUrl}/auth/me`, {
+        credentials: 'include',
+        timeout: SESSION_CHECK_TIMEOUT_MS,
+      })
       currentUser.value = profile
       if (process.client) localStorage.setItem('auth_user', JSON.stringify(profile))
       return profile

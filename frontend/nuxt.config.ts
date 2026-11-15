@@ -76,6 +76,8 @@ export default defineNuxtConfig({
   ],
 
   ssr: false,
+  // Pantalla de carga inicial (antes del JS), mismo diseño que PageLoader.vue.
+  spaLoadingTemplate: 'spa-loading-template.html',
 
   experimental: {
     appManifest: false,
