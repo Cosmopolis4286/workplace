@@ -7,6 +7,7 @@ import { CommerceProfileCompletionStrategy } from '../../domains/identity-access
 import { FreelancerProfileCompletionStrategy } from '../../domains/identity-access/users/strategies/freelancer-profile-completion.strategy';
 import { AccountTypeResolver } from '../../common/account-type/account-type.resolver';
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service';
+import { RoleResolverService } from '../../common/account-type/role-resolver.service';
 import { Role } from '@prisma/client';
 import { I18nService } from 'nestjs-i18n';
 
@@ -21,9 +22,12 @@ describe('UsersService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
     },
     userProfile: {
       create: jest.fn(),
+      update: jest.fn(),
+      findFirst: jest.fn(),
     },
     // Transacción interactiva: el callback recibe el mismo mock como `tx`.
     $transaction: jest.fn((fn: any) => fn(mockPrismaService)),
@@ -95,6 +99,12 @@ describe('UsersService', () => {
         {
           provide: AccountTypeResolver,
           useValue: mockAccountTypeResolver,
+        },
+        {
+          provide: RoleResolverService,
+          useValue: {
+            syncRoleForUser: jest.fn().mockResolvedValue(Role.NORMAL),
+          },
         },
         {
           provide: CommerceResolverService,
@@ -358,6 +368,65 @@ describe('UsersService', () => {
         where: { id: '1' },
         data: updateUserDto,
         include: expect.any(Object),
+      });
+    });
+  });
+
+  // El rol se deriva de los perfiles: el admin no puede dejar un
+  // PROFESIONAL sin perfil de negocio ni un perfil activo con rol NORMAL.
+  describe('update — rol derivado de los perfiles', () => {
+    const base = {
+      id: 'u1',
+      role: 'NORMAL',
+      commerce: null,
+      category: null,
+      subcategory: null,
+    };
+
+    it('elegir PROFESIONAL sin perfil de negocio crea uno Profesional y recalcula el rol', async () => {
+      mockPrismaService.user.update.mockResolvedValue(base);
+      mockPrismaService.userProfile.findFirst
+        .mockResolvedValueOnce(null) // ¿tiene perfil de negocio activo?
+        .mockResolvedValueOnce(null); // applyBusinessProfileType: existente
+      const roleResolver = (service as any).roleResolver;
+      roleResolver.syncRoleForUser.mockResolvedValueOnce(Role.PROFESIONAL);
+      mockPrismaService.user.findUniqueOrThrow.mockResolvedValue({
+        ...base,
+        role: 'PROFESIONAL',
+      });
+
+      const result = await service.updateUser('u1', {
+        role: Role.PROFESIONAL,
+      } as any);
+
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 'u1',
+          type: 'PROFESSIONAL',
+          status: 'ACTIVE',
+        }),
+      });
+      expect(roleResolver.syncRoleForUser).toHaveBeenCalledWith(
+        'u1',
+        mockPrismaService
+      );
+      expect(result.role).toBe('PROFESIONAL');
+    });
+
+    it('elegir NORMAL desactiva el perfil de negocio', async () => {
+      mockPrismaService.user.update.mockResolvedValue({
+        ...base,
+        role: 'NORMAL',
+      });
+      mockPrismaService.userProfile.findFirst.mockResolvedValueOnce({
+        id: 'p1',
+      });
+
+      await service.updateUser('u1', { role: Role.NORMAL } as any);
+
+      expect(mockPrismaService.userProfile.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { status: 'SUSPENDED' },
       });
     });
   });

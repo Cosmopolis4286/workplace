@@ -130,15 +130,20 @@ describe('RoleResolverService', () => {
       });
     });
 
-    it('does NOT demote a legacy PROFESIONAL user who never went through UserProfile', async () => {
+    // El rol es 100% derivado: ya no se respeta un PROFESIONAL "legado" sin
+    // perfil (la migración role_derived_from_profiles les creó el suyo).
+    it('baja a NORMAL a un PROFESIONAL sin ningún perfil de negocio activo', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ role: Role.PROFESIONAL });
       mockPrisma.userProfile.findMany.mockResolvedValue([]);
-      mockPrisma.userProfile.count.mockResolvedValue(0); // nunca tuvo ningún UserProfile de negocio
+      mockPrisma.userProfile.count.mockResolvedValue(0);
 
       const result = await service.syncRoleForUser('legacy-user');
 
-      expect(result).toBe(Role.PROFESIONAL);
-      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      expect(result).toBe(Role.NORMAL);
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'legacy-user' },
+        data: { role: Role.NORMAL },
+      });
     });
 
     it('is a no-op when the resolved role already matches the current role', async () => {

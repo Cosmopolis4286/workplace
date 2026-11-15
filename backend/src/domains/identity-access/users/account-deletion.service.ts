@@ -263,6 +263,9 @@ export class AccountDeletionService {
         where: { id: userId },
         data: {
           email: `eliminado-${userId}@eliminado.invalid`,
+          // Sus perfiles quedan suspendidos: el rol derivado es NORMAL (un
+          // SUPERADMIN no llega acá, ver arriba; un ADMIN pierde el acceso).
+          role: Role.NORMAL,
           username: null,
           password: unusablePassword,
           firstName: 'Usuario',

@@ -60,7 +60,7 @@ Postgres sobre una base vacía, con datos, y ejecutándola dos veces.
 | D5 | Sin suscripción = plan Gratis | Sin suscripción se usa el plan gratuito activo de la base (precio 0), editable por el admin. Los límites fijos en código quedan solo de respaldo. |
 | D6 | Proteger las APIs de gestión | Servicios (las 6 rutas del proveedor; el catálogo público sigue abierto), Empleos (publicar, editar y borrar) y Reportes. Analytics queda sin guard porque es la misma API del dashboard de todos los planes; Ventas usa la API de Pedidos, que ya estaba protegida. |
 | D7 | Pedir corridas sin módulo | Cualquier usuario puede pedir corridas y fletes. Conducir sigue exigiendo rubro Transporte y conductor aprobado. |
-| D8 | Retirar el rol `PROFESIONAL` | Se hace ahora, en un PR aparte porque toca autenticación y permisos. |
+| D8 | Conservar el rol `PROFESIONAL` y hacerlo 100% derivado | Revisado a fondo: es un nivel de acceso calculado de los perfiles ("tiene un perfil de negocio activo"), útil en el token y como base de permisos. Se cerraron los caminos que lo dejaban desalineado: la edición del admin en `/users` (elegir Profesional asegura un perfil, elegir Normal lo desactiva, y siempre se recalcula), el borrado de cuenta (rol NORMAL) y el recálculo ya no respeta cuentas "legado" sin perfil. La migración `20261115120000_role_derived_from_profiles` crea el perfil a los huérfanos (Comercio si tienen comercio interno, si no Profesional) y alinea rol y perfiles. |
 
 ## Después de desplegar
 
