@@ -307,9 +307,11 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
         label: 'Caja',
         icon: 'cash',
         order: 4,
+        // No existe un módulo 'cash' en planes ni rubros: con requiresModule
+        // la Caja no le aparecía a nadie. Va con el POS (módulo de pedidos).
         condition: {
           permission: 'cash:view',
-          requiresModule: true,
+          requiresAnyModule: ['orders'],
           requiresCapability: 'HAS_COMMERCE',
           excludeRoles: [Role.SUPERADMIN, Role.ADMIN],
         },

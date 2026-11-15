@@ -5,7 +5,8 @@ const USER_CATEGORIES = [
   {
     name: 'Comida',
     icon: '🍔',
-    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'delivery', 'employees', 'branches', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
+    // 'appointments' = reservas de mesa (Appointment.tableNumber/partySize).
+    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'delivery', 'appointments', 'employees', 'branches', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
     subcategories: [
       { name: 'Restaurante', icon: '🍽️', description: 'Servicio de comidas en mesa, con carta o menú fijo.' },
       { name: 'Cafetería', icon: '☕', description: 'Café, meriendas y repostería para consumir o llevar.' },
@@ -168,7 +169,9 @@ const USER_CATEGORIES = [
   {
     name: 'Comercio',
     icon: '🛍️',
-    allowedModules: ['dashboard', 'profile', 'inventory', 'orders', 'customers', 'employees', 'branches', 'delivery', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
+    // 'menu' es obligatorio para vender: los productos (y la página de
+    // Inventario) se leen y escriben en /menu/* (@RequireModule('menu')).
+    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'employees', 'branches', 'delivery', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
     subcategories: [
       { name: 'Retail', icon: '🏬', description: 'Venta al detal en tienda física u online.' },
       { name: 'Mayorista', icon: '📦', description: 'Venta al por mayor a otros comercios.' },

@@ -272,7 +272,9 @@ async function seedPlans({ createOnly = false } = {}) {
       maxOrders: 500,
       maxStorage: 500,
       features: ['100 productos', '3 empleados', '1 sucursal', '500 pedidos/mes', 'Soporte prioritario', 'Reportes básicos'],
-      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'sales', 'reports'],
+      // Debe incluir todo lo del plan Gratis: subir de plan nunca quita módulos
+      // (antes un proveedor perdía Servicios y Solicitudes al pagar Básico).
+      enabledModules: ['dashboard', 'menu', 'orders', 'customers', 'analytics', 'expenses', 'sales', 'reports', 'services', 'service_requests', 'wallets'],
     },
     {
       name: 'Pro',
