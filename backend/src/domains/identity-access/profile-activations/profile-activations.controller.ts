@@ -21,6 +21,7 @@ import { ProfileActivationsService } from './profile-activations.service';
 import { CreateProfileActivationDto } from './dto/create-profile-activation.dto';
 import { ReviewProfileActivationDto } from './dto/review-profile-activation.dto';
 import { SetActiveProfileDto } from './dto/set-active-profile.dto';
+import { DeactivateProfileDto } from './dto/deactivate-profile.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard, RateLimitGuard)
 @Controller('profile-activations')
@@ -30,6 +31,20 @@ export class ProfileActivationsController {
   @Get('mine')
   getMine(@CurrentUser() user: any) {
     return this.service.getMine(user.id);
+  }
+
+  // Motivos para desactivar un perfil (el select de la pantalla de perfiles).
+  @Get('deactivation-reasons')
+  getDeactivationReasons() {
+    return this.service.getDeactivationReasons();
+  }
+
+  // Qué impide desactivar este perfil ahora (vacío = se puede).
+  @Get(':id/deactivation-check')
+  async deactivationCheck(@Param('id') id: string, @CurrentUser() user: any) {
+    return {
+      blockers: await this.service.deactivationBlockers(user.id, id),
+    };
   }
 
   @Post()
@@ -56,8 +71,12 @@ export class ProfileActivationsController {
     keyGenerator: (req) =>
       `profile-activation:deactivate:${(req as any).user?.id}`,
   })
-  deactivate(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.service.deactivate(user.id, id);
+  deactivate(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: DeactivateProfileDto
+  ) {
+    return this.service.deactivate(user.id, id, dto);
   }
 
   @Patch(':id/reactivate')

@@ -71,6 +71,8 @@ describe('ProfileActivationsService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({ id: 'commerce-1' }),
       },
+      serviceRequest: { count: jest.fn().mockResolvedValue(0) },
+      catalogOrder: { count: jest.fn().mockResolvedValue(0) },
       // Transacción interactiva: el callback recibe el mismo mock como `tx`
       // (suficiente para estos tests — no hay aislamiento real de Prisma).
       $transaction: jest.fn((fn: any) => fn(mockPrismaService)),
@@ -176,12 +178,12 @@ describe('ProfileActivationsService', () => {
       expect(result.pendingCommerceName).toBeUndefined();
     });
 
-    it('rechaza planId si el tipo no requiere aprobación (CUSTOMER/JOB_SEEKER)', async () => {
+    it('rechaza planId si el tipo no requiere aprobación (JOB_SEEKER)', async () => {
       mockPrismaService.userProfile.findFirst.mockResolvedValue(null);
 
       await expect(
         service.create(USER_ID, {
-          type: ProfileType.CUSTOMER,
+          type: ProfileType.JOB_SEEKER,
           planId: PLAN_ID,
         } as any)
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -634,11 +636,19 @@ describe('ProfileActivationsService', () => {
       );
       mockPrismaService.userProfile.findMany.mockResolvedValue([]); // nada queda ACTIVE tras suspender
 
-      const result = await service.deactivate(USER_ID, PROFILE_ID);
+      const result = await service.deactivate(USER_ID, PROFILE_ID, {
+        reason: 'NOT_USING',
+      });
 
       expect(mockPrismaService.userProfile.update).toHaveBeenCalledWith({
         where: { id: PROFILE_ID },
-        data: { status: ProfileStatus.SUSPENDED, suspendedBySelf: true },
+        data: {
+          status: ProfileStatus.SUSPENDED,
+          suspendedBySelf: true,
+          deactivationReason: 'NOT_USING',
+          deactivationNote: null,
+          deactivatedAt: expect.any(Date),
+        },
       });
       expect(result.status).toBe(ProfileStatus.SUSPENDED);
     });
@@ -649,7 +659,7 @@ describe('ProfileActivationsService', () => {
       );
       mockPrismaService.userProfile.findMany.mockResolvedValue([]);
 
-      await service.deactivate(USER_ID, PROFILE_ID);
+      await service.deactivate(USER_ID, PROFILE_ID, { reason: 'NOT_USING' });
 
       expect(mockPrismaService.user.updateMany).toHaveBeenCalledWith({
         where: { id: USER_ID, activeProfileId: PROFILE_ID },
@@ -670,7 +680,7 @@ describe('ProfileActivationsService', () => {
       mockPrismaService.userProfile.findMany.mockResolvedValue([]); // sin perfiles ACTIVE restantes -> vuelve a NORMAL
       mockPrismaService.userProfile.count.mockResolvedValue(1); // sí tuvo un UserProfile de negocio -> degrada a NORMAL
 
-      await service.deactivate(USER_ID, PROFILE_ID);
+      await service.deactivate(USER_ID, PROFILE_ID, { reason: 'NOT_USING' });
 
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: USER_ID },
@@ -684,7 +694,7 @@ describe('ProfileActivationsService', () => {
       );
 
       await expect(
-        service.deactivate(USER_ID, PROFILE_ID)
+        service.deactivate(USER_ID, PROFILE_ID, { reason: 'NOT_USING' })
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
@@ -694,8 +704,112 @@ describe('ProfileActivationsService', () => {
       );
 
       await expect(
-        service.deactivate(USER_ID, PROFILE_ID)
+        service.deactivate(USER_ID, PROFILE_ID, { reason: 'NOT_USING' })
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('el perfil Cliente nunca se desactiva', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({
+          type: ProfileType.CUSTOMER,
+          status: ProfileStatus.ACTIVE,
+        })
+      );
+
+      await expect(
+        service.deactivate(USER_ID, PROFILE_ID, { reason: 'NOT_USING' })
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(mockPrismaService.userProfile.update).not.toHaveBeenCalled();
+    });
+
+    it('"Otro motivo" exige explicarlo y guarda la nota', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ status: ProfileStatus.ACTIVE })
+      );
+
+      await expect(
+        service.deactivate(USER_ID, PROFILE_ID, { reason: 'OTHER', note: '  ' })
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      await service.deactivate(USER_ID, PROFILE_ID, {
+        reason: 'OTHER',
+        note: '  Me mudo de país  ',
+      });
+      expect(
+        mockPrismaService.userProfile.update.mock.calls[0][0].data
+      ).toMatchObject({
+        deactivationReason: 'OTHER',
+        deactivationNote: 'Me mudo de país',
+      });
+    });
+
+    it('no deja desactivar Profesional/Negocio con trabajo de clientes en curso', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({
+          type: ProfileType.BUSINESS,
+          status: ProfileStatus.ACTIVE,
+        })
+      );
+      mockPrismaService.commerce.findUnique.mockResolvedValue({ id: 'c1' });
+      mockPrismaService.serviceRequest.count.mockResolvedValue(2);
+      mockPrismaService.catalogOrder.count.mockResolvedValue(1);
+
+      const err = await service
+        .deactivate(USER_ID, PROFILE_ID, { reason: 'NOT_USING' })
+        .catch((e) => e);
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().blockers).toEqual([
+        expect.stringContaining('2 solicitud(es) de servicio en curso'),
+        expect.stringContaining('1 pedido(s) del catálogo sin cerrar'),
+      ]);
+      expect(mockPrismaService.userProfile.update).not.toHaveBeenCalled();
+    });
+
+    it('deactivationBlockers anticipa lo que impide desactivar (vacío = se puede)', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({
+          type: ProfileType.PROFESSIONAL,
+          status: ProfileStatus.ACTIVE,
+        })
+      );
+      await expect(
+        service.deactivationBlockers(USER_ID, PROFILE_ID)
+      ).resolves.toEqual([]);
+    });
+  });
+
+  describe('perfil Cliente siempre activo', () => {
+    it('getMine crea el perfil Cliente si falta', async () => {
+      mockPrismaService.userProfile.findFirst.mockResolvedValue(null);
+      await service.getMine(USER_ID);
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith({
+        data: {
+          userId: USER_ID,
+          type: ProfileType.CUSTOMER,
+          status: ProfileStatus.ACTIVE,
+        },
+      });
+    });
+
+    it('getMine no lo duplica si ya existe', async () => {
+      mockPrismaService.userProfile.findFirst.mockResolvedValue({
+        id: 'cust',
+        type: ProfileType.CUSTOMER,
+      });
+      await service.getMine(USER_ID);
+      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled();
+    });
+
+    it('solicitar Cliente devuelve el existente en vez de dar conflicto', async () => {
+      mockPrismaService.userProfile.findFirst.mockResolvedValue({
+        id: 'cust',
+        type: ProfileType.CUSTOMER,
+        status: ProfileStatus.ACTIVE,
+      });
+      await expect(
+        service.create(USER_ID, { type: ProfileType.CUSTOMER } as any)
+      ).resolves.toMatchObject({ id: 'cust' });
     });
   });
 
@@ -719,7 +833,13 @@ describe('ProfileActivationsService', () => {
 
       expect(mockPrismaService.userProfile.update).toHaveBeenCalledWith({
         where: { id: PROFILE_ID },
-        data: { status: ProfileStatus.ACTIVE, suspendedBySelf: false },
+        data: {
+          status: ProfileStatus.ACTIVE,
+          suspendedBySelf: false,
+          deactivationReason: null,
+          deactivationNote: null,
+          deactivatedAt: null,
+        },
       });
       expect(result.status).toBe(ProfileStatus.ACTIVE);
     });

@@ -8,6 +8,8 @@ import {
 import {
   BillingInterval,
   KycStatus,
+  Prisma,
+  ProfileDeactivationReason,
   ProfileStatus,
   ProfileType,
 } from '@prisma/client';
@@ -20,6 +22,7 @@ import { PLANS_FACADE, PlansFacade } from '../../money/plans/plans.facade';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 import { CreateProfileActivationDto } from './dto/create-profile-activation.dto';
 import { ReviewProfileActivationDto } from './dto/review-profile-activation.dto';
+import { DeactivateProfileDto } from './dto/deactivate-profile.dto';
 
 // Tipos que requieren revisión de un admin antes de quedar ACTIVE (mismo
 // criterio que aplicaba FreelancerApplication: ejercen una actividad de
@@ -36,6 +39,30 @@ const TYPE_LABEL: Record<ProfileType, string> = {
   BUSINESS: 'Negocio',
 };
 
+// Motivos para desactivar un perfil, en el orden en que se muestran. Única
+// fuente de las etiquetas: el frontend las pide a GET deactivation-reasons.
+export const DEACTIVATION_REASONS: {
+  value: ProfileDeactivationReason;
+  label: string;
+}[] = [
+  { value: 'NOT_USING', label: 'Ya no lo uso' },
+  { value: 'TEMPORARY_PAUSE', label: 'Pausa temporal (vacaciones, salud...)' },
+  { value: 'SWITCHING_PROFILE', label: 'Me cambio a otro tipo de perfil' },
+  { value: 'LOW_DEMAND', label: 'No recibo suficientes clientes' },
+  {
+    value: 'TOO_EXPENSIVE',
+    label: 'Las comisiones o el plan me resultan caros',
+  },
+  { value: 'PLATFORM_ISSUES', label: 'Problemas con la app' },
+  { value: 'PRIVACY', label: 'Prefiero no mostrar mi actividad' },
+  { value: 'OTHER', label: 'Otro motivo' },
+];
+
+// Trabajo con clientes que impide desactivar un perfil de negocio: dejarlos
+// a medias perjudica al cliente (y la reputación del perfil).
+const OPEN_SERVICE_REQUEST = ['PENDING', 'SEEN', 'CONTACTED'] as const;
+const OPEN_CATALOG_ORDER = ['PENDING', 'SEEN', 'CONTACTED'] as const;
+
 @Injectable()
 export class ProfileActivationsService {
   constructor(
@@ -47,7 +74,108 @@ export class ProfileActivationsService {
     private readonly commerceResolver: CommerceResolverService
   ) {}
 
+  /**
+   * El perfil Cliente siempre está activo: todo usuario puede comprar. Se
+   * crea si falta (idempotente). La migración ya lo creó para los usuarios
+   * existentes y UsersService.create lo crea al registrarse; esto cubre
+   * cualquier otro camino de alta.
+   */
+  async ensureCustomerProfile(
+    userId: string,
+    db: Prisma.TransactionClient | PrismaService = this.prisma
+  ) {
+    const existing = await db.userProfile.findFirst({
+      where: {
+        userId,
+        type: ProfileType.CUSTOMER,
+        status: ProfileStatus.ACTIVE,
+      },
+    });
+    if (existing) return existing;
+    return db.userProfile.create({
+      data: {
+        userId,
+        type: ProfileType.CUSTOMER,
+        status: ProfileStatus.ACTIVE,
+      },
+    });
+  }
+
+  getDeactivationReasons() {
+    return DEACTIVATION_REASONS;
+  }
+
+  /**
+   * Qué impide desactivar este perfil ahora. Vacío = se puede. El frontend
+   * lo muestra antes de pedir confirmación; deactivate() lo vuelve a exigir.
+   */
+  async deactivationBlockers(userId: string, profileId: string) {
+    const profile = await this.findOwnActive(userId, profileId);
+    return this.blockersFor(userId, profile.type);
+  }
+
+  private async blockersFor(userId: string, type: ProfileType) {
+    const blockers: string[] = [];
+    if (type === ProfileType.CUSTOMER) {
+      blockers.push(
+        'El perfil Cliente siempre está activo: todos pueden comprar en WorkPlace.'
+      );
+      return blockers;
+    }
+    if (type !== ProfileType.PROFESSIONAL && type !== ProfileType.BUSINESS) {
+      return blockers;
+    }
+
+    const commerce = await this.prisma.commerce.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    const [openRequests, openOrders] = await Promise.all([
+      this.prisma.serviceRequest.count({
+        where: {
+          providerId: userId,
+          status: { in: [...OPEN_SERVICE_REQUEST] },
+        },
+      }),
+      commerce
+        ? this.prisma.catalogOrder.count({
+            where: {
+              commerceId: commerce.id,
+              status: { in: [...OPEN_CATALOG_ORDER] },
+            },
+          })
+        : Promise.resolve(0),
+    ]);
+    if (openRequests > 0) {
+      blockers.push(
+        `Tienes ${openRequests} solicitud(es) de servicio en curso. Termínalas o recházalas antes de desactivar.`
+      );
+    }
+    if (openOrders > 0) {
+      blockers.push(
+        `Tienes ${openOrders} pedido(s) del catálogo sin cerrar. Atiéndelos o cancélalos antes de desactivar.`
+      );
+    }
+    return blockers;
+  }
+
+  private async findOwnActive(userId: string, profileId: string) {
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { id: profileId },
+    });
+    if (!profile || profile.userId !== userId) {
+      throw new NotFoundException('Perfil no encontrado');
+    }
+    if (profile.status !== ProfileStatus.ACTIVE) {
+      throw new BadRequestException(
+        'Solo se puede desactivar un perfil que está ACTIVE'
+      );
+    }
+    return profile;
+  }
+
   async getMine(userId: string) {
+    await this.ensureCustomerProfile(userId);
     return this.prisma.userProfile.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
@@ -62,6 +190,11 @@ export class ProfileActivationsService {
   }
 
   async create(userId: string, dto: CreateProfileActivationDto) {
+    // Cliente no se solicita: siempre está activo.
+    if (dto.type === ProfileType.CUSTOMER) {
+      return this.ensureCustomerProfile(userId);
+    }
+
     const existing = await this.prisma.userProfile.findFirst({
       where: {
         userId,
@@ -192,23 +325,39 @@ export class ProfileActivationsService {
   // disparado por el dueño del perfil desde /profile. Se conserva la fila
   // (histórico de categoría/reviewedBy) como SUSPENDED, nunca se borra.
   // Solo PENDING/REJECTED no tiene sentido "desactivar" — ya no está ACTIVE.
-  async deactivate(userId: string, profileId: string) {
-    const profile = await this.prisma.userProfile.findUnique({
-      where: { id: profileId },
-    });
-    if (!profile || profile.userId !== userId) {
-      throw new NotFoundException('Perfil no encontrado');
-    }
-    if (profile.status !== ProfileStatus.ACTIVE) {
+  async deactivate(
+    userId: string,
+    profileId: string,
+    dto: DeactivateProfileDto
+  ) {
+    const profile = await this.findOwnActive(userId, profileId);
+
+    const note = dto.note?.trim() || null;
+    if (dto.reason === ProfileDeactivationReason.OTHER && !note) {
       throw new BadRequestException(
-        'Solo se puede desactivar un perfil que está ACTIVE'
+        'Cuéntanos el motivo para desactivar el perfil'
       );
+    }
+
+    const blockers = await this.blockersFor(userId, profile.type);
+    if (blockers.length > 0) {
+      throw new ConflictException({
+        message: blockers[0],
+        errorCode: 'PROFILE_DEACTIVATION_BLOCKED',
+        blockers,
+      });
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.userProfile.update({
         where: { id: profileId },
-        data: { status: ProfileStatus.SUSPENDED, suspendedBySelf: true },
+        data: {
+          status: ProfileStatus.SUSPENDED,
+          suspendedBySelf: true,
+          deactivationReason: dto.reason,
+          deactivationNote: note,
+          deactivatedAt: new Date(),
+        },
       });
 
       // Si era el perfil "activo" de contexto de UX, limpiarlo — no tiene
@@ -278,7 +427,13 @@ export class ProfileActivationsService {
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.userProfile.update({
         where: { id: profileId },
-        data: { status: ProfileStatus.ACTIVE, suspendedBySelf: false },
+        data: {
+          status: ProfileStatus.ACTIVE,
+          suspendedBySelf: false,
+          deactivationReason: null,
+          deactivationNote: null,
+          deactivatedAt: null,
+        },
       });
 
       if (

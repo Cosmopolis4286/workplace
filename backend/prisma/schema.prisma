@@ -361,6 +361,12 @@ model UserProfile {
   // disciplinaria con un clic.
   suspendedBySelf Boolean @default(false)
 
+  // Por qué el propio usuario lo desactivó (motivo obligatorio desde la
+  // pantalla de perfiles). Sirve para entender bajas y para soporte.
+  deactivationReason ProfileDeactivationReason?
+  deactivationNote   String?
+  deactivatedAt      DateTime?
+
   commerce Commerce?
 
   // Inverso de User.activeProfileId — usuarios que tienen ESTE perfil
@@ -394,6 +400,19 @@ enum ProfileType {
 enum ProfessionalSubtype {
   FREELANCER
   SERVICE_PROVIDER
+}
+
+// Motivos para desactivar un perfil (el usuario elige uno). Las etiquetas
+// visibles viven en ProfileActivationsService (DEACTIVATION_REASONS).
+enum ProfileDeactivationReason {
+  NOT_USING
+  TEMPORARY_PAUSE
+  SWITCHING_PROFILE
+  TOO_EXPENSIVE
+  LOW_DEMAND
+  PLATFORM_ISSUES
+  PRIVACY
+  OTHER
 }
 
 enum ProfileStatus {

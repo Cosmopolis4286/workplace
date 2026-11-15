@@ -1,6 +1,10 @@
 export type ProfileActivationType = 'CUSTOMER' | 'PROFESSIONAL' | 'JOB_SEEKER' | 'BUSINESS'
 export type ProfessionalSubtype = 'FREELANCER' | 'SERVICE_PROVIDER'
 export type ProfileActivationStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED'
+export type ProfileDeactivationReason =
+  | 'NOT_USING' | 'TEMPORARY_PAUSE' | 'SWITCHING_PROFILE' | 'LOW_DEMAND'
+  | 'TOO_EXPENSIVE' | 'PLATFORM_ISSUES' | 'PRIVACY' | 'OTHER'
+export interface DeactivationReasonOption { value: ProfileDeactivationReason; label: string }
 
 export interface ProfileActivation {
   id: string
@@ -19,6 +23,10 @@ export interface ProfileActivation {
   // true si el propio usuario se auto-desactivó (puede reactivarse sin
   // aprobación); false/undefined si un admin lo suspendió.
   suspendedBySelf?: boolean
+  // Motivo que eligió el usuario al desactivarlo (ver DeactivateProfileModal).
+  deactivationReason?: ProfileDeactivationReason | null
+  deactivationNote?: string | null
+  deactivatedAt?: string | null
   rejectionReason: string | null
   reviewedBy: string | null
   reviewedAt: string | null
@@ -97,9 +105,25 @@ export function useProfileActivations() {
   // Desactiva un perfil propio ACTIVE (pasa a SUSPENDED, conserva historial).
   // Si era PROFESSIONAL/BUSINESS, el rol se recalcula automáticamente en el
   // backend (RoleResolverService) — puede volver a NORMAL.
-  async function deactivate(profileId: string): Promise<ProfileActivation> {
+  // Motivos del select (el backend es la única fuente de las etiquetas).
+  async function fetchDeactivationReasons(): Promise<DeactivationReasonOption[]> {
+    const { get } = useApi()
+    return get<DeactivationReasonOption[]>('/profile-activations/deactivation-reasons')
+  }
+
+  // Qué impide desactivar el perfil ahora (vacío = se puede).
+  async function checkDeactivation(profileId: string): Promise<string[]> {
+    const { get } = useApi()
+    const { blockers } = await get<{ blockers: string[] }>(`/profile-activations/${profileId}/deactivation-check`)
+    return blockers ?? []
+  }
+
+  async function deactivate(
+    profileId: string,
+    body: { reason: ProfileDeactivationReason; note?: string },
+  ): Promise<ProfileActivation> {
     const { patch } = useApi()
-    const result = await patch<ProfileActivation>(`/profile-activations/${profileId}/deactivate`, {})
+    const result = await patch<ProfileActivation>(`/profile-activations/${profileId}/deactivate`, body)
     await fetchMine()
     const nav = useNavigation()
     nav.invalidate()
@@ -135,5 +159,7 @@ export function useProfileActivations() {
     setActiveProfile,
     deactivate,
     reactivate,
+    fetchDeactivationReasons,
+    checkDeactivation,
   }
 }
