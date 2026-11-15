@@ -30,6 +30,7 @@ import {
 } from '../payments/manual/payable-accounts';
 import { CreateSellerPaymentAccountDto } from '../payments/dto/seller-payment-account.dto';
 import { ReportStatementPaymentDto } from './dto/seller-billing.dto';
+import { appConfig } from '../../../config/app-config';
 
 export const STATEMENT_DUE_DAYS = 5;
 export const SUSPENSION_GRACE_HOURS = 48;
@@ -41,9 +42,7 @@ export const SUSPENSION_GRACE_HOURS = 48;
  * IGTF según la moneda de pago.
  */
 export function platformVatRate(): Prisma.Decimal {
-  const raw = process.env.PLATFORM_VAT_RATE;
-  const rate = new Prisma.Decimal(raw === undefined || raw === '' ? 16 : raw);
-  return rate.isNaN() || rate.lt(0) ? new Prisma.Decimal(0) : rate;
+  return new Prisma.Decimal(appConfig.platformVatRate());
 }
 // Caracas es UTC-4 todo el año (sin horario de verano).
 const CARACAS_OFFSET_MS = 4 * 60 * 60 * 1000;

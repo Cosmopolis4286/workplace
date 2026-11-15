@@ -58,6 +58,24 @@ if ($vars['APP_ENV'] -ne 'development') {
 }
 Ok "$EnvFile revisado"
 
+# docker compose da prioridad a las variables de Windows/la terminal sobre
+# --env-file al completar ${DOMAIN}, ${POSTGRES_PASSWORD}... Si hay una con
+# el mismo nombre que en .env.dev (p. ej. DOMAIN=playrke.com de configurar
+# producción en esta PC), se ignora SOLO dentro de este script: no se toca la
+# configuración del sistema.
+$shadowed = @()
+foreach ($key in $vars.Keys) {
+    $current = [Environment]::GetEnvironmentVariable($key, 'Process')
+    if ($null -ne $current -and $current -ne $vars[$key]) {
+        $shadowed += $key
+        Remove-Item "Env:$key" -ErrorAction SilentlyContinue
+    }
+}
+if ($shadowed) {
+    Warn ("Windows/la terminal define $($shadowed -join ', ') con otro valor que $EnvFile. " +
+          "Para este arranque se usa $EnvFile. Si no las necesitas, bórralas del sistema.")
+}
+
 $upArgs = $Compose + @('up', '-d')
 if ($Build) { $upArgs += '--build' }
 & docker @upArgs

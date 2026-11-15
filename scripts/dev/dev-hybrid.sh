@@ -41,6 +41,20 @@ done
   warn "APP_ENV no es 'development' en $ENV_FILE: probar desde el celular por la red local no funcionará (CORS)."
 ok "$ENV_FILE revisado"
 
+# docker compose da prioridad a las variables de la terminal sobre --env-file
+# al completar ${DOMAIN}, ${POSTGRES_PASSWORD}... Si hay una con el mismo
+# nombre que en .env.dev y otro valor, se ignora SOLO dentro de este script.
+shadowed=()
+while IFS= read -r key; do
+  [ -n "${!key+x}" ] || continue
+  if [ "${!key}" != "$(get "$key")" ]; then
+    shadowed+=("$key")
+    unset "$key"
+  fi
+done < <(sed -nE 's/^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\1/p' "$ENV_FILE" | sort -u)
+[ ${#shadowed[@]} -eq 0 ] ||
+  warn "La terminal define ${shadowed[*]} con otro valor que $ENV_FILE. Para este arranque se usa $ENV_FILE."
+
 if [ "${1:-}" = "--build" ]; then
   "${COMPOSE[@]}" up -d --build
 else

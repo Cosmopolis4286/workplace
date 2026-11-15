@@ -80,6 +80,7 @@ import { PaymentsModule } from './domains/money/payments/payments.module';
 import { SellerBillingModule } from './domains/money/seller-billing/seller-billing.module';
 import { WalletWithdrawalsModule } from './domains/money/wallet-withdrawals/wallet-withdrawals.module';
 import { EscrowFundingModule } from './domains/money/escrow-funding/escrow-funding.module';
+import { appConfig } from './config/app-config';
 
 @Module({
   imports: [
@@ -91,7 +92,7 @@ import { EscrowFundingModule } from './domains/money/escrow-funding/escrow-fundi
         path: join(__dirname, 'i18n'),
         // Recarga en caliente solo en desarrollo: en producción las traducciones
         // no cambian y el watcher (chokidar) sería un proceso de más.
-        watch: process.env.APP_ENV === 'development',
+        watch: appConfig.isDevelopment(),
       },
       resolvers: [
         { use: QueryResolver, options: ['lang'] },

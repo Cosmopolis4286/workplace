@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import * as fs from 'fs';
 import * as path from 'path';
+import { appConfig } from '../../../config/app-config';
 
 function escapeHtml(value: string): string {
   return value
@@ -18,21 +19,21 @@ export class MailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
+    const mail = appConfig.mail();
     this.transporter = nodemailer.createTransport({
-      host: process.env.MAIL_HOST || 'smtp.gmail.com',
-      port: Number(process.env.MAIL_PORT) || 587,
-      secure: process.env.MAIL_SECURE === 'true',
+      host: mail.host,
+      port: mail.port,
+      secure: mail.secure,
       auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
+        user: mail.user,
+        pass: mail.pass,
       },
     });
   }
 
   private get fromAddress() {
-    const name = process.env.MAIL_FROM_NAME || 'WorkPlace Manager';
-    const addr = process.env.MAIL_USER || 'noreply@workplacemanager.com';
-    return `"${name}" <${addr}>`;
+    const { fromName, fromAddress } = appConfig.mail();
+    return `"${fromName}" <${fromAddress}>`;
   }
 
   private loadTemplate(
@@ -58,7 +59,7 @@ export class MailService {
   }
 
   async sendPasswordReset(email: string, token: string, firstName: string) {
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/recover-password?token=${token}`;
+    const resetUrl = `${appConfig.frontendUrl()}/recover-password?token=${token}`;
     try {
       await this.transporter.sendMail({
         from: this.fromAddress,
@@ -145,7 +146,7 @@ export class MailService {
   }
 
   async sendEmailVerification(email: string, token: string, firstName: string) {
-    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
+    const verifyUrl = `${appConfig.frontendUrl()}/verify-email?token=${token}`;
     try {
       const html = this.loadTemplate('email-verification', {
         firstName,
@@ -205,7 +206,7 @@ export class MailService {
     commerceName: string,
     token: string
   ) {
-    const acceptUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/driver-invitation/${token}`;
+    const acceptUrl = `${appConfig.frontendUrl()}/driver-invitation/${token}`;
     try {
       await this.transporter.sendMail({
         from: this.fromAddress,
@@ -325,7 +326,7 @@ export class MailService {
     message: string,
     link?: string
   ) {
-    const base = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const base = appConfig.frontendUrl();
     const url = link
       ? `${base}${link.startsWith('/') ? '' : '/'}${link}`
       : base;

@@ -37,6 +37,7 @@ import {
   toDecimal,
   toNumber,
 } from '../../../common/money/money';
+import { appConfig } from '../../../config/app-config';
 
 function withoutWhatsapp(links: Prisma.JsonValue | null) {
   if (!links || typeof links !== 'object' || Array.isArray(links)) return links;
@@ -1242,10 +1243,7 @@ export class CatalogService {
    * quedar retenido para siempre.
    */
   async enforceEscrowDeadlines(now = new Date()) {
-    const days = (key: string, fallback: number) => {
-      const value = Number(process.env[key]);
-      return Number.isFinite(value) && value > 0 ? value : fallback;
-    };
+    const { responseDays, autoReleaseDays } = appConfig.catalogEscrow();
     const before = (d: number) => new Date(now.getTime() - d * 86_400_000);
     const olderThan = (cutoff: Date) => ({
       OR: [
@@ -1261,7 +1259,7 @@ export class CatalogService {
         where: {
           escrowStatus: { in: ['HELD', 'NONE'] },
           status: { in: ['PENDING', 'SEEN'] },
-          ...olderThan(before(days('CATALOG_ESCROW_RESPONSE_DAYS', 3))),
+          ...olderThan(before(responseDays)),
         },
         take: 100,
       }),
@@ -1269,7 +1267,7 @@ export class CatalogService {
         where: {
           escrowStatus: 'HELD',
           status: 'CONTACTED',
-          ...olderThan(before(days('CATALOG_ESCROW_AUTO_RELEASE_DAYS', 7))),
+          ...olderThan(before(autoReleaseDays)),
         },
         take: 100,
       }),

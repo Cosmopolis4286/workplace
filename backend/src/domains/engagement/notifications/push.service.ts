@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { App, cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { appConfig } from '../../../config/app-config';
 
 // Tokens que FCM ya no acepta (app desinstalada, token rotado): se borran
 // para no volver a intentarlos en cada notificación.
@@ -102,7 +103,8 @@ export class PushService {
   }
 
   private readCredentials() {
-    const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    const firebase = appConfig.firebase();
+    const json = firebase.serviceAccountJson;
     if (json) {
       try {
         const parsed = JSON.parse(json);
@@ -116,9 +118,7 @@ export class PushService {
         return null;
       }
     }
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    const { projectId, clientEmail, privateKey } = firebase;
     if (!projectId || !clientEmail || !privateKey) return null;
     return { projectId, clientEmail, privateKey };
   }
