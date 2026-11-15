@@ -1,0 +1,42 @@
+<!-- Pantalla mientras la app carga por primera vez (antes del JavaScript).
+     Mismo diseño que components/ui/PageLoader.vue. Solo HTML/CSS. -->
+<div class="wp-boot" role="status" aria-live="polite">
+  <div class="wp-boot__logo">
+    <span class="wp-boot__ring"></span>
+    <span class="wp-boot__pulse"></span>
+    <img src="/icon-192.svg" alt="" width="48" height="48" />
+  </div>
+  <p>Cargando…</p>
+</div>
+<style>
+  .wp-boot {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    background: #fff; font-family: Inter, system-ui, sans-serif;
+  }
+  .wp-boot p { margin: 0; font-size: 14px; font-weight: 500; color: #4b5563; }
+  .wp-boot__logo { position: relative; width: 80px; height: 80px; }
+  .wp-boot__logo img { position: absolute; inset: 16px; border-radius: 12px; }
+  .wp-boot__ring {
+    position: absolute; inset: 0; border-radius: 9999px;
+    border: 3px solid rgba(234, 29, 44, 0.15); border-top-color: #ea1d2c;
+    animation: wp-boot-spin 0.9s linear infinite;
+  }
+  .wp-boot__pulse {
+    position: absolute; inset: 8px; border-radius: 9999px;
+    background: rgba(234, 29, 44, 0.1);
+    animation: wp-boot-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes wp-boot-spin { to { transform: rotate(360deg); } }
+  @keyframes wp-boot-pulse {
+    0%, 100% { transform: scale(0.92); opacity: 0.6; }
+    50% { transform: scale(1); opacity: 1; }
+  }
+  @media (prefers-color-scheme: dark) {
+    .wp-boot { background: #030712; }
+    .wp-boot p { color: #d1d5db; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wp-boot__ring, .wp-boot__pulse { animation-duration: 3s; }
+  }
+</style>

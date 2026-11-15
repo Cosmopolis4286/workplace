@@ -168,7 +168,7 @@ function safeRedirectTarget(): string {
 
 // F: auto-redirect si ya hay sesión activa
 onMounted(() => {
-  if (isAuthenticated.value) navigateTo(safeRedirectTarget())
+  if (isAuthenticated.value) navigateTo(safeRedirectTarget(), { replace: true })
   // G: pre-rellenar email desde query param (?email= viene de register/recover-password)
   const emailParam = route.query.email as string | undefined
   if (emailParam) form.email = decodeURIComponent(emailParam)
@@ -214,6 +214,19 @@ const runValidation = () => {
   return !e.email && !e.password
 }
 
+// Destino tras un login correcto, igual para el formulario y las cuentas demo:
+// 2FA si la cuenta lo pide; si no, a ?redirect= o al dashboard. replace: el
+// botón "atrás" no vuelve al login ya iniciado.
+async function goAfterLogin(result: Awaited<ReturnType<typeof login>>) {
+  if ('requiresTwoFactor' in result) {
+    const redirect = route.query.redirect as string | undefined
+    const suffix = redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
+    await navigateTo(`/auth/2fa-verify?sessionId=${encodeURIComponent(result.sessionId)}${suffix}`)
+    return
+  }
+  await navigateTo(safeRedirectTarget(), { replace: true })
+}
+
 const handleLogin = async () => {
   touched.email = true
   touched.password = true
@@ -223,14 +236,7 @@ const handleLogin = async () => {
 
   try {
     const recaptchaToken = await executeRecaptcha('login')
-    const result = await login({ ...form, recaptchaToken })
-    if ('requiresTwoFactor' in result) {
-      const redirect = route.query.redirect as string | undefined
-      const suffix = redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
-      await navigateTo(`/auth/2fa-verify?sessionId=${encodeURIComponent(result.sessionId)}${suffix}`)
-      return
-    }
-    await navigateTo(safeRedirectTarget())
+    await goAfterLogin(await login({ ...form, recaptchaToken }))
   } catch (err: unknown) {
     const seconds = getRateLimitSeconds(err)
     if (seconds !== null) {
@@ -251,8 +257,7 @@ const fillDemoCredentials = (creds: { email: string; password: string }) => {
 const autoLoginDemo = async (creds: { email: string; password: string }) => {
   isLoading.value = true
   try {
-    await login(creds)
-    await navigateTo('/dashboard')
+    await goAfterLogin(await login(creds))
   } catch (err: unknown) {
     fillDemoCredentials(creds)
     toast.error(getApiErrorMessage(err, t('auth.login.demoLoginError')))

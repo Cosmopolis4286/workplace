@@ -1,6 +1,7 @@
 <template>
   <div>
     <NuxtRouteAnnouncer />
+    <PageLoader />
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
@@ -17,6 +18,8 @@
 </template>
 
 <script setup>
+import PageLoader from '~/components/ui/PageLoader.vue'
+
 // Meta tags para móvil
 useHead({
   title: 'WorkPlace Manager',

@@ -16,6 +16,8 @@ import { useApi } from '../core/useApi'
 
 const effectiveModules = ref<string[]>([])
 const loaded = ref(false)
+// Carga en curso compartida: varios componentes la piden a la vez al entrar.
+let inFlight: Promise<void> | null = null
 
 export function useModules() {
   const { user } = useAuth()
@@ -23,6 +25,14 @@ export function useModules() {
 
   async function loadModules() {
     if (loaded.value) return
+    if (inFlight) return inFlight
+    inFlight = doLoadModules().finally(() => {
+      inFlight = null
+    })
+    return inFlight
+  }
+
+  async function doLoadModules() {
     try {
       const data = await get<{ limits?: { effectiveModules?: string[] } }>('/plans/usage')
       if (data?.limits?.effectiveModules) {

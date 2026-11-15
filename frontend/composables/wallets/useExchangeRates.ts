@@ -78,12 +78,27 @@ const error = ref<string | null>(null)
 // por caso sin romper la forma que ya usan otros componentes.
 const errorKind = ref<ApiErrorKind | null>(null)
 
+const ratesInFlight = new Map<string, Promise<void>>()
+
 export function useExchangeRates() {
   const { get, post, put, patch, del } = useApi()
 
   // ─── Fetch ────────────────────────────────────────────────────────────────────
 
+  // Misma consulta en curso → se comparte (el header y el dashboard piden las
+  // tasas activas al mismo tiempo al entrar).
   async function fetchRates(includeInactive = true, publicOnly = false) {
+    const key = `${includeInactive}:${publicOnly}`
+    const pending = ratesInFlight.get(key)
+    if (pending) return pending
+    const request = doFetchRates(includeInactive, publicOnly).finally(() => {
+      ratesInFlight.delete(key)
+    })
+    ratesInFlight.set(key, request)
+    return request
+  }
+
+  async function doFetchRates(includeInactive: boolean, publicOnly: boolean) {
     loading.value = true
     error.value = null
     errorKind.value = null
