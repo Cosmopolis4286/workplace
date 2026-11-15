@@ -64,7 +64,7 @@ import type { NuxtError } from '#app'
 
 const props = defineProps<{ error: NuxtError | null }>()
 
-const isDev = process.env.NODE_ENV === 'development'
+const isDev = import.meta.dev
 
 const title = computed(() => {
   if (props.error?.statusCode === 404) return 'Página no encontrada'

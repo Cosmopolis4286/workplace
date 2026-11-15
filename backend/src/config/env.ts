@@ -1,89 +1,32 @@
-import { z } from 'zod';
+import { envSchema, envErrors, envWarnings, type Env } from './env.schema';
 import { warnMissingMail } from './mail-warning';
 
-const envSchema = z.object({
-  // App
-  NODE_ENV: z
-    .enum(['development', 'test', 'production'])
-    .default('development'),
-  APP_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(3001),
-
-  // Database
-  DATABASE_URL: z
-    .string()
-    .url()
-    .startsWith(
-      'postgresql://',
-      'DATABASE_URL debe comenzar con postgresql://'
-    ),
-
-  // Redis
-  REDIS_HOST: z.string().min(1),
-  REDIS_PORT: z.coerce.number().int().positive().default(6379),
-  REDIS_PASSWORD: z.string().min(1),
-
-  // JWT
-  JWT_SECRET: z
-    .string()
-    .min(16, 'JWT_SECRET debe tener al menos 16 caracteres'),
-  JWT_EXPIRES_IN: z
-    .string()
-    .regex(/^\d+[smhd]$/, 'JWT_EXPIRES_IN debe ser ej. 15m, 1h, 7d'),
-  JWT_REFRESH_SECRET: z
-    .string()
-    .min(16, 'JWT_REFRESH_SECRET debe tener al menos 16 caracteres'),
-  JWT_REFRESH_EXPIRES_IN: z
-    .string()
-    .regex(/^\d+[smhd]$/, 'JWT_REFRESH_EXPIRES_IN debe ser ej. 7d, 30d'),
-
-  // Cifrado (2FA - secretos TOTP en reposo, AES-256-GCM)
-  ENCRYPTION_KEY: z
-    .string()
-    .regex(
-      /^[0-9a-f]{64}$/i,
-      'ENCRYPTION_KEY debe ser una clave hex de 64 caracteres (32 bytes) — generar con: openssl rand -hex 32'
-    ),
-
-  // CORS
-  FRONTEND_URL: z.string().url(),
-
-  // Google OAuth (opcionales — pueden estar vacías en dev sin OAuth)
-  GOOGLE_CLIENT_ID: z.string().optional(),
-  GOOGLE_CLIENT_SECRET: z.string().optional(),
-  GOOGLE_CALLBACK_URL: z.string().url().optional(),
-
-  // Demo (solo dev)
-  DEMO_EMAIL: z.string().email().optional(),
-  DEMO_PASSWORD: z.string().optional(),
-  DEMO_COMMERCE: z.string().optional(),
-
-  // Correo (verificación de email y recuperación de contraseña). Opcional:
-  // sin él la app arranca, pero en producción se avisa (ver warnMissingMail).
-  MAIL_HOST: z.string().optional(),
-  MAIL_PORT: z.coerce.number().int().positive().optional(),
-  MAIL_SECURE: z.enum(['true', 'false']).optional(),
-  MAIL_USER: z.string().optional(),
-  MAIL_PASS: z.string().optional(),
-  MAIL_FROM_NAME: z.string().optional(),
-});
-
-export type Env = z.infer<typeof envSchema>;
-
+// Valida las variables al arrancar (main.ts lo importa primero): si falta
+// algo obligatorio o un valor tiene mal formato, el backend no arranca y dice
+// exactamente qué corregir. Los nombres y la interpretación de cada variable
+// están en env.schema.ts y app-config.ts.
 function validateEnv(): Env {
-  const result = envSchema.safeParse(process.env);
-
-  if (!result.success) {
-    const errors = result.error.issues
-      .map((issue) => `  • ${issue.path.join('.')}: ${issue.message}`)
-      .join('\n');
-
-    console.error('\n❌ Variables de entorno inválidas:\n' + errors + '\n');
+  const errors = envErrors(process.env);
+  if (errors.length) {
+    console.error(
+      '\n❌ Variables de entorno inválidas:\n' +
+        errors.map((e) => `  • ${e}`).join('\n') +
+        '\n'
+    );
     process.exit(1);
   }
-
-  warnMissingMail(result.data);
-  return result.data;
+  const warnings = envWarnings(process.env);
+  if (warnings.length) {
+    console.warn(
+      '\n⚠️  Variables opcionales mal escritas (se usa su valor por defecto):\n' +
+        warnings.map((w) => `  • ${w}`).join('\n') +
+        '\n'
+    );
+  }
+  const parsed = envSchema.parse(process.env);
+  warnMissingMail(parsed);
+  return parsed;
 }
 
+export type { Env };
 export const env = validateEnv();

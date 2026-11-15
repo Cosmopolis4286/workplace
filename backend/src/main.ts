@@ -16,6 +16,7 @@ import { AuditService } from './domains/identity-access/audit/audit.service';
 import { AuditLogger } from './domains/identity-access/audit/audit.logger';
 import { PrismaService } from './prisma/prisma.service';
 import { RedisService } from './redis/redis.service';
+import { appConfig } from './config/app-config';
 
 async function bootstrap() {
   // Instantiate a dedicated PrismaClient for the logger (pre-DI)
@@ -77,14 +78,14 @@ async function bootstrap() {
   // Nunca reflejar origin:true con credentials:true — siempre validar contra
   // una whitelist explícita, incluso en desarrollo, para evitar exponer
   // cookies httpOnly a cualquier origen si APP_ENV queda mal configurado.
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendUrl = appConfig.frontendUrl();
   const allowedOrigins = [frontendUrl, 'https://localhost'];
 
   // En desarrollo, el frontend (pnpm dev) corre en el host y puede probarse
   // desde otros dispositivos en la misma red (p.ej. http://192.168.x.x:3000).
   // Esa IP no se conoce de antemano, así que en dev (nunca en producción)
   // aceptamos cualquier IP privada que use el mismo puerto que FRONTEND_URL.
-  const isDev = process.env.APP_ENV === 'development';
+  const isDev = appConfig.isDevelopment();
   const frontendPort = new URL(frontendUrl).port;
   const isPrivateLan = (origin: string): boolean => {
     try {
@@ -162,9 +163,7 @@ async function bootstrap() {
   // en init y uno instalado después se ignora. Por eso usa conexiones propias
   // en vez de RedisService, cuyo cliente nace en onModuleInit (dentro de init).
   const pubClient = new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: Number(process.env.REDIS_PORT) || 6379,
-    password: process.env.REDIS_PASSWORD,
+    ...appConfig.redis(),
     retryStrategy: (times) => Math.min(times * 50, 2000),
   });
   const subClient = pubClient.duplicate();
@@ -219,7 +218,7 @@ async function bootstrap() {
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM')); // Docker stop
   process.on('SIGINT', () => gracefulShutdown('SIGINT')); // Ctrl+C
 
-  const port = process.env.PORT || 3001;
+  const port = appConfig.port();
   await app.listen(port, '0.0.0.0');
   console.log(`Backend running on http://0.0.0.0:${port}`);
 }

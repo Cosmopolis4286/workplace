@@ -2,6 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
+import { appConfig } from '../../../config/app-config';
 
 @SkipThrottle()
 @Controller()
@@ -23,9 +24,8 @@ export class HealthController {
   @Get('version')
   version() {
     return {
-      version: process.env.APP_VERSION || '1.0.0',
-      sha: process.env.GIT_SHA || 'unknown',
-      buildTime: process.env.BUILD_TIME || new Date().toISOString(),
+      ...appConfig.build(),
+      buildTime: appConfig.build().buildTime ?? new Date().toISOString(),
       nodeVersion: process.version,
     };
   }
