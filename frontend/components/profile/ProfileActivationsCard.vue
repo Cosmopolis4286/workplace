@@ -23,7 +23,7 @@
         :key="type.value"
         class="rounded-xl border transition-colors duration-200"
         :class="[
-          statusStyle(profileFor(type.value)?.status),
+          statusStyle(type.value === 'CUSTOMER' ? 'ACTIVE' : profileFor(type.value)?.status),
           activatingType === type.value ? 'ring-2 ring-offset-1' : '',
           activatingType === type.value ? type.ring : '',
         ]"
@@ -39,8 +39,18 @@
             </div>
           </div>
 
+          <!-- Cliente: todos pueden comprar, no se activa ni se desactiva -->
+          <span
+            v-if="type.value === 'CUSTOMER'"
+            class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 shrink-0"
+            title="Todos los usuarios pueden comprar y contratar servicios"
+          >
+            <CheckCircleIcon class="h-3.5 w-3.5" />
+            Siempre activo
+          </span>
+
           <button
-            v-if="!profileFor(type.value) || profileFor(type.value)?.status === 'REJECTED'"
+            v-else-if="!profileFor(type.value) || profileFor(type.value)?.status === 'REJECTED'"
             type="button"
             class="px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-150 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-100"
             :class="activatingType === type.value
@@ -66,7 +76,7 @@
               type="button"
               :disabled="deactivatingId === profileFor(type.value)?.id"
               class="px-2.5 py-1 text-xs font-semibold text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-              @click="confirmDeactivate(type)"
+              @click="openDeactivate(type)"
             >Desactivar</button>
 
             <button
@@ -83,6 +93,16 @@
         <div v-if="profileFor(type.value)?.status === 'REJECTED' && profileFor(type.value)?.rejectionReason" class="px-4 pb-3 -mt-1">
           <p class="text-xs text-red-700 bg-red-100/60 rounded-lg px-2.5 py-1.5">
             <span class="font-semibold">Motivo del rechazo:</span> {{ profileFor(type.value)?.rejectionReason }}
+          </p>
+        </div>
+
+        <div
+          v-if="type.value !== 'CUSTOMER' && profileFor(type.value)?.status === 'SUSPENDED' && profileFor(type.value)?.suspendedBySelf && profileFor(type.value)?.deactivationReason"
+          class="px-4 pb-3 -mt-1"
+        >
+          <p class="text-xs text-gray-500 bg-gray-100/60 rounded-lg px-2.5 py-1.5">
+            <span class="font-semibold">Lo desactivaste:</span>
+            {{ reasonLabel(profileFor(type.value)?.deactivationReason) }}<template v-if="profileFor(type.value)?.deactivationNote"> — {{ profileFor(type.value)?.deactivationNote }}</template>
           </p>
         </div>
 
@@ -250,6 +270,16 @@
         </Transition>
       </div>
     </div>
+
+    <DeactivateProfileModal
+      v-if="deactivating"
+      :model-value="true"
+      :profile-id="deactivating.profileId"
+      :label="deactivating.label"
+      :description="deactivating.description"
+      @update:model-value="deactivating = null"
+      @deactivated="onDeactivated"
+    />
   </div>
 </template>
 
@@ -259,7 +289,15 @@ import {
   UserIcon, BriefcaseIcon, MagnifyingGlassIcon, BuildingStorefrontIcon, UserGroupIcon,
   CheckIcon, CheckCircleIcon, ClockIcon, PauseCircleIcon, CreditCardIcon, ExclamationCircleIcon,
 } from '@heroicons/vue/24/outline'
-import { useProfileActivations, type ProfileActivation, type ProfileActivationType, type ProfileActivationStatus } from '~/composables/users/useProfileActivations'
+import {
+  useProfileActivations,
+  type DeactivationReasonOption,
+  type ProfileActivation,
+  type ProfileActivationType,
+  type ProfileActivationStatus,
+  type ProfileDeactivationReason,
+} from '~/composables/users/useProfileActivations'
+import DeactivateProfileModal from '~/components/profile/DeactivateProfileModal.vue'
 import { useProposedCategories } from '~/composables/admin/useProposedCategories'
 import { useConfirm } from '~/composables/ui/useConfirm'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
@@ -275,7 +313,7 @@ const emit = defineEmits<{
 // a profile-activations: onboarding, pricing y este).
 const OTHER = '__OTHER__'
 
-const { mine: profiles, fetchMine, create, deactivate, reactivate } = useProfileActivations()
+const { mine: profiles, fetchMine, create, reactivate, fetchDeactivationReasons } = useProfileActivations()
 const { propose } = useProposedCategories()
 const { confirm } = useConfirm()
 const { get: apiGet } = useApi()
@@ -285,6 +323,10 @@ const activatingType = ref<ProfileActivationType | null>(null)
 const submitting = ref(false)
 const submitError = ref('')
 const deactivatingId = ref<string | null>(null)
+// Perfil que se está desactivando (abre DeactivateProfileModal: motivo
+// obligatorio y aviso de lo que impide desactivar).
+const deactivating = ref<{ profileId: string; label: string; description: string; typeLabel: string } | null>(null)
+const reasons = ref<DeactivationReasonOption[]>([])
 const reactivatingId = ref<string | null>(null)
 const categories = ref<{ id: string; name: string; icon?: string }[]>([])
 const subcategories = ref<{ id: string; name: string; icon?: string }[]>([])
@@ -473,30 +515,27 @@ async function submit(type: ProfileActivationType) {
   }
 }
 
-async function confirmDeactivate(type: (typeof PROFILE_TYPES)[number]) {
+function openDeactivate(type: (typeof PROFILE_TYPES)[number]) {
   const profile = profileFor(type.value)
-  if (!profile) return
+  if (!profile || type.value === 'CUSTOMER') return
   const isBusinessRole = type.value === 'PROFESSIONAL' || type.value === 'BUSINESS'
-  await confirm({
-    title: `¿Desactivar ${type.label}?`,
-    message: isBusinessRole
-      ? `Dejarás de operar como ${type.label.toLowerCase()} en WorkPlace. Puedes reactivarlo cuando quieras.`
-      : `Puedes reactivarlo cuando quieras.`,
-    confirmText: 'Desactivar',
-    variant: 'danger',
-    onConfirm: async () => {
-      deactivatingId.value = profile.id
-      try {
-        await deactivate(profile.id)
-        emit('success', `${type.label} desactivado.`)
-      } catch (e: any) {
-        emit('error', e)
-        return getApiErrorMessage(e, 'Error al desactivar el perfil')
-      } finally {
-        deactivatingId.value = null
-      }
-    },
-  })
+  deactivating.value = {
+    profileId: profile.id,
+    label: type.label,
+    typeLabel: type.label,
+    description: isBusinessRole
+      ? `Dejarás de operar como ${type.label.toLowerCase()}: no recibirás solicitudes ni pedidos nuevos.`
+      : `Dejarás de usar WorkPlace como ${type.label.toLowerCase()}.`,
+  }
+}
+
+function onDeactivated() {
+  emit('success', `${deactivating.value?.typeLabel ?? 'Perfil'} desactivado.`)
+  deactivating.value = null
+}
+
+function reasonLabel(reason?: ProfileDeactivationReason | null) {
+  return reasons.value.find(r => r.value === reason)?.label ?? 'otro motivo'
 }
 
 async function confirmReactivate(type: (typeof PROFILE_TYPES)[number]) {
@@ -524,4 +563,5 @@ async function confirmReactivate(type: (typeof PROFILE_TYPES)[number]) {
 
 loadCategories()
 fetchMine().finally(() => { loading.value = false })
+fetchDeactivationReasons().then((list) => { reasons.value = list }).catch(() => {})
 </script>

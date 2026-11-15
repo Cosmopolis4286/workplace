@@ -144,6 +144,16 @@ export class UsersService {
           include: { commerce: true, category: true, subcategory: true },
         });
 
+        // Todo usuario puede comprar: el perfil Cliente nace activo y no se
+        // puede desactivar (ver ProfileActivationsService).
+        await tx.userProfile.create({
+          data: {
+            userId: created.id,
+            type: ProfileType.CUSTOMER,
+            status: ProfileStatus.ACTIVE,
+          },
+        });
+
         if (businessProfileType) {
           await tx.userProfile.create({
             data: {

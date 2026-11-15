@@ -223,7 +223,11 @@ describe('UsersService', () => {
         }),
         include: expect.any(Object),
       });
-      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled();
+      // Solo el perfil Cliente (todo usuario puede comprar); ninguno de negocio.
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ type: 'CUSTOMER', status: 'ACTIVE' }),
+      });
     });
 
     it('creates a BUSINESS UserProfile when role is PROFESIONAL with a commerceName (inferred)', async () => {
@@ -329,7 +333,11 @@ describe('UsersService', () => {
 
       await service.create(createUserDto);
 
-      expect(mockPrismaService.userProfile.create).not.toHaveBeenCalled();
+      // Solo el perfil Cliente (todo usuario puede comprar); ninguno de negocio.
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.userProfile.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ type: 'CUSTOMER', status: 'ACTIVE' }),
+      });
     });
   });
 
