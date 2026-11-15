@@ -1,17 +1,27 @@
 // 🏷️ Categorías de Usuarios (para clasificar usuarios en el sistema)
 // allowedModules = techo de lo que esa categoría puede usar (plan ∩ category = effectiveModules)
 // Módulos transversales incluidos en todas las categorías: analytics, expenses, wallets, reports, sales
+// Techo de una subcategoría que vende producto dentro de un rubro de
+// servicios: el del rubro + venta de producto. Se aplica con
+// allowedModules en la subcategoría (reemplaza al del rubro).
+const PRODUCT_SELLING = ['menu', 'inventory', 'orders', 'delivery', 'purchases', 'suppliers', 'accounts', 'employees', 'branches']
+const withModules = (base, extra) => [...new Set([...base, ...extra])]
+
+const SERVICE_RUBRO_MODULES = ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales']
+const COMIDA_MODULES = ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'delivery', 'appointments', 'employees', 'branches', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts']
+
 const USER_CATEGORIES = [
   {
     name: 'Comida',
     icon: '🍔',
-    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'delivery', 'employees', 'branches', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
+    // 'appointments' = reservas de mesa (Appointment.tableNumber/partySize).
+    allowedModules: COMIDA_MODULES,
     subcategories: [
       { name: 'Restaurante', icon: '🍽️', description: 'Servicio de comidas en mesa, con carta o menú fijo.' },
       { name: 'Cafetería', icon: '☕', description: 'Café, meriendas y repostería para consumir o llevar.' },
       { name: 'Comida Rápida', icon: '🍟', description: 'Hamburguesas, pizzas, comida para llevar y delivery.' },
-      { name: 'Food Truck', icon: '🚚', description: 'Venta de comida ambulante o en puntos móviles.' },
-      { name: 'Catering', icon: '🥘', description: 'Comida preparada para eventos y reuniones.' },
+      { name: 'Food Truck', icon: '🚚', description: 'Venta de comida ambulante o en puntos móviles.', allowedModules: withModules(COMIDA_MODULES, ['services', 'service_requests']) },
+      { name: 'Catering', icon: '🥘', description: 'Comida preparada para eventos y reuniones.', allowedModules: withModules(COMIDA_MODULES, ['services', 'service_requests']) },
     ]
   },
   {
@@ -168,7 +178,9 @@ const USER_CATEGORIES = [
   {
     name: 'Comercio',
     icon: '🛍️',
-    allowedModules: ['dashboard', 'profile', 'inventory', 'orders', 'customers', 'employees', 'branches', 'delivery', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
+    // 'menu' es obligatorio para vender: los productos (y la página de
+    // Inventario) se leen y escriben en /menu/* (@RequireModule('menu')).
+    allowedModules: ['dashboard', 'profile', 'menu', 'inventory', 'orders', 'customers', 'employees', 'branches', 'delivery', 'analytics', 'expenses', 'wallets', 'reports', 'sales', 'purchases', 'suppliers', 'accounts'],
     subcategories: [
       { name: 'Retail', icon: '🏬', description: 'Venta al detal en tienda física u online.' },
       { name: 'Mayorista', icon: '📦', description: 'Venta al por mayor a otros comercios.' },
@@ -183,10 +195,10 @@ const USER_CATEGORIES = [
     allowedModules: ['dashboard', 'profile', 'services', 'jobs', 'appointments', 'customers', 'service_requests', 'analytics', 'expenses', 'wallets', 'reports', 'sales'],
     subcategories: [
       { name: 'Taller', icon: '🔩', description: 'Mantenimiento y reparación mecánica de vehículos.' },
-      { name: 'Venta de Autos', icon: '🚙', description: 'Compra y venta de vehículos nuevos o usados.' },
+      { name: 'Venta de Autos', icon: '🚙', description: 'Compra y venta de vehículos nuevos o usados.', allowedModules: withModules(SERVICE_RUBRO_MODULES, PRODUCT_SELLING) },
       { name: 'Lavado', icon: '🧼', description: 'Lavado y detallado de vehículos.' },
-      { name: 'Accesorios', icon: '🧰', description: 'Venta e instalación de accesorios automotrices.' },
-      { name: 'Neumáticos', icon: '🛞', description: 'Venta, montaje y balanceo de neumáticos.' },
+      { name: 'Accesorios', icon: '🧰', description: 'Venta e instalación de accesorios automotrices.', allowedModules: withModules(SERVICE_RUBRO_MODULES, PRODUCT_SELLING) },
+      { name: 'Neumáticos', icon: '🛞', description: 'Venta, montaje y balanceo de neumáticos.', allowedModules: withModules(SERVICE_RUBRO_MODULES, PRODUCT_SELLING) },
     ]
   },
   {
@@ -196,7 +208,7 @@ const USER_CATEGORIES = [
     subcategories: [
       { name: 'Veterinaria', icon: '🐶', description: 'Consulta y atención médica para mascotas.' },
       { name: 'Grooming', icon: '✂️', description: 'Baño y estética para mascotas.' },
-      { name: 'Tienda de Mascotas', icon: '🐾', description: 'Venta de alimento y accesorios para mascotas.' },
+      { name: 'Tienda de Mascotas', icon: '🐾', description: 'Venta de alimento y accesorios para mascotas.', allowedModules: withModules(SERVICE_RUBRO_MODULES, PRODUCT_SELLING) },
       { name: 'Adiestramiento', icon: '🦴', description: 'Entrenamiento y educación canina.' },
       { name: 'Paseadores', icon: '🐕', description: 'Paseo y cuidado diario de mascotas.' },
     ]

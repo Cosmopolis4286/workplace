@@ -90,6 +90,8 @@ export interface NavItemDef {
   id: string;
   to: string;
   label: string;
+  /** Etiqueta según el rubro (UserCategory.name) del usuario, ej. Comida → "Menú". */
+  labelByCategory?: Record<string, string>;
   icon: NavIconKey;
   condition: NavNodeCondition;
   order: number;

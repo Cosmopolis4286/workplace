@@ -130,6 +130,78 @@ describe('NavigationService', () => {
     expect(catalogSection?.items.find((i) => i.id === 'menu')).toBeDefined();
   });
 
+  // No existe un módulo 'cash' en planes ni rubros: con requiresModule la
+  // Caja no le aparecía a ningún comercio. Ahora va con el POS (pedidos).
+  it('muestra la Caja a un comercio con el módulo de pedidos y la oculta sin él', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue([
+      'cash:view',
+      'orders:view',
+    ]);
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['orders'],
+      categoryName: 'Comida',
+    });
+    currentCapabilities = BUSINESS_WITH_COMMERCE;
+
+    const cashItem = async () =>
+      (
+        await service.buildNavigationForUser({
+          id: 'u1',
+          role: Role.PROFESIONAL,
+        })
+      ).sections
+        .flatMap((s) => s.items)
+        .find((i) => i.id === 'cash-register');
+
+    expect(await cashItem()).toBeDefined();
+
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: [],
+      categoryName: 'Comida',
+    });
+    expect(await cashItem()).toBeUndefined();
+  });
+
+  it('llama "Menú" al ítem en el rubro Comida y "Productos" en los demás', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue(['menu:view']);
+    currentCapabilities = BUSINESS_WITH_COMMERCE;
+    const menuLabel = async (categoryName: string | null) => {
+      planLimitsService.getPlanLimits.mockResolvedValue({
+        effectiveModules: ['menu'],
+        categoryName,
+      });
+      const result = await service.buildNavigationForUser({
+        id: 'u1',
+        role: Role.PROFESIONAL,
+      });
+      return result.sections
+        .flatMap((s) => s.items)
+        .find((i) => i.id === 'menu')?.label;
+    };
+
+    expect(await menuLabel('Comida')).toBe('Menú');
+    expect(await menuLabel('Comercio')).toBe('Productos');
+    expect(await menuLabel(null)).toBe('Productos');
+  });
+
+  it('muestra "Corridas y Fletes" a un comercio aunque su rubro no traiga el módulo corridas', async () => {
+    permissionsService.getRolePermissions.mockResolvedValue(['corridas:view']);
+    planLimitsService.getPlanLimits.mockResolvedValue({
+      effectiveModules: ['menu', 'orders'],
+      categoryName: 'Comida',
+    });
+    currentCapabilities = BUSINESS_WITH_COMMERCE;
+
+    const result = await service.buildNavigationForUser({
+      id: 'u1',
+      role: Role.PROFESIONAL,
+    });
+
+    expect(
+      result.sections.flatMap((s) => s.items).find((i) => i.id === 'rides')
+    ).toBeDefined();
+  });
+
   it('hides /jobs for a NORMAL user even though jobs:view is granted at the role level', async () => {
     // Role.NORMAL tiene jobs:view/jobs:create en su matriz de permisos por
     // diseño (ver seed.js — alta directa), pero /jobs es "gestiona las

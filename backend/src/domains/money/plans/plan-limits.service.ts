@@ -12,6 +12,7 @@ import {
 } from '../../platform/system-modules/system-modules.facade';
 import { PlanLimitsFacade, PlanLimits } from './plan-limits.facade';
 import { CapabilitiesService } from '../../../common/capabilities/capabilities.service';
+import { rubroModuleCeiling } from '../../../common/capabilities/module-requirements';
 
 // AppModule ya no es un union type cerrado — el catálogo de módulos de
 // negocio ahora es dinámico (tabla SystemModule, isBusinessModule=true),
@@ -38,6 +39,9 @@ const FREE_MODULES = [
   'menu',
   'orders',
   'customers',
+  // Inventario es otra vista del stock que ya se maneja en Menú: se cobra por
+  // límites (productos/pedidos), no escondiendo la vista.
+  'inventory',
   'settings',
   'notifications',
   // Un freelancer sin plan sigue necesitando poder operar su negocio básico:
@@ -96,7 +100,7 @@ export class PlanLimitsService implements PlanLimitsFacade {
   async getPlanLimits(userId: string): Promise<PlanLimits> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true, categoryId: true },
+      select: { role: true, categoryId: true, subcategoryId: true },
     });
 
     // Global kill-switch applies to EVERYONE, including SUPERADMIN — it's a
@@ -120,12 +124,9 @@ export class PlanLimitsService implements PlanLimitsFacade {
       };
     }
 
-    // Get active subscription
-    const sub = await this.prisma.subscription.findFirst({
-      where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
-      include: { plan: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    // Plan vigente: la suscripción activa o, sin ella, el plan gratuito de
+    // la base (el mismo que ve quien se suscribe a "Gratis").
+    const sub = await this.currentPlan(userId);
 
     const planModules = sub?.plan.enabledModules ?? FREE_MODULES;
     const planLimitsBase = sub
@@ -158,7 +159,8 @@ export class PlanLimitsService implements PlanLimitsFacade {
     const categoryFiltered = await this.intersectWithCategory(
       planModules,
       user?.categoryId ?? null,
-      userId
+      userId,
+      user?.subcategoryId ?? null
     );
 
     // Intersect with the commerce's own self-service opt-outs
@@ -173,15 +175,16 @@ export class PlanLimitsService implements PlanLimitsFacade {
     return {
       ...planLimitsBase,
       effectiveModules,
-      categoryName:
-        categoryFiltered !== planModules
-          ? ((
-              await this.prisma.userCategory.findUnique({
-                where: { id: user!.categoryId! },
-                select: { name: true },
-              })
-            )?.name ?? null)
-          : null,
+      // Nombre del rubro siempre que tenga uno: lo usan el mensaje de
+      // assertModuleAccess y las etiquetas del sidebar ("Menú" en Comida).
+      categoryName: user?.categoryId
+        ? ((
+            await this.prisma.userCategory.findUnique({
+              where: { id: user.categoryId },
+              select: { name: true },
+            })
+          )?.name ?? null)
+        : null,
     };
   }
 
@@ -193,7 +196,7 @@ export class PlanLimitsService implements PlanLimitsFacade {
   async getSelectableModules(userId: string): Promise<string[]> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true, categoryId: true },
+      select: { role: true, categoryId: true, subcategoryId: true },
     });
     const globallyDisabled =
       await this.systemModulesService.getDisabledModules();
@@ -207,16 +210,13 @@ export class PlanLimitsService implements PlanLimitsFacade {
       return allModules.filter((m) => !globallyDisabled.includes(m));
     }
 
-    const sub = await this.prisma.subscription.findFirst({
-      where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
-      include: { plan: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    const sub = await this.currentPlan(userId);
     const planModules = sub?.plan.enabledModules ?? FREE_MODULES;
     const categoryFiltered = await this.intersectWithCategory(
       planModules,
       user?.categoryId ?? null,
-      userId
+      userId,
+      user?.subcategoryId ?? null
     );
     return categoryFiltered.filter((m) => !globallyDisabled.includes(m));
   }
@@ -237,19 +237,33 @@ export class PlanLimitsService implements PlanLimitsFacade {
   private async intersectWithCategory(
     planModules: string[],
     categoryId: string | null,
-    userId: string
+    userId: string,
+    subcategoryId: string | null = null
   ): Promise<string[]> {
     if (!categoryId) return planModules;
 
-    const category = await this.prisma.userCategory.findUnique({
-      where: { id: categoryId },
-      select: { allowedModules: true },
-    });
+    const [category, subcategory] = await Promise.all([
+      this.prisma.userCategory.findUnique({
+        where: { id: categoryId },
+        select: { allowedModules: true },
+      }),
+      subcategoryId
+        ? this.prisma.userSubcategory.findUnique({
+            where: { id: subcategoryId },
+            select: { allowedModules: true, categoryId: true },
+          })
+        : null,
+    ]);
 
-    // Categoría sin allowedModules definidos: no restringe nada.
-    if (!category || category.allowedModules.length === 0) return planModules;
+    // La subcategoría define su propio techo si tiene uno (y es del rubro).
+    const ceiling = rubroModuleCeiling(
+      category,
+      subcategory?.categoryId === categoryId ? subcategory : null
+    );
+    // Rubro sin allowedModules definidos: no restringe nada.
+    if (!category || ceiling.length === 0) return planModules;
 
-    let categoryModules = category.allowedModules;
+    let categoryModules = ceiling;
     if (await this.capabilities.has(userId, 'HAS_PROFESSIONAL_PROFILE')) {
       categoryModules = [
         ...new Set([...categoryModules, ...SERVICE_PROVIDER_BASE_MODULES]),
@@ -273,6 +287,27 @@ export class PlanLimitsService implements PlanLimitsFacade {
     const disabled = commerce?.settings?.disabledModules ?? [];
     if (disabled.length === 0) return modules;
     return modules.filter((m) => !disabled.includes(m));
+  }
+
+  /**
+   * Plan que rige al usuario: el de su suscripción ACTIVE/TRIAL o, si no
+   * tiene, el plan gratuito activo de la base (precio 0, menor sortOrder).
+   * Antes "sin suscripción" usaba límites fijos en código (10 productos, 30
+   * pedidos) distintos de los del plan "Gratis" (20/50) y que el admin no
+   * podía editar. FREE_LIMITS queda solo si no existe ningún plan gratuito.
+   */
+  private async currentPlan(userId: string) {
+    const sub = await this.prisma.subscription.findFirst({
+      where: { userId, status: { in: ['ACTIVE', 'TRIAL'] } },
+      include: { plan: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (sub) return sub;
+    const freePlan = await this.prisma.plan.findFirst({
+      where: { status: 'ACTIVE', price: 0 },
+      orderBy: { sortOrder: 'asc' },
+    });
+    return freePlan ? { plan: freePlan } : null;
   }
 
   // ─── Module access ──────────────────────────────────────────────────────────

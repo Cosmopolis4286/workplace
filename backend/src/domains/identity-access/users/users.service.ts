@@ -27,6 +27,7 @@ import { MailService } from '../../engagement/mail/mail.service';
 import { CommerceProfileCompletionStrategy } from './strategies/commerce-profile-completion.strategy';
 import { FreelancerProfileCompletionStrategy } from './strategies/freelancer-profile-completion.strategy';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
+import { RoleResolverService } from '../../../common/account-type/role-resolver.service';
 import { AccountTypeResolver } from '../../../common/account-type/account-type.resolver';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 
@@ -57,7 +58,8 @@ export class UsersService {
     private commerceProfileCompletion: CommerceProfileCompletionStrategy,
     private freelancerProfileCompletion: FreelancerProfileCompletionStrategy,
     private accountTypeResolver: AccountTypeResolver,
-    private commerceResolver: CommerceResolverService
+    private commerceResolver: CommerceResolverService,
+    private roleResolver: RoleResolverService
   ) {}
 
   // Invalida el caché de findById para un usuario. Llamar después de
@@ -410,24 +412,48 @@ export class UsersService {
           include: { commerce: true, category: true, subcategory: true },
         });
 
+        // El rol se DERIVA de los perfiles (RoleResolverService), nunca se
+        // guarda suelto: antes el admin podía dejar un PROFESIONAL sin perfil
+        // de negocio (menú a medias, sin permisos de perfil) o un perfil de
+        // negocio activo con rol NORMAL. Elegir PROFESIONAL sin indicar el
+        // tipo asegura un perfil (como en create); elegir NORMAL lo desactiva.
         // businessProfileType: undefined = no tocar el UserProfile actual;
         // null explícito = quitar el perfil de negocio (desactivarlo, no
         // borrarlo — conserva el historial); un ProfileType = crear/actualizar.
-        if (dto.businessProfileType !== undefined) {
+        let profileType = dto.businessProfileType;
+        if (profileType === undefined && dto.role === Role.PROFESIONAL) {
+          const active = await tx.userProfile.findFirst({
+            where: {
+              userId: updated.id,
+              status: ProfileStatus.ACTIVE,
+              type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+            },
+            select: { id: true },
+          });
+          if (!active) profileType = ProfileType.PROFESSIONAL;
+        }
+        if (profileType === undefined && dto.role === Role.NORMAL) {
+          profileType = null;
+        }
+        if (profileType !== undefined) {
           await this.applyBusinessProfileType(
             tx,
             updated.id,
-            dto.businessProfileType,
+            profileType,
             dto.professionalSubtype
           );
         }
+        const derivedRole = await this.roleResolver.syncRoleForUser(
+          updated.id,
+          tx
+        );
 
         // Cambio de perfil o de categoría puede volver obligatorio el Commerce.
         if (
-          !updated.commerce &&
-          (dto.businessProfileType !== undefined ||
-            dto.categoryId !== undefined) &&
-          (await this.commerceResolver.ensureForUser(tx, updated.id))
+          (!updated.commerce &&
+            (profileType !== undefined || dto.categoryId !== undefined) &&
+            (await this.commerceResolver.ensureForUser(tx, updated.id))) ||
+          derivedRole !== updated.role
         ) {
           return tx.user.findUniqueOrThrow({
             where: { id: updated.id },
@@ -664,7 +690,12 @@ export class UsersService {
 
   async createSubcategory(
     categoryId: string,
-    data: { name: string; icon?: string; description?: string }
+    data: {
+      name: string;
+      icon?: string;
+      description?: string;
+      allowedModules?: string[];
+    }
   ) {
     const cat = await this.prisma.userCategory.findUnique({
       where: { id: categoryId },
@@ -681,6 +712,7 @@ export class UsersService {
         name: data.name,
         icon: data.icon,
         description: data.description,
+        allowedModules: data.allowedModules ?? [],
         categoryId,
       },
     });
@@ -688,7 +720,12 @@ export class UsersService {
 
   async updateSubcategory(
     id: string,
-    data: { name?: string; icon?: string; description?: string }
+    data: {
+      name?: string;
+      icon?: string;
+      description?: string;
+      allowedModules?: string[];
+    }
   ) {
     const sub = await this.prisma.userSubcategory.findUnique({ where: { id } });
     if (!sub)
@@ -702,7 +739,25 @@ export class UsersService {
           this.i18n.t('users.subcategory.name_taken')
         );
     }
-    return this.prisma.userSubcategory.update({ where: { id }, data });
+    if (!data.allowedModules) {
+      return this.prisma.userSubcategory.update({ where: { id }, data });
+    }
+    // Cambiar el techo de módulos afecta a todos los usuarios de la
+    // subcategoría: si ahora vende producto, el PROFESSIONAL necesita su
+    // Commerce (misma regla que al aprobar el perfil).
+    const affected = await this.prisma.user.findMany({
+      where: { subcategoryId: id },
+      select: { id: true },
+    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.userSubcategory.update({ where: { id }, data });
+      for (const u of affected) {
+        await this.commerceResolver.ensureForUser(tx, u.id);
+      }
+      return result;
+    });
+    await Promise.all(affected.map((u) => this.invalidateFindByIdCache(u.id)));
+    return updated;
   }
 
   async deleteSubcategory(id: string) {

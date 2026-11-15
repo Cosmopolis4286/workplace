@@ -3,7 +3,10 @@ import { Prisma, ProfileStatus, ProfileType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { userFindByIdCacheKey } from '../utils/cache-keys.util';
-import { includesProductModule } from '../capabilities/module-requirements';
+import {
+  includesProductModule,
+  rubroModuleCeiling,
+} from '../capabilities/module-requirements';
 
 export const NO_COMMERCE_MESSAGE =
   'Esta función requiere un comercio activo en tu cuenta';
@@ -120,6 +123,8 @@ export class CommerceResolverService {
       select: {
         commerce: { select: { id: true } },
         category: { select: { allowedModules: true } },
+        subcategory: { select: { allowedModules: true, categoryId: true } },
+        categoryId: true,
         profiles: {
           where: {
             status: ProfileStatus.ACTIVE,
@@ -132,7 +137,10 @@ export class CommerceResolverService {
     if (!user) return null;
     if (user.commerce) return user.commerce.id;
 
-    const allowedModules = user.category?.allowedModules ?? [];
+    const allowedModules = rubroModuleCeiling(
+      user.category,
+      user.subcategory?.categoryId === user.categoryId ? user.subcategory : null
+    );
     // BUSINESS primero: si tiene ambos perfiles, el Commerce se vincula al de negocio.
     const eligible = [...user.profiles]
       .sort(

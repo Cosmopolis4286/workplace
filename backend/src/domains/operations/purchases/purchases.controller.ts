@@ -14,12 +14,16 @@ import { QueryPurchasesDto } from './dto/query-purchases.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { CapabilityGuard } from '../../../common/guards/capability.guard';
+import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
+import { RequireModule } from '../../../common/decorators/require-module.decorator';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { RequireCapability } from '../../../common/decorators/require-capability.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CommerceResolverService } from '../../../common/commerce-resolver/commerce-resolver.service';
 
-@UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard)
+// El plan/rubro también se valida en la API, no solo en el sidebar.
+@UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard, ModuleAccessGuard)
+@RequireModule('purchases')
 @RequireCapability('HAS_COMMERCE')
 @Controller('purchases')
 export class PurchasesController {

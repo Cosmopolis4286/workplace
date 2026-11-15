@@ -40,6 +40,8 @@ import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ResolveDisputeDto } from '../../money/escrow/dto/resolve-dispute.dto';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
+import { RequireModule } from '../../../common/decorators/require-module.decorator';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard';
@@ -121,7 +123,13 @@ export class ServicesController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, PermissionsGuard, CategoryScopeGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    PermissionsGuard,
+    CategoryScopeGuard,
+    ModuleAccessGuard
+  )
+  @RequireModule('services')
   @RequirePermission('services:create')
   @RequireCategoryScope({ model: 'serviceCategory', bodyField: 'categoryId' })
   create(@CurrentUser() user: any, @Body() dto: CreateServiceDto) {
@@ -129,7 +137,13 @@ export class ServicesController {
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, CategoryScopeGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    PermissionsGuard,
+    CategoryScopeGuard,
+    ModuleAccessGuard
+  )
+  @RequireModule('services')
   @RequirePermission('services:edit')
   @RequireCategoryScope({ model: 'serviceCategory', bodyField: 'categoryId' })
   update(
@@ -141,7 +155,8 @@ export class ServicesController {
   }
 
   @Patch(':id/toggle')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @RequireModule('services')
   @RequirePermission('services:edit')
   toggle(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.toggleStatus(id, user.id);
@@ -150,7 +165,8 @@ export class ServicesController {
   // slot: 0 = principal, 1-2 = secundarias. Un archivo a la vez porque cada
   // slot se sube/reemplaza de forma independiente desde el formulario.
   @Post(':id/images')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @RequireModule('services')
   @RequirePermission('services:edit')
   @UseInterceptors(
     FileInterceptor('image', {
@@ -204,7 +220,8 @@ export class ServicesController {
   // archivo propio — así el resultado nunca depende del hotlinking del sitio
   // de origen ni expone el navegador del usuario a una URL arbitraria.
   @Post(':id/images/from-url')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @RequireModule('services')
   @RequirePermission('services:edit')
   importServiceImageFromUrl(
     @Param('id') id: string,
@@ -220,7 +237,8 @@ export class ServicesController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @RequireModule('services')
   @RequirePermission('services:delete')
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.deleteService(id, user.id);

@@ -80,19 +80,11 @@ export class RoleResolverService {
       select: { type: true, subtype: true },
     });
 
-    const resolved = this.resolveFromProfiles(activeProfiles);
-    // Sin ningún UserProfile de negocio activo: si el usuario ya tenía
-    // COMMERCE/FREELANCER por el camino legado (nunca migró a UserProfile),
-    // no lo degradamos a NORMAL — este resolver solo actúa quien SÍ pasó
-    // por el flujo de perfiles.
-    const hasAnyBusinessProfile = await tx.userProfile.count({
-      where: {
-        userId,
-        type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
-      },
-    });
-    const newRole =
-      resolved ?? (hasAnyBusinessProfile > 0 ? Role.NORMAL : user.role);
+    // Sin perfil de negocio activo → NORMAL, siempre. Antes se respetaba un
+    // PROFESIONAL "legado" sin ningún UserProfile; la migración
+    // 20261115120000_role_derived_from_profiles les creó el perfil que les
+    // correspondía, así que el rol ya no puede divergir de los perfiles.
+    const newRole = this.resolveFromProfiles(activeProfiles) ?? Role.NORMAL;
 
     if (newRole === user.role) return newRole;
 

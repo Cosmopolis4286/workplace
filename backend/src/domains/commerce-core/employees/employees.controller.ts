@@ -15,6 +15,8 @@ import { EmployeesService } from './employees.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { CapabilityGuard } from '../../../common/guards/capability.guard';
+import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
+import { RequireModule } from '../../../common/decorators/require-module.decorator';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { RequireCapability } from '../../../common/decorators/require-capability.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -22,7 +24,9 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 
 @Controller('employees')
-@UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard)
+// El plan/rubro también se valida en la API, no solo en el sidebar.
+@UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard, ModuleAccessGuard)
+@RequireModule('employees')
 @RequireCapability('HAS_COMMERCE')
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}

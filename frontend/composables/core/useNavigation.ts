@@ -101,7 +101,17 @@ export function useNavigation() {
     sections.value.filter((s) => !['top', ...ADMIN_SECTION_IDS, 'my-account', 'business'].includes(s.id))
   )
 
+  /** Etiqueta del ítem del sidebar (la del backend, que ya considera el rubro). */
+  function labelFor(path: string, fallback: string): string {
+    for (const section of sections.value) {
+      const item = section.items.find((i) => i.to === path)
+      if (item) return item.label
+    }
+    return fallback
+  }
+
   return {
+    labelFor,
     sections: computed(() => sections.value),
     routePermissions: computed(() => routePermissions.value),
     routeModules: computed(() => routeModules.value),

@@ -80,6 +80,38 @@
               </label>
             </div>
           </div>
+
+          <!-- Subcategorías: heredan los módulos del rubro o definen los suyos -->
+          <div v-if="cat.subcategories?.length" class="px-4 pb-4">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subcategorías</p>
+            <p class="text-xs text-gray-400 mb-2">Por defecto usan los módulos del rubro. Con módulos propios, los reemplazan (ej. una tienda dentro de un rubro de servicios).</p>
+            <div v-for="sub in cat.subcategories" :key="sub.id" class="border border-gray-100 rounded-lg mb-2">
+              <div class="flex items-center justify-between px-3 py-2">
+                <span class="text-sm text-gray-700">{{ sub.icon || cat.icon || '📄' }} {{ sub.name }}</span>
+                <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    :checked="(sub.allowedModules?.length ?? 0) > 0"
+                    :disabled="saving"
+                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    @change="toggleOwnModules(cat, sub)"
+                  />
+                  Módulos propios
+                </label>
+              </div>
+              <div v-if="(sub.allowedModules?.length ?? 0) > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-2 px-3 pb-3">
+                <label v-for="mod in ALL_MODULES" :key="mod" class="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    :checked="sub.allowedModules!.includes(mod)"
+                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    @change="toggleSubModule(sub, mod)"
+                  />
+                  <span class="text-xs text-gray-700 group-hover:text-gray-900 capitalize">{{ MODULE_LABELS[mod] ?? mod }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-if="localCategories.length === 0" class="text-center py-8 text-gray-400 text-sm">
@@ -112,7 +144,8 @@ const { labels: MODULE_LABELS, businessModules, load: loadModuleCatalog } = useM
 // catálogo (SystemModule.isBusinessModule=true), gerenciable por un admin.
 const ALL_MODULES = computed(() => businessModules.value.map((m) => m.module))
 
-interface Cat { id: string; name: string; icon?: string; allowedModules: string[]; _count?: { users: number } }
+interface Sub { id: string; name: string; icon?: string | null; allowedModules?: string[] }
+interface Cat { id: string; name: string; icon?: string; allowedModules: string[]; subcategories?: Sub[]; _count?: { users: number } }
 
 const emit = defineEmits(['close', 'updated'])
 
@@ -186,6 +219,32 @@ async function toggleModule(cat: Cat, mod: string) {
     cat.allowedModules = current
     error.value = e.message
   }
+}
+
+async function saveSubModules(sub: Sub, updated: string[]) {
+  const current = sub.allowedModules ?? []
+  sub.allowedModules = updated
+  try {
+    await put(`/users/subcategories/${sub.id}`, { allowedModules: updated })
+    emit('updated')
+  } catch (e: any) {
+    sub.allowedModules = current
+    error.value = e.message
+  }
+}
+
+// Activar "módulos propios" parte de los del rubro; desactivarlo vuelve a heredar.
+function toggleOwnModules(cat: Cat, sub: Sub) {
+  const own = (sub.allowedModules?.length ?? 0) > 0
+  return saveSubModules(sub, own ? [] : [...(cat.allowedModules ?? [])])
+}
+
+function toggleSubModule(sub: Sub, mod: string) {
+  const current = sub.allowedModules ?? []
+  const updated = current.includes(mod) ? current.filter(m => m !== mod) : [...current, mod]
+  // Una lista vacía significa "hereda del rubro": no se permite quitar el último.
+  if (updated.length === 0) return
+  return saveSubModules(sub, updated)
 }
 
 onMounted(() => { load(); loadModuleCatalog() })

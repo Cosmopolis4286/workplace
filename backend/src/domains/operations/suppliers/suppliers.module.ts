@@ -4,9 +4,15 @@ import { SuppliersController } from './suppliers.controller';
 import { ExchangeRatesModule } from '../../money/exchange-rates/exchange-rates.module';
 import { NotificationsModule } from '../../engagement/notifications/notifications.module';
 import { AlertEngineModule } from '../alert-engine/alert-engine.module';
+import { PlansModule } from '../../money/plans/plans.module';
 
 @Module({
-  imports: [ExchangeRatesModule, NotificationsModule, AlertEngineModule],
+  imports: [
+    ExchangeRatesModule,
+    NotificationsModule,
+    AlertEngineModule,
+    PlansModule,
+  ],
   controllers: [SuppliersController],
   providers: [SuppliersService],
   exports: [SuppliersService],

@@ -61,6 +61,36 @@ describe('catalog-categories.data — coherencia de seed', () => {
     expect(invalidRefs).toEqual([]);
   });
 
+  // Los productos viven en /menu/* (@RequireModule('menu')): una categoría
+  // que vende (inventory/orders) sin 'menu' no puede crear ni listar
+  // productos — le pasaba a "Comercio" (tiendas, mayoristas, e-commerce).
+  it('toda UserCategory que vende producto (inventory/orders) incluye "menu"', () => {
+    const broken = USER_CATEGORIES.filter(
+      (c) =>
+        (c.allowedModules.includes('inventory') ||
+          c.allowedModules.includes('orders')) &&
+        !c.allowedModules.includes('menu')
+    ).map((c) => c.name);
+
+    expect(broken).toEqual([]);
+  });
+
+  it('toda subcategoría con techo propio que vende producto incluye "menu"', () => {
+    const broken = USER_CATEGORIES.flatMap((c) =>
+      c.subcategories
+        .filter(
+          (s: any) =>
+            s.allowedModules?.length &&
+            (s.allowedModules.includes('inventory') ||
+              s.allowedModules.includes('orders')) &&
+            !s.allowedModules.includes('menu')
+        )
+        .map((s: any) => `${c.name} > ${s.name}`)
+    );
+
+    expect(broken).toEqual([]);
+  });
+
   it('no hay nombres de UserCategory duplicados', () => {
     const names = USER_CATEGORIES.map((c) => c.name);
     expect(names.length).toBe(new Set(names).size);
