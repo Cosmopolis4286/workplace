@@ -135,7 +135,7 @@ export const usePermissions = () => {
   const { get } = useApi()
 
   // ── Checkers ─────────────────────────────────────────────────────────────
-  const can    = (permission: string)            => permissionKeys.value.includes(permission)
+  const can    = (permission: string)            => (permissionKeys.value ?? []).includes(permission)
   const canAny = (...permissions: string[])      => permissions.some(p  => permissionKeys.value.includes(p))
   const canAll = (...permissions: string[])      => permissions.every(p => permissionKeys.value.includes(p))
 
@@ -157,7 +157,8 @@ export const usePermissions = () => {
         version?:    string | null
       }>('/permissions/me')
 
-      permissionKeys.value  = data.keys
+      // Respuesta inesperada → sin permisos (no rompe can() en toda la app).
+      permissionKeys.value  = Array.isArray(data?.keys) ? data.keys : []
       userCategory.value    = data.category    ?? null
       userSubcategory.value = data.subcategory ?? null
       serverVersion.value   = data.version     ?? null

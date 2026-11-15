@@ -41,6 +41,8 @@ const routePermissions = ref<Record<string, string | null>>({})
 const routeModules = ref<Record<string, string>>({})
 const routeCapabilities = ref<Record<string, Capability>>({})
 const routeAnyModules = ref<Record<string, string[]>>({})
+// Carga en curso compartida entre quienes llamen a la vez.
+let inFlight: Promise<void> | null = null
 const loaded = ref(false)
 const loading = ref(false)
 
@@ -49,7 +51,17 @@ export function useNavigation() {
 
   async function loadNavigation(force = false) {
     if (loaded.value && !force) return
-    if (loading.value) return
+    // Si ya hay una carga en curso (p. ej. la que se lanza al iniciar sesión),
+    // se espera ESA misma en vez de volver sin datos: antes el middleware
+    // seguía con los mapas de permisos vacíos.
+    if (inFlight) return inFlight
+    inFlight = doLoad().finally(() => {
+      inFlight = null
+    })
+    return inFlight
+  }
+
+  async function doLoad() {
     loading.value = true
     try {
       const data = await get<NavigationResponse>('/navigation')
