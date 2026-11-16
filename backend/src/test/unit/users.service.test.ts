@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from '../../domains/identity-access/users/users.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -197,6 +198,15 @@ describe('UsersService', () => {
   });
 
   describe('getAdminOverview', () => {
+    it('throws NotFoundException when the account does not exist', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getAdminOverview('missing-user')).rejects.toThrow(
+        NotFoundException
+      );
+      expect(mockPrismaService.auditLog.findMany).not.toHaveBeenCalled();
+    });
+
     it('returns account, profiles, masked identity documents and recent activity', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-kyc',
