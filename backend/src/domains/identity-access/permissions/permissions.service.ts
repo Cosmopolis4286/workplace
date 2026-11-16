@@ -948,7 +948,7 @@ export class PermissionsService implements PermissionsFacade {
     return {
       success: true,
       message:
-        'Permisos individuales eliminados. El usuario ahora usa solo los permisos de su rol.',
+        'Permisos individuales eliminados. El usuario vuelve a heredar los permisos de su rol y de sus perfiles activos.',
     };
   }
 }
