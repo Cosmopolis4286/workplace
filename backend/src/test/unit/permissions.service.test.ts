@@ -307,6 +307,25 @@ describe('PermissionsService', () => {
       expect(data.find((d: any) => d.role === Role.NORMAL).granted).toBe(false);
     });
 
+    it('rejects assigning a new permission to SUPERADMIN explicitly', async () => {
+      await expect(
+        service.createPermission(
+          {
+            key: 'reports:export',
+            module: 'reports',
+            action: 'export',
+            label: 'Exportar reportes',
+            grantedRoles: [Role.SUPERADMIN],
+          } as any,
+          'admin-1'
+        )
+      ).rejects.toThrow(
+        'SUPERADMIN no se configura desde la matriz de permisos'
+      );
+
+      expect(mockPrisma.permission.create).not.toHaveBeenCalled();
+    });
+
     it('also creates base profile_permissions rows, all ungranted by default', async () => {
       mockPrisma.permission.findUnique.mockResolvedValue(null);
       mockPrisma.permission.create.mockResolvedValue({
