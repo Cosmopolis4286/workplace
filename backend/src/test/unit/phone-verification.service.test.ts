@@ -1,16 +1,16 @@
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
-  PhoneVerificationService,
+  PhoneVerificationService
 } from '../../domains/identity-access/auth/phone-verification.service';
 import {
-  MessangiSmsProvider,
+  MessangiSmsProvider
 } from '../../domains/identity-access/auth/messangi-sms.provider';
 import {
-  PrismaService,
+  PrismaService
 } from '../../prisma/prisma.service';
 import {
-  RedisService,
+  RedisService
 } from '../../redis/redis.service';
 
 describe('PhoneVerificationService', () => {
@@ -57,7 +57,7 @@ describe('PhoneVerificationService', () => {
       prisma as unknown as PrismaService,
       redis as unknown as RedisService,
       config as unknown as ConfigService,
-      smsProvider as unknown as MessangiSmsProvider,
+      smsProvider as unknown as MessangiSmsProvider
     );
   });
 
