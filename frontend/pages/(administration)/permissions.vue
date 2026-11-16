@@ -71,7 +71,7 @@
         :module-labels="MODULE_LABELS"
         :plans-for-module="plansForModule"
         :local-matrix="localMatrix"
-        disabled-column-key="SUPERADMIN"
+        :disabled-columns="lockedRoleColumns"
         @toggle="toggleLocal"
         @delete="confirmDelete"
       />
@@ -130,6 +130,7 @@
       :module-labels="MODULE_LABELS"
       :roles="ROLES"
       :role-labels="ROLE_LABELS"
+      :disabled-roles="lockedRoleColumns"
       @close="showNewPermModal = false"
       @submit="saveNewPerm"
       @module-change="autoFillKey"
@@ -236,8 +237,13 @@ interface PendingProfileChange {
   granted: boolean
 }
 
-const { getHeaders, refreshAccessToken } = useAuth()
+const { user, getHeaders, refreshAccessToken } = useAuth()
 const { reloadPermissions } = usePermissions()
+
+// ADMIN no puede modificar su propia columna ni roles superiores.
+const lockedRoleColumns = computed<Role[]>(() =>
+  user.value?.role === 'ADMIN' ? ['SUPERADMIN', 'ADMIN'] : ['SUPERADMIN']
+)
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 

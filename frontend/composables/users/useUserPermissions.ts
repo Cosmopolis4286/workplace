@@ -24,12 +24,13 @@ export interface UserPermission {
   label: string
   isSystem: boolean
   roleGranted: boolean
+  profileGranted: boolean
   userGranted: boolean | null
   userDenied: boolean
   expiresAt: string | null
   reason: string | null
   effectiveGranted: boolean
-  source: 'role' | 'user' | 'none'
+  source: 'role' | 'profile' | 'user' | 'none'
 }
 
 export interface UserPermissionsResponse {

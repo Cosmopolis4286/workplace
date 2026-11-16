@@ -50,13 +50,13 @@
                   type="checkbox"
                   :value="r"
                   v-model="form.grantedRoles"
-                  :disabled="r === 'SUPERADMIN'"
+                  :disabled="r === 'SUPERADMIN' || disabledRoles?.includes(r)"
                   class="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-400 disabled:opacity-40"
                 />
                 {{ roleLabels[r] }}
               </label>
             </div>
-            <p class="text-xs text-gray-400 mt-1">SUPERADMIN siempre tiene acceso, sin importar esta selección.</p>
+            <p class="text-xs text-gray-400 mt-1">Los roles protegidos por jerarquía no se pueden seleccionar. SUPERADMIN siempre tiene acceso sin depender de esta selección.</p>
           </div>
           <div v-if="error" class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{{ error }}</div>
           <div class="flex justify-end gap-3 pt-1">
@@ -93,6 +93,7 @@ defineProps<{
   moduleLabels: Record<string, string>
   roles: Role[]
   roleLabels: Record<Role, string>
+  disabledRoles?: Role[]
 }>()
 
 defineEmits<{

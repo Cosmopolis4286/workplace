@@ -255,6 +255,28 @@ describe('PermissionsService', () => {
       await service.getUserOverrides('user-1');
       expect(mockPrisma.userPermission.findMany).toHaveBeenCalledTimes(1);
     });
+
+    it('expires the Redis cache no later than the earliest temporary override', async () => {
+      const expiresAt = new Date(Date.now() + 30_000);
+      mockPrisma.userPermission.findMany.mockResolvedValue([
+        {
+          granted: true,
+          expiresAt,
+          permission: { key: 'orders:export' },
+        },
+        {
+          granted: true,
+          expiresAt: null,
+          permission: { key: 'orders:view' },
+        },
+      ]);
+
+      await service.getUserOverrides('user-1');
+
+      const [, ttl] = mockRedis.setex.mock.calls[0];
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(30);
+    });
   });
 
   describe('bumpUserVersion / getUserVersion', () => {
@@ -305,6 +327,25 @@ describe('PermissionsService', () => {
         .map((d: any) => d.role);
       expect(grantedRoles).toEqual([Role.PROFESIONAL]);
       expect(data.find((d: any) => d.role === Role.NORMAL).granted).toBe(false);
+    });
+
+    it('rejects assigning a new permission to SUPERADMIN explicitly', async () => {
+      await expect(
+        service.createPermission(
+          {
+            key: 'reports:export',
+            module: 'reports',
+            action: 'export',
+            label: 'Exportar reportes',
+            grantedRoles: [Role.SUPERADMIN],
+          } as any,
+          'admin-1'
+        )
+      ).rejects.toThrow(
+        'SUPERADMIN no se configura desde la matriz de permisos'
+      );
+
+      expect(mockPrisma.permission.create).not.toHaveBeenCalled();
     });
 
     it('also creates base profile_permissions rows, all ungranted by default', async () => {
@@ -456,6 +497,95 @@ describe('PermissionsService', () => {
           'admin-1'
         )
       ).rejects.toThrow('No se pueden modificar permisos de sistema');
+    });
+  });
+
+  describe('getUserPermissions effective state', () => {
+    it('includes active profile grants and reports their source', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        firstName: 'User',
+        lastName: 'Test',
+        role: Role.NORMAL,
+        profiles: [
+          {
+            type: ProfileType.PROFESSIONAL,
+            subtype: ProfessionalSubtype.FREELANCER,
+          },
+        ],
+      });
+      mockPrisma.rolePermission.findMany.mockResolvedValue([]);
+      mockPrisma.userProfile.findMany.mockResolvedValue([
+        {
+          type: ProfileType.PROFESSIONAL,
+          subtype: ProfessionalSubtype.FREELANCER,
+        },
+      ]);
+      mockPrisma.profilePermission.findMany.mockResolvedValue([
+        { permission: { key: 'services:view' } },
+      ]);
+      mockPrisma.userPermission.findMany.mockResolvedValue([]);
+      mockPrisma.permission.findMany.mockResolvedValue([
+        {
+          id: 'permission-1',
+          key: 'services:view',
+          module: 'services',
+          action: 'view',
+          label: 'Ver servicios',
+          isSystem: false,
+        },
+      ]);
+
+      const result = await service.getUserPermissions('user-1');
+
+      expect(result.allPermissions[0]).toMatchObject({
+        profileGranted: true,
+        effectiveGranted: true,
+        source: 'profile',
+      });
+    });
+
+    it('ignores expired user overrides and falls back to role/profile grants', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        firstName: 'User',
+        lastName: 'Test',
+        role: Role.NORMAL,
+        profiles: [],
+      });
+      mockPrisma.rolePermission.findMany.mockResolvedValue([
+        { permission: { id: 'permission-1' } },
+      ]);
+      mockPrisma.userProfile.findMany.mockResolvedValue([]);
+      mockPrisma.userPermission.findMany.mockResolvedValue([
+        {
+          granted: false,
+          expiresAt: new Date('2020-01-01'),
+          reason: 'Temporal deny',
+          permission: { id: 'permission-1' },
+        },
+      ]);
+      mockPrisma.permission.findMany.mockResolvedValue([
+        {
+          id: 'permission-1',
+          key: 'orders:view',
+          module: 'orders',
+          action: 'view',
+          label: 'Ver pedidos',
+          isSystem: false,
+        },
+      ]);
+
+      const result = await service.getUserPermissions('user-1');
+
+      expect(result.allPermissions[0]).toMatchObject({
+        roleGranted: true,
+        userGranted: null,
+        effectiveGranted: true,
+        source: 'role',
+      });
     });
   });
 

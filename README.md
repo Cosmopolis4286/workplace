@@ -179,6 +179,7 @@ Detalles en [`CAPACITOR_MOBILE_APP.md`](./CAPACITOR_MOBILE_APP.md), [`frontend/d
 | [`IDENTITY_ARCHITECTURE_PLAN.md`](./IDENTITY_ARCHITECTURE_PLAN.md) | Arquitectura de identidad y perfiles |
 | [`WORKPLACE_STATUS_FEEDBACK.md`](./WORKPLACE_STATUS_FEEDBACK.md) | Estado actual del producto |
 | [`V1_LAUNCH_READINESS.md`](./V1_LAUNCH_READINESS.md) | Checklist de lanzamiento |
+| [`docs/architecture/authentication-and-authorization.md`](./docs/architecture/authentication-and-authorization.md) | Flujo de autenticación, tokens, sesiones y autorización RBAC |
 | [`AUTH_FLOW_AUDIT.md`](./AUTH_FLOW_AUDIT.md) · [`FRONTEND_AUDIT.md`](./FRONTEND_AUDIT.md) | Auditorías |
 | [`docs/DEPLOY.md`](./docs/DEPLOY.md) · [`docs/DEPLOYMENT_GUIDE.md`](./docs/DEPLOYMENT_GUIDE.md) | Despliegue |
 | [`.github/workflows/README.md`](./.github/workflows/README.md) | Pipelines de CI/CD |
