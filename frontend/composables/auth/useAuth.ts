@@ -9,7 +9,6 @@ interface Commerce {
   type?: string
   address?: string
   phone?: string
-  phoneVerifiedAt?: string | null
 }
 
 // Prerrequisitos operativos — mismos hechos que exigen los guards del backend
@@ -27,6 +26,7 @@ export interface User {
   firstName: string
   lastName: string
   phone?: string
+  phoneVerifiedAt?: string | null
   avatar?: string
   role: 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
   // role ya no distingue "tiene Commerce" de "es freelancer/service
