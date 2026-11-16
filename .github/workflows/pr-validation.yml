@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   security-events: write
   actions: read        # upload-sarif lee el workflow run
   pull-requests: write # comentario con el resumen en el PR
@@ -58,6 +58,14 @@ jobs:
     - name: Sin campos Float nuevos
       run: cd backend && pnpm schema:float-check
 
+    - name: Aplicar formato a archivos del flujo de consultas
+      run: |
+        pnpm exec prettier --config backend/.prettierrc --write backend/src/domains/commerce-core/services/services.service.ts backend/src/test/unit/services.service.test.ts
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add backend/src/domains/commerce-core/services/services.service.ts backend/src/test/unit/services.service.test.ts
+        git commit -m "style(servicios): aplicar formato Prettier" || echo "Sin cambios de formato"
+        git push
     - name: Format check
       run: cd backend && pnpm format:check
 
