@@ -579,18 +579,80 @@ export class UsersService {
   }
 
   async toggleUserStatus(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
+    let updated: { id: string; isActive: boolean };
+    try {
+      updated = await this.prisma.$transaction(
+        async (tx) => {
+          const user = await tx.user.findUnique({
+            where: { id },
+            select: { id: true, role: true, isActive: true },
+          });
+          if (!user) {
+            throw new NotFoundException(this.i18n.t('users.not_found'));
+          }
 
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data: { isActive: !user.isActive },
-      select: { id: true, isActive: true },
-    });
-    // Crítico: isActive es lo que JwtStrategy.validate() chequea en cada
-    // request — un caché stale acá dejaría a un usuario desactivado seguir
-    // autenticado hasta que expire el TTL.
+          // Nunca dejar el sistema sin un SUPERADMIN activo. La transacción
+          // serializable evita que dos suspensiones concurrentes pasen ambas
+          // el conteo usando el mismo snapshot.
+          if (user.role === Role.SUPERADMIN && user.isActive) {
+            const activeSuperadmins = await tx.user.count({
+              where: { role: Role.SUPERADMIN, isActive: true },
+            });
+            if (activeSuperadmins <= 1) {
+              throw new ConflictException(
+                'No se puede suspender al último SUPERADMIN activo'
+              );
+            }
+          }
+
+          const nextIsActive = !user.isActive;
+          const changed = await tx.user.updateMany({
+            where: { id, isActive: user.isActive },
+            data: { isActive: nextIsActive },
+          });
+          if (changed.count !== 1) {
+            throw new ConflictException(
+              'La cuenta cambió mientras se procesaba la operación. Actualiza e inténtalo de nuevo.'
+            );
+          }
+
+          if (!nextIsActive) {
+            // Desactivar el usuario también revoca refresh tokens; invalidar
+            // solo el caché JWT no basta para impedir renovar una sesión.
+            await tx.refreshToken.updateMany({
+              where: { userId: id, revokedAt: null },
+              data: { revokedAt: new Date() },
+            });
+          }
+
+          return { id, isActive: nextIsActive };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034'
+      ) {
+        throw new ConflictException(
+          'La cuenta cambió durante la operación. Actualiza e inténtalo de nuevo.'
+        );
+      }
+      throw error;
+    }
+
+    // JwtStrategy consulta findById en cada request. Invalidamos caché y
+    // sesiones Redis tras el commit para cortar el acceso cuanto antes.
     await this.invalidateFindByIdCache(id);
+    if (!updated.isActive) {
+      try {
+        await this.redis.deleteByPattern(`session:${id}:*`);
+      } catch (error) {
+        this.logger.warn(
+          `No se pudieron limpiar las sesiones Redis de ${id}: ${(error as Error).message}`
+        );
+      }
+    }
     return updated;
   }
 
