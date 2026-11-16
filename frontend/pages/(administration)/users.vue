@@ -32,7 +32,7 @@
             v-model="search"
             @input="onSearch"
             type="text"
-            placeholder="Buscar por nombre o correo..."
+            placeholder="Buscar por nombre, correo, teléfono o usuario..."
             class="input-field pl-9"
           />
         </div>
