@@ -1432,10 +1432,15 @@ export class ServicesService {
       throw new ForbiddenException('No tienes permiso');
     if (!['CONTACTED', 'COMPLETION_PENDING'].includes(req.status))
       throw new ForbiddenException('Solo puedes finalizar un servicio en curso');
+    const autoCloseAt =
+      req.completionDeadlineAt ??
+      (req.providerCompletedAt
+        ? new Date(req.providerCompletedAt.getTime() + AUTO_CLOSE_AFTER_MS)
+        : null);
     if (
       options.auto &&
-      ((!req.completionDeadlineAt && !req.providerCompletedAt) ||
-        (req.completionDeadlineAt && req.completionDeadlineAt > new Date()) ||
+      (!autoCloseAt ||
+        autoCloseAt > new Date() ||
         req.escrowStatus === 'DISPUTED' ||
         req.escrowStatus === 'PENDING_FUNDS')
     ) {
