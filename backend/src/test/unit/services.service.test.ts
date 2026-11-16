@@ -70,8 +70,24 @@ describe('ServicesService — service request status transitions', () => {
 
   beforeEach(async () => {
     mockPrismaService = {
+      service: { findUnique: jest.fn() },
+      serviceInquiry: {
+        findUnique: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findFirst: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest
+          .fn()
+          .mockImplementation(({ data }) => Promise.resolve(data)),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       serviceRequest: {
         findUnique: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest
+          .fn()
+          .mockImplementation(({ data }) => Promise.resolve(data)),
         findMany: jest.fn().mockResolvedValue([]),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         update: jest
@@ -101,13 +117,19 @@ describe('ServicesService — service request status transitions', () => {
         aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: null } }),
       },
       user: {
-        findUnique: jest.fn().mockResolvedValue({ username: 'proveedor1' }),
+        findUnique: jest.fn().mockResolvedValue({
+          username: 'proveedor1',
+          firstName: 'Cliente',
+          lastName: 'Uno',
+          email: 'cliente@example.com',
+        }),
         findMany: jest.fn().mockResolvedValue([]),
       },
       $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
     };
 
     mockNotificationsService = {
+      notifyNewServiceRequest: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestStatusChanged: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestRejected: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestCancelled: jest.fn().mockResolvedValue(undefined),
@@ -183,6 +205,162 @@ describe('ServicesService — service request status transitions', () => {
     }).compile();
 
     service = module.get<ServicesService>(ServicesService);
+  });
+
+  describe('consultas preliminares y datos canónicos', () => {
+    it('crea consulta y oculta el teléfono al prestador', async () => {
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 'service-1',
+        userId: 'provider-1',
+        status: 'ACTIVE',
+        modalities: ['REMOTE'],
+      });
+
+      const created = await service.createServiceInquiry(
+        {
+          serviceId: 'service-1',
+          modality: 'REMOTE',
+          clientPhone: '+584121234567',
+          message: 'Quisiera consultar disponibilidad',
+        } as any,
+        'client-1'
+      );
+
+      expect(mockPrismaService.serviceInquiry.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            providerId: 'provider-1',
+            requesterId: 'client-1',
+            clientPhone: '+584121234567',
+          }),
+        })
+      );
+      expect(created.providerId).toBe('provider-1');
+
+      mockPrismaService.serviceInquiry.findMany.mockResolvedValue([
+        {
+          id: 'inquiry-1',
+          providerId: 'provider-1',
+          clientPhone: '+584121234567',
+        },
+      ]);
+      const providerView = await service.getMyServiceInquiries(
+        'provider-1',
+        'provider'
+      );
+      expect(providerView.data[0].clientPhone).toBeNull();
+      expect(providerView.data[0].contactHidden).toBe(true);
+    });
+
+    it('el prestador propietario puede responder la consulta', async () => {
+      mockPrismaService.serviceInquiry.findUnique
+        .mockResolvedValueOnce({
+          id: 'inquiry-1',
+          providerId: 'provider-1',
+          status: 'OPEN',
+        })
+        .mockResolvedValueOnce({ id: 'inquiry-1', status: 'RESPONDED' });
+
+      await service.respondToServiceInquiry('inquiry-1', 'provider-1', {
+        response: 'Sí, tengo disponibilidad esta semana',
+      });
+
+      expect(mockPrismaService.serviceInquiry.updateMany).toHaveBeenCalledWith({
+        where: { id: 'inquiry-1', providerId: 'provider-1', status: 'OPEN' },
+        data: {
+          providerResponse: 'Sí, tengo disponibilidad esta semana',
+          status: 'RESPONDED',
+        },
+      });
+    });
+
+    it('impide que otro usuario responda una consulta ajena', async () => {
+      mockPrismaService.serviceInquiry.findUnique.mockResolvedValue({
+        id: 'inquiry-1',
+        providerId: 'provider-1',
+        status: 'OPEN',
+      });
+
+      await expect(
+        service.respondToServiceInquiry('inquiry-1', 'attacker-1', {
+          response: 'Respuesta no autorizada',
+        })
+      ).rejects.toThrow(ForbiddenException);
+      expect(
+        mockPrismaService.serviceInquiry.updateMany
+      ).not.toHaveBeenCalled();
+    });
+
+    it('rechaza consultas propias y modalidades no disponibles', async () => {
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 'service-1',
+        userId: 'provider-1',
+        status: 'ACTIVE',
+        modalities: ['REMOTE'],
+      });
+
+      await expect(
+        service.createServiceInquiry(
+          { serviceId: 'service-1' } as any,
+          'provider-1'
+        )
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.createServiceInquiry(
+          { serviceId: 'service-1', modality: 'IN_PERSON' } as any,
+          'client-1'
+        )
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.serviceInquiry.create).not.toHaveBeenCalled();
+    });
+
+    it('contratación usa proveedor, cliente y precio canónicos', async () => {
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 'service-1',
+        userId: 'provider-real',
+        status: 'ACTIVE',
+        name: 'Servicio real',
+        price: 125,
+        priceUnit: 'USD',
+        modalities: ['REMOTE'],
+        user: { firstName: 'Proveedor', lastName: 'Real' },
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        firstName: 'Cliente',
+        lastName: 'Autenticado',
+        email: 'cliente@example.com',
+      });
+      mockPrismaService.serviceRequest.create.mockImplementation(
+        ({ data }: any) => Promise.resolve(data)
+      );
+
+      await service.createServiceRequest(
+        {
+          serviceId: 'service-1',
+          providerId: 'provider-falso',
+          providerName: 'Proveedor falso',
+          serviceName: 'Servicio falso',
+          price: 0.01,
+          priceUnit: 'VES',
+          modality: 'REMOTE',
+          preferredDate: '2026-12-01',
+          clientName: 'Cliente falso',
+          clientPhone: '+584121234567',
+          clientEmail: 'falso@example.com',
+        } as any,
+        'client-1'
+      );
+
+      const call = mockPrismaService.serviceRequest.create.mock.calls[0][0];
+      expect(call.data.providerId).toBe('provider-real');
+      expect(call.data.providerName).toBe('Proveedor Real');
+      expect(call.data.serviceName).toBe('Servicio real');
+      expect(Number(call.data.price)).toBe(125);
+      expect(call.data.priceUnit).toBe('USD');
+      expect(call.data.clientName).toBe('Cliente Autenticado');
+      expect(call.data.clientEmail).toBe('cliente@example.com');
+    });
   });
 
   describe('updateServiceRequest', () => {

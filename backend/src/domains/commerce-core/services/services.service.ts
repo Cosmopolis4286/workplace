@@ -15,6 +15,8 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
+import { CreateServiceInquiryDto } from './dto/create-service-inquiry.dto';
+import { RespondServiceInquiryDto } from './dto/respond-service-inquiry.dto';
 import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import {
@@ -707,33 +709,216 @@ export class ServicesService {
     'CONTACTED',
   ];
 
-  async createServiceRequest(
-    dto: CreateServiceRequestDto,
+  // Consulta preliminar: no exige KYC, no crea ServiceRequest y no toca
+  // límites de contratación, comisiones, créditos ni escrow.
+  async createServiceInquiry(
+    dto: CreateServiceInquiryDto,
     requesterId: string
   ) {
     const service = await this.prisma.service.findUnique({
       where: { id: dto.serviceId },
-      select: { id: true, userId: true, status: true },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        modalities: true,
+      },
     });
     if (!service || service.status !== ServiceStatus.ACTIVE) {
       throw new NotFoundException(
         'El servicio no existe o ya no está disponible'
       );
     }
-    if (service.userId !== dto.providerId) {
+    if (service.userId === requesterId) {
+      throw new BadRequestException('No puedes consultar tu propio servicio');
+    }
+    if (
+      dto.modality &&
+      service.modalities.length > 0 &&
+      !service.modalities.includes(dto.modality)
+    ) {
       throw new BadRequestException(
-        'El proveedor no coincide con el dueño del servicio'
+        'La modalidad seleccionada no está disponible para este servicio'
       );
     }
-    if (requesterId === dto.providerId) {
+
+    const existing = await this.prisma.serviceInquiry.findFirst({
+      where: {
+        serviceId: service.id,
+        requesterId,
+        status: 'OPEN',
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'Ya tienes una consulta abierta para este servicio'
+      );
+    }
+
+    const windowStart = new Date(Date.now() - 10 * 60 * 1000);
+    const recentCount = await this.prisma.serviceInquiry.count({
+      where: { requesterId, createdAt: { gte: windowStart } },
+    });
+    if (recentCount >= 5) {
+      throw new BadRequestException(
+        'Has enviado demasiadas consultas en poco tiempo. Intenta más tarde.'
+      );
+    }
+
+    return this.prisma.serviceInquiry.create({
+      data: {
+        serviceId: service.id,
+        providerId: service.userId,
+        requesterId,
+        modality: dto.modality ?? 'ANY',
+        preferredDate: dto.preferredDate
+          ? new Date(dto.preferredDate)
+          : undefined,
+        preferredTime: dto.preferredTime,
+        address: dto.address,
+        city: dto.city,
+        clientPhone: dto.clientPhone,
+        message: dto.message,
+      },
+      include: {
+        service: {
+          select: { id: true, name: true, price: true, priceUnit: true },
+        },
+      },
+    });
+  }
+
+  async respondToServiceInquiry(
+    inquiryId: string,
+    providerId: string,
+    dto: RespondServiceInquiryDto
+  ) {
+    const inquiry = await this.prisma.serviceInquiry.findUnique({
+      where: { id: inquiryId },
+      select: { id: true, providerId: true, status: true },
+    });
+    if (!inquiry) throw new NotFoundException('Consulta no encontrada');
+    if (inquiry.providerId !== providerId) {
+      throw new ForbiddenException('No puedes responder esta consulta');
+    }
+    if (inquiry.status !== 'OPEN') {
+      throw new ConflictException('La consulta ya fue respondida o cerrada');
+    }
+
+    const updated = await this.prisma.serviceInquiry.updateMany({
+      where: { id: inquiryId, providerId, status: 'OPEN' },
+      data: { providerResponse: dto.response.trim(), status: 'RESPONDED' },
+    });
+    if (updated.count !== 1) {
+      throw new ConflictException(
+        'La consulta cambió; actualiza e intenta de nuevo'
+      );
+    }
+    return this.prisma.serviceInquiry.findUnique({
+      where: { id: inquiryId },
+      include: {
+        service: {
+          select: { id: true, name: true, price: true, priceUnit: true },
+        },
+      },
+    });
+  }
+
+  async getMyServiceInquiries(
+    userId: string,
+    asRole: 'provider' | 'client' = 'client',
+    page = 1,
+    limit = 20
+  ) {
+    limit = Math.min(100, Math.max(1, limit));
+    page = Math.max(1, page);
+    const where: Prisma.ServiceInquiryWhereInput =
+      asRole === 'provider' ? { providerId: userId } : { requesterId: userId };
+    const [data, total] = await Promise.all([
+      this.prisma.serviceInquiry.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          service: {
+            select: { id: true, name: true, price: true, priceUnit: true },
+          },
+        },
+      }),
+      this.prisma.serviceInquiry.count({ where }),
+    ]);
+
+    return {
+      data: data.map((inquiry) =>
+        asRole === 'provider'
+          ? { ...inquiry, clientPhone: null, contactHidden: true }
+          : { ...inquiry, contactHidden: false }
+      ),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async createServiceRequest(
+    dto: CreateServiceRequestDto,
+    requesterId: string
+  ) {
+    // La identidad del proveedor y los datos comerciales salen SIEMPRE de
+    // la base de datos. Los campos legacy del DTO (providerId/providerName,
+    // serviceName, price y priceUnit) se ignoran deliberadamente: el cliente
+    // no puede elegir a otro proveedor ni alterar el precio del catálogo.
+    const service = await this.prisma.service.findUnique({
+      where: { id: dto.serviceId },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        name: true,
+        price: true,
+        priceUnit: true,
+        modalities: true,
+        user: { select: { firstName: true, lastName: true } },
+      },
+    });
+    if (!service || service.status !== ServiceStatus.ACTIVE) {
+      throw new NotFoundException(
+        'El servicio no existe o ya no está disponible'
+      );
+    }
+    const providerId = service.userId;
+    const providerName = [service.user.firstName, service.user.lastName]
+      .join(' ')
+      .trim();
+    if (requesterId === providerId) {
       throw new BadRequestException('No puedes solicitar tu propio servicio');
     }
+    if (
+      dto.modality &&
+      service.modalities.length > 0 &&
+      !service.modalities.includes(dto.modality)
+    ) {
+      throw new BadRequestException(
+        'La modalidad seleccionada no está disponible para este servicio'
+      );
+    }
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { firstName: true, lastName: true, email: true },
+    });
+    if (!requester) {
+      throw new NotFoundException('No se encontró el usuario solicitante');
+    }
+    const clientName = `${requester.firstName} ${requester.lastName}`.trim();
 
     // Evita que el mismo cliente le abra varias solicitudes seguidas al mismo proveedor
     // para el mismo servicio mientras ya tiene una en curso sin resolver.
     const duplicateWhere: Prisma.ServiceRequestWhereInput = {
       serviceId: dto.serviceId,
-      providerId: dto.providerId,
+      providerId,
       status: { in: ServicesService.OPEN_REQUEST_STATUSES as any },
       requesterId,
     };
@@ -762,7 +947,7 @@ export class ServicesService {
       );
     }
 
-    await this.planLimits.assertServiceRequestLimit(dto.providerId);
+    await this.planLimits.assertServiceRequestLimit(providerId);
 
     const preferredDate = new Date(dto.preferredDate);
     if (dto.preferredTime) {
@@ -773,19 +958,19 @@ export class ServicesService {
     const request = await this.prisma.serviceRequest.create({
       data: {
         serviceId: dto.serviceId,
-        serviceName: dto.serviceName,
-        providerId: dto.providerId,
-        providerName: dto.providerName,
+        serviceName: service.name,
+        providerId,
+        providerName,
         modality: dto.modality ?? 'ANY',
         preferredDate,
         address: dto.address,
         city: dto.city,
-        clientName: dto.clientName,
+        clientName,
         clientPhone: dto.clientPhone,
-        clientEmail: dto.clientEmail,
+        clientEmail: requester.email,
         description: dto.description,
-        price: dto.price,
-        priceUnit: dto.priceUnit,
+        price: service.price,
+        priceUnit: service.priceUnit,
         requesterId,
         items: dto.items?.length
           ? {
@@ -803,7 +988,7 @@ export class ServicesService {
     });
     // Fire-and-forget notification to the provider
     this.notifications
-      .notifyNewServiceRequest(dto.providerId, dto.clientName, dto.serviceName)
+      .notifyNewServiceRequest(providerId, clientName, service.name)
       .catch(() => {});
     return request;
   }

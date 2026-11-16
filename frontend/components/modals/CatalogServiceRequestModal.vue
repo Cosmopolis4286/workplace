@@ -134,51 +134,21 @@
                 </div>
               </Transition>
 
-              <!-- Datos de contacto -->
+              <!-- Contacto privado del cliente -->
               <div>
-                <label class="block text-xs font-bold text-gray-700 mb-2">Tus datos de contacto</label>
-                <div class="space-y-2.5">
-                  <div>
-                    <input
-                      v-model="form.clientName"
-                      type="text"
-                      placeholder="Nombre completo *"
-                      required
-                      minlength="3"
-                      maxlength="100"
-                      class="w-full px-3 py-2.5 text-sm border-2 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                      :class="fieldErrors.clientName ? 'border-red-300' : 'border-gray-200'"
-                      @blur="touch('clientName')"
-                    />
-                    <p v-if="fieldErrors.clientName" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.clientName }}</p>
-                  </div>
-                  <div>
-                    <input
-                      v-model="form.clientPhone"
-                      type="tel"
-                      placeholder="Teléfono / WhatsApp *"
-                      required
-                      maxlength="30"
-                      class="w-full px-3 py-2.5 text-sm border-2 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                      :class="fieldErrors.clientPhone ? 'border-red-300' : 'border-gray-200'"
-                      @blur="touch('clientPhone')"
-                    />
-                    <p v-if="fieldErrors.clientPhone" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.clientPhone }}</p>
-                  </div>
-                  <div>
-                    <input
-                      v-model="form.clientEmail"
-                      type="email"
-                      placeholder="Correo electrónico (opcional)"
-                      class="w-full px-3 py-2.5 text-sm border-2 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                      :class="fieldErrors.clientEmail ? 'border-red-300' : 'border-gray-200'"
-                      @blur="touch('clientEmail')"
-                    />
-                    <p v-if="fieldErrors.clientEmail" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.clientEmail }}</p>
-                  </div>
-                </div>
+                <label class="block text-xs font-bold text-gray-700 mb-2">Teléfono de contacto (privado)</label>
+                <input
+                  v-model="form.clientPhone"
+                  type="tel"
+                  placeholder="Teléfono / WhatsApp"
+                  maxlength="30"
+                  class="w-full px-3 py-2.5 text-sm border-2 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                  :class="fieldErrors.clientPhone ? 'border-red-300' : 'border-gray-200'"
+                  @blur="touch('clientPhone')"
+                />
+                <p v-if="fieldErrors.clientPhone" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.clientPhone }}</p>
+                <p class="text-[11px] text-gray-400 mt-1">Este número aún no está verificado y no se comparte con el prestador durante la consulta inicial.</p>
               </div>
-
               <!-- Descripción -->
               <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1.5">Describe lo que necesitas</label>
@@ -193,51 +163,8 @@
                 <p class="text-[11px] text-gray-400 mt-1 text-right">{{ form.description.length }}/600</p>
               </div>
 
-              <!-- Ítems a reparar/solicitar -->
-              <div>
-                <div class="flex items-center justify-between mb-2">
-                  <label class="block text-xs font-bold text-gray-700">Ítems a reparar/solicitar</label>
-                  <span class="text-[11px] text-gray-400">{{ items.length }} ítem{{ items.length === 1 ? '' : 's' }}</span>
-                </div>
-
-                <div class="space-y-3">
-                  <ServiceRequestItemEditor
-                    v-for="(item, idx) in items" :key="idx"
-                    :item="item"
-                    :index="idx"
-                    :field-names="itemFieldNames"
-                    :error="itemErrors[idx]"
-                    @remove="removeItem(idx)"
-                    @update:field="(fieldName, value) => item.fields[fieldName] = value"
-                    @update:notes="item.notes = $event"
-                    @photos-selected="onPhotosSelected(idx, $event)"
-                    @videos-selected="onVideosSelected(idx, $event)"
-                    @remove-photo="removePhoto(idx, $event)"
-                    @remove-video="removeVideo(idx, $event)"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  class="mt-2 w-full py-2 border-2 border-dashed border-gray-200 rounded-xl text-xs font-semibold text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"
-                  @click="addItem"
-                >
-                  + Agregar otro ítem
-                </button>
-              </div>
-
-              <ServiceRequestPriceInfo
-                :service="service"
-                :converted-price="convertedPrice"
-                :default-rate="defaultRate"
-                :modality-label="(modalityOptions.find(o => o.value === form.modality)?.label ?? 'este servicio').toLowerCase()"
-                :items-count="items.length"
-              />
-
-              <!-- KYC banner -->
-              <p v-if="kycStatus && kycStatus !== 'APPROVED'" class="text-xs text-amber-700 font-medium bg-amber-50 px-3 py-2 rounded-xl">
-                Debes verificar tu identidad antes de solicitar un servicio.
-                <NuxtLink to="/verification" class="font-semibold underline" @click="$emit('update:modelValue', false)">Completa la verificación</NuxtLink>.
+              <p class="text-xs text-blue-700 bg-blue-50 px-3 py-2 rounded-xl">
+                Esta es una consulta inicial, no una contratación. El precio mostrado en el catálogo es referencial; las condiciones se acuerdan antes de formalizar el servicio.
               </p>
 
               <!-- Error -->
@@ -246,15 +173,15 @@
               <!-- Submit -->
               <button
                 type="submit"
-                :disabled="sending || (kycStatus !== undefined && kycStatus !== 'APPROVED')"
+                :disabled="sending"
                 class="w-full py-3.5 bg-blue-600 text-white font-black text-sm rounded-2xl hover:bg-blue-700 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-blue-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <span v-if="sending" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>{{ sending ? 'Enviando solicitud...' : 'Solicitar Servicio' }}</span>
+                <span>{{ sending ? 'Enviando consulta...' : 'Enviar consulta' }}</span>
               </button>
 
               <p class="text-center text-[11px] text-gray-400">
-                El proveedor recibirá tu solicitud y se pondrá en contacto contigo para coordinar los detalles.
+                El prestador recibirá tu consulta dentro de WorkPlace. No se crea una contratación ni se realiza ningún pago.
               </p>
             </form>
 
@@ -269,21 +196,8 @@
 import { ref, computed, watch } from 'vue'
 import { useApi } from '~/composables/core/useApi'
 import { useAuth } from '~/composables/auth/useAuth'
-import { useKyc } from '~/composables/kyc/useKyc'
-import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useCheckoutResume } from '~/composables/catalog/useCheckoutResume'
 import ServiceRequestModalHeader from '~/components/modals/catalog-service-request/ServiceRequestModalHeader.vue'
-import ServiceRequestItemEditor from '~/components/modals/catalog-service-request/ServiceRequestItemEditor.vue'
-import ServiceRequestPriceInfo from '~/components/modals/catalog-service-request/ServiceRequestPriceInfo.vue'
-import {
-  useServiceRequestItems,
-  emptyServiceRequestItem,
-  validatePhotoFile,
-  validateVideoFile,
-  MAX_PHOTOS_PER_ITEM,
-  MAX_VIDEOS_PER_ITEM,
-  type ServiceRequestItemForm,
-} from '~/composables/services/useServiceRequestItems'
 
 const props = defineProps<{
   modelValue: boolean
@@ -299,16 +213,7 @@ const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 const route = useRoute()
 const { user } = useAuth()
-const { myStatus: myKycStatus, fetchMyStatus: fetchMyKycStatus } = useKyc()
-const kycStatus = computed(() => myKycStatus.value?.kycStatus)
-const { defaultRate } = useExchangeRates()
 const { saveCheckoutDraft } = useCheckoutResume()
-
-const convertedPrice = computed(() => {
-  const price = props.service?.price
-  if (!price || !defaultRate.value) return null
-  return price * defaultRate.value.rateToUsd
-})
 
 const ALL_MODALITY_OPTIONS: Record<string, { label: string; emoji: string }> = {
   IN_PERSON: { label: 'Presencial', emoji: '📍' },
@@ -346,9 +251,7 @@ const defaultForm = () => ({
   preferredTime: '',
   address: '',
   city: providerCity.value || '',
-  clientName: user.value ? `${user.value.firstName} ${user.value.lastName}`.trim() : '',
   clientPhone: (user.value as any)?.phone ?? '',
-  clientEmail: user.value?.email ?? '',
   description: '',
 })
 
@@ -356,71 +259,12 @@ const form = ref(defaultForm())
 const sending = ref(false)
 const errorMsg = ref('')
 
-const { uploadMedia } = useServiceRequestItems()
-const itemFieldNames = computed(() => props.service?.itemFields ?? [])
-const items = ref<ServiceRequestItemForm[]>([])
-const itemErrors = ref<Record<number, string>>({})
-
-function addItem() {
-  items.value.push(emptyServiceRequestItem(itemFieldNames.value))
-}
-
-function removeItem(idx: number) {
-  items.value.splice(idx, 1)
-  delete itemErrors.value[idx]
-}
-
-async function onPhotosSelected(idx: number, e: Event) {
-  const input = e.target as HTMLInputElement
-  const files = Array.from(input.files ?? [])
-  input.value = ''
-  const item = items.value[idx]
-  if (!item) return
-  itemErrors.value[idx] = ''
-  for (const file of files) {
-    if (item.photoFiles.length >= MAX_PHOTOS_PER_ITEM) {
-      itemErrors.value[idx] = `Máximo ${MAX_PHOTOS_PER_ITEM} fotos por ítem`
-      break
-    }
-    const err = validatePhotoFile(file)
-    if (err) { itemErrors.value[idx] = err; continue }
-    item.photoFiles.push(file)
-  }
-}
-
-async function onVideosSelected(idx: number, e: Event) {
-  const input = e.target as HTMLInputElement
-  const files = Array.from(input.files ?? [])
-  input.value = ''
-  const item = items.value[idx]
-  if (!item) return
-  itemErrors.value[idx] = ''
-  for (const file of files) {
-    if (item.videoFiles.length >= MAX_VIDEOS_PER_ITEM) {
-      itemErrors.value[idx] = `Máximo ${MAX_VIDEOS_PER_ITEM} videos por ítem`
-      break
-    }
-    const err = await validateVideoFile(file)
-    if (err) { itemErrors.value[idx] = err; continue }
-    item.videoFiles.push(file)
-  }
-}
-
-function removePhoto(idx: number, fileIdx: number) {
-  items.value[idx]?.photoFiles.splice(fileIdx, 1)
-}
-
-function removeVideo(idx: number, fileIdx: number) {
-  items.value[idx]?.videoFiles.splice(fileIdx, 1)
-}
-
 const touched = ref<Record<string, boolean>>({})
 function touch(field: string) {
   touched.value[field] = true
 }
 
 const PHONE_REGEX = /^[+]?[\d\s()-]{7,20}$/
-const EMAIL_REGEX = /^\S+@\S+\.\S+$/
 
 const fieldErrors = computed(() => {
   const e: Record<string, string> = {}
@@ -431,20 +275,11 @@ const fieldErrors = computed(() => {
     today.setHours(0, 0, 0, 0)
     if (selected < today) e.preferredDate = 'La fecha no puede ser en el pasado'
   }
-  if (touched.value.preferredTime && !form.value.preferredTime) {
-    e.preferredTime = 'Selecciona una hora'
-  }
   if (touched.value.address && form.value.modality === 'IN_PERSON' && form.value.address.trim().length < 5) {
     e.address = 'Ingresa una dirección más detallada'
   }
-  if (touched.value.clientName && form.value.clientName.trim().length < 3) {
-    e.clientName = 'Ingresa tu nombre completo'
-  }
-  if (touched.value.clientPhone && !PHONE_REGEX.test(form.value.clientPhone.trim())) {
+  if (touched.value.clientPhone && form.value.clientPhone.trim() && !PHONE_REGEX.test(form.value.clientPhone.trim())) {
     e.clientPhone = 'Ingresa un teléfono válido'
-  }
-  if (touched.value.clientEmail && form.value.clientEmail && !EMAIL_REGEX.test(form.value.clientEmail.trim())) {
-    e.clientEmail = 'Ingresa un correo válido'
   }
   return e
 })
@@ -452,21 +287,16 @@ const fieldErrors = computed(() => {
 watch(() => props.service, () => {
   form.value = defaultForm()
   errorMsg.value = ''
-  items.value = []
-  itemErrors.value = {}
 })
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
     form.value.modality = modalityOptions.value[0]?.value ?? 'ANY'
-    fetchMyKycStatus()
   }
 })
 
 watch(() => user.value, (u) => {
   if (u) {
-    form.value.clientName = `${u.firstName} ${u.lastName}`.trim()
-    form.value.clientEmail = u.email ?? ''
     form.value.clientPhone = (u as any).phone ?? ''
   }
 }, { immediate: true })
@@ -479,11 +309,8 @@ function imageSrc(image: string) {
 function validateAll(): boolean {
   touched.value = {
     preferredDate: true,
-    preferredTime: true,
     address: true,
-    clientName: true,
     clientPhone: true,
-    clientEmail: true,
   }
 
   if (!form.value.preferredDate) {
@@ -501,8 +328,7 @@ function validateAll(): boolean {
   return true
 }
 
-// Guarda la selección actual (sin archivos — no son serializables a
-// sessionStorage) y redirige a login; se retoma automáticamente al volver.
+// Guarda la consulta inicial y redirige a login; se retoma al volver.
 function redirectToLoginAndResume() {
   if (!props.service) return
   saveCheckoutDraft({
@@ -521,69 +347,38 @@ async function submit() {
 
   if (!validateAll()) return
 
-  const hasFiles = items.value.some(i => i.photoFiles.length || i.videoFiles.length)
-
   if (!user.value) {
-    // Con archivos adjuntos no hay forma de preservarlos a través del
-    // redirect (no son serializables) — se le pide iniciar sesión antes de
-    // adjuntar en vez de perder silenciosamente lo que subió.
-    if (hasFiles) {
-      errorMsg.value = 'Debes iniciar sesión para adjuntar archivos a tu solicitud.'
-      return
-    }
     redirectToLoginAndResume()
     return
   }
 
   sending.value = true
   try {
-    const itemsPayload = []
-    for (const item of items.value) {
-      const photos = item.photoFiles.length ? await uploadMedia(item.photoFiles) : []
-      const videos = item.videoFiles.length ? await uploadMedia(item.videoFiles) : []
-      itemsPayload.push({
-        fields: item.fields,
-        notes: item.notes || undefined,
-        photos,
-        videos,
-      })
-    }
-
     const { post } = useApi()
-    await post('/services/requests', {
+    await post('/services/requests/inquiries', {
       serviceId: props.service.id,
-      serviceName: props.service.name,
-      providerId: props.service.user.id,
-      providerName: `${props.service.user.firstName} ${props.service.user.lastName}`,
       modality: form.value.modality,
-      preferredDate: form.value.preferredDate,
+      preferredDate: form.value.preferredDate || undefined,
       preferredTime: form.value.preferredTime || undefined,
       address: form.value.address || undefined,
       city: form.value.city || undefined,
-      clientName: form.value.clientName,
-      clientPhone: form.value.clientPhone,
-      clientEmail: form.value.clientEmail || undefined,
-      description: form.value.description || undefined,
-      price: props.service.price,
-      priceUnit: props.service.priceUnit || undefined,
-      items: itemsPayload,
+      clientPhone: form.value.clientPhone || undefined,
+      message: form.value.description || undefined,
     })
     emit('update:modelValue', false)
     emit('success')
     form.value = defaultForm()
     touched.value = {}
-    items.value = []
-    itemErrors.value = {}
   } catch (e: any) {
-    errorMsg.value = e?.message ?? 'No se pudo enviar la solicitud. Intenta de nuevo.'
+    errorMsg.value = e?.message ?? 'No se pudo enviar la consulta. Intenta de nuevo.'
   } finally {
     sending.value = false
   }
 }
 
 // Llamado por la página anfitriona cuando detecta un draft de solicitud
-// pendiente tras volver de /login — rellena el formulario pero deja que el
-// usuario confirme el envío con un click.
+// pendiente tras volver de /login — rellena el formulario para que el usuario
+// confirme el envío de la consulta con un click.
 function applyDraftForm(draftForm: Record<string, unknown>) {
   form.value = { ...form.value, ...draftForm } as typeof form.value
 }
