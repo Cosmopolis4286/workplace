@@ -25,7 +25,9 @@ describe('UsersService', () => {
       count: jest.fn(),
       findUniqueOrThrow: jest.fn(),
     },
-    refreshToken: { updateMany: jest.fn() },
+    refreshToken: {
+      updateMany: jest.fn(),
+    },
     userProfile: {
       create: jest.fn(),
       update: jest.fn(),
@@ -450,7 +452,7 @@ describe('UsersService', () => {
       mockPrismaService.refreshToken.updateMany.mockReset();
     });
 
-    it('suspends a user atomically, revokes refresh tokens and clears cached sessions', async () => {
+    it('revokes tokens and sessions when suspending a user', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-1',
         role: Role.NORMAL,
@@ -475,7 +477,7 @@ describe('UsersService', () => {
       );
     });
 
-    it('does not suspend the last active SUPERADMIN', async () => {
+    it('protects the last active SUPERADMIN', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'root-1',
         role: Role.SUPERADMIN,
@@ -490,7 +492,7 @@ describe('UsersService', () => {
       expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
     });
 
-    it('rejects stale concurrent status changes instead of overwriting them', async () => {
+    it('rejects stale status updates', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-2',
         role: Role.NORMAL,
