@@ -89,7 +89,9 @@ describe('PermissionsService', () => {
         key: 'orders:view',
         isSystem: false,
       });
-      mockPrisma.rolePermission.findUnique.mockResolvedValue({ granted: false });
+      mockPrisma.rolePermission.findUnique.mockResolvedValue({
+        granted: false,
+      });
       mockPrisma.rolePermission.upsert.mockResolvedValue({ granted: true });
 
       await service.togglePermission(
