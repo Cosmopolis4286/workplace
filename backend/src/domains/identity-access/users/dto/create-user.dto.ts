@@ -47,7 +47,7 @@ export class CreateUserDto {
   // caso (validado en el service, no acá, porque depende de otro campo).
   @IsIn([ProfileType.BUSINESS, ProfileType.PROFESSIONAL])
   @IsOptional()
-  businessProfileType?: ProfileType.BUSINESS | ProfileType.PROFESSIONAL;
+  businessProfileType?: 'BUSINESS' | 'PROFESSIONAL';
 
   @IsEnum(ProfessionalSubtype)
   @IsOptional()
