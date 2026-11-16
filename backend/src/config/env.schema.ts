@@ -83,6 +83,12 @@ export type Env = z.infer<typeof envSchema>;
  * servicio): se avisa al arrancar y app-config.ts usa su valor por defecto.
  */
 export const optionalEnvSchema = z.object({
+  // Proveedor SMS y OTP: opcionales hasta completar la configuración de Messangi.
+  MESSANGI_SMS_ENABLED: featureFlag,
+  MESSANGI_API_KEY: blankAsUndefined(z.string().min(1)),
+  MESSANGI_SMS_FROM: blankAsUndefined(z.string().min(1)),
+  PHONE_OTP_SECRET: blankAsUndefined(z.string().min(32)),
+
   // Interruptores (ver src/config/app-config.ts → features). Un valor como
   // 'yes' o 'TRUE' antes contaba como apagado sin avisar.
   PROTECTED_PAYMENTS_ENABLED: featureFlag,
