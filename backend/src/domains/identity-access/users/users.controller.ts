@@ -96,7 +96,7 @@ export class UsersController {
       subcategoryId,
       search,
       profileKind,
-      isActive: status === 'ACTIVE' ? true : status === 'INACTIVE' ? false : undefined,
+      isActive: parseUserStatus(status),
     });
   }
 
