@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
   security-events: write
   actions: read        # upload-sarif lee el workflow run
   pull-requests: write # comentario con el resumen en el PR
@@ -37,8 +37,6 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
     - uses: actions/checkout@v7
-      with:
-        ref: ${{ github.event.pull_request.head.ref }}
 
     - uses: ./.github/actions/setup-node-pnpm
       with:
@@ -60,14 +58,6 @@ jobs:
     - name: Sin campos Float nuevos
       run: cd backend && pnpm schema:float-check
 
-    - name: Aplicar formato Prettier y publicar corrección
-      run: |
-        pnpm exec prettier --config backend/.prettierrc --write backend/src/domains/commerce-core/services/services.service.ts backend/src/test/unit/services.service.test.ts
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add backend/src/domains/commerce-core/services/services.service.ts backend/src/test/unit/services.service.test.ts
-        git commit -m "style(servicios): aplicar formato Prettier" || echo "Sin cambios de formato"
-        git push origin HEAD:refs/heads/feat/consultas-preliminares-servicios
     - name: Format check
       run: cd backend && pnpm format:check
 
