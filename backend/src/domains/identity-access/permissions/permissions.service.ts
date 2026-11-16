@@ -464,7 +464,13 @@ export class PermissionsService implements PermissionsFacade {
   ) {
     const ids = [...new Set(updates.map((u) => u.permissionId))];
     const beforeRows = await this.prisma.profilePermission.findMany({
-      where: { permissionId: { in: ids } },
+      where: {
+        permissionId: { in: ids },
+        OR: updates.map((update) => ({
+          profileType: update.profileType,
+          subtype: update.subtype ?? null,
+        })),
+      },
       select: {
         profileType: true,
         subtype: true,
