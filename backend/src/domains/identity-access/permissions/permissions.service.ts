@@ -51,6 +51,7 @@ export class PermissionsService implements PermissionsFacade {
   private async recordPermissionChange(params: {
     actorId: string;
     scope: 'role' | 'profile' | 'user' | 'permission';
+    action?: AuditAction;
     target: Record<string, unknown>;
     before: unknown;
     after: unknown;
@@ -58,9 +59,16 @@ export class PermissionsService implements PermissionsFacade {
   }): Promise<void> {
     await this.auditService.log({
       userId: params.actorId,
-      action: AuditAction.UPDATE,
+      action: params.action ?? AuditAction.UPDATE,
       module: 'permisos',
-      entityId: String(params.target.id ?? params.target.permissionId ?? params.target.userId ?? params.target.role ?? params.target.profileType ?? 'rbac'),
+      entityId: String(
+        params.target.id ??
+          params.target.permissionId ??
+          params.target.userId ??
+          params.target.role ??
+          params.target.profileType ??
+          'rbac'
+      ),
       summary: `Cambio de permisos (${params.scope})`,
       details: {
         eventType: 'RBAC_PERMISSION_CHANGED',
@@ -433,7 +441,12 @@ export class PermissionsService implements PermissionsFacade {
     await this.recordPermissionChange({
       actorId: updatedBy,
       scope: 'profile',
-      target: { profileType, subtype: subtype ?? null, permissionId, permissionKey: perm.key },
+      target: {
+        profileType,
+        subtype: subtype ?? null,
+        permissionId,
+        permissionKey: perm.key,
+      },
       before: existing ? { granted: existing.granted } : null,
       after: { granted },
     });
@@ -452,12 +465,19 @@ export class PermissionsService implements PermissionsFacade {
     const ids = [...new Set(updates.map((u) => u.permissionId))];
     const beforeRows = await this.prisma.profilePermission.findMany({
       where: { permissionId: { in: ids } },
-      select: { profileType: true, subtype: true, permissionId: true, granted: true },
+      select: {
+        profileType: true,
+        subtype: true,
+        permissionId: true,
+        granted: true,
+      },
     });
-    const beforeMap = new Map(beforeRows.map((row) => [
-      `${row.profileType}:${row.subtype ?? 'none'}:${row.permissionId}`,
-      row.granted,
-    ]));
+    const beforeMap = new Map(
+      beforeRows.map((row) => [
+        `${row.profileType}:${row.subtype ?? 'none'}:${row.permissionId}`,
+        row.granted,
+      ])
+    );
     const systemPerms = await this.prisma.permission.findMany({
       where: { id: { in: ids }, isSystem: true },
     });
@@ -515,7 +535,10 @@ export class PermissionsService implements PermissionsFacade {
         profileType: u.profileType,
         subtype: u.subtype ?? null,
         permissionId: u.permissionId,
-        granted: beforeMap.get(`${u.profileType}:${u.subtype ?? 'none'}:${u.permissionId}`) ?? null,
+        granted:
+          beforeMap.get(
+            `${u.profileType}:${u.subtype ?? 'none'}:${u.permissionId}`
+          ) ?? null,
       })),
       after: updates.map((u) => ({ ...u, subtype: u.subtype ?? null })),
     });
@@ -654,7 +677,12 @@ export class PermissionsService implements PermissionsFacade {
       await this.recordPermissionChange({
         actorId: createdBy,
         scope: 'permission',
-        target: { id: permission.id, permissionId: permission.id, permissionKey: permission.key },
+        action: AuditAction.CREATE,
+        target: {
+          id: permission.id,
+          permissionId: permission.id,
+          permissionKey: permission.key,
+        },
         before: null,
         after: {
           key: permission.key,
@@ -696,7 +724,12 @@ export class PermissionsService implements PermissionsFacade {
       await this.recordPermissionChange({
         actorId: deletedBy,
         scope: 'permission',
-        target: { id: perm.id, permissionId: perm.id, permissionKey: perm.key },
+        action: AuditAction.DELETE,
+        target: {
+          id: perm.id,
+          permissionId: perm.id,
+          permissionKey: perm.key,
+        },
         before: {
           key: perm.key,
           module: perm.module,
@@ -724,7 +757,12 @@ export class PermissionsService implements PermissionsFacade {
       where: { role: { in: roles }, permissionId: { in: ids } },
       select: { role: true, permissionId: true, granted: true },
     });
-    const beforeMap = new Map(beforeRows.map((row) => [`${row.role}:${row.permissionId}`, row.granted]));
+    const beforeMap = new Map(
+      beforeRows.map((row) => [
+        `${row.role}:${row.permissionId}`,
+        row.granted,
+      ])
+    );
     const systemPerms = await this.prisma.permission.findMany({
       where: { id: { in: ids }, isSystem: true },
     });
@@ -756,7 +794,10 @@ export class PermissionsService implements PermissionsFacade {
       actorId: updatedBy,
       scope: 'role',
       target: { batch: true, count: updates.length, roles },
-      before: updates.map((u) => ({ ...u, granted: beforeMap.get(`${u.role}:${u.permissionId}`) ?? null })),
+      before: updates.map((u) => ({
+        ...u,
+        granted: beforeMap.get(`${u.role}:${u.permissionId}`) ?? null,
+      })),
       after: updates,
     });
 
@@ -1014,7 +1055,9 @@ export class PermissionsService implements PermissionsFacade {
     }
 
     const existing = await this.prisma.userPermission.findUnique({
-      where: { userId_permissionId: { userId, permissionId: dto.permissionId } },
+      where: {
+        userId_permissionId: { userId, permissionId: dto.permissionId },
+      },
       select: { granted: true, reason: true, expiresAt: true },
     });
     const userPerm = await this.prisma.userPermission.upsert({
@@ -1042,9 +1085,17 @@ export class PermissionsService implements PermissionsFacade {
     await this.recordPermissionChange({
       actorId: admin.id,
       scope: 'user',
-      target: { userId, permissionId: dto.permissionId, permissionKey: perm.key },
+      target: {
+        userId,
+        permissionId: dto.permissionId,
+        permissionKey: perm.key,
+      },
       before: existing,
-      after: { granted: userPerm.granted, reason: userPerm.reason, expiresAt: userPerm.expiresAt },
+      after: {
+        granted: userPerm.granted,
+        reason: userPerm.reason,
+        expiresAt: userPerm.expiresAt,
+      },
       reason: dto.reason,
     });
 
