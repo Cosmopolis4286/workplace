@@ -37,6 +37,7 @@ import { AcceptLeadFeeDto } from './dto/accept-lead-fee.dto';
 import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
 import { RejectPriceChangeProposalDto } from './dto/reject-price-change-proposal.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RateLimit } from '../../../common/guards/rate-limit.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
@@ -359,6 +360,11 @@ export class ServicesController {
   // permite retener fondos; el KYC sigue siendo obligatorio en /requests.
   @Post('requests/inquiries')
   @UseGuards(JwtAuthGuard)
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 10,
+    keyGenerator: (req) => `service-inquiries:create:${req.ip}`,
+  })
   createServiceInquiry(
     @Body() dto: CreateServiceInquiryDto,
     @CurrentUser() user: any
@@ -367,7 +373,12 @@ export class ServicesController {
   }
 
   @Patch('requests/inquiries/:id/respond')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuth)
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 20,
+    keyGenerator: (req) => `service-inquiries:respond:${req.ip}`,
+  })
   respondToServiceInquiry(
     @Param('id') id: string,
     @Body() dto: RespondServiceInquiryDto,
