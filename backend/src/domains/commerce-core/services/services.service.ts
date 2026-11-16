@@ -811,7 +811,9 @@ export class ServicesService {
       data: { providerResponse: dto.response.trim(), status: 'RESPONDED' },
     });
     if (updated.count !== 1) {
-      throw new ConflictException('La consulta cambió; actualiza e intenta de nuevo');
+      throw new ConflictException(
+        'La consulta cambió; actualiza e intenta de nuevo'
+      );
     }
     return this.prisma.serviceInquiry.findUnique({
       where: { id: inquiryId },
@@ -888,7 +890,9 @@ export class ServicesService {
       );
     }
     const providerId = service.userId;
-    const providerName = `${service.user.firstName} ${service.user.lastName}`.trim();
+    const providerName = `${service.user.firstName} ${
+      service.user.lastName
+    }`.trim();
     if (requesterId === providerId) {
       throw new BadRequestException('No puedes solicitar tu propio servicio');
     }
