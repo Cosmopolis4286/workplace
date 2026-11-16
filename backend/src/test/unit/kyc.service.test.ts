@@ -3,36 +3,47 @@ import { KycService } from '../../domains/identity-access/kyc/kyc.service';
 import { KycStatus } from '@prisma/client';
 
 describe('KycService submission concurrency', () => {
-  it('rejects a duplicate submission when another request claims the account first', async () => {
-    const tx = {
-      user: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
-      identityVerification: { create: jest.fn() },
-    };
-    const prisma = {
-      user: { findUnique: jest.fn().mockResolvedValue({ kycStatus: KycStatus.REJECTED }) },
-      $transaction: jest.fn(
-        (callback: (client: typeof tx) => unknown) => callback(tx)
-      ),
-    };
-    const audit = { log: jest.fn() };
-    const service = new KycService(
-      prisma as any,
-      { del: jest.fn() } as any,
-      { sendKycStatusUpdate: jest.fn() } as any,
-      audit as any
-    );
+  it(
+    'rejects a duplicate submission when another request claims the account first',
+    async () => {
+      const tx = {
+        user: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+        identityVerification: { create: jest.fn() },
+      };
+      const prisma = {
+        user: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ kycStatus: KycStatus.REJECTED }),
+        },
+        $transaction: jest.fn(
+          (callback: (client: typeof tx) => unknown) => callback(tx)
+        ),
+      };
+      const audit = { log: jest.fn() };
+      const service = new KycService(
+        prisma as any,
+        { del: jest.fn() } as any,
+        { sendKycStatusUpdate: jest.fn() } as any,
+        audit as any
+      );
 
-    await expect(
-      service.submit(
-        'user-1',
-        { documentType: 'CEDULA', documentNumber: 'V12345678', fullName: 'Usuario' } as any,
-        { frontImageUrl: '/uploads/kyc/front.jpg', selfieImageUrl: '/uploads/kyc/selfie.jpg' }
-      )
-    ).rejects.toBeInstanceOf(ConflictException);
+      await expect(
+        service.submit(
+          'user-1',
+          {
+            documentType: 'CEDULA',
+            documentNumber: 'V12345678',
+            fullName: 'Usuario',
+          } as any,
+          { frontImageUrl: 'front-file', selfieImageUrl: 'selfie-file' }
+        )
+      ).rejects.toBeInstanceOf(ConflictException);
 
-    expect(tx.identityVerification.create).not.toHaveBeenCalled();
-    expect(audit.log).not.toHaveBeenCalled();
-  });
+      expect(tx.identityVerification.create).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe('KycService review concurrency', () => {
