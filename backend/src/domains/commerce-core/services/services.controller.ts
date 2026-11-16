@@ -373,7 +373,7 @@ export class ServicesController {
   }
 
   @Patch('requests/inquiries/:id/respond')
-  @UseGuards(JwtAuth)
+  @UseGuards(JwtAuthGuard)
   @RateLimit({
     windowMs: 60_000,
     maxRequests: 20,
