@@ -1020,7 +1020,14 @@ export class ServicesService {
   private static readonly VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
     PENDING: ['SEEN', 'CONTACTED', 'REJECTED', 'CANCELLED'],
     SEEN: ['CONTACTED', 'REJECTED', 'CANCELLED'],
-    CONTACTED: [],
+    CONTACTED: ['SCHEDULED', 'PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING'],
+    SCHEDULED: ['PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING'],
+    PREPARING: ['SCHEDULED', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING'],
+    ON_THE_WAY: ['IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING'],
+    IN_PROGRESS: ['ON_THE_WAY', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING'],
+    PAUSED: ['SCHEDULED', 'PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'AWAITING_DELIVERY', 'COMPLETION_PENDING'],
+    AWAITING_DELIVERY: ['IN_PROGRESS', 'PAUSED', 'COMPLETION_PENDING'],
+    COMPLETION_PENDING: ['IN_PROGRESS', 'AWAITING_DELIVERY'],
     CLOSED: [],
     CANCELLED: [],
     REJECTED: [],
@@ -1057,6 +1064,10 @@ export class ServicesService {
       providerNotes?: string;
       price?: number;
       priceUnit?: string;
+      estimatedStartAt?: string;
+      estimatedCompletionAt?: string;
+      statusReason?: string;
+      etaReason?: string;
     }
   ) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
@@ -1064,6 +1075,17 @@ export class ServicesService {
     if (req.providerId !== userId)
       throw new ForbiddenException('No tienes permiso');
     const update: any = {};
+    const nextStart = data.estimatedStartAt !== undefined
+      ? new Date(data.estimatedStartAt)
+      : req.estimatedStartAt;
+    const nextCompletion = data.estimatedCompletionAt !== undefined
+      ? new Date(data.estimatedCompletionAt)
+      : req.estimatedCompletionAt;
+    if (nextStart && nextCompletion && nextCompletion < nextStart) {
+      throw new BadRequestException('La fecha estimada de finalización debe ser posterior al inicio');
+    }
+    if (data.estimatedStartAt !== undefined) update.estimatedStartAt = nextStart;
+    if (data.estimatedCompletionAt !== undefined) update.estimatedCompletionAt = nextCompletion;
     if (data.status !== undefined) {
       // CANCELLED is client-only — provider cannot cancel on behalf of the client
       if (data.status === 'CANCELLED')
@@ -1190,6 +1212,25 @@ export class ServicesService {
       data: update,
     });
 
+    const etaChanged =
+      data.estimatedStartAt !== undefined &&
+      new Date(data.estimatedStartAt).getTime() !== (req.estimatedStartAt?.getTime?.() ?? null) ||
+      data.estimatedCompletionAt !== undefined &&
+      new Date(data.estimatedCompletionAt).getTime() !== (req.estimatedCompletionAt?.getTime?.() ?? null);
+    if (etaChanged) {
+      await this.prisma.serviceRequestEtaHistory.create({
+        data: {
+          serviceRequestId: id,
+          previousEstimatedStartAt: req.estimatedStartAt ?? null,
+          newEstimatedStartAt: update.estimatedStartAt ?? req.estimatedStartAt ?? null,
+          previousEstimatedCompletionAt: req.estimatedCompletionAt ?? null,
+          newEstimatedCompletionAt: update.estimatedCompletionAt ?? req.estimatedCompletionAt ?? null,
+          reason: data.etaReason?.trim() || null,
+          changedBy: userId,
+        },
+      });
+    }
+
     if (data.status !== undefined && data.status !== req.status) {
       await this.prisma.serviceRequestStatusHistory.create({
         data: {
@@ -1197,16 +1238,17 @@ export class ServicesService {
           previousStatus: req.status,
           newStatus: data.status as any,
           changedBy: userId,
+          reason: data.statusReason?.trim() || null,
         },
       });
 
-      if (req.requesterId && ['SEEN', 'CONTACTED'].includes(data.status)) {
+      if (req.requesterId && ['SEEN', 'CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING'].includes(data.status)) {
         this.notifications
           .notifyServiceRequestStatusChanged(
             req.requesterId,
             req.providerName,
             req.serviceName,
-            data.status as 'SEEN' | 'CONTACTED'
+            data.status as any
           )
           .catch(() => {});
       }
@@ -1243,6 +1285,18 @@ export class ServicesService {
             .catch(() => {});
         }
       }
+    }
+
+    if (etaChanged && req.requesterId) {
+      this.notifications
+        .notifyServiceRequestEtaChanged(
+          req.requesterId,
+          req.providerName,
+          req.serviceName,
+          update.estimatedStartAt ?? req.estimatedStartAt ?? null,
+          update.estimatedCompletionAt ?? req.estimatedCompletionAt ?? null
+        )
+        .catch(() => {});
     }
 
     return withClientContactForViewer(updated, userId);
