@@ -10,12 +10,14 @@ jest.mock('axios');
 describe('PhoneVerificationService', () => {
   let service: PhoneVerificationService;
   let challenge: string | null;
+
   const prisma = {
     user: {
       findFirst: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({}),
     },
   };
+
   const redis = {
     incrWithExpire: jest.fn().mockResolvedValue(1),
     setex: jest.fn().mockImplementation(async (_key, _ttl, value) => {
@@ -26,6 +28,7 @@ describe('PhoneVerificationService', () => {
       if (key.includes(':challenge:')) challenge = null;
     }),
   };
+
   const config = {
     get: jest.fn((key: string) => {
       const values: Record<string, string> = {
@@ -65,12 +68,18 @@ describe('PhoneVerificationService', () => {
         type: 'MT',
       }),
       expect.objectContaining({
-        headers: { Authorization: 'Bearer test-api-key', Accept: 'application/json', 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: 'Bearer test-api-key',
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
       })
     );
-    expect(challenge).not.toContain(
-      (axios.post as jest.Mock).mock.calls[0][1].text.match(/\d{6}/)?.[0]
-    );
+
+    const sentCode = (axios.post as jest.Mock).mock.calls[0][1].text.match(
+      /\d{6}/
+    )?.[0];
+    expect(challenge).not.toContain(sentCode);
   });
 
   it('marks the phone verified only after a valid code', async () => {
@@ -85,7 +94,10 @@ describe('PhoneVerificationService', () => {
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      data: { phone: '+584121234567', phoneVerifiedAt: expect.any(Date) },
+      data: {
+        phone: '+584121234567',
+        phoneVerifiedAt: expect.any(Date),
+      },
     });
   });
 
