@@ -180,8 +180,6 @@ export class NotificationsService {
     estimatedStartAt: Date | null,
     estimatedCompletionAt: Date | null
   ) {
-    const format = (value: Date | null) =>
-      value ? value.toISOString() : 'Sin estimación';
     return this.createForUser(
       clientId,
       {
