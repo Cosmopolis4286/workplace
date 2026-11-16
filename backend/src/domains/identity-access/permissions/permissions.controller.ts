@@ -22,7 +22,10 @@ import { UpdateProfilePermissionDto } from './dto/update-profile-permission.dto'
 import { BulkUpdateProfilePermissionsDto } from './dto/bulk-update-profile-permissions.dto';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdateUserPermissionDto } from './dto/update-user-permission.dto';
-import { assignableRolesFor } from '../../../common/utils/role-hierarchy.util';
+import {
+  assignableRolesFor,
+  canAssignRole,
+} from '../../../common/utils/role-hierarchy.util';
 
 @Controller('permissions')
 @UseGuards(JwtAuthGuard)
@@ -61,13 +64,12 @@ export class PermissionsController {
     @Body() dto: UpdateRolePermissionDto,
     @CurrentUser() user: { id: string; role: Role }
   ) {
-    // ADMIN no puede modificar permisos de SUPERADMIN ni permisos de sistema
-    if (user.role === Role.ADMIN) {
-      if (dto.role === Role.SUPERADMIN) {
-        throw new ForbiddenException(
-          'No puedes modificar permisos de SUPERADMIN'
-        );
-      }
+    // La matriz es global: un ADMIN no puede cambiar su propio rol ni
+    // roles de mayor privilegio, aunque el permiso no sea isSystem.
+    if (!canAssignRole(user.role, dto.role)) {
+      throw new ForbiddenException(
+        'No puedes modificar permisos de un rol de igual o mayor privilegio'
+      );
     }
     return this.permissionsService.togglePermission(
       dto.role,
@@ -85,9 +87,15 @@ export class PermissionsController {
     @Body() dto: CreatePermissionDto,
     @CurrentUser() user: { id: string; role: Role }
   ) {
-    // ADMIN solo puede crear permisos no-sistema
+    // ADMIN solo puede crear permisos no-sistema y concederlos a roles
+    // de menor privilegio. Evita auto-escalada mediante grantedRoles.
     if (user.role === Role.ADMIN && dto.isSystem) {
       throw new ForbiddenException('No puedes crear permisos de sistema');
+    }
+    if (dto.grantedRoles?.some((role) => !canAssignRole(user.role, role))) {
+      throw new ForbiddenException(
+        'No puedes conceder permisos a un rol de igual o mayor privilegio'
+      );
     }
     return this.permissionsService.createPermission(dto, user.id);
   }
@@ -112,16 +120,12 @@ export class PermissionsController {
     @Body() dto: BulkUpdateRolePermissionsDto,
     @CurrentUser() user: { id: string; role: Role }
   ) {
-    // ADMIN no puede modificar permisos de SUPERADMIN
-    if (user.role === Role.ADMIN) {
-      const hasSuperAdminChanges = dto.updates.some(
-        (u) => u.role === Role.SUPERADMIN
+    // Validar cada destino antes de ejecutar el lote completo: no permitir
+    // que ADMIN modifique su propio rol ni roles de mayor privilegio.
+    if (dto.updates.some((u) => !canAssignRole(user.role, u.role))) {
+      throw new ForbiddenException(
+        'No puedes modificar permisos de un rol de igual o mayor privilegio'
       );
-      if (hasSuperAdminChanges) {
-        throw new ForbiddenException(
-          'No puedes modificar permisos de SUPERADMIN'
-        );
-      }
     }
     return this.permissionsService.bulkUpdate(dto.updates, user.id);
   }
