@@ -940,7 +940,11 @@ export class UsersService {
     const activity = await this.prisma.auditLog.findMany({
       where: {
         module: { in: ['users', 'kyc', 'account', 'auth'] },
-        OR: [{ userId: id }, { entityId: id }],
+        OR: [
+          { userId: id },
+          { entityId: id },
+          { details: { path: ['targetUserId'], equals: id } },
+        ],
       },
       orderBy: { createdAt: 'desc' },
       take: 30,
@@ -952,7 +956,6 @@ export class UsersService {
         action: true,
         module: true,
         summary: true,
-        details: true,
         statusCode: true,
         createdAt: true,
       },
