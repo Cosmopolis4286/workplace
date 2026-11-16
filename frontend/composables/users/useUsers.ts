@@ -45,6 +45,7 @@ export interface UserListFilters {
   subcategoryFilter?: string
   search?: string
   profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER' | ''
+  statusFilter?: 'ACTIVE' | 'INACTIVE' | ''
 }
 
 export interface UsersStats {
@@ -72,6 +73,7 @@ function buildFilterParams(filters: Omit<UserListFilters, 'page' | 'limit'>) {
   if (filters.subcategoryFilter) params.set('subcategoryId', filters.subcategoryFilter)
   if (filters.search) params.set('search', filters.search)
   if (filters.profileKind) params.set('profileKind', filters.profileKind)
+  if (filters.statusFilter) params.set('status', filters.statusFilter)
   return params
 }
 
