@@ -1,9 +1,17 @@
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PhoneVerificationService } from '../../domains/identity-access/auth/phone-verification.service';
-import { MessangiSmsProvider } from '../../domains/identity-access/auth/messangi-sms.provider';
-import { PrismaService } from '../../prisma/prisma.service';
-import { RedisService } from '../../redis/redis.service';
+import {
+  PhoneVerificationService,
+} from '../../domains/identity-access/auth/phone-verification.service';
+import {
+  MessangiSmsProvider,
+} from '../../domains/identity-access/auth/messangi-sms.provider';
+import {
+  PrismaService,
+} from '../../prisma/prisma.service';
+import {
+  RedisService,
+} from '../../redis/redis.service';
 
 describe('PhoneVerificationService', () => {
   let service: PhoneVerificationService;
@@ -49,7 +57,7 @@ describe('PhoneVerificationService', () => {
       prisma as unknown as PrismaService,
       redis as unknown as RedisService,
       config as unknown as ConfigService,
-      smsProvider as unknown as MessangiSmsProvider
+      smsProvider as unknown as MessangiSmsProvider,
     );
   });
 
@@ -70,9 +78,7 @@ describe('PhoneVerificationService', () => {
       })
     );
 
-    const sentCode = smsProvider.send.mock.calls[0][0].text.match(
-      /\d{6}/
-    )?.[0];
+    const sentCode = smsProvider.send.mock.calls[0][0].text.match(/\d{6}/)?.[0];
     expect(challenge).not.toContain(sentCode);
   });
 
