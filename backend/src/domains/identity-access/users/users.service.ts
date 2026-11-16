@@ -400,6 +400,17 @@ export class UsersService {
       }
     }
 
+    const currentPhone =
+      dto.phone !== undefined
+        ? await this.prisma.user.findUnique({
+            where: { id },
+            select: { phone: true },
+          })
+        : null;
+    const phoneChanged =
+      dto.phone !== undefined &&
+      (dto.phone || null) !== (currentPhone?.phone ?? null);
+
     let user;
     try {
       user = await this.prisma.$transaction(async (tx) => {
@@ -410,6 +421,8 @@ export class UsersService {
             ...(dto.lastName !== undefined && { lastName: dto.lastName }),
             ...(dto.email !== undefined && { email: dto.email }),
             ...(dto.phone !== undefined && { phone: dto.phone || null }),
+          ...(phoneChanged && { phoneVerifiedAt: null }),
+            ...(phoneChanged && { phoneVerifiedAt: null }),
             ...(dto.role !== undefined && { role: dto.role }),
             ...(dto.isActive !== undefined && { isActive: dto.isActive }),
             ...(dto.categoryId !== undefined && {
@@ -838,6 +851,14 @@ export class UsersService {
 
   async updateProfile(id: string, dto: UpdateProfileDto) {
     let previousEmail: string | undefined;
+    let phoneChanged = false;
+    if (dto.phone !== undefined) {
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id },
+        select: { phone: true },
+      });
+      phoneChanged = (dto.phone || null) !== (currentUser?.phone ?? null);
+    }
     if (dto.email) {
       const existing = await this.prisma.user.findUnique({
         where: { email: dto.email },
