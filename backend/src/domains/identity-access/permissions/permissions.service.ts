@@ -22,8 +22,6 @@ const cacheKey = (role: Role) => `permissions:role:${role}`;
 // Corto a propósito: un cambio en los permisos del ROL (togglePermission/
 // bulkUpdate) no invalida estas claves por-usuario, así que el TTL acota el
 // staleness en vez de depender de invalidación explícita en ese camino.
-const userPermissionsCacheKey = (userId: string) =>
-  `permissions:user:${userId}`;
 const userOverridesCacheKey = (userId: string) =>
   `permissions:overrides:user:${userId}`;
 const userVersionKey = (userId: string) => `permissions:version:user:${userId}`;
@@ -218,6 +216,22 @@ export class PermissionsService implements PermissionsFacade {
     return { keys, category, subcategory, version, userSpecific };
   }
 
+  // Invalida la caché de un perfil y fuerza a sus usuarios activos a recargar
+  // permisos. La versión se consulta desde Nuxt para sincronizar la UI sin
+  // esperar el TTL de Redis.
+  private async invalidateProfilePermissionsCache(
+    type: ProfileType,
+    subtype: ProfessionalSubtype | null
+  ): Promise<void> {
+    await this.redis.del(profileCacheKey(type, subtype));
+    const activeProfiles = await this.prisma.userProfile.findMany({
+      where: { status: ProfileStatus.ACTIVE, type, subtype },
+      select: { userId: true },
+    });
+    const userIds = [...new Set((activeProfiles ?? []).map((p) => p.userId))];
+    await Promise.all(userIds.map((userId) => this.bumpUserVersion(userId)));
+  }
+
   // Llamar cuando se modifiquen permisos del rol para invalidar cache de clientes
   async invalidateRoleVersion(role: Role): Promise<void> {
     const newVersion = Date.now().toString();
@@ -377,7 +391,7 @@ export class PermissionsService implements PermissionsFacade {
       });
     }
 
-    await this.redis.del(profileCacheKey(profileType, subtype));
+    await this.invalidateProfilePermissionsCache(profileType, subtype);
     return { success: true };
   }
 
@@ -436,7 +450,7 @@ export class PermissionsService implements PermissionsFacade {
     );
     await Promise.all(
       Array.from(uniqueKeys.values()).map((k) =>
-        this.redis.del(profileCacheKey(k.profileType, k.subtype))
+        this.invalidateProfilePermissionsCache(k.profileType, k.subtype)
       )
     );
 
@@ -473,6 +487,9 @@ export class PermissionsService implements PermissionsFacade {
     granted: boolean,
     updatedBy: string
   ) {
+    if (role === Role.SUPERADMIN) {
+      throw new ForbiddenException('El rol SUPERADMIN está protegido');
+    }
     const perm = await this.prisma.permission.findUniqueOrThrow({
       where: { id: permissionId },
     });
@@ -548,6 +565,10 @@ export class PermissionsService implements PermissionsFacade {
       skipDuplicates: true,
     });
 
+    // Un permiso nuevo puede nacer concedido a roles seleccionados.
+    await Promise.all(
+      [...grantedSet].map((role) => this.invalidateRoleVersion(role))
+    );
     return permission;
   }
 
@@ -570,9 +591,9 @@ export class PermissionsService implements PermissionsFacade {
 
     // Invalidate all role + profile caches
     await Promise.all([
-      ...Object.values(Role).map((r) => this.redis.del(cacheKey(r))),
+      ...Object.values(Role).map((r) => this.invalidateRoleVersion(r)),
       ...PermissionsService.PROFILE_MATRIX_KEYS.map((k) =>
-        this.redis.del(profileCacheKey(k.profileType, k.subtype))
+        this.invalidateProfilePermissionsCache(k.profileType, k.subtype)
       ),
     ]);
     return { success: true };
@@ -584,6 +605,9 @@ export class PermissionsService implements PermissionsFacade {
     updates: Array<{ role: Role; permissionId: string; granted: boolean }>,
     updatedBy: string
   ) {
+    if (updates.some((u) => u.role === Role.SUPERADMIN)) {
+      throw new ForbiddenException('El rol SUPERADMIN está protegido');
+    }
     const ids = [...new Set(updates.map((u) => u.permissionId))];
     const systemPerms = await this.prisma.permission.findMany({
       where: { id: { in: ids }, isSystem: true },
@@ -612,7 +636,7 @@ export class PermissionsService implements PermissionsFacade {
     );
 
     const roles = [...new Set(updates.map((u) => u.role))];
-    await Promise.all(roles.map((r) => this.redis.del(cacheKey(r))));
+    await Promise.all(roles.map((r) => this.invalidateRoleVersion(r)));
 
     return { success: true, updated: updates.length };
   }
@@ -630,9 +654,6 @@ export class PermissionsService implements PermissionsFacade {
   }
 
   async getUserPermissions(userId: string) {
-    const cached = await this.redis.get(userPermissionsCacheKey(userId));
-    if (cached) return JSON.parse(cached);
-
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -659,6 +680,11 @@ export class PermissionsService implements PermissionsFacade {
       where: { role: user.role, granted: true },
       include: { permission: true },
     });
+
+    // Los permisos efectivos también incluyen la unión de todos los perfiles
+    // activos. El detalle administrativo debe reflejar exactamente lo que
+    // PermissionsGuard autoriza, no solo rol + excepciones individuales.
+    const profileKeys = new Set(await this.getActiveProfilePermissions(userId));
 
     // Obtener permisos individuales del usuario
     const userPermissions = await this.prisma.userPermission.findMany({
@@ -687,14 +713,20 @@ export class PermissionsService implements PermissionsFacade {
 
     const permissions = allPermissions.map((p) => {
       const hasRolePermission = rolePermMap.has(p.id);
+      const hasProfilePermission = profileKeys.has(p.key);
       const userPerm = userPermMap.get(p.id);
+      const hasActiveUserOverride =
+        !!userPerm && (!userPerm.expiresAt || userPerm.expiresAt > new Date());
 
-      let effectiveGranted = hasRolePermission;
-      let source: 'role' | 'user' | 'none' = hasRolePermission
+      let effectiveGranted = hasRolePermission || hasProfilePermission;
+      let source: 'role' | 'profile' | 'user' | 'none' = hasRolePermission
         ? 'role'
-        : 'none';
+        : hasProfilePermission
+          ? 'profile'
+          : 'none';
 
-      if (userPerm) {
+      // Un override vencido deja de existir: vuelve a aplicar rol/perfil.
+      if (hasActiveUserOverride) {
         effectiveGranted = userPerm.isGranted;
         source = 'user';
       }
@@ -707,10 +739,11 @@ export class PermissionsService implements PermissionsFacade {
         label: p.label,
         isSystem: p.isSystem,
         roleGranted: hasRolePermission,
-        userGranted: userPerm?.granted ?? null,
-        userDenied: userPerm && !userPerm.granted ? true : false,
-        expiresAt: userPerm?.expiresAt ?? null,
-        reason: userPerm?.reason ?? null,
+        profileGranted: hasProfilePermission,
+        userGranted: hasActiveUserOverride ? userPerm.granted : null,
+        userDenied: hasActiveUserOverride && !userPerm.granted,
+        expiresAt: hasActiveUserOverride ? userPerm.expiresAt : null,
+        reason: hasActiveUserOverride ? userPerm.reason : null,
         effectiveGranted,
         source,
       };
@@ -724,22 +757,13 @@ export class PermissionsService implements PermissionsFacade {
       allPermissions: permissions,
     };
 
-    await this.redis.setex(
-      userPermissionsCacheKey(userId),
-      CACHE_TTL,
-      JSON.stringify(result)
-    );
     return result;
   }
 
-  // Invalida todo el estado cacheado de un usuario tras un cambio en sus
-  // UserPermission, y bump su versión para que detecte el cambio sin esperar
-  // el TTL local (ver checkVersion en el frontend / GET /permissions/version).
+  // Invalida los overrides Redis y fuerza al cliente a recargar el estado
+  // de autorización tras un cambio individual.
   private async invalidateUserPermissionsCache(userId: string): Promise<void> {
-    await Promise.all([
-      this.redis.del(userPermissionsCacheKey(userId)),
-      this.redis.del(userOverridesCacheKey(userId)),
-    ]);
+    await this.redis.del(userOverridesCacheKey(userId));
     await this.bumpUserVersion(userId);
   }
 
