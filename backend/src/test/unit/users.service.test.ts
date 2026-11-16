@@ -123,6 +123,27 @@ describe('UsersService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('buildUsersWhere', () => {
+    it('keeps explicit active and inactive filters', () => {
+      expect(service.buildUsersWhere({ isActive: false })).toEqual({
+        isActive: false,
+      });
+      expect(service.buildUsersWhere({ isActive: true })).toEqual({
+        isActive: true,
+      });
+    });
+
+    it('searches users by phone and username as well', () => {
+      const where = service.buildUsersWhere({ search: 'ana' });
+      expect(where.OR).toEqual(
+        expect.arrayContaining([
+          { phone: { contains: 'ana', mode: 'insensitive' } },
+          { username: { contains: 'ana', mode: 'insensitive' } },
+        ])
+      );
+    });
+  });
+
   describe('findAll', () => {
     it('should return paginated users', async () => {
       const users = [
