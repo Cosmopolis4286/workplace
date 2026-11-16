@@ -1420,7 +1420,7 @@ export class ServicesService {
       });
     }
     const latest = await this.prisma.serviceRequest.findUnique({ where: { id } });
-    if (latest?.providerCompletedAt && latest?.requesterCompletedAt) {
+    if (req.providerCompletedAt || (latest?.providerCompletedAt && latest?.requesterCompletedAt)) {
       return this.finalizeServiceRequestCompletion(id, userId);
     }
     this.notifications
@@ -1718,7 +1718,7 @@ export class ServicesService {
         .catch(() => {});
     }
     const latest = await this.prisma.serviceRequest.findUnique({ where: { id } });
-    if (latest?.providerCompletedAt && latest?.requesterCompletedAt) {
+    if (req.requesterCompletedAt || (latest?.providerCompletedAt && latest?.requesterCompletedAt)) {
       return this.finalizeServiceRequestCompletion(id, providerId);
     }
     return { ...req, ...updated, ...latest, providerCompletedAt: now, status: nextStatus };
