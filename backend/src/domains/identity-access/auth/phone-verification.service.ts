@@ -67,7 +67,7 @@ export class PhoneVerificationService {
       );
     }
 
-    const phoneKey = this.phoneKey(phone);
+    const phoneKey = this.phoneKey(phone, secret);
     const phoneLimit = await this.redis.incrWithExpire(
       `phone-otp:send:phone:${phoneKey}`,
       60 * 60
@@ -219,8 +219,8 @@ export class PhoneVerificationService {
       .digest('hex');
   }
 
-  private phoneKey(phone: string): string {
-    return createHmac('sha256', 'workplace-phone-rate-limit')
+  private phoneKey(phone: string, secret: string): string {
+    return createHmac('sha256', secret)
       .update(phone)
       .digest('hex');
   }
