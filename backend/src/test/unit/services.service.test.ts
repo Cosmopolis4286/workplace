@@ -76,7 +76,9 @@ describe('ServicesService — service request status transitions', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findFirst: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
-        create: jest.fn().mockImplementation(({ data }) => Promise.resolve(data)),
+        create: jest.fn().mockImplementation(({ data }) =>
+          Promise.resolve(data)
+        ),
         findMany: jest.fn().mockResolvedValue([]),
       },
       serviceRequest: {
@@ -204,7 +206,9 @@ describe('ServicesService — service request status transitions', () => {
   });
 
   describe('consultas preliminares y datos canónicos', () => {
-    it('crea una consulta sin KYC, usando proveedor del servicio y ocultando el teléfono al proveedor', async () => {
+    it(
+      'crea una consulta sin KYC, usando proveedor del servicio y ocultando el teléfono al proveedor',
+      async () => {
       mockPrismaService.service.findUnique.mockResolvedValue({
         id: 'service-1',
         userId: 'provider-1',
@@ -234,7 +238,11 @@ describe('ServicesService — service request status transitions', () => {
       expect(created.providerId).toBe('provider-1');
 
       mockPrismaService.serviceInquiry.findMany.mockResolvedValue([
-        { id: 'inquiry-1', providerId: 'provider-1', clientPhone: '+584121234567' },
+        {
+          id: 'inquiry-1',
+          providerId: 'provider-1',
+          clientPhone: '+584121234567',
+        },
       ]);
       const providerView = await service.getMyServiceInquiries(
         'provider-1',
@@ -244,7 +252,9 @@ describe('ServicesService — service request status transitions', () => {
       expect(providerView.data[0].contactHidden).toBe(true);
     });
 
-    it('permite responder al prestador propietario y conserva la consulta como RESPONDED', async () => {
+    it(
+      'permite responder al prestador propietario y conserva la consulta como RESPONDED',
+      async () => {
       mockPrismaService.serviceInquiry.findUnique
         .mockResolvedValueOnce({
           id: 'inquiry-1',
@@ -278,10 +288,14 @@ describe('ServicesService — service request status transitions', () => {
           response: 'Respuesta no autorizada',
         })
       ).rejects.toThrow(ForbiddenException);
-      expect(mockPrismaService.serviceInquiry.updateMany).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.serviceInquiry.updateMany
+      ).not.toHaveBeenCalled();
     });
 
-    it('rechaza consultas al propio servicio y modalidades no ofrecidas', async () => {
+    it(
+      'rechaza consultas al propio servicio y modalidades no ofrecidas',
+      async () => {
       mockPrismaService.service.findUnique.mockResolvedValue({
         id: 'service-1',
         userId: 'provider-1',
@@ -290,7 +304,10 @@ describe('ServicesService — service request status transitions', () => {
       });
 
       await expect(
-        service.createServiceInquiry({ serviceId: 'service-1' } as any, 'provider-1')
+        service.createServiceInquiry(
+          { serviceId: 'service-1' } as any,
+          'provider-1'
+        )
       ).rejects.toThrow(BadRequestException);
 
       await expect(
@@ -299,10 +316,14 @@ describe('ServicesService — service request status transitions', () => {
           'client-1'
         )
       ).rejects.toThrow(BadRequestException);
-      expect(mockPrismaService.serviceInquiry.create).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.serviceInquiry.create
+      ).not.toHaveBeenCalled();
     });
 
-    it('ignora los nombres, proveedor y precio enviados por el navegador al contratar', async () => {
+    it(
+      'ignora los nombres, proveedor y precio enviados por el navegador al contratar',
+      async () => {
       mockPrismaService.service.findUnique.mockResolvedValue({
         id: 'service-1',
         userId: 'provider-real',
