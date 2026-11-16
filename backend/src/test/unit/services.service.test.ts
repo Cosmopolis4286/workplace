@@ -72,6 +72,8 @@ describe('ServicesService — service request status transitions', () => {
     mockPrismaService = {
       service: { findUnique: jest.fn() },
       serviceInquiry: {
+        findUnique: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findFirst: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
         create: jest.fn().mockImplementation(({ data }) => Promise.resolve(data)),
@@ -240,6 +242,43 @@ describe('ServicesService — service request status transitions', () => {
       );
       expect(providerView.data[0].clientPhone).toBeNull();
       expect(providerView.data[0].contactHidden).toBe(true);
+    });
+
+    it('permite responder al prestador propietario y conserva la consulta como RESPONDED', async () => {
+      mockPrismaService.serviceInquiry.findUnique
+        .mockResolvedValueOnce({
+          id: 'inquiry-1',
+          providerId: 'provider-1',
+          status: 'OPEN',
+        })
+        .mockResolvedValueOnce({ id: 'inquiry-1', status: 'RESPONDED' });
+
+      await service.respondToServiceInquiry('inquiry-1', 'provider-1', {
+        response: 'Sí, tengo disponibilidad esta semana',
+      });
+
+      expect(mockPrismaService.serviceInquiry.updateMany).toHaveBeenCalledWith({
+        where: { id: 'inquiry-1', providerId: 'provider-1', status: 'OPEN' },
+        data: {
+          providerResponse: 'Sí, tengo disponibilidad esta semana',
+          status: 'RESPONDED',
+        },
+      });
+    });
+
+    it('impide que otro usuario responda una consulta ajena', async () => {
+      mockPrismaService.serviceInquiry.findUnique.mockResolvedValue({
+        id: 'inquiry-1',
+        providerId: 'provider-1',
+        status: 'OPEN',
+      });
+
+      await expect(
+        service.respondToServiceInquiry('inquiry-1', 'attacker-1', {
+          response: 'Respuesta no autorizada',
+        })
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrismaService.serviceInquiry.updateMany).not.toHaveBeenCalled();
     });
 
     it('rechaza consultas al propio servicio y modalidades no ofrecidas', async () => {
