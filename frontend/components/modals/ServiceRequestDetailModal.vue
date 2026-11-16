@@ -160,7 +160,7 @@
                   <p class="italic mt-0.5">"{{ dispute.reason }}"</p>
                   <p class="mt-1 opacity-80">Soporte revisará el caso y decidirá a quién se entrega la garantía.</p>
                 </div>
-                <template v-if="req.escrowStatus === 'HELD' && req.status === 'CONTACTED'">
+                <template v-if="req.escrowStatus === 'HELD' && ['CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING'].includes(req.status)">
                   <button
                     v-if="!disputing"
                     type="button"
