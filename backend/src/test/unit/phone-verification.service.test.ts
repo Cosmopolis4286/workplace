@@ -61,7 +61,9 @@ describe('PhoneVerificationService', () => {
     );
   });
 
-  it('sends a code through the provider and stores only its digest', async () => {
+  it(
+    'sends a code through the provider and stores only its digest',
+    async () => {
     const result = await service.sendCode('user-1', '0412 123 4567');
 
     expect(result).toEqual({
@@ -79,8 +81,9 @@ describe('PhoneVerificationService', () => {
     );
 
     const sentCode = smsProvider.send.mock.calls[0][0].text.match(/\d{6}/)?.[0];
-    expect(challenge).not.toContain(sentCode);
-  });
+      expect(challenge).not.toContain(sentCode);
+    }
+  );
 
   it('marks the phone verified only after a valid code', async () => {
     await service.sendCode('user-1', '+584121234567');
