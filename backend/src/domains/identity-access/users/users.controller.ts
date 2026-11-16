@@ -194,6 +194,19 @@ export class UsersController {
     return target;
   }
 
+  @Get(':id/admin-overview')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async getAdminOverview(
+    @Param('id') id: string,
+    @CurrentUser() caller: { id: string; role: Role }
+  ) {
+    const target = await this.usersService.findById(id);
+    if (!canAssignRole(caller.role, target.role as Role)) {
+      throw new ForbiddenException(this.i18n.t('users.permissions.view_user'));
+    }
+    return this.usersService.getAdminOverview(id);
+  }
+
   @Post()
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   async create(
