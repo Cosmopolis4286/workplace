@@ -25,9 +25,7 @@ describe('UsersService', () => {
       count: jest.fn(),
       findUniqueOrThrow: jest.fn(),
     },
-    refreshToken: {
-      updateMany: jest.fn(),
-    },
+    refreshToken: { updateMany: jest.fn() },
     userProfile: {
       create: jest.fn(),
       update: jest.fn(),
@@ -570,5 +568,4 @@ describe('UsersService', () => {
       expect(result).toBeDefined();
     });
   });
-
 });
