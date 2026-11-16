@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from '../../domains/identity-access/users/users.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -26,6 +27,7 @@ describe('UsersService', () => {
       findUniqueOrThrow: jest.fn(),
     },
     refreshToken: { updateMany: jest.fn() },
+    auditLog: { findMany: jest.fn() },
     userProfile: {
       create: jest.fn(),
       update: jest.fn(),
@@ -192,6 +194,72 @@ describe('UsersService', () => {
         select: expect.any(Object),
         where: expect.any(Object),
       });
+    });
+  });
+
+  describe('getAdminOverview', () => {
+    it('throws NotFoundException when the account does not exist', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getAdminOverview('missing-user')).rejects.toThrow(
+        NotFoundException
+      );
+      expect(mockPrismaService.auditLog.findMany).not.toHaveBeenCalled();
+    });
+
+    it('returns account, profiles, masked identity documents and recent activity', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-kyc',
+        email: 'person@example.com',
+        role: Role.NORMAL,
+        isActive: true,
+        identityVerifications: [
+          {
+            id: 'verification-1',
+            documentNumber: 'V12345678',
+            status: 'APPROVED',
+          },
+        ],
+        profiles: [],
+      });
+      mockPrismaService.auditLog.findMany.mockResolvedValue([
+        { id: 'audit-1', summary: 'Solicitud KYC enviada' },
+      ]);
+
+      const result = await service.getAdminOverview('user-kyc');
+
+      expect(result.user.identityVerifications[0].documentNumber).toBe(
+        '*****5678'
+      );
+      expect(result.activity).toHaveLength(1);
+      expect(mockPrismaService.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            module: { in: ['users', 'kyc', 'account', 'auth'] },
+            OR: expect.arrayContaining([
+              { userId: 'user-kyc' },
+              { entityId: 'user-kyc' },
+              { details: { path: ['targetUserId'], equals: 'user-kyc' } },
+            ]),
+          }),
+          take: 30,
+        })
+      );
+    });
+
+    it('does not return a full document number when it is short', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-kyc',
+        identityVerifications: [
+          { id: 'verification-2', documentNumber: '123' },
+        ],
+        profiles: [],
+      });
+      mockPrismaService.auditLog.findMany.mockResolvedValue([]);
+
+      const result = await service.getAdminOverview('user-kyc');
+
+      expect(result.user.identityVerifications[0].documentNumber).toBe('****');
     });
   });
 

@@ -31,6 +31,39 @@ export interface UserItem {
 // Nuxt); quien lo necesite lo importa de ahí directo.
 export type BusinessProfileType = 'BUSINESS' | 'PROFESSIONAL'
 
+export interface UserAdminOverview {
+  user: {
+    id: string; email: string; username?: string | null
+    firstName: string; lastName: string; phone?: string | null
+    role: Role; userType: string; isActive: boolean; emailVerified: boolean
+    kycStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED'
+    createdAt: string; updatedAt: string
+    country?: string | null; state?: string | null; city?: string | null
+    municipality?: string | null; parish?: string | null
+    twoFactorEnabled: boolean
+    category?: { id: string; name: string } | null
+    subcategory?: { id: string; name: string } | null
+    commerce?: { id: string; name: string; isPublic: boolean } | null
+    profiles: Array<{
+      id: string; type: string; subtype?: string | null; status: string
+      rejectionReason?: string | null; reviewedAt?: string | null; createdAt: string
+      category?: { id: string; name: string } | null
+      subcategory?: { id: string; name: string } | null
+    }>
+    identityVerifications: Array<{
+      id: string; documentType: string; documentNumber: string; status: string
+      rejectionReason?: string | null; reviewedBy?: string | null
+      reviewedAt?: string | null; createdAt: string
+    }>
+  }
+  activity: Array<{
+    id: string; userId?: string | null; userEmail?: string | null
+    userRole?: string | null; action: string; module: string
+    summary: string; details?: Record<string, unknown> | null
+    statusCode?: number | null; createdAt: string
+  }>
+}
+
 export interface UserFormData {
   firstName: string; lastName: string; email: string; password: string; phone: string
   role: Role; commerceName: string; categoryId: string; subcategoryId: string
@@ -130,6 +163,10 @@ export const useUsers = () => {
     })
   }
 
+  async function getAdminOverview(id: string) {
+    return get<UserAdminOverview>(`/users/${encodeURIComponent(id)}/admin-overview`)
+  }
+
   async function toggleUserStatus(id: string) {
     return patch(`/users/${id}/toggle-status`, {})
   }
@@ -138,5 +175,5 @@ export const useUsers = () => {
     return del(`/users/${id}`)
   }
 
-  return { loadCategories, listUsers, getStats, createUser, updateUser, toggleUserStatus, deleteUser }
+  return { loadCategories, listUsers, getStats, getAdminOverview, createUser, updateUser, toggleUserStatus, deleteUser }
 }

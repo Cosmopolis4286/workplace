@@ -10,6 +10,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 import { MailService } from '../../engagement/mail/mail.service';
+import { AuditService } from '../audit/audit.service';
 import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import { ReviewVerificationDto } from './dto/review-verification.dto';
 
@@ -25,7 +26,8 @@ export class KycService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly mail: MailService
+    private readonly mail: MailService,
+    private readonly audit: AuditService
   ) {}
 
   async getMyStatus(userId: string) {
@@ -69,6 +71,21 @@ export class KycService {
     }
 
     const verification = await this.prisma.$transaction(async (tx) => {
+      // El estado se vuelve a comprobar dentro de la transacción para impedir
+      // dos solicitudes PENDING si llegan envíos simultáneos.
+      const claimed = await tx.user.updateMany({
+        where: {
+          id: userId,
+          kycStatus: { notIn: [KycStatus.PENDING, KycStatus.APPROVED] },
+        },
+        data: { kycStatus: KycStatus.PENDING },
+      });
+      if (claimed.count !== 1) {
+        throw new ConflictException(
+          'Ya existe una solicitud de verificación o la cuenta cambió. Actualiza el estado e inténtalo de nuevo.'
+        );
+      }
+
       const created = await tx.identityVerification.create({
         data: {
           userId,
@@ -83,12 +100,16 @@ export class KycService {
         },
       });
 
-      await tx.user.update({
-        where: { id: userId },
-        data: { kycStatus: KycStatus.PENDING },
-      });
-
       return created;
+    });
+
+    await this.audit.log({
+      userId,
+      action: 'CREATE',
+      module: 'kyc',
+      entityId: verification.id,
+      summary: 'Solicitud de verificación de identidad enviada',
+      details: { documentType: dto.documentType, status: KycStatus.PENDING },
     });
 
     return verification;
@@ -195,9 +216,9 @@ export class KycService {
       throw new BadRequestException('Esta solicitud ya fue revisada');
     }
 
-    const [updated] = await this.prisma.$transaction([
-      this.prisma.identityVerification.update({
-        where: { id },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const changed = await tx.identityVerification.updateMany({
+        where: { id, status: KycStatus.PENDING },
         data: {
           status: dto.status,
           rejectionReason:
@@ -205,13 +226,38 @@ export class KycService {
           reviewedBy: reviewerId,
           reviewedAt: new Date(),
         },
-      }),
-      this.prisma.user.update({
+      });
+      if (changed.count !== 1) {
+        throw new ConflictException(
+          'La solicitud fue revisada por otro administrador. Actualiza la bandeja.'
+        );
+      }
+
+      await tx.user.update({
         where: { id: verification.userId },
         data: { kycStatus: dto.status },
-      }),
-    ]);
+      });
+
+      return tx.identityVerification.findUniqueOrThrow({ where: { id } });
+    });
     await this.redis.del(userFindByIdCacheKey(verification.userId));
+    await this.audit.log({
+      userId: reviewerId,
+      action: 'UPDATE',
+      module: 'kyc',
+      entityId: id,
+      summary:
+        dto.status === KycStatus.APPROVED
+          ? 'Solicitud KYC aprobada por administración'
+          : 'Solicitud KYC rechazada por administración',
+      details: {
+        targetUserId: verification.userId,
+        status: dto.status,
+        ...(dto.status === KycStatus.REJECTED
+          ? { rejectionReason: dto.rejectionReason }
+          : {}),
+      },
+    });
 
     const user = await this.prisma.user.findUnique({
       where: { id: verification.userId },

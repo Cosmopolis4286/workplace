@@ -873,6 +873,110 @@ export class UsersService {
   }
 
   /**
+   * Vista administrativa agregada. No reutiliza el cache de findById porque
+   * la ficha incluye KYC y auditoría, que deben reflejar el estado actual.
+   * Los números de documento se enmascaran: las imágenes y datos completos
+   * siguen disponibles únicamente en el flujo de revisión KYC autorizado.
+   */
+  async getAdminOverview(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        userType: true,
+        isActive: true,
+        emailVerified: true,
+        kycStatus: true,
+        createdAt: true,
+        updatedAt: true,
+        country: true,
+        state: true,
+        city: true,
+        municipality: true,
+        parish: true,
+        twoFactorEnabled: true,
+        category: { select: { id: true, name: true } },
+        subcategory: { select: { id: true, name: true } },
+        commerce: { select: { id: true, name: true, isPublic: true } },
+        profiles: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            type: true,
+            subtype: true,
+            status: true,
+            rejectionReason: true,
+            reviewedAt: true,
+            createdAt: true,
+            category: { select: { id: true, name: true } },
+            subcategory: { select: { id: true, name: true } },
+          },
+        },
+        identityVerifications: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          select: {
+            id: true,
+            documentType: true,
+            documentNumber: true,
+            status: true,
+            rejectionReason: true,
+            reviewedBy: true,
+            reviewedAt: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
+
+    const activity = await this.prisma.auditLog.findMany({
+      where: {
+        module: { in: ['users', 'kyc', 'account', 'auth'] },
+        OR: [
+          { userId: id },
+          { entityId: id },
+          { details: { path: ['targetUserId'], equals: id } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      select: {
+        id: true,
+        userId: true,
+        userEmail: true,
+        userRole: true,
+        action: true,
+        module: true,
+        summary: true,
+        statusCode: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      user: {
+        ...user,
+        identityVerifications: user.identityVerifications.map((item) => ({
+          ...item,
+          documentNumber:
+            item.documentNumber.length > 4
+              ? `${'*'.repeat(Math.max(4, item.documentNumber.length - 4))}${item.documentNumber.slice(-4)}`
+              : '****',
+        })),
+      },
+      activity,
+    };
+  }
+
+  /**
    * Variante de findById que incluye twoFactorSecret (cifrado) y
    * twoFactorEnabled para el flujo de verificación 2FA. Uso interno
    * exclusivo — nunca devolver el resultado de este método al cliente.
