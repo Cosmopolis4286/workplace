@@ -1,7 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { AuditService } from '../../identity-access/audit/audit.service';
+
+interface AuditLogger {
+  log(params: Record<string, unknown>): Promise<void>;
+}
 
 export const KYC_LEVELS = [
   'PUBLIC',
@@ -38,9 +41,7 @@ export const DEFAULT_KYC_PROGRESSIVE_POLICY: KycProgressivePolicy = {
 };
 
 export const PLATFORM_SETTINGS = {
-  // Mostrar teléfono, correo y WhatsApp de las tiendas en su página pública.
   'store.publicContact': { type: 'boolean', default: true, public: true },
-  // Política KYC versionada. No es pública: contiene reglas operativas.
   'identity.kycPolicy': {
     type: 'object',
     default: DEFAULT_KYC_PROGRESSIVE_POLICY,
@@ -79,10 +80,7 @@ export function validateKycProgressivePolicy(
   return expected.every((operation) => {
     const level = value.operations[operation] as KycLevel;
     const minimum = KYC_POLICY_MINIMUMS[operation as KycPolicyOperation];
-    return (
-      KYC_LEVELS.includes(level) &&
-      LEVEL_RANK[level] >= LEVEL_RANK[minimum]
-    );
+    return KYC_LEVELS.includes(level) && LEVEL_RANK[level] >= LEVEL_RANK[minimum];
   });
 }
 
@@ -90,7 +88,7 @@ export function validateKycProgressivePolicy(
 export class PlatformSettingsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly audit: AuditService
+    @Inject('AUDIT_SERVICE') private readonly audit: AuditLogger
   ) {}
 
   async getAll(onlyPublic = false) {
@@ -100,10 +98,7 @@ export class PlatformSettingsService {
       .filter(([, def]) => !onlyPublic || def.public)
       .map(([key, def]) => {
         const value = stored.has(key) ? stored.get(key) : def.default;
-        if (
-          key === 'identity.kycPolicy' &&
-          !validateKycProgressivePolicy(value)
-        ) {
+        if (key === 'identity.kycPolicy' && !validateKycProgressivePolicy(value)) {
           return [key, DEFAULT_KYC_PROGRESSIVE_POLICY];
         }
         return [key, value];
@@ -111,12 +106,7 @@ export class PlatformSettingsService {
     return Object.fromEntries(entries) as Record<PlatformSettingKey, unknown>;
   }
 
-  async set(
-    key: string,
-    value: unknown,
-    adminId: string,
-    reason?: string
-  ) {
+  async set(key: string, value: unknown, adminId: string, reason?: string) {
     const def = PLATFORM_SETTINGS[key as PlatformSettingKey];
     if (!def) throw new BadRequestException(`Ajuste desconocido: ${key}`);
 
