@@ -137,6 +137,7 @@ const cardClass = computed(() => {
   if (props.perm.userGranted === true) return 'border-green-200 bg-green-50/50'
   if (props.perm.userGranted === false) return 'border-red-200 bg-red-50/50'
   if (props.perm.roleGranted) return 'border-blue-200 bg-blue-50/30'
+  if (props.perm.profileGranted) return 'border-indigo-200 bg-indigo-50/30'
   return 'border-gray-200 bg-white'
 })
 
