@@ -230,6 +230,7 @@ export class UsersService {
     subcategoryId?: string;
     search?: string;
     excludeUserId?: string;
+    isActive?: boolean;
     // Desglose fino que Role ya no captura (ver comentario en getUsersStats)
     // — filtra por el UserProfile ACTIVE del usuario, no por Role.
     profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
@@ -241,6 +242,7 @@ export class UsersService {
       subcategoryId,
       search,
       excludeUserId,
+      isActive,
       profileKind,
     } = options;
     const where: Record<string, unknown> = {};
@@ -259,6 +261,7 @@ export class UsersService {
     }
     if (categoryId) where.categoryId = categoryId;
     if (subcategoryId) where.subcategoryId = subcategoryId;
+    if (isActive !== undefined) where.isActive = isActive;
     if (excludeUserId) where.id = { not: excludeUserId };
     if (profileKind) {
       where.profiles = {
@@ -285,6 +288,7 @@ export class UsersService {
     subcategoryId?: string;
     search?: string;
     profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
+    isActive?: boolean;
     page: number;
     limit: number;
   }) {
@@ -343,6 +347,7 @@ export class UsersService {
     subcategoryId?: string;
     search?: string;
     profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
+    isActive?: boolean;
   }) {
     const where = this.buildUsersWhere(options);
     // "commerce"/"freelancer" ya no son valores de Role (colapsados en
