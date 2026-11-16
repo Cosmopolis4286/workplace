@@ -711,29 +711,56 @@ export class ServicesService {
     dto: CreateServiceRequestDto,
     requesterId: string
   ) {
+    // La identidad del proveedor y los datos comerciales salen SIEMPRE de
+    // la base de datos. Los campos legacy del DTO (providerId/providerName,
+    // serviceName, price y priceUnit) se ignoran deliberadamente: el cliente
+    // no puede elegir a otro proveedor ni alterar el precio del catálogo.
     const service = await this.prisma.service.findUnique({
       where: { id: dto.serviceId },
-      select: { id: true, userId: true, status: true },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        name: true,
+        price: true,
+        priceUnit: true,
+        modalities: true,
+        user: { select: { firstName: true, lastName: true } },
+      },
     });
     if (!service || service.status !== ServiceStatus.ACTIVE) {
       throw new NotFoundException(
         'El servicio no existe o ya no está disponible'
       );
     }
-    if (service.userId !== dto.providerId) {
-      throw new BadRequestException(
-        'El proveedor no coincide con el dueño del servicio'
-      );
-    }
-    if (requesterId === dto.providerId) {
+    const providerId = service.userId;
+    const providerName = `${service.user.firstName} ${service.user.lastName}`.trim();
+    if (requesterId === providerId) {
       throw new BadRequestException('No puedes solicitar tu propio servicio');
     }
+    if (
+      dto.modality &&
+      service.modalities.length > 0 &&
+      !service.modalities.includes(dto.modality)
+    ) {
+      throw new BadRequestException(
+        'La modalidad seleccionada no está disponible para este servicio'
+      );
+    }
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { firstName: true, lastName: true, email: true },
+    });
+    if (!requester) {
+      throw new NotFoundException('No se encontró el usuario solicitante');
+    }
+    const clientName = `${requester.firstName} ${requester.lastName}`.trim();
 
     // Evita que el mismo cliente le abra varias solicitudes seguidas al mismo proveedor
     // para el mismo servicio mientras ya tiene una en curso sin resolver.
     const duplicateWhere: Prisma.ServiceRequestWhereInput = {
       serviceId: dto.serviceId,
-      providerId: dto.providerId,
+      providerId,
       status: { in: ServicesService.OPEN_REQUEST_STATUSES as any },
       requesterId,
     };
@@ -762,7 +789,7 @@ export class ServicesService {
       );
     }
 
-    await this.planLimits.assertServiceRequestLimit(dto.providerId);
+    await this.planLimits.assertServiceRequestLimit(providerId);
 
     const preferredDate = new Date(dto.preferredDate);
     if (dto.preferredTime) {
@@ -773,19 +800,19 @@ export class ServicesService {
     const request = await this.prisma.serviceRequest.create({
       data: {
         serviceId: dto.serviceId,
-        serviceName: dto.serviceName,
-        providerId: dto.providerId,
-        providerName: dto.providerName,
+        serviceName: service.name,
+        providerId,
+        providerName,
         modality: dto.modality ?? 'ANY',
         preferredDate,
         address: dto.address,
         city: dto.city,
-        clientName: dto.clientName,
+        clientName,
         clientPhone: dto.clientPhone,
-        clientEmail: dto.clientEmail,
+        clientEmail: requester.email,
         description: dto.description,
-        price: dto.price,
-        priceUnit: dto.priceUnit,
+        price: service.price,
+        priceUnit: service.priceUnit,
         requesterId,
         items: dto.items?.length
           ? {
@@ -803,7 +830,7 @@ export class ServicesService {
     });
     // Fire-and-forget notification to the provider
     this.notifications
-      .notifyNewServiceRequest(dto.providerId, dto.clientName, dto.serviceName)
+      .notifyNewServiceRequest(providerId, clientName, service.name)
       .catch(() => {});
     return request;
   }
