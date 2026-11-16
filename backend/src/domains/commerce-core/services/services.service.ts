@@ -1243,7 +1243,9 @@ export class ServicesService {
           previousStatus: req.status,
           newStatus: data.status as any,
           changedBy: userId,
-          reason: data.statusReason?.trim() || null,
+          ...(data.statusReason?.trim()
+            ? { reason: data.statusReason.trim() }
+            : {}),
         },
       });
 
