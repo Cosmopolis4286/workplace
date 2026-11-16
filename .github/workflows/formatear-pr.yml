@@ -1,10 +1,8 @@
 name: Formatear archivos de PR
 
 on:
-  push:
-    branches:
-      - feat/rbac-audit-history-scope-v1
-      - feat/verificacion-telefonica-messangi
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
