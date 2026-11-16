@@ -171,11 +171,6 @@ const ROLE_BADGE_CLASSES: Record<Role, string> = {
   NORMAL: 'bg-gray-100 text-gray-700',
 }
 
- // ADMIN no puede modificar su propia columna ni roles superiores.
-const lockedRoleColumns = computed(() =>
-  user.value?.role === 'ADMIN' ? ['SUPERADMIN', 'ADMIN'] : ['SUPERADMIN']
-)
-
 // ── Matriz por Perfil (UserProfile) ────────────────────────────────────────
 // Claves compuestas iguales a profileMatrixKey() en el backend
 // (permissions.service.ts) — profileType solo, o `${profileType}_${subtype}`.
@@ -244,6 +239,11 @@ interface PendingProfileChange {
 
 const { user, getHeaders, refreshAccessToken } = useAuth()
 const { reloadPermissions } = usePermissions()
+
+// ADMIN no puede modificar su propia columna ni roles superiores.
+const lockedRoleColumns = computed(() =>
+  user.value?.role === 'ADMIN' ? ['SUPERADMIN', 'ADMIN'] : ['SUPERADMIN']
+)
 const config = useRuntimeConfig()
 const apiUrl = config.public.apiUrl as string
 
