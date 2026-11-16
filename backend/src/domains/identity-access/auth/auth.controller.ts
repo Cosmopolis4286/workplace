@@ -435,7 +435,7 @@ export class AuthController {
   })
   async sendPhoneVerification(
     @CurrentUser() user: any,
-    @Body('phone') phone: string,
+    @Body('phone') phone: string
   ) {
     return this.phoneVerification.sendCode(user.id, phone);
   }
@@ -449,10 +449,7 @@ export class AuthController {
     maxRequests: 10,
     keyGenerator: (req: any) => `phone-otp-verify:${req.ip}`,
   })
-  async verifyPhone(
-    @CurrentUser() user: any,
-    @Body('code') code: string,
-  ) {
+  async verifyPhone(@CurrentUser() user: any, @Body('code') code: string) {
     return this.phoneVerification.verifyCode(user.id, code);
   }
 

@@ -24,7 +24,7 @@ export class PhoneVerificationService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly config: ConfigService,
-    private readonly smsProvider: MessangiSmsProvider,
+    private readonly smsProvider: MessangiSmsProvider
   ) {}
 
   async sendCode(userId: string, rawPhone: string) {
@@ -93,8 +93,7 @@ export class PhoneVerificationService {
     try {
       await this.smsProvider.send({
         to: phone,
-        text:
-          `Tu codigo WorkPlace: ${code}. Vence en 5 minutos. No lo compartas.`,
+        text: `Tu codigo WorkPlace: ${code}. Vence en 5 minutos. No lo compartas.`,
         externalId: `wp-phone-${userId.slice(0, 8)}`,
         clientId: userId,
       });
@@ -221,9 +220,7 @@ export class PhoneVerificationService {
   }
 
   private phoneKey(phone: string, secret: string): string {
-    return createHmac('sha256', secret)
-      .update(phone)
-      .digest('hex');
+    return createHmac('sha256', secret).update(phone).digest('hex');
   }
 
   private maskPhone(phone: string): string {
