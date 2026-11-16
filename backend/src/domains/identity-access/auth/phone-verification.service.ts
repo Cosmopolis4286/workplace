@@ -44,7 +44,9 @@ export class PhoneVerificationService {
       select: { id: true },
     });
     if (existing) {
-      throw new ConflictException('Este teléfono ya está asociado a otra cuenta');
+      throw new ConflictException(
+        'Este teléfono ya está asociado a otra cuenta'
+      );
     }
 
     const userLimit = await this.redis.incrWithExpire(
@@ -85,7 +87,7 @@ export class PhoneVerificationService {
         'https://elastic.messangi.me/raven/v3/messages',
         {
           from: sender,
-          text: `Tu código de verificación de WorkPlace es ${code}. Vence en 5 minutos. No lo compartas.`,
+          text: `Tu codigo WorkPlace: ${code}. Vence en 5 minutos. No lo compartas.`,
           to: phone,
           type: 'MT',
           requestDR: true,
@@ -130,7 +132,9 @@ export class PhoneVerificationService {
     const attemptsKey = `phone-otp:attempts:${userId}`;
     const rawChallenge = await this.redis.get(challengeKey);
     if (!rawChallenge) {
-      throw new BadRequestException('El código venció o no existe. Solicita otro');
+      throw new BadRequestException(
+        'El código venció o no existe. Solicita otro'
+      );
     }
 
     const challenge = JSON.parse(rawChallenge) as {
@@ -173,7 +177,9 @@ export class PhoneVerificationService {
     });
     if (existing) {
       await this.redis.del(challengeKey);
-      throw new ConflictException('Este teléfono ya está asociado a otra cuenta');
+      throw new ConflictException(
+        'Este teléfono ya está asociado a otra cuenta'
+      );
     }
 
     await this.prisma.user.update({
@@ -204,7 +210,7 @@ export class PhoneVerificationService {
             ? `+58${digits.slice(1)}`
             : `+58${digits}`;
 
-    // Acepta números móviles venezolanos E.164 (+58 + 10 dígitos que comienzan en 4).
+    // Numero movil venezolano E.164: +58 y diez digitos nacionales.
     if (!/^\+584\d{9}$/.test(normalized)) {
       throw new BadRequestException(
         'Introduce un número móvil venezolano válido, por ejemplo +584121234567'
