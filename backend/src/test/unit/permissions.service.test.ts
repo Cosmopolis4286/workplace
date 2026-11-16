@@ -459,6 +459,87 @@ describe('PermissionsService', () => {
     });
   });
 
+  describe('getUserPermissions effective state', () => {
+    it('includes active profile grants and reports their source', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        firstName: 'User',
+        lastName: 'Test',
+        role: Role.NORMAL,
+        profiles: [{ type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER }],
+      });
+      mockPrisma.rolePermission.findMany.mockResolvedValue([]);
+      mockPrisma.userProfile.findMany.mockResolvedValue([
+        { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
+      ]);
+      mockPrisma.profilePermission.findMany.mockResolvedValue([
+        { permission: { key: 'services:view' } },
+      ]);
+      mockPrisma.userPermission.findMany.mockResolvedValue([]);
+      mockPrisma.permission.findMany.mockResolvedValue([
+        {
+          id: 'permission-1',
+          key: 'services:view',
+          module: 'services',
+          action: 'view',
+          label: 'Ver servicios',
+          isSystem: false,
+        },
+      ]);
+
+      const result = await service.getUserPermissions('user-1');
+
+      expect(result.allPermissions[0]).toMatchObject({
+        profileGranted: true,
+        effectiveGranted: true,
+        source: 'profile',
+      });
+    });
+
+    it('ignores expired user overrides and falls back to role/profile grants', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        firstName: 'User',
+        lastName: 'Test',
+        role: Role.NORMAL,
+        profiles: [],
+      });
+      mockPrisma.rolePermission.findMany.mockResolvedValue([
+        { permission: { id: 'permission-1' } },
+      ]);
+      mockPrisma.userProfile.findMany.mockResolvedValue([]);
+      mockPrisma.userPermission.findMany.mockResolvedValue([
+        {
+          granted: false,
+          expiresAt: new Date('2020-01-01'),
+          reason: 'Temporal deny',
+          permission: { id: 'permission-1' },
+        },
+      ]);
+      mockPrisma.permission.findMany.mockResolvedValue([
+        {
+          id: 'permission-1',
+          key: 'orders:view',
+          module: 'orders',
+          action: 'view',
+          label: 'Ver pedidos',
+          isSystem: false,
+        },
+      ]);
+
+      const result = await service.getUserPermissions('user-1');
+
+      expect(result.allPermissions[0]).toMatchObject({
+        roleGranted: true,
+        userGranted: null,
+        effectiveGranted: true,
+        source: 'role',
+      });
+    });
+  });
+
   describe('getActiveProfilePermissions', () => {
     it('returns an empty array when the user has no active profiles', async () => {
       mockPrisma.userProfile.findMany.mockResolvedValue([]);
