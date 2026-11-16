@@ -1,5 +1,5 @@
 import { KycStatus } from '@prisma/client';
-import { KycPolicyService } from '../../domains/identity-access/kyc/kyc-policy.service';
+import { KycPolicyService } from '../../domains/platform/platform-settings/kyc-policy.service';
 import { DEFAULT_KYC_PROGRESSIVE_POLICY } from '../../domains/platform/platform-settings/platform-settings.service';
 
 describe('KycPolicyService', () => {
@@ -38,7 +38,7 @@ describe('KycPolicyService', () => {
     ).resolves.toMatchObject({ allowed: true, currentLevel: 'KYC_APPROVED' });
   });
 
-  it('no trata ENHANCED_REVIEW como aprobado automáticamente', async () => {
+  it('no concede revisión reforzada solo por tener KYC aprobado', async () => {
     const policy = {
       ...DEFAULT_KYC_PROGRESSIVE_POLICY,
       operations: { ...DEFAULT_KYC_PROGRESSIVE_POLICY.operations, 'catalog.order': 'ENHANCED_REVIEW' },
@@ -47,5 +47,12 @@ describe('KycPolicyService', () => {
     await expect(
       service.evaluate('catalog.order', { authenticated: true, kycStatus: KycStatus.APPROVED })
     ).resolves.toMatchObject({ allowed: false, requiredLevel: 'ENHANCED_REVIEW' });
+    await expect(
+      service.evaluate('catalog.order', {
+        authenticated: true,
+        kycStatus: KycStatus.APPROVED,
+        enhancedReviewApproved: true,
+      })
+    ).resolves.toMatchObject({ allowed: true, currentLevel: 'ENHANCED_REVIEW' });
   });
 });
