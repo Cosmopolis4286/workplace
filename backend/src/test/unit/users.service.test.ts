@@ -229,7 +229,7 @@ describe('UsersService', () => {
       const result = await service.getAdminOverview('user-kyc');
 
       expect(result.user.identityVerifications[0].documentNumber).toBe(
-        '****5678'
+        '*****5678'
       );
       expect(result.activity).toHaveLength(1);
       expect(mockPrismaService.auditLog.findMany).toHaveBeenCalledWith(
