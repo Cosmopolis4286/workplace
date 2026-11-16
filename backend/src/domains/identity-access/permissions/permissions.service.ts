@@ -650,12 +650,27 @@ export class PermissionsService implements PermissionsFacade {
     await Promise.all(
       [...grantedSet].map((role) => this.invalidateRoleVersion(role))
     );
+    if (createdBy) {
+      await this.recordPermissionChange({
+        actorId: createdBy,
+        scope: 'permission',
+        target: { id: permission.id, permissionId: permission.id, permissionKey: permission.key },
+        before: null,
+        after: {
+          key: permission.key,
+          module: permission.module,
+          action: permission.action,
+          isSystem: permission.isSystem,
+          grantedRoles: [...grantedSet],
+        },
+      });
+    }
     return permission;
   }
 
   // ── Admin panel: delete permission ─────────────────────────────────────────
 
-  async deletePermission(id: string) {
+  async deletePermission(id: string, deletedBy?: string) {
     const perm = await this.prisma.permission.findUnique({ where: { id } });
     if (!perm) throw new NotFoundException('Permiso no encontrado');
     if (perm.isSystem)
@@ -677,6 +692,20 @@ export class PermissionsService implements PermissionsFacade {
         this.invalidateProfilePermissionsCache(k.profileType, k.subtype)
       ),
     ]);
+    if (deletedBy) {
+      await this.recordPermissionChange({
+        actorId: deletedBy,
+        scope: 'permission',
+        target: { id: perm.id, permissionId: perm.id, permissionKey: perm.key },
+        before: {
+          key: perm.key,
+          module: perm.module,
+          action: perm.action,
+          isSystem: perm.isSystem,
+        },
+        after: null,
+      });
+    }
     return { success: true };
   }
 
