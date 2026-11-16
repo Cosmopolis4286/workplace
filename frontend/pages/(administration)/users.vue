@@ -136,6 +136,7 @@
             <div class="min-w-0">
               <p class="text-sm font-semibold text-gray-900 truncate">{{ u.firstName }} {{ u.lastName }}</p>
               <p class="text-xs text-gray-400 truncate">{{ u.email }}</p>
+              <button class="text-xs text-blue-600 hover:underline" @click.stop="navigateTo(`/users/${u.id}`)">Ver ficha</button>
             </div>
           </div>
         </td>
