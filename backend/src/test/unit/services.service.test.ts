@@ -126,7 +126,9 @@ describe('ServicesService — service request status transitions', () => {
         .fn()
         .mockResolvedValue(undefined),
       notifyEscrowDisputeOpened: jest.fn().mockResolvedValue(undefined),
-      notifyServiceRequestRequesterCompleted: jest.fn().mockResolvedValue(undefined),
+      notifyServiceRequestRequesterCompleted: jest
+        .fn()
+        .mockResolvedValue(undefined),
       notifyServiceRequestProviderCompleted: jest
         .fn()
         .mockResolvedValue(undefined),
@@ -347,7 +349,9 @@ describe('ServicesService — service request status transitions', () => {
         statusReason: 'El cliente confirmó el acceso al domicilio',
       });
 
-      expect(mockPrismaService.serviceRequestStatusHistory.create).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.serviceRequestStatusHistory.create
+      ).toHaveBeenCalledWith({
         data: expect.objectContaining({
           serviceRequestId: 'req-1',
           previousStatus: 'CONTACTED',
@@ -360,7 +364,11 @@ describe('ServicesService — service request status transitions', () => {
 
     it('guarda el historial de cambios de ETA y notifica al cliente', async () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
-        baseRequest({ status: 'CONTACTED', estimatedStartAt: null, estimatedCompletionAt: null })
+        baseRequest({
+          status: 'CONTACTED',
+          estimatedStartAt: null,
+          estimatedCompletionAt: null,
+        })
       );
 
       await service.updateServiceRequest('req-1', 'provider-1', {
@@ -369,14 +377,18 @@ describe('ServicesService — service request status transitions', () => {
         etaReason: 'Disponibilidad confirmada',
       });
 
-      expect(mockPrismaService.serviceRequestEtaHistory.create).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.serviceRequestEtaHistory.create
+      ).toHaveBeenCalledWith({
         data: expect.objectContaining({
           serviceRequestId: 'req-1',
           reason: 'Disponibilidad confirmada',
           changedBy: 'provider-1',
         }),
       });
-      expect(mockNotificationsService.notifyServiceRequestEtaChanged).toHaveBeenCalledWith(
+      expect(
+        mockNotificationsService.notifyServiceRequestEtaChanged
+      ).toHaveBeenCalledWith(
         'client-1',
         'Proveedor Uno',
         'Servicio Uno',
@@ -563,14 +575,16 @@ describe('ServicesService — service request status transitions', () => {
     });
   });
 
-
   describe('confirmación bilateral de finalización', () => {
     it('el cliente puede confirmar primero sin cerrar ni cobrar hasta que el prestador confirme', async () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
         baseRequest({ status: 'IN_PROGRESS' })
       );
 
-      const result = await service.confirmServiceRequestCompletion('req-1', 'client-1');
+      const result = await service.confirmServiceRequestCompletion(
+        'req-1',
+        'client-1'
+      );
 
       expect(result.status).toBe('COMPLETION_PENDING');
       expect(result.requesterCompletedAt).toBeInstanceOf(Date);
@@ -587,12 +601,20 @@ describe('ServicesService — service request status transitions', () => {
         })
       );
 
-      const result = await service.markServiceRequestDone('req-1', 'provider-1');
+      const result = await service.markServiceRequestDone(
+        'req-1',
+        'provider-1'
+      );
 
       expect(result.status).toBe('CLOSED');
-      expect(mockPrismaService.serviceRequestStatusHistory.create).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.serviceRequestStatusHistory.create
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ newStatus: 'CLOSED', changedBy: 'provider-1' }),
+          data: expect.objectContaining({
+            newStatus: 'CLOSED',
+            changedBy: 'provider-1',
+          }),
         })
       );
     });

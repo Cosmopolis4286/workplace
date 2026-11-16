@@ -882,10 +882,10 @@ export class ServicesService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-        items: { orderBy: { sortOrder: 'asc' } },
-        statusHistory: { orderBy: { createdAt: 'asc' }, take: 100 },
-        etaHistory: { orderBy: { createdAt: 'desc' }, take: 50 },
-      },
+          items: { orderBy: { sortOrder: 'asc' } },
+          statusHistory: { orderBy: { createdAt: 'asc' }, take: 100 },
+          etaHistory: { orderBy: { createdAt: 'desc' }, take: 50 },
+        },
       }),
       this.prisma.serviceRequest.count({ where }),
     ]);
@@ -1024,12 +1024,37 @@ export class ServicesService {
   private static readonly VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
     PENDING: ['SEEN', 'CONTACTED', 'REJECTED', 'CANCELLED'],
     SEEN: ['CONTACTED', 'REJECTED', 'CANCELLED'],
-    CONTACTED: ['SCHEDULED', 'PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY'],
-    SCHEDULED: ['PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY'],
-    PREPARING: ['SCHEDULED', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY'],
+    CONTACTED: [
+      'SCHEDULED',
+      'PREPARING',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'PAUSED',
+      'AWAITING_DELIVERY',
+    ],
+    SCHEDULED: [
+      'PREPARING',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'PAUSED',
+      'AWAITING_DELIVERY',
+    ],
+    PREPARING: [
+      'SCHEDULED',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'PAUSED',
+      'AWAITING_DELIVERY',
+    ],
     ON_THE_WAY: ['IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY'],
     IN_PROGRESS: ['ON_THE_WAY', 'PAUSED', 'AWAITING_DELIVERY'],
-    PAUSED: ['SCHEDULED', 'PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'AWAITING_DELIVERY'],
+    PAUSED: [
+      'SCHEDULED',
+      'PREPARING',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'AWAITING_DELIVERY',
+    ],
     AWAITING_DELIVERY: ['IN_PROGRESS', 'PAUSED'],
     CLOSED: [],
     CANCELLED: [],
@@ -1084,23 +1109,40 @@ export class ServicesService {
     if (
       etaFieldsProvided &&
       ![
-        'CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY',
-        'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY',
+        'CONTACTED',
+        'SCHEDULED',
+        'PREPARING',
+        'ON_THE_WAY',
+        'IN_PROGRESS',
+        'PAUSED',
+        'AWAITING_DELIVERY',
       ].includes(req.status)
     ) {
-      throw new ForbiddenException('Solo puedes modificar el cronograma de un servicio aceptado y activo');
+      throw new ForbiddenException(
+        'Solo puedes modificar el cronograma de un servicio aceptado y activo'
+      );
     }
-    const nextStart = data.estimatedStartAt !== undefined
-      ? new Date(data.estimatedStartAt)
-      : req.estimatedStartAt;
-    const nextCompletion = data.estimatedCompletionAt !== undefined
-      ? new Date(data.estimatedCompletionAt)
-      : req.estimatedCompletionAt;
-    if (nextStart && nextCompletion && nextCompletion.getTime() < nextStart.getTime()) {
-      throw new BadRequestException('La fecha estimada de finalización debe ser posterior al inicio');
+    const nextStart =
+      data.estimatedStartAt !== undefined
+        ? new Date(data.estimatedStartAt)
+        : req.estimatedStartAt;
+    const nextCompletion =
+      data.estimatedCompletionAt !== undefined
+        ? new Date(data.estimatedCompletionAt)
+        : req.estimatedCompletionAt;
+    if (
+      nextStart &&
+      nextCompletion &&
+      nextCompletion.getTime() < nextStart.getTime()
+    ) {
+      throw new BadRequestException(
+        'La fecha estimada de finalización debe ser posterior al inicio'
+      );
     }
-    if (data.estimatedStartAt !== undefined) update.estimatedStartAt = nextStart;
-    if (data.estimatedCompletionAt !== undefined) update.estimatedCompletionAt = nextCompletion;
+    if (data.estimatedStartAt !== undefined)
+      update.estimatedStartAt = nextStart;
+    if (data.estimatedCompletionAt !== undefined)
+      update.estimatedCompletionAt = nextCompletion;
     if (data.status !== undefined) {
       // CANCELLED is client-only — provider cannot cancel on behalf of the client
       if (data.status === 'CANCELLED')
@@ -1110,7 +1152,9 @@ export class ServicesService {
       // CLOSED is client-only — only confirmServiceRequestCompletion can close a request,
       // so the platform fee is always charged when a deal is marked as done.
       if (data.status === 'COMPLETION_PENDING')
-        throw new ForbiddenException('La finalización se registra mediante las confirmaciones de ambas partes');
+        throw new ForbiddenException(
+          'La finalización se registra mediante las confirmaciones de ambas partes'
+        );
       if (data.status === 'CLOSED')
         throw new ForbiddenException(
           'Solo el cliente puede confirmar la finalización de una solicitud'
@@ -1230,18 +1274,22 @@ export class ServicesService {
     });
 
     const etaChanged =
-      data.estimatedStartAt !== undefined &&
-      new Date(data.estimatedStartAt).getTime() !== (req.estimatedStartAt?.getTime?.() ?? null) ||
-      data.estimatedCompletionAt !== undefined &&
-      new Date(data.estimatedCompletionAt).getTime() !== (req.estimatedCompletionAt?.getTime?.() ?? null);
+      (data.estimatedStartAt !== undefined &&
+        new Date(data.estimatedStartAt).getTime() !==
+          (req.estimatedStartAt?.getTime?.() ?? null)) ||
+      (data.estimatedCompletionAt !== undefined &&
+        new Date(data.estimatedCompletionAt).getTime() !==
+          (req.estimatedCompletionAt?.getTime?.() ?? null));
     if (etaChanged) {
       await this.prisma.serviceRequestEtaHistory.create({
         data: {
           serviceRequestId: id,
           previousEstimatedStartAt: req.estimatedStartAt ?? null,
-          newEstimatedStartAt: update.estimatedStartAt ?? req.estimatedStartAt ?? null,
+          newEstimatedStartAt:
+            update.estimatedStartAt ?? req.estimatedStartAt ?? null,
           previousEstimatedCompletionAt: req.estimatedCompletionAt ?? null,
-          newEstimatedCompletionAt: update.estimatedCompletionAt ?? req.estimatedCompletionAt ?? null,
+          newEstimatedCompletionAt:
+            update.estimatedCompletionAt ?? req.estimatedCompletionAt ?? null,
           reason: data.etaReason?.trim() || null,
           changedBy: userId,
         },
@@ -1261,7 +1309,19 @@ export class ServicesService {
         },
       });
 
-      if (req.requesterId && ['SEEN', 'CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY'].includes(data.status)) {
+      if (
+        req.requesterId &&
+        [
+          'SEEN',
+          'CONTACTED',
+          'SCHEDULED',
+          'PREPARING',
+          'ON_THE_WAY',
+          'IN_PROGRESS',
+          'PAUSED',
+          'AWAITING_DELIVERY',
+        ].includes(data.status)
+      ) {
         this.notifications
           .notifyServiceRequestStatusChanged(
             req.requesterId,
@@ -1396,13 +1456,23 @@ export class ServicesService {
     if (!userId || req.requesterId !== userId)
       throw new ForbiddenException('No tienes permiso');
     const activeStatuses = [
-      'CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY',
-      'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING',
+      'CONTACTED',
+      'SCHEDULED',
+      'PREPARING',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'PAUSED',
+      'AWAITING_DELIVERY',
+      'COMPLETION_PENDING',
     ];
     if (!activeStatuses.includes(req.status))
-      throw new ForbiddenException('El servicio todavía no está en una etapa que permita confirmar su recepción');
+      throw new ForbiddenException(
+        'El servicio todavía no está en una etapa que permita confirmar su recepción'
+      );
     if (req.escrowStatus === 'DISPUTED')
-      throw new ConflictException('Hay una disputa abierta: soporte está revisando el caso');
+      throw new ConflictException(
+        'Hay una disputa abierta: soporte está revisando el caso'
+      );
     if (req.requesterCompletedAt) {
       if (req.providerCompletedAt) {
         return this.finalizeServiceRequestCompletion(id, userId);
@@ -1416,7 +1486,9 @@ export class ServicesService {
       where: { id },
       data: {
         requesterCompletedAt: now,
-        completionDeadlineAt: req.completionDeadlineAt ?? new Date(now.getTime() + AUTO_CLOSE_AFTER_MS),
+        completionDeadlineAt:
+          req.completionDeadlineAt ??
+          new Date(now.getTime() + AUTO_CLOSE_AFTER_MS),
         status: nextStatus,
         statusUpdatedAt: req.status === nextStatus ? req.statusUpdatedAt : now,
       },
@@ -1432,8 +1504,13 @@ export class ServicesService {
         },
       });
     }
-    const latest = await this.prisma.serviceRequest.findUnique({ where: { id } });
-    if (req.providerCompletedAt || (latest?.providerCompletedAt && latest?.requesterCompletedAt)) {
+    const latest = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+    });
+    if (
+      req.providerCompletedAt ||
+      (latest?.providerCompletedAt && latest?.requesterCompletedAt)
+    ) {
       return this.finalizeServiceRequestCompletion(id, userId);
     }
     this.notifications
@@ -1444,7 +1521,13 @@ export class ServicesService {
         id
       )
       .catch(() => {});
-    return { ...req, ...updated, ...latest, requesterCompletedAt: now, status: nextStatus };
+    return {
+      ...req,
+      ...updated,
+      ...latest,
+      requesterCompletedAt: now,
+      status: nextStatus,
+    };
   }
 
   private async finalizeServiceRequestCompletion(
@@ -1454,10 +1537,15 @@ export class ServicesService {
   ) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
-    if (!options.auto && (!actorId || (req.requesterId !== actorId && req.providerId !== actorId)))
+    if (
+      !options.auto &&
+      (!actorId || (req.requesterId !== actorId && req.providerId !== actorId))
+    )
       throw new ForbiddenException('No tienes permiso');
     if (!['CONTACTED', 'COMPLETION_PENDING'].includes(req.status))
-      throw new ForbiddenException('Solo puedes finalizar un servicio en curso');
+      throw new ForbiddenException(
+        'Solo puedes finalizar un servicio en curso'
+      );
     const autoCloseAt =
       req.completionDeadlineAt ??
       (req.providerCompletedAt
@@ -1471,7 +1559,9 @@ export class ServicesService {
         req.escrowStatus === 'DISPUTED' ||
         req.escrowStatus === 'PENDING_FUNDS')
     ) {
-      throw new ConflictException('La solicitud no se puede cerrar automáticamente');
+      throw new ConflictException(
+        'La solicitud no se puede cerrar automáticamente'
+      );
     }
 
     // Resolve fee before starting any write so we don't mark CLOSED on a fee error
@@ -1678,20 +1768,33 @@ export class ServicesService {
     if (req.providerId !== providerId)
       throw new ForbiddenException('No tienes permiso');
     const activeStatuses = [
-      'CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY',
-      'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING',
+      'CONTACTED',
+      'SCHEDULED',
+      'PREPARING',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'PAUSED',
+      'AWAITING_DELIVERY',
+      'COMPLETION_PENDING',
     ];
     if (!activeStatuses.includes(req.status)) {
-      throw new BadRequestException('Solo puedes declarar terminado un servicio en curso');
+      throw new BadRequestException(
+        'Solo puedes declarar terminado un servicio en curso'
+      );
     }
     if (req.escrowStatus === 'PENDING_FUNDS') {
-      throw new BadRequestException('El cliente todavía no pagó la garantía: espera a que quede retenida');
+      throw new BadRequestException(
+        'El cliente todavía no pagó la garantía: espera a que quede retenida'
+      );
     }
     if (req.escrowStatus === 'DISPUTED') {
-      throw new BadRequestException('Hay una disputa abierta: soporte la está revisando');
+      throw new BadRequestException(
+        'Hay una disputa abierta: soporte la está revisando'
+      );
     }
     if (req.providerCompletedAt) {
-      if (req.requesterCompletedAt) return this.finalizeServiceRequestCompletion(id, providerId);
+      if (req.requesterCompletedAt)
+        return this.finalizeServiceRequestCompletion(id, providerId);
       return req;
     }
 
@@ -1701,7 +1804,9 @@ export class ServicesService {
       where: { id },
       data: {
         providerCompletedAt: now,
-        completionDeadlineAt: req.completionDeadlineAt ?? new Date(now.getTime() + AUTO_CLOSE_AFTER_MS),
+        completionDeadlineAt:
+          req.completionDeadlineAt ??
+          new Date(now.getTime() + AUTO_CLOSE_AFTER_MS),
         status: nextStatus,
         statusUpdatedAt: req.status === nextStatus ? req.statusUpdatedAt : now,
       },
@@ -1728,11 +1833,22 @@ export class ServicesService {
         )
         .catch(() => {});
     }
-    const latest = await this.prisma.serviceRequest.findUnique({ where: { id } });
-    if (req.requesterCompletedAt || (latest?.providerCompletedAt && latest?.requesterCompletedAt)) {
+    const latest = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+    });
+    if (
+      req.requesterCompletedAt ||
+      (latest?.providerCompletedAt && latest?.requesterCompletedAt)
+    ) {
       return this.finalizeServiceRequestCompletion(id, providerId);
     }
-    return { ...req, ...updated, ...latest, providerCompletedAt: now, status: nextStatus };
+    return {
+      ...req,
+      ...updated,
+      ...latest,
+      providerCompletedAt: now,
+      status: nextStatus,
+    };
   }
 
   // Cron: finaliza solicitudes con ambas declaraciones o cuyo plazo de revisión
@@ -1752,7 +1868,9 @@ export class ServicesService {
           },
           {
             status: 'CONTACTED',
-            providerCompletedAt: { lte: new Date(now.getTime() - AUTO_CLOSE_AFTER_MS) },
+            providerCompletedAt: {
+              lte: new Date(now.getTime() - AUTO_CLOSE_AFTER_MS),
+            },
             completionDeadlineAt: null,
           },
         ],
@@ -1905,8 +2023,14 @@ export class ServicesService {
     }
     if (
       ![
-        'CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY',
-        'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING',
+        'CONTACTED',
+        'SCHEDULED',
+        'PREPARING',
+        'ON_THE_WAY',
+        'IN_PROGRESS',
+        'PAUSED',
+        'AWAITING_DELIVERY',
+        'COMPLETION_PENDING',
       ].includes(req.status)
     ) {
       throw new BadRequestException(
