@@ -29,6 +29,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { extensionForMimetype } from '../../../common/utils/upload-extension.util';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { PhoneVerificationService } from './phone-verification.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
@@ -51,7 +52,8 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private config: ConfigService,
-    private accountDeletion: AccountDeletionService
+    private accountDeletion: AccountDeletionService,
+    private readonly phoneVerification: PhoneVerificationService
   ) {}
 
   // ─── Google OAuth ────────────────────────────────────────────────────────────
@@ -420,6 +422,38 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async revokeAllSessions(@CurrentUser() user: any) {
     return this.authService.revokeAllSessions(user.id);
+  }
+
+  @Post('phone/send-verification')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @RateLimit({
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 5,
+    keyGenerator: (req: any) => `phone-otp-send:${req.ip}`,
+  })
+  async sendPhoneVerification(
+    @CurrentUser() user: any,
+    @Body('phone') phone: string
+  ) {
+    return this.phoneVerification.sendCode(user.id, phone);
+  }
+
+  @Post('phone/verify')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @RateLimit({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 10,
+    keyGenerator: (req: any) => `phone-otp-verify:${req.ip}`,
+  })
+  async verifyPhone(
+    @CurrentUser() user: any,
+    @Body('code') code: string
+  ) {
+    return this.phoneVerification.verifyCode(user.id, code);
   }
 
   private parseTtlToSeconds(duration: string): number {
