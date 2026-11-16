@@ -58,14 +58,6 @@ jobs:
     - name: Sin campos Float nuevos
       run: cd backend && pnpm schema:float-check
 
-    # Diagnóstico temporal: obtener el resultado exacto de Prettier en CI.
-    - name: Diagnóstico temporal de formato
-      run: |
-        cd backend
-        pnpm exec prettier --config .prettierrc --write src/test/unit/kyc.service.test.ts src/test/unit/users.service.test.ts
-        cd ..
-        git diff -- backend/src/test/unit/kyc.service.test.ts backend/src/test/unit/users.service.test.ts
-
     - name: Format check
       run: cd backend && pnpm format:check
 
