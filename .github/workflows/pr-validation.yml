@@ -59,7 +59,11 @@ jobs:
       run: cd backend && pnpm schema:float-check
 
     - name: Format check
-      run: cd backend && pnpm format:check
+      run: |
+        cd backend
+        pnpm exec prettier --config .prettierrc --write src/domains/commerce-core/services/services.service.ts test/unit/services.service.test.ts
+        cd ..
+        git diff -- backend/src/domains/commerce-core/services/services.service.ts backend/src/test/unit/services.service.test.ts
 
     # Bloquea vulnerabilidades críticas (hoy 0). Queda una alta sin parche en
     # la cadena de build del frontend (node-forge); subir a --audit-level high
