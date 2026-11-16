@@ -48,6 +48,7 @@ export class UsersController {
     @Query('search') search?: string,
     @Query('profileKind')
     profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER',
+    @Query('status') status?: 'ACTIVE' | 'INACTIVE',
     @Query('page') page = '1',
     @Query('limit') limit = '20'
   ) {
@@ -62,6 +63,7 @@ export class UsersController {
       subcategoryId,
       search,
       profileKind,
+      isActive: status === 'ACTIVE' ? true : status === 'INACTIVE' ? false : undefined,
       page: parseInt(page),
       limit: parseInt(limit),
     });
@@ -76,7 +78,8 @@ export class UsersController {
     @Query('subcategoryId') subcategoryId?: string,
     @Query('search') search?: string,
     @Query('profileKind')
-    profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER'
+    profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER',
+    @Query('status') status?: 'ACTIVE' | 'INACTIVE'
   ) {
     const allowedRoles = assignableRolesFor(caller.role);
 
@@ -87,6 +90,7 @@ export class UsersController {
       subcategoryId,
       search,
       profileKind,
+      isActive: status === 'ACTIVE' ? true : status === 'INACTIVE' ? false : undefined,
     });
   }
 
