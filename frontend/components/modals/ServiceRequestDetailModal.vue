@@ -85,7 +85,7 @@
                     <p class="font-medium text-gray-800">{{ req.estimatedCompletionAt ? formatDateTime(req.estimatedCompletionAt) : 'Sin definir' }}</p>
                   </div>
                 </div>
-                <form v-if="isProvider && !['CLOSED', 'CANCELLED', 'REJECTED', 'COMPLETION_PENDING'].includes(req.status)" class="grid grid-cols-1 sm:grid-cols-2 gap-2" @submit.prevent="saveEta">
+                <form v-if="isProvider && ['CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY'].includes(req.status)" class="grid grid-cols-1 sm:grid-cols-2 gap-2" @submit.prevent="saveEta">
                   <label class="text-[11px] text-gray-600">Inicio
                     <input v-model="etaStartInput" type="datetime-local" class="mt-1 w-full rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-xs" />
                   </label>
