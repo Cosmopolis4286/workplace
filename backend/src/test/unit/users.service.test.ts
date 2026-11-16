@@ -238,7 +238,11 @@ describe('UsersService', () => {
           expect.objectContaining({
             where: expect.objectContaining({
               module: { in: ['users', 'kyc', 'account', 'auth'] },
-              OR: [{ userId: 'user-kyc' }, { entityId: 'user-kyc' }],
+              OR: expect.arrayContaining([
+                { userId: 'user-kyc' },
+                { entityId: 'user-kyc' },
+                { details: { path: ['targetUserId'], equals: 'user-kyc' } },
+              ]),
             }),
             take: 30,
           })
