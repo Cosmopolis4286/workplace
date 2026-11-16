@@ -15,6 +15,7 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
+import { CreateServiceInquiryDto } from './dto/create-service-inquiry.dto';
 import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import {
@@ -706,6 +707,124 @@ export class ServicesService {
     'SEEN',
     'CONTACTED',
   ];
+
+  // Consulta preliminar: no exige KYC, no crea ServiceRequest y no toca
+  // límites de contratación, comisiones, créditos ni escrow.
+  async createServiceInquiry(
+    dto: CreateServiceInquiryDto,
+    requesterId: string
+  ) {
+    const service = await this.prisma.service.findUnique({
+      where: { id: dto.serviceId },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        modalities: true,
+      },
+    });
+    if (!service || service.status !== ServiceStatus.ACTIVE) {
+      throw new NotFoundException(
+        'El servicio no existe o ya no está disponible'
+      );
+    }
+    if (service.userId === requesterId) {
+      throw new BadRequestException('No puedes consultar tu propio servicio');
+    }
+    if (
+      dto.modality &&
+      service.modalities.length > 0 &&
+      !service.modalities.includes(dto.modality)
+    ) {
+      throw new BadRequestException(
+        'La modalidad seleccionada no está disponible para este servicio'
+      );
+    }
+
+    const existing = await this.prisma.serviceInquiry.findFirst({
+      where: {
+        serviceId: service.id,
+        requesterId,
+        status: { in: ['OPEN', 'RESPONDED'] },
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'Ya tienes una consulta abierta para este servicio'
+      );
+    }
+
+    const windowStart = new Date(Date.now() - 10 * 60 * 1000);
+    const recentCount = await this.prisma.serviceInquiry.count({
+      where: { requesterId, createdAt: { gte: windowStart } },
+    });
+    if (recentCount >= 5) {
+      throw new BadRequestException(
+        'Has enviado demasiadas consultas en poco tiempo. Intenta más tarde.'
+      );
+    }
+
+    return this.prisma.serviceInquiry.create({
+      data: {
+        serviceId: service.id,
+        providerId: service.userId,
+        requesterId,
+        modality: dto.modality ?? 'ANY',
+        preferredDate: dto.preferredDate
+          ? new Date(dto.preferredDate)
+          : undefined,
+        preferredTime: dto.preferredTime,
+        address: dto.address,
+        city: dto.city,
+        clientPhone: dto.clientPhone,
+        message: dto.message,
+      },
+      include: {
+        service: {
+          select: { id: true, name: true, price: true, priceUnit: true },
+        },
+      },
+    });
+  }
+
+  async getMyServiceInquiries(
+    userId: string,
+    asRole: 'provider' | 'client' = 'client',
+    page = 1,
+    limit = 20
+  ) {
+    limit = Math.min(100, Math.max(1, limit));
+    page = Math.max(1, page);
+    const where: Prisma.ServiceInquiryWhereInput =
+      asRole === 'provider' ? { providerId: userId } : { requesterId: userId };
+    const [data, total] = await Promise.all([
+      this.prisma.serviceInquiry.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          service: {
+            select: { id: true, name: true, price: true, priceUnit: true },
+          },
+        },
+      }),
+      this.prisma.serviceInquiry.count({ where }),
+    ]);
+
+    return {
+      data: data.map((inquiry) =>
+        asRole === 'provider'
+          ? { ...inquiry, clientPhone: null, contactHidden: true }
+          : { ...inquiry, contactHidden: false }
+      ),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 
   async createServiceRequest(
     dto: CreateServiceRequestDto,
