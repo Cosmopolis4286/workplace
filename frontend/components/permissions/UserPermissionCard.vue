@@ -65,7 +65,7 @@
           class="px-2 py-0.5 text-[10px] rounded-full font-medium"
           :class="sourceBadgeClass"
         >
-          {{ perm.source === 'role' ? 'Rol' : perm.source === 'user' ? 'Usuario' : 'No' }}
+          {{ perm.source === 'role' ? 'Rol' : perm.source === 'profile' ? 'Perfil' : perm.source === 'user' ? 'Usuario' : 'No' }}
         </span>
 
         <!-- Botones de acción -->
@@ -145,6 +145,7 @@ const sourceBadgeClass = computed(() => {
     return props.perm.effectiveGranted ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
   }
   if (props.perm.source === 'role') return 'bg-blue-100 text-blue-700'
+  if (props.perm.source === 'profile') return 'bg-indigo-100 text-indigo-700'
   return 'bg-gray-100 text-gray-500'
 })
 </script>
