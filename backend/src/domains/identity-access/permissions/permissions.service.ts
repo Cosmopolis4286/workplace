@@ -16,6 +16,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { UsersService } from '../users/users.service';
 import { PermissionsFacade } from './permissions.facade';
+import { AuditService } from '../audit/audit.service';
 
 const CACHE_TTL = 300;
 const cacheKey = (role: Role) => `permissions:role:${role}`;
@@ -41,8 +42,37 @@ export class PermissionsService implements PermissionsFacade {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
-    private usersService: UsersService
+    private usersService: UsersService,
+    private auditService: AuditService
   ) {}
+
+  private async recordPermissionChange(params: {
+    actorId: string;
+    scope: 'role' | 'profile' | 'user' | 'permission';
+    target: Record<string, unknown>;
+    before: unknown;
+    after: unknown;
+    reason?: string | null;
+  }): Promise<void> {
+    const { randomUUID } = await import('crypto');
+    await this.auditService.log({
+      userId: params.actorId,
+      action: 'UPDATE' as any,
+      module: 'permisos',
+      entityId: String(params.target.id ?? params.target.permissionId ?? params.target.userId ?? params.target.role ?? params.target.profileType ?? 'rbac'),
+      summary: `Cambio de permisos (${params.scope})`,
+      details: {
+        eventType: 'RBAC_PERMISSION_CHANGED',
+        operationId: randomUUID(),
+        scope: params.scope,
+        target: params.target,
+        before: params.before,
+        after: params.after,
+        reason: params.reason ?? null,
+      },
+      statusCode: 200,
+    });
+  }
 
   // ── Used by PermissionsGuard on every request ──────────────────────────────
 
@@ -379,7 +409,7 @@ export class PermissionsService implements PermissionsFacade {
 
     const existing = await this.prisma.profilePermission.findFirst({
       where: { profileType, subtype: subtype ?? null, permissionId },
-      select: { id: true },
+      select: { id: true, granted: true },
     });
     if (existing) {
       await this.prisma.profilePermission.update({
@@ -399,6 +429,13 @@ export class PermissionsService implements PermissionsFacade {
     }
 
     await this.invalidateProfilePermissionsCache(profileType, subtype);
+    await this.recordPermissionChange({
+      actorId: updatedBy,
+      scope: 'profile',
+      target: { profileType, subtype: subtype ?? null, permissionId, permissionKey: perm.key },
+      before: existing ? { granted: existing.granted } : null,
+      after: { granted },
+    });
     return { success: true };
   }
 
@@ -412,6 +449,14 @@ export class PermissionsService implements PermissionsFacade {
     updatedBy: string
   ) {
     const ids = [...new Set(updates.map((u) => u.permissionId))];
+    const beforeRows = await this.prisma.profilePermission.findMany({
+      where: { permissionId: { in: ids } },
+      select: { profileType: true, subtype: true, permissionId: true, granted: true },
+    });
+    const beforeMap = new Map(beforeRows.map((row) => [
+      `${row.profileType}:${row.subtype ?? 'none'}:${row.permissionId}`,
+      row.granted,
+    ]));
     const systemPerms = await this.prisma.permission.findMany({
       where: { id: { in: ids }, isSystem: true },
     });
@@ -461,6 +506,18 @@ export class PermissionsService implements PermissionsFacade {
       )
     );
 
+    await this.recordPermissionChange({
+      actorId: updatedBy,
+      scope: 'profile',
+      target: { batch: true, count: updates.length },
+      before: updates.map((u) => ({
+        profileType: u.profileType,
+        subtype: u.subtype ?? null,
+        permissionId: u.permissionId,
+        granted: beforeMap.get(`${u.profileType}:${u.subtype ?? 'none'}:${u.permissionId}`) ?? null,
+      })),
+      after: updates.map((u) => ({ ...u, subtype: u.subtype ?? null })),
+    });
     return { success: true, updated: updates.length };
   }
 
@@ -506,6 +563,10 @@ export class PermissionsService implements PermissionsFacade {
       );
     }
 
+    const existing = await this.prisma.rolePermission.findUnique({
+      where: { role_permissionId: { role, permissionId } },
+      select: { granted: true },
+    });
     await this.prisma.rolePermission.upsert({
       where: { role_permissionId: { role, permissionId } },
       create: { role, permissionId, granted, updatedBy },
@@ -517,6 +578,13 @@ export class PermissionsService implements PermissionsFacade {
     // overrides independientes del rol, hasEffectivePermission siempre relee
     // getRolePermissions(role) en caliente (ya invalidado aquí abajo).
     await this.invalidateRoleVersion(role);
+    await this.recordPermissionChange({
+      actorId: updatedBy,
+      scope: 'role',
+      target: { role, permissionId, permissionKey: perm.key },
+      before: existing ? { granted: existing.granted } : null,
+      after: { granted },
+    });
     return { success: true };
   }
 
@@ -621,6 +689,12 @@ export class PermissionsService implements PermissionsFacade {
       throw new ForbiddenException('El rol SUPERADMIN está protegido');
     }
     const ids = [...new Set(updates.map((u) => u.permissionId))];
+    const roles = [...new Set(updates.map((u) => u.role))];
+    const beforeRows = await this.prisma.rolePermission.findMany({
+      where: { role: { in: roles }, permissionId: { in: ids } },
+      select: { role: true, permissionId: true, granted: true },
+    });
+    const beforeMap = new Map(beforeRows.map((row) => [`${row.role}:${row.permissionId}`, row.granted]));
     const systemPerms = await this.prisma.permission.findMany({
       where: { id: { in: ids }, isSystem: true },
     });
@@ -647,8 +721,14 @@ export class PermissionsService implements PermissionsFacade {
       )
     );
 
-    const roles = [...new Set(updates.map((u) => u.role))];
     await Promise.all(roles.map((r) => this.invalidateRoleVersion(r)));
+    await this.recordPermissionChange({
+      actorId: updatedBy,
+      scope: 'role',
+      target: { batch: true, count: updates.length, roles },
+      before: updates.map((u) => ({ ...u, granted: beforeMap.get(`${u.role}:${u.permissionId}`) ?? null })),
+      after: updates,
+    });
 
     return { success: true, updated: updates.length };
   }
@@ -903,6 +983,10 @@ export class PermissionsService implements PermissionsFacade {
       throw new ForbiddenException('No puedes asignar permisos de sistema');
     }
 
+    const existing = await this.prisma.userPermission.findUnique({
+      where: { userId_permissionId: { userId, permissionId: dto.permissionId } },
+      select: { granted: true, reason: true, expiresAt: true },
+    });
     const userPerm = await this.prisma.userPermission.upsert({
       where: {
         userId_permissionId: { userId, permissionId: dto.permissionId },
@@ -925,6 +1009,14 @@ export class PermissionsService implements PermissionsFacade {
 
     // Invalidar caché de permisos del usuario y bump de versión (tiempo real)
     await this.invalidateUserPermissionsCache(userId);
+    await this.recordPermissionChange({
+      actorId: admin.id,
+      scope: 'user',
+      target: { userId, permissionId: dto.permissionId, permissionKey: perm.key },
+      before: existing,
+      after: { granted: userPerm.granted, reason: userPerm.reason, expiresAt: userPerm.expiresAt },
+      reason: dto.reason,
+    });
 
     return { success: true, userPerm };
   }
@@ -936,11 +1028,24 @@ export class PermissionsService implements PermissionsFacade {
   ) {
     await this.validateUserAccess(admin, userId);
 
-    await this.prisma.userPermission.deleteMany({
+    const existing = await this.prisma.userPermission.findUnique({
+      where: { userId_permissionId: { userId, permissionId } },
+      select: { granted: true, reason: true, expiresAt: true },
+    });
+    const deleted = await this.prisma.userPermission.deleteMany({
       where: { userId, permissionId },
     });
 
     await this.invalidateUserPermissionsCache(userId);
+    if (deleted.count > 0) {
+      await this.recordPermissionChange({
+        actorId: admin.id,
+        scope: 'user',
+        target: { userId, permissionId },
+        before: existing,
+        after: null,
+      });
+    }
 
     return { success: true };
   }
@@ -951,11 +1056,24 @@ export class PermissionsService implements PermissionsFacade {
   ) {
     await this.validateUserAccess(admin, userId);
 
+    const existing = await this.prisma.userPermission.findMany({
+      where: { userId },
+      select: { permissionId: true, granted: true, reason: true, expiresAt: true },
+    });
     await this.prisma.userPermission.deleteMany({
       where: { userId },
     });
 
     await this.invalidateUserPermissionsCache(userId);
+    if (existing.length > 0) {
+      await this.recordPermissionChange({
+        actorId: admin.id,
+        scope: 'user',
+        target: { userId, reset: true, count: existing.length },
+        before: existing,
+        after: [],
+      });
+    }
 
     return {
       success: true,
