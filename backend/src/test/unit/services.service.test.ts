@@ -336,6 +336,54 @@ describe('ServicesService — service request status transitions', () => {
       );
     });
 
+    it('permite avanzar por estados operativos y conserva el motivo en el historial', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({ status: 'CONTACTED' })
+      );
+
+      await service.updateServiceRequest('req-1', 'provider-1', {
+        status: 'IN_PROGRESS',
+        statusReason: 'El cliente confirmó el acceso al domicilio',
+      });
+
+      expect(mockPrismaService.serviceRequestStatusHistory.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          serviceRequestId: 'req-1',
+          previousStatus: 'CONTACTED',
+          newStatus: 'IN_PROGRESS',
+          changedBy: 'provider-1',
+          reason: 'El cliente confirmó el acceso al domicilio',
+        }),
+      });
+    });
+
+    it('guarda el historial de cambios de ETA y notifica al cliente', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({ status: 'CONTACTED', estimatedStartAt: null, estimatedCompletionAt: null })
+      );
+
+      await service.updateServiceRequest('req-1', 'provider-1', {
+        estimatedStartAt: '2026-11-20T13:00:00.000Z',
+        estimatedCompletionAt: '2026-11-20T15:00:00.000Z',
+        etaReason: 'Disponibilidad confirmada',
+      });
+
+      expect(mockPrismaService.serviceRequestEtaHistory.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          serviceRequestId: 'req-1',
+          reason: 'Disponibilidad confirmada',
+          changedBy: 'provider-1',
+        }),
+      });
+      expect(mockNotificationsService.notifyServiceRequestEtaChanged).toHaveBeenCalledWith(
+        'client-1',
+        'Proveedor Uno',
+        'Servicio Uno',
+        expect.any(Date),
+        expect.any(Date)
+      );
+    });
+
     it('rejects any change once the request is terminal (REJECTED)', async () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
         baseRequest({ status: 'REJECTED' })
