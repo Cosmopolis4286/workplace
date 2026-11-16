@@ -32,6 +32,7 @@
         <div class="flex-1 overflow-hidden flex">
           <UserPermissionsSidebar
             :role-permissions-count="rolePermissionsCount"
+            :profile-permissions-count="profilePermissionsCount"
             :user-permissions-count="userPermissionsCount"
             :effective-permissions-count="effectivePermissionsCount"
             :has-custom-permissions="hasCustomPermissions"
@@ -175,6 +176,10 @@ const hasCustomPermissions = computed(() =>
 
 const rolePermissionsCount = computed(() =>
   permissions.value.filter(p => p.roleGranted && p.userGranted === null).length
+)
+
+const profilePermissionsCount = computed(() =>
+  permissions.value.filter(p => p.profileGranted && p.userGranted === null).length
 )
 
 const userPermissionsCount = computed(() =>
