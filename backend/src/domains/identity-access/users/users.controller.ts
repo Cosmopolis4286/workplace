@@ -288,7 +288,10 @@ export class UsersController {
       summary: updated.isActive
         ? 'Cuenta activada desde administración'
         : 'Cuenta suspendida desde administración',
-      details: { previousIsActive: target.isActive, isActive: updated.isActive },
+      details: {
+        previousIsActive: target.isActive,
+        isActive: updated.isActive,
+      },
     });
     return updated;
   }
