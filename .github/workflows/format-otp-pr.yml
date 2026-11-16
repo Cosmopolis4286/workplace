@@ -41,7 +41,7 @@ jobs:
             src/test/unit/phone-verification.service.test.ts
 
       - name: Eliminar formateador temporal
-        run: rm .github/workflows/format-otp-pr.yml
+        run: rm .github/workflows/format-otp-pr.yml .tmp-trigger-otp-format
 
       - name: Guardar corrección de formato
         run: |
