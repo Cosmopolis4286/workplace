@@ -8,6 +8,10 @@
           <span class="font-medium text-blue-600">{{ rolePermissionsCount }}</span>
         </div>
         <div class="flex justify-between">
+          <span class="text-gray-600">Del perfil:</span>
+          <span class="font-medium text-indigo-600">{{ profilePermissionsCount }}</span>
+        </div>
+        <div class="flex justify-between">
           <span class="text-gray-600">Personalizados:</span>
           <span class="font-medium text-amber-600">{{ userPermissionsCount }}</span>
         </div>
@@ -24,6 +28,10 @@
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded bg-blue-500"></span>
           <span class="text-gray-600">Del rol</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded bg-indigo-500"></span>
+          <span class="text-gray-600">Del perfil</span>
         </div>
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded bg-green-500"></span>
@@ -57,6 +65,7 @@
 <script setup lang="ts">
 defineProps<{
   rolePermissionsCount: number
+  profilePermissionsCount: number
   userPermissionsCount: number
   effectivePermissionsCount: number
   hasCustomPermissions: boolean
