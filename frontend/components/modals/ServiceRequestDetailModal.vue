@@ -954,8 +954,7 @@ async function openDispute() {
   }
 }
 
-// El proveedor marca terminado; el cliente tiene AUTO_CLOSE_HOURS para
-// confirmar o reportar un problema (backend: AUTO_CLOSE_AFTER_MS).
+// La ventana de revisión de AUTO_CLOSE_HOURS empieza con la primera declaración.
 const AUTO_CLOSE_HOURS = 72
 const markingDone = ref(false)
 const autoCloseAt = computed(() => {
