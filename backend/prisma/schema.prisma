@@ -2413,6 +2413,13 @@ enum ServiceRequestStatus {
   PENDING
   SEEN
   CONTACTED
+  SCHEDULED
+  PREPARING
+  ON_THE_WAY
+  IN_PROGRESS
+  PAUSED
+  AWAITING_DELIVERY
+  COMPLETION_PENDING
   CLOSED
   CANCELLED
   REJECTED
@@ -2478,10 +2485,15 @@ model ServiceRequest {
   // El proveedor marcó el trabajo como terminado: el cliente tiene 72 h para
   // confirmar o reportar un problema; si no responde, se cierra solo (cron).
   providerCompletedAt  DateTime?
+  requesterCompletedAt DateTime?
+  completionDeadlineAt DateTime?
+  estimatedStartAt     DateTime?
+  estimatedCompletionAt DateTime?
   requesterId          String?
   requester            User?                               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
   items                ServiceRequestItem[]
   statusHistory        ServiceRequestStatusHistory[]
+  etaHistory            ServiceRequestEtaHistory[]
   messages             ServiceRequestMessage[]
   priceChangeProposals ServiceRequestPriceChangeProposal[]
   leadAcceptance       ServiceLeadAcceptance?
@@ -2500,6 +2512,8 @@ model ServiceRequest {
   @@index([serviceId, providerId, status])
   // Acelera el cierre automático: WHERE status='CONTACTED' AND providerCompletedAt<=X
   @@index([status, providerCompletedAt])
+  @@index([status, completionDeadlineAt])
+  @@index([estimatedCompletionAt])
   // Acelera el cron de reintento de escrow: WHERE escrowStatus='PENDING_FUNDS'
   @@index([escrowStatus])
   @@index([requesterId])
@@ -2534,11 +2548,28 @@ model ServiceRequestStatusHistory {
   previousStatus   ServiceRequestStatus?
   newStatus        ServiceRequestStatus
   changedBy        String? // userId si fue una acción de usuario; null si fue automático (ej. scheduler)
+  reason           String?
   createdAt        DateTime              @default(now())
 
   @@index([serviceRequestId])
   @@index([createdAt(sort: Desc)])
   @@map("service_request_status_history")
+}
+
+model ServiceRequestEtaHistory {
+  id                          String         @id @default(uuid())
+  serviceRequestId            String
+  serviceRequest              ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  previousEstimatedStartAt    DateTime?
+  newEstimatedStartAt         DateTime?
+  previousEstimatedCompletionAt DateTime?
+  newEstimatedCompletionAt   DateTime?
+  reason                      String?
+  changedBy                   String?
+  createdAt                   DateTime       @default(now())
+
+  @@index([serviceRequestId, createdAt(sort: Desc)])
+  @@map("service_request_eta_history")
 }
 
 enum ServiceRequestProposalStatus {

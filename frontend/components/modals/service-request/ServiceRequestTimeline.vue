@@ -1,7 +1,8 @@
 <template>
   <div>
     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Estado del proceso</p>
-    <div class="flex items-start">
+    <div class="overflow-x-auto pb-2">
+      <div class="flex min-w-[720px] items-start">
       <template v-for="(step, i) in TIMELINE" :key="step.status">
         <div class="flex flex-col items-center flex-1 min-w-0">
           <div
@@ -32,12 +33,13 @@
           :class="isReached(TIMELINE[i+1].status) ? 'bg-red-400' : 'bg-gray-200'"
         />
       </template>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ClockIcon, EyeIcon, PhoneArrowUpRightIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
+import { ClockIcon, EyeIcon, PhoneArrowUpRightIcon, CheckCircleIcon, CalendarIcon, WrenchScrewdriverIcon, TruckIcon, PauseIcon, CubeIcon } from '@heroicons/vue/24/outline'
 
 const props = defineProps<{
   status: string
@@ -48,12 +50,19 @@ const props = defineProps<{
 }>()
 
 const TIMELINE = [
-  { status: 'PENDING',  label: 'Pendiente',  icon: ClockIcon },
-  { status: 'SEEN',      label: 'Visto',       icon: EyeIcon },
-  { status: 'CONTACTED', label: 'Contactado',  icon: PhoneArrowUpRightIcon },
-  { status: 'CLOSED',    label: 'Cerrado',     icon: CheckCircleIcon },
+  { status: 'PENDING', label: 'Pendiente', icon: ClockIcon },
+  { status: 'SEEN', label: 'Visto', icon: EyeIcon },
+  { status: 'CONTACTED', label: 'Aceptado', icon: PhoneArrowUpRightIcon },
+  { status: 'SCHEDULED', label: 'Programado', icon: CalendarIcon },
+  { status: 'PREPARING', label: 'Preparación', icon: WrenchScrewdriverIcon },
+  { status: 'ON_THE_WAY', label: 'En camino', icon: TruckIcon },
+  { status: 'IN_PROGRESS', label: 'En progreso', icon: WrenchScrewdriverIcon },
+  { status: 'PAUSED', label: 'Pausado', icon: PauseIcon },
+  { status: 'AWAITING_DELIVERY', label: 'Entrega', icon: CubeIcon },
+  { status: 'COMPLETION_PENDING', label: 'Confirmación', icon: CheckCircleIcon },
+  { status: 'CLOSED', label: 'Cerrado', icon: CheckCircleIcon },
 ]
-const STATUS_ORDER = ['PENDING', 'SEEN', 'CONTACTED', 'CLOSED']
+const STATUS_ORDER = TIMELINE.map(step => step.status)
 
 function isReached(status: string) {
   return STATUS_ORDER.indexOf(status) <= STATUS_ORDER.indexOf(props.status)

@@ -129,7 +129,17 @@ export class NotificationsService {
     clientId: string,
     providerName: string,
     serviceName: string,
-    status: 'SEEN' | 'CONTACTED' | 'CLOSED'
+    status:
+      | 'SEEN'
+      | 'CONTACTED'
+      | 'CLOSED'
+      | 'SCHEDULED'
+      | 'PREPARING'
+      | 'ON_THE_WAY'
+      | 'IN_PROGRESS'
+      | 'PAUSED'
+      | 'AWAITING_DELIVERY'
+      | 'COMPLETION_PENDING'
   ) {
     const STATUS_COPY: Record<
       typeof status,
@@ -150,6 +160,41 @@ export class NotificationsService {
         title: 'Solicitud cerrada',
         message: `Tu solicitud de "${serviceName}" con ${providerName} fue marcada como cerrada.`,
       },
+      SCHEDULED: {
+        icon: '📅',
+        title: 'Servicio programado',
+        message: `${providerName} programó el servicio "${serviceName}".`,
+      },
+      PREPARING: {
+        icon: '🧰',
+        title: 'Preparando el servicio',
+        message: `${providerName} comenzó a preparar "${serviceName}".`,
+      },
+      ON_THE_WAY: {
+        icon: '🚗',
+        title: 'Prestador en camino',
+        message: `${providerName} indicó que está en camino para "${serviceName}".`,
+      },
+      IN_PROGRESS: {
+        icon: '🔧',
+        title: 'Servicio en progreso',
+        message: `${providerName} comenzó el trabajo de "${serviceName}".`,
+      },
+      PAUSED: {
+        icon: '⏸️',
+        title: 'Servicio pausado',
+        message: `${providerName} pausó temporalmente "${serviceName}".`,
+      },
+      AWAITING_DELIVERY: {
+        icon: '📦',
+        title: 'Pendiente de entrega',
+        message: `${providerName} indicó que "${serviceName}" está pendiente de entrega.`,
+      },
+      COMPLETION_PENDING: {
+        icon: '⌛',
+        title: 'Finalización pendiente',
+        message: `${providerName} actualizó la finalización de "${serviceName}".`,
+      },
     };
     const copy = STATUS_COPY[status];
     return this.createForUser(
@@ -162,6 +207,49 @@ export class NotificationsService {
         metadata: { providerName, serviceName, status },
       },
       { email: true }
+    );
+  }
+
+  async notifyServiceRequestEtaChanged(
+    clientId: string,
+    providerName: string,
+    serviceName: string,
+    estimatedStartAt: Date | null,
+    estimatedCompletionAt: Date | null
+  ) {
+    return this.createForUser(
+      clientId,
+      {
+        type: NotificationType.ORDER,
+        title: '🕒 Actualización del horario del servicio',
+        message: `${providerName} actualizó el horario estimado de "${serviceName}". Revisa el detalle de la solicitud para consultar las nuevas fechas.`,
+        link: '/service-requests',
+        metadata: {
+          serviceName,
+          estimatedStartAt: estimatedStartAt?.toISOString() ?? null,
+          estimatedCompletionAt: estimatedCompletionAt?.toISOString() ?? null,
+        },
+      },
+      { email: false }
+    );
+  }
+
+  async notifyServiceRequestRequesterCompleted(
+    providerId: string,
+    clientName: string,
+    serviceName: string,
+    serviceRequestId: string
+  ) {
+    return this.createForUser(
+      providerId,
+      {
+        type: NotificationType.ORDER,
+        title: '✅ El cliente confirmó la recepción',
+        message: `${clientName} confirmó que recibió el servicio "${serviceName}". Declara la finalización desde el detalle de la solicitud para cerrar el servicio.`,
+        link: `/service-requests/${serviceRequestId}`,
+        metadata: { serviceRequestId, serviceName },
+      },
+      { email: false }
     );
   }
 

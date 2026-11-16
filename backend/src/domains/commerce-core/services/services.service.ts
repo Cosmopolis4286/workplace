@@ -55,8 +55,8 @@ import {
   type MoneyInput,
 } from '../../../common/money/money';
 
-// Plazo del cliente para confirmar o disputar después de que el proveedor
-// marca el trabajo terminado; luego se cierra solo.
+// Ventana de revisión desde la primera declaración de finalización.
+// Si la otra parte no responde y no hay disputa, se aplica el cierre automático.
 export const AUTO_CLOSE_AFTER_MS = 72 * 60 * 60 * 1000;
 // Plazo para pagar una garantía pendiente (Pago Protegido por operación).
 export const GUARANTEE_PAYMENT_WINDOW_MS = 72 * 60 * 60 * 1000;
@@ -1066,7 +1066,11 @@ export class ServicesService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: { items: { orderBy: { sortOrder: 'asc' } } },
+        include: {
+          items: { orderBy: { sortOrder: 'asc' } },
+          statusHistory: { orderBy: { createdAt: 'asc' }, take: 100 },
+          etaHistory: { orderBy: { createdAt: 'desc' }, take: 50 },
+        },
       }),
       this.prisma.serviceRequest.count({ where }),
     ]);
@@ -1205,7 +1209,38 @@ export class ServicesService {
   private static readonly VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
     PENDING: ['SEEN', 'CONTACTED', 'REJECTED', 'CANCELLED'],
     SEEN: ['CONTACTED', 'REJECTED', 'CANCELLED'],
-    CONTACTED: [],
+    CONTACTED: [
+      'SCHEDULED',
+      'PREPARING',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'PAUSED',
+      'AWAITING_DELIVERY',
+    ],
+    SCHEDULED: [
+      'PREPARING',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'PAUSED',
+      'AWAITING_DELIVERY',
+    ],
+    PREPARING: [
+      'SCHEDULED',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'PAUSED',
+      'AWAITING_DELIVERY',
+    ],
+    ON_THE_WAY: ['IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY'],
+    IN_PROGRESS: ['ON_THE_WAY', 'PAUSED', 'AWAITING_DELIVERY'],
+    PAUSED: [
+      'SCHEDULED',
+      'PREPARING',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'AWAITING_DELIVERY',
+    ],
+    AWAITING_DELIVERY: ['IN_PROGRESS', 'PAUSED'],
     CLOSED: [],
     CANCELLED: [],
     REJECTED: [],
@@ -1242,6 +1277,10 @@ export class ServicesService {
       providerNotes?: string;
       price?: number;
       priceUnit?: string;
+      estimatedStartAt?: string;
+      estimatedCompletionAt?: string;
+      statusReason?: string;
+      etaReason?: string;
     }
   ) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
@@ -1249,6 +1288,46 @@ export class ServicesService {
     if (req.providerId !== userId)
       throw new ForbiddenException('No tienes permiso');
     const update: any = {};
+    const etaFieldsProvided =
+      data.estimatedStartAt !== undefined ||
+      data.estimatedCompletionAt !== undefined;
+    if (
+      etaFieldsProvided &&
+      ![
+        'CONTACTED',
+        'SCHEDULED',
+        'PREPARING',
+        'ON_THE_WAY',
+        'IN_PROGRESS',
+        'PAUSED',
+        'AWAITING_DELIVERY',
+      ].includes(req.status)
+    ) {
+      throw new ForbiddenException(
+        'Solo puedes modificar el cronograma de un servicio aceptado y activo'
+      );
+    }
+    const nextStart =
+      data.estimatedStartAt !== undefined
+        ? new Date(data.estimatedStartAt)
+        : req.estimatedStartAt;
+    const nextCompletion =
+      data.estimatedCompletionAt !== undefined
+        ? new Date(data.estimatedCompletionAt)
+        : req.estimatedCompletionAt;
+    if (
+      nextStart &&
+      nextCompletion &&
+      nextCompletion.getTime() < nextStart.getTime()
+    ) {
+      throw new BadRequestException(
+        'La fecha estimada de finalización debe ser posterior al inicio'
+      );
+    }
+    if (data.estimatedStartAt !== undefined)
+      update.estimatedStartAt = nextStart;
+    if (data.estimatedCompletionAt !== undefined)
+      update.estimatedCompletionAt = nextCompletion;
     if (data.status !== undefined) {
       // CANCELLED is client-only — provider cannot cancel on behalf of the client
       if (data.status === 'CANCELLED')
@@ -1257,6 +1336,10 @@ export class ServicesService {
         );
       // CLOSED is client-only — only confirmServiceRequestCompletion can close a request,
       // so the platform fee is always charged when a deal is marked as done.
+      if (data.status === 'COMPLETION_PENDING')
+        throw new ForbiddenException(
+          'La finalización se registra mediante las confirmaciones de ambas partes'
+        );
       if (data.status === 'CLOSED')
         throw new ForbiddenException(
           'Solo el cliente puede confirmar la finalización de una solicitud'
@@ -1375,6 +1458,29 @@ export class ServicesService {
       data: update,
     });
 
+    const etaChanged =
+      (data.estimatedStartAt !== undefined &&
+        new Date(data.estimatedStartAt).getTime() !==
+          (req.estimatedStartAt?.getTime?.() ?? null)) ||
+      (data.estimatedCompletionAt !== undefined &&
+        new Date(data.estimatedCompletionAt).getTime() !==
+          (req.estimatedCompletionAt?.getTime?.() ?? null));
+    if (etaChanged) {
+      await this.prisma.serviceRequestEtaHistory.create({
+        data: {
+          serviceRequestId: id,
+          previousEstimatedStartAt: req.estimatedStartAt ?? null,
+          newEstimatedStartAt:
+            update.estimatedStartAt ?? req.estimatedStartAt ?? null,
+          previousEstimatedCompletionAt: req.estimatedCompletionAt ?? null,
+          newEstimatedCompletionAt:
+            update.estimatedCompletionAt ?? req.estimatedCompletionAt ?? null,
+          reason: data.etaReason?.trim() || null,
+          changedBy: userId,
+        },
+      });
+    }
+
     if (data.status !== undefined && data.status !== req.status) {
       await this.prisma.serviceRequestStatusHistory.create({
         data: {
@@ -1382,16 +1488,31 @@ export class ServicesService {
           previousStatus: req.status,
           newStatus: data.status as any,
           changedBy: userId,
+          ...(data.statusReason?.trim()
+            ? { reason: data.statusReason.trim() }
+            : {}),
         },
       });
 
-      if (req.requesterId && ['SEEN', 'CONTACTED'].includes(data.status)) {
+      if (
+        req.requesterId &&
+        [
+          'SEEN',
+          'CONTACTED',
+          'SCHEDULED',
+          'PREPARING',
+          'ON_THE_WAY',
+          'IN_PROGRESS',
+          'PAUSED',
+          'AWAITING_DELIVERY',
+        ].includes(data.status)
+      ) {
         this.notifications
           .notifyServiceRequestStatusChanged(
             req.requesterId,
             req.providerName,
             req.serviceName,
-            data.status as 'SEEN' | 'CONTACTED'
+            data.status as any
           )
           .catch(() => {});
       }
@@ -1428,6 +1549,18 @@ export class ServicesService {
             .catch(() => {});
         }
       }
+    }
+
+    if (etaChanged && req.requesterId) {
+      this.notifications
+        .notifyServiceRequestEtaChanged(
+          req.requesterId,
+          req.providerName,
+          req.serviceName,
+          update.estimatedStartAt ?? req.estimatedStartAt ?? null,
+          update.estimatedCompletionAt ?? req.estimatedCompletionAt ?? null
+        )
+        .catch(() => {});
     }
 
     return withClientContactForViewer(updated, userId);
@@ -1487,9 +1620,8 @@ export class ServicesService {
     return this.updateServiceRequest(id, userId, { status });
   }
 
-  // El cliente (requester) confirma que el servicio se completó realmente.
-  // Solo desde CONTACTED, para evitar que se cierre algo que nunca avanzó,
-  // y habilita la reseña verificada del proveedor.
+  // El cliente declara que recibió el servicio. La solicitud solo se cierra
+  // cuando también existe la declaración del prestador.
   /**
    * Cierra la solicitud: cobra la comisión y libera la garantía. La confirma el
    * cliente (`userId`) o, con `auto`, el cierre automático cuando el proveedor
@@ -1501,17 +1633,114 @@ export class ServicesService {
     userId: string | null,
     options: { auto?: boolean } = {}
   ) {
+    if (options.auto) {
+      return this.finalizeServiceRequestCompletion(id, null, { auto: true });
+    }
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
-    if (!options.auto && (!userId || req.requesterId !== userId))
+    if (!userId || req.requesterId !== userId)
       throw new ForbiddenException('No tienes permiso');
-    if (req.status !== 'CONTACTED')
+    const activeStatuses = [
+      'CONTACTED',
+      'SCHEDULED',
+      'PREPARING',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'PAUSED',
+      'AWAITING_DELIVERY',
+      'COMPLETION_PENDING',
+    ];
+    if (!activeStatuses.includes(req.status))
       throw new ForbiddenException(
-        'Solo puedes confirmar una solicitud que ya fue contactada por el proveedor'
+        'El servicio todavía no está en una etapa que permita confirmar su recepción'
       );
+    if (req.escrowStatus === 'DISPUTED')
+      throw new ConflictException(
+        'Hay una disputa abierta: soporte está revisando el caso'
+      );
+    if (req.requesterCompletedAt) {
+      if (req.providerCompletedAt) {
+        return this.finalizeServiceRequestCompletion(id, userId);
+      }
+      return req;
+    }
+
+    const now = new Date();
+    const nextStatus = 'COMPLETION_PENDING';
+    const updated = await this.prisma.serviceRequest.update({
+      where: { id },
+      data: {
+        requesterCompletedAt: now,
+        completionDeadlineAt:
+          req.completionDeadlineAt ??
+          new Date(now.getTime() + AUTO_CLOSE_AFTER_MS),
+        status: nextStatus,
+        statusUpdatedAt: req.status === nextStatus ? req.statusUpdatedAt : now,
+      },
+    });
+    if (req.status !== nextStatus) {
+      await this.prisma.serviceRequestStatusHistory.create({
+        data: {
+          serviceRequestId: id,
+          previousStatus: req.status,
+          newStatus: nextStatus,
+          changedBy: userId,
+          reason: 'El cliente declaró que recibió el servicio',
+        },
+      });
+    }
+    const latest = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+    });
+    if (
+      req.providerCompletedAt ||
+      (latest?.providerCompletedAt && latest?.requesterCompletedAt)
+    ) {
+      return this.finalizeServiceRequestCompletion(id, userId);
+    }
+    this.notifications
+      .notifyServiceRequestRequesterCompleted(
+        req.providerId,
+        req.clientName,
+        req.serviceName,
+        id
+      )
+      .catch(() => {});
+    return {
+      ...req,
+      ...updated,
+      ...latest,
+      requesterCompletedAt: now,
+      status: nextStatus,
+    };
+  }
+
+  private async finalizeServiceRequestCompletion(
+    id: string,
+    actorId: string | null,
+    options: { auto?: boolean } = {}
+  ) {
+    const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException('Solicitud no encontrada');
+    if (
+      !options.auto &&
+      (!actorId || (req.requesterId !== actorId && req.providerId !== actorId))
+    )
+      throw new ForbiddenException('No tienes permiso');
+    if (!['CONTACTED', 'COMPLETION_PENDING'].includes(req.status))
+      throw new ForbiddenException(
+        'Solo puedes finalizar un servicio en curso'
+      );
+    const autoCloseAt =
+      req.completionDeadlineAt ??
+      (req.providerCompletedAt
+        ? new Date(req.providerCompletedAt.getTime() + AUTO_CLOSE_AFTER_MS)
+        : null);
+    const bothPartiesConfirmed =
+      Boolean(req.providerCompletedAt) && Boolean(req.requesterCompletedAt);
     if (
       options.auto &&
-      (!req.providerCompletedAt ||
+      ((!bothPartiesConfirmed && (!autoCloseAt || autoCloseAt > new Date())) ||
         req.escrowStatus === 'DISPUTED' ||
         req.escrowStatus === 'PENDING_FUNDS')
     ) {
@@ -1642,11 +1871,11 @@ export class ServicesService {
         previousStatus: req.status,
         newStatus: 'CLOSED',
         // null = cierre automático (ver el modelo).
-        changedBy: options.auto ? null : userId,
+        changedBy: options.auto ? null : actorId,
       },
     });
 
-    const clientId = options.auto ? req.requesterId : userId;
+    const clientId = req.requesterId;
     if (clientId) {
       this.sendReviewReminder(clientId, req.providerId, req.providerName).catch(
         () => {}
@@ -1716,19 +1945,26 @@ export class ServicesService {
   // reembolso automáticos hasta que un admin la resuelva. Solo tiene sentido
   // desde CONTACTED (ya hay precio fijado y trabajo en curso); antes de eso
   // no hay nada que disputar todavía.
-  // El proveedor avisa que terminó el trabajo. Antes solo el cliente podía
-  // cerrar: si no confirmaba, la solicitud quedaba abierta para siempre (sin
-  // comisión, sin reseña y con la garantía retenida). Ahora el cliente tiene
-  // AUTO_CLOSE_AFTER_MS para confirmar o reportar un problema; si no hace
-  // nada, se cierra solo.
+  // El prestador declara que terminó el trabajo. Si el cliente ya confirmó,
+  // se finaliza; de lo contrario queda pendiente la confirmación bilateral.
   async markServiceRequestDone(id: string, providerId: string) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
     if (req.providerId !== providerId)
       throw new ForbiddenException('No tienes permiso');
-    if (req.status !== 'CONTACTED') {
+    const activeStatuses = [
+      'CONTACTED',
+      'SCHEDULED',
+      'PREPARING',
+      'ON_THE_WAY',
+      'IN_PROGRESS',
+      'PAUSED',
+      'AWAITING_DELIVERY',
+      'COMPLETION_PENDING',
+    ];
+    if (!activeStatuses.includes(req.status)) {
       throw new BadRequestException(
-        'Solo puedes marcar como terminada una solicitud en curso'
+        'Solo puedes declarar terminado un servicio en curso'
       );
     }
     if (req.escrowStatus === 'PENDING_FUNDS') {
@@ -1741,12 +1977,36 @@ export class ServicesService {
         'Hay una disputa abierta: soporte la está revisando'
       );
     }
-    if (req.providerCompletedAt) return req;
+    if (req.providerCompletedAt) {
+      if (req.requesterCompletedAt)
+        return this.finalizeServiceRequestCompletion(id, providerId);
+      return req;
+    }
 
+    const now = new Date();
+    const nextStatus = 'COMPLETION_PENDING';
     const updated = await this.prisma.serviceRequest.update({
       where: { id },
-      data: { providerCompletedAt: new Date() },
+      data: {
+        providerCompletedAt: now,
+        completionDeadlineAt:
+          req.completionDeadlineAt ??
+          new Date(now.getTime() + AUTO_CLOSE_AFTER_MS),
+        status: nextStatus,
+        statusUpdatedAt: req.status === nextStatus ? req.statusUpdatedAt : now,
+      },
     });
+    if (req.status !== nextStatus) {
+      await this.prisma.serviceRequestStatusHistory.create({
+        data: {
+          serviceRequestId: id,
+          previousStatus: req.status,
+          newStatus: nextStatus,
+          changedBy: providerId,
+          reason: 'El prestador declaró que terminó el trabajo',
+        },
+      });
+    }
     if (req.requesterId) {
       this.notifications
         .notifyServiceRequestProviderCompleted(
@@ -1758,20 +2018,47 @@ export class ServicesService {
         )
         .catch(() => {});
     }
-    return updated;
+    const latest = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+    });
+    if (
+      req.requesterCompletedAt ||
+      (latest?.providerCompletedAt && latest?.requesterCompletedAt)
+    ) {
+      return this.finalizeServiceRequestCompletion(id, providerId);
+    }
+    return {
+      ...req,
+      ...updated,
+      ...latest,
+      providerCompletedAt: now,
+      status: nextStatus,
+    };
   }
 
-  // Cron: cierra las solicitudes que el proveedor marcó terminadas y el
-  // cliente no confirmó ni disputó a tiempo. Una por una: un fallo (ej. al
-  // liberar la garantía) no frena a las demás y se reintenta en la próxima
-  // corrida.
+  // Cron: finaliza solicitudes con ambas declaraciones o cuyo plazo de revisión
+  // venció sin disputa. Un fallo no frena las demás; se reintenta en la próxima corrida.
   async closeUnconfirmedCompletions(now = new Date()) {
     const due = await this.prisma.serviceRequest.findMany({
       where: {
-        status: 'CONTACTED',
-        providerCompletedAt: {
-          lte: new Date(now.getTime() - AUTO_CLOSE_AFTER_MS),
-        },
+        OR: [
+          {
+            status: 'COMPLETION_PENDING',
+            providerCompletedAt: { not: null },
+            requesterCompletedAt: { not: null },
+          },
+          {
+            status: 'COMPLETION_PENDING',
+            completionDeadlineAt: { lte: now },
+          },
+          {
+            status: 'CONTACTED',
+            providerCompletedAt: {
+              lte: new Date(now.getTime() - AUTO_CLOSE_AFTER_MS),
+            },
+            completionDeadlineAt: null,
+          },
+        ],
         escrowStatus: { notIn: ['DISPUTED', 'PENDING_FUNDS'] },
       },
       select: {
@@ -1786,7 +2073,7 @@ export class ServicesService {
     for (const req of due) {
       const { id } = req;
       try {
-        await this.confirmServiceRequestCompletion(id, null, { auto: true });
+        await this.finalizeServiceRequestCompletion(id, null, { auto: true });
         closed++;
         this.notifications
           .notifyServiceRequestAutoClosed(
@@ -1919,9 +2206,20 @@ export class ServicesService {
     if (req.providerId !== userId && req.requesterId !== userId) {
       throw new ForbiddenException('No tienes permiso');
     }
-    if (req.status !== 'CONTACTED') {
+    if (
+      ![
+        'CONTACTED',
+        'SCHEDULED',
+        'PREPARING',
+        'ON_THE_WAY',
+        'IN_PROGRESS',
+        'PAUSED',
+        'AWAITING_DELIVERY',
+        'COMPLETION_PENDING',
+      ].includes(req.status)
+    ) {
       throw new BadRequestException(
-        'Solo se puede disputar una solicitud en curso (contactada)'
+        'Solo se puede disputar una solicitud aceptada que siga en curso'
       );
     }
 

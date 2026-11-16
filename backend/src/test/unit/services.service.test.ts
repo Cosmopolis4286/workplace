@@ -98,6 +98,9 @@ describe('ServicesService — service request status transitions', () => {
       serviceRequestStatusHistory: {
         create: jest.fn().mockResolvedValue({}),
       },
+      serviceRequestEtaHistory: {
+        create: jest.fn().mockResolvedValue({}),
+      },
       escrowDispute: {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
@@ -131,6 +134,7 @@ describe('ServicesService — service request status transitions', () => {
     mockNotificationsService = {
       notifyNewServiceRequest: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestStatusChanged: jest.fn().mockResolvedValue(undefined),
+      notifyServiceRequestEtaChanged: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestRejected: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestCancelled: jest.fn().mockResolvedValue(undefined),
       notifyReviewReminder: jest.fn().mockResolvedValue(undefined),
@@ -144,6 +148,9 @@ describe('ServicesService — service request status transitions', () => {
         .fn()
         .mockResolvedValue(undefined),
       notifyEscrowDisputeOpened: jest.fn().mockResolvedValue(undefined),
+      notifyServiceRequestRequesterCompleted: jest
+        .fn()
+        .mockResolvedValue(undefined),
       notifyServiceRequestProviderCompleted: jest
         .fn()
         .mockResolvedValue(undefined),
@@ -510,6 +517,64 @@ describe('ServicesService — service request status transitions', () => {
       );
     });
 
+    it('permite avanzar por estados operativos y conserva el motivo en el historial', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({ status: 'CONTACTED' })
+      );
+
+      await service.updateServiceRequest('req-1', 'provider-1', {
+        status: 'IN_PROGRESS',
+        statusReason: 'El cliente confirmó el acceso al domicilio',
+      });
+
+      expect(
+        mockPrismaService.serviceRequestStatusHistory.create
+      ).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          serviceRequestId: 'req-1',
+          previousStatus: 'CONTACTED',
+          newStatus: 'IN_PROGRESS',
+          changedBy: 'provider-1',
+          reason: 'El cliente confirmó el acceso al domicilio',
+        }),
+      });
+    });
+
+    it('guarda el historial de cambios de ETA y notifica al cliente', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({
+          status: 'CONTACTED',
+          estimatedStartAt: null,
+          estimatedCompletionAt: null,
+        })
+      );
+
+      await service.updateServiceRequest('req-1', 'provider-1', {
+        estimatedStartAt: '2026-11-20T13:00:00.000Z',
+        estimatedCompletionAt: '2026-11-20T15:00:00.000Z',
+        etaReason: 'Disponibilidad confirmada',
+      });
+
+      expect(
+        mockPrismaService.serviceRequestEtaHistory.create
+      ).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          serviceRequestId: 'req-1',
+          reason: 'Disponibilidad confirmada',
+          changedBy: 'provider-1',
+        }),
+      });
+      expect(
+        mockNotificationsService.notifyServiceRequestEtaChanged
+      ).toHaveBeenCalledWith(
+        'client-1',
+        'Proveedor Uno',
+        'Servicio Uno',
+        expect.any(Date),
+        expect.any(Date)
+      );
+    });
+
     it('rejects any change once the request is terminal (REJECTED)', async () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
         baseRequest({ status: 'REJECTED' })
@@ -524,9 +589,9 @@ describe('ServicesService — service request status transitions', () => {
   });
 
   describe('confirmServiceRequestCompletion', () => {
-    it('still closes the request from CONTACTED and records history (unaffected by the transition table change)', async () => {
+    it('closes only after the provider has also declared completion', async () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
-        baseRequest({ status: 'CONTACTED' })
+        baseRequest({ status: 'CONTACTED', providerCompletedAt: new Date() })
       );
 
       const result = await service.confirmServiceRequestCompletion(
@@ -551,6 +616,7 @@ describe('ServicesService — service request status transitions', () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
         baseRequest({
           status: 'CONTACTED',
+          providerCompletedAt: new Date(),
           price: 55,
           platformFeePayer: 'CLIENT',
           platformFeeAmount: 5,
@@ -576,6 +642,7 @@ describe('ServicesService — service request status transitions', () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
         baseRequest({
           status: 'CONTACTED',
+          providerCompletedAt: new Date(),
           price: 55,
           platformFeePayer: 'CLIENT',
           platformFeeAmount: 5,
@@ -599,6 +666,7 @@ describe('ServicesService — service request status transitions', () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
         baseRequest({
           status: 'CONTACTED',
+          providerCompletedAt: new Date(),
           price: 55,
           platformFeePayer: 'CLIENT',
           platformFeeAmount: 5,
@@ -622,6 +690,7 @@ describe('ServicesService — service request status transitions', () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
         baseRequest({
           status: 'CONTACTED',
+          providerCompletedAt: new Date(),
           price: 55,
           platformFeePayer: 'CLIENT',
           platformFeeAmount: 5,
@@ -639,6 +708,7 @@ describe('ServicesService — service request status transitions', () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
         baseRequest({
           status: 'CONTACTED',
+          providerCompletedAt: new Date(),
           price: 55,
           platformFeePayer: 'CLIENT',
           platformFeeAmount: 5,
@@ -674,7 +744,7 @@ describe('ServicesService — service request status transitions', () => {
 
     it('rejects confirmation from someone other than the requester', async () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
-        baseRequest({ status: 'CONTACTED' })
+        baseRequest({ status: 'CONTACTED', providerCompletedAt: new Date() })
       );
 
       await expect(
@@ -683,6 +753,50 @@ describe('ServicesService — service request status transitions', () => {
     });
   });
 
+  describe('confirmación bilateral de finalización', () => {
+    it('el cliente puede confirmar primero sin cerrar ni cobrar hasta que el prestador confirme', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({ status: 'IN_PROGRESS' })
+      );
+
+      const result = await service.confirmServiceRequestCompletion(
+        'req-1',
+        'client-1'
+      );
+
+      expect(result.status).toBe('COMPLETION_PENDING');
+      expect(result.requesterCompletedAt).toBeInstanceOf(Date);
+      expect(mockPlatformFeesService.chargeProviderFee).not.toHaveBeenCalled();
+      expect(mockEscrowService.release).not.toHaveBeenCalled();
+    });
+
+    it('el prestador puede confirmar después de que el cliente confirmó primero', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
+        baseRequest({
+          status: 'COMPLETION_PENDING',
+          requesterCompletedAt: new Date(),
+          escrowStatus: 'NONE',
+        })
+      );
+
+      const result = await service.markServiceRequestDone(
+        'req-1',
+        'provider-1'
+      );
+
+      expect(result.status).toBe('CLOSED');
+      expect(
+        mockPrismaService.serviceRequestStatusHistory.create
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            newStatus: 'CLOSED',
+            changedBy: 'provider-1',
+          }),
+        })
+      );
+    });
+  });
   describe('cancelServiceRequest', () => {
     it('records status history when the client cancels', async () => {
       mockPrismaService.serviceRequest.findUnique.mockResolvedValue(
@@ -733,7 +847,7 @@ describe('ServicesService — service request status transitions', () => {
           'No llegó nunca el técnico'
         )
       ).rejects.toThrow(
-        'Solo se puede disputar una solicitud en curso (contactada)'
+        'Solo se puede disputar una solicitud aceptada que siga en curso'
       );
     });
 
