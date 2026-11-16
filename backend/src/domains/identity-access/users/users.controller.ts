@@ -18,6 +18,8 @@ import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
+import { AccountDeletionService } from './account-deletion.service';
+import { AuditService } from '../audit/audit.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
@@ -31,6 +33,8 @@ import {
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
+    private readonly accountDeletionService: AccountDeletionService,
+    private readonly audit: AuditService,
     private readonly i18n: I18nService
   ) {}
 
@@ -191,7 +195,17 @@ export class UsersController {
         this.i18n.t('users.permissions.create_role')
       );
     }
-    return this.usersService.createUser(dto);
+    const created = await this.usersService.createUser(dto);
+    await this.audit.log({
+      userId: caller.id,
+      userRole: caller.role,
+      action: 'CREATE',
+      module: 'users',
+      entityId: created.id,
+      summary: 'Cuenta creada desde administración',
+      details: { targetEmail: created.email, targetRole: created.role },
+    });
+    return created;
   }
 
   @Put(':id')
@@ -215,7 +229,21 @@ export class UsersController {
         this.i18n.t('users.permissions.assign_role')
       );
     }
-    return this.usersService.updateUser(id, dto);
+    const updated = await this.usersService.updateUser(id, dto);
+    await this.audit.log({
+      userId: caller.id,
+      userRole: caller.role,
+      action: 'UPDATE',
+      module: 'users',
+      entityId: id,
+      summary: 'Cuenta actualizada desde administración',
+      details: {
+        changedFields: Object.keys(dto),
+        previousRole: target.role,
+        newRole: updated.role,
+      },
+    });
+    return updated;
   }
 
   @Patch(':id')
@@ -239,13 +267,30 @@ export class UsersController {
     @Param('id') id: string,
     @CurrentUser() caller: { id: string; role: Role }
   ) {
+    if (caller.id === id) {
+      throw new ForbiddenException(
+        'No puedes cambiar el estado de tu propia cuenta desde administración'
+      );
+    }
     const target = await this.usersService.findById(id);
     if (!canAssignRole(caller.role, target.role as Role)) {
       throw new ForbiddenException(
         this.i18n.t('users.permissions.modify_user')
       );
     }
-    return this.usersService.toggleUserStatus(id);
+    const updated = await this.usersService.toggleUserStatus(id);
+    await this.audit.log({
+      userId: caller.id,
+      userRole: caller.role,
+      action: 'UPDATE',
+      module: 'users',
+      entityId: id,
+      summary: updated.isActive
+        ? 'Cuenta activada desde administración'
+        : 'Cuenta suspendida desde administración',
+      details: { previousIsActive: target.isActive, isActive: updated.isActive },
+    });
+    return updated;
   }
 
   @Delete(':id')
@@ -254,13 +299,27 @@ export class UsersController {
     @Param('id') id: string,
     @CurrentUser() caller: { id: string; role: Role }
   ) {
+    if (caller.id === id) {
+      throw new ForbiddenException(
+        'No puedes eliminar tu propia cuenta desde administración'
+      );
+    }
     const target = await this.usersService.findById(id);
     if (!canAssignRole(caller.role, target.role as Role)) {
       throw new ForbiddenException(
         this.i18n.t('users.permissions.delete_user')
       );
     }
-    return this.usersService.deleteUser(id);
+    // La eliminación administrativa usa el mismo flujo de anonimización y
+    // protección financiera que la baja solicitada por el propio usuario.
+    await this.accountDeletionService.deleteAccount(id, {
+      actor: {
+        id: caller.id,
+        email: (caller as { email?: string }).email,
+        role: caller.role,
+      },
+    });
+    return { message: 'Cuenta anonimizada correctamente' };
   }
 
   @Get(':id/profile-completion')
