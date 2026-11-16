@@ -21,9 +21,11 @@ describe('UsersService', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      updateMany: jest.fn(),
       count: jest.fn(),
       findUniqueOrThrow: jest.fn(),
     },
+    refreshToken: { updateMany: jest.fn() },
     userProfile: {
       create: jest.fn(),
       update: jest.fn(),
@@ -40,6 +42,7 @@ describe('UsersService', () => {
       redisStore.set(key, value);
       return Promise.resolve();
     }),
+    deleteByPattern: jest.fn(() => Promise.resolve(0)),
     del: jest.fn((key: string) => {
       redisStore.delete(key);
       return Promise.resolve();
@@ -118,6 +121,27 @@ describe('UsersService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('buildUsersWhere', () => {
+    it('keeps explicit active and inactive filters', () => {
+      expect(service.buildUsersWhere({ isActive: false })).toEqual({
+        isActive: false,
+      });
+      expect(service.buildUsersWhere({ isActive: true })).toEqual({
+        isActive: true,
+      });
+    });
+
+    it('searches users by phone and username as well', () => {
+      const where = service.buildUsersWhere({ search: 'ana' });
+      expect(where.OR).toEqual(
+        expect.arrayContaining([
+          { phone: { contains: 'ana', mode: 'insensitive' } },
+          { username: { contains: 'ana', mode: 'insensitive' } },
+        ])
+      );
+    });
   });
 
   describe('findAll', () => {
@@ -439,6 +463,68 @@ describe('UsersService', () => {
     });
   });
 
+  describe('toggleUserStatus', () => {
+    beforeEach(() => {
+      mockPrismaService.user.findUnique.mockReset();
+      mockPrismaService.user.updateMany.mockReset();
+      mockPrismaService.user.count.mockReset();
+      mockPrismaService.refreshToken.updateMany.mockReset();
+    });
+
+    it('revokes tokens and sessions when suspending a user', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: Role.NORMAL,
+        isActive: true,
+      });
+      mockPrismaService.user.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.refreshToken.updateMany.mockResolvedValue({ count: 2 });
+
+      const result = await service.toggleUserStatus('user-1');
+
+      expect(result).toEqual({ id: 'user-1', isActive: false });
+      expect(mockPrismaService.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'user-1', isActive: true },
+        data: { isActive: false },
+      });
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(mockRedisService.deleteByPattern).toHaveBeenCalledWith(
+        'session:user-1:*'
+      );
+    });
+
+    it('protects the last active SUPERADMIN', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'root-1',
+        role: Role.SUPERADMIN,
+        isActive: true,
+      });
+      mockPrismaService.user.count.mockResolvedValue(1);
+
+      await expect(service.toggleUserStatus('root-1')).rejects.toThrow(
+        'No se puede suspender al último SUPERADMIN activo'
+      );
+      expect(mockPrismaService.user.updateMany).not.toHaveBeenCalled();
+      expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects stale status updates', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-2',
+        role: Role.NORMAL,
+        isActive: true,
+      });
+      mockPrismaService.user.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.toggleUserStatus('user-2')).rejects.toThrow(
+        'La cuenta cambió mientras se procesaba la operación'
+      );
+    });
+  });
+
   describe('getProfileCompletion', () => {
     beforeEach(() => {
       mockAccountTypeResolver.resolve.mockReset();
@@ -501,25 +587,6 @@ describe('UsersService', () => {
       expect(mockAccountTypeResolver.resolve).toHaveBeenCalledWith('user-2');
       expect(mockAccountTypeResolver.isFreelancer).not.toHaveBeenCalled();
       expect(result).toBeDefined();
-    });
-  });
-
-  describe('delete', () => {
-    it('should delete user', async () => {
-      const deletedUser = {
-        id: 1,
-        email: 'deleted@example.com',
-        name: 'Deleted User',
-      };
-
-      mockPrismaService.user.delete.mockResolvedValue(deletedUser);
-
-      const result = await service.deleteUser('1');
-
-      expect(result).toEqual({ message: 'Usuario eliminado correctamente' });
-      expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
-        where: { id: '1' },
-      });
     });
   });
 });

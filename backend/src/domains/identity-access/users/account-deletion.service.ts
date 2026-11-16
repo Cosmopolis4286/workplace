@@ -130,7 +130,11 @@ export class AccountDeletionService {
 
   async deleteAccount(
     userId: string,
-    context: { ip?: string; userAgent?: string } = {}
+    context: {
+      ip?: string;
+      userAgent?: string;
+      actor?: { id: string; email?: string; role: Role };
+    } = {}
   ): Promise<void> {
     const blockers = await this.getBlockers(userId);
     if (blockers.length > 0) {
@@ -292,12 +296,23 @@ export class AccountDeletionService {
     ]);
 
     await this.audit.log({
-      userId,
-      userRole: user.role,
+      userId: context.actor?.id ?? userId,
+      userEmail:
+        context.actor?.email ?? (context.actor ? undefined : user.email),
+      userRole: context.actor?.role ?? user.role,
       action: 'DELETE',
-      module: 'account',
+      module: context.actor ? 'users' : 'account',
       entityId: userId,
-      summary: 'El usuario eliminó su cuenta (datos personales anonimizados)',
+      summary: context.actor
+        ? 'Cuenta anonimizada por administración'
+        : 'El usuario eliminó su cuenta (datos personales anonimizados)',
+      details: context.actor
+        ? {
+            targetUserId: userId,
+            targetEmail: user.email,
+            operation: 'ADMIN_ACCOUNT_ANONYMIZATION',
+          }
+        : undefined,
       ip: context.ip,
       userAgent: context.userAgent,
     });

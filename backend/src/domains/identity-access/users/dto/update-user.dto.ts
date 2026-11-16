@@ -1,10 +1,4 @@
-import {
-  IsBoolean,
-  IsEmail,
-  IsEnum,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, IsIn } from 'class-validator';
 import { ProfessionalSubtype, ProfileType, Role } from '@prisma/client';
 
 export class UpdateUserDto {
@@ -28,10 +22,6 @@ export class UpdateUserDto {
   @IsOptional()
   role?: Role;
 
-  @IsBoolean()
-  @IsOptional()
-  isActive?: boolean;
-
   @IsString()
   @IsOptional()
   categoryId?: string | null;
@@ -45,9 +35,9 @@ export class UpdateUserDto {
   // perfil de negocio (deja al usuario sin UserProfile de tipo
   // BUSINESS/PROFESSIONAL) — distinto de `undefined`, que deja el perfil
   // actual sin tocar (ver UsersService.updateUser).
-  @IsEnum(ProfileType)
+  @IsIn([ProfileType.BUSINESS, ProfileType.PROFESSIONAL])
   @IsOptional()
-  businessProfileType?: ProfileType | null;
+  businessProfileType?: 'BUSINESS' | 'PROFESSIONAL' | null;
 
   @IsEnum(ProfessionalSubtype)
   @IsOptional()

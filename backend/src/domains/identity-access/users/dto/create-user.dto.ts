@@ -1,6 +1,7 @@
 import {
   IsEmail,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -44,9 +45,9 @@ export class CreateUserDto {
   // provider" (ambos son PROFESIONAL) — cuando role=PROFESIONAL, este
   // campo indica qué UserProfile crear. Requerido en la práctica para ese
   // caso (validado en el service, no acá, porque depende de otro campo).
-  @IsEnum(ProfileType)
+  @IsIn([ProfileType.BUSINESS, ProfileType.PROFESSIONAL])
   @IsOptional()
-  businessProfileType?: ProfileType;
+  businessProfileType?: 'BUSINESS' | 'PROFESSIONAL';
 
   @IsEnum(ProfessionalSubtype)
   @IsOptional()

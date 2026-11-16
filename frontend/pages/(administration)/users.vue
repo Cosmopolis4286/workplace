@@ -32,7 +32,7 @@
             v-model="search"
             @input="onSearch"
             type="text"
-            placeholder="Buscar por nombre o correo..."
+            placeholder="Buscar por nombre, correo, teléfono o usuario..."
             class="input-field pl-9"
           />
         </div>
@@ -45,6 +45,11 @@
           <option value="BUSINESS">Comercio</option>
           <option value="FREELANCER">Freelancer</option>
           <option value="SERVICE_PROVIDER">Trabajador autónomo</option>
+        </select>
+        <select v-model="statusFilter" class="input-field w-auto" @change="page = 1; load()">
+          <option value="">Todos los estados</option>
+          <option value="ACTIVE">Activos</option>
+          <option value="INACTIVE">Inactivos</option>
         </select>
       </div>
       <div class="flex flex-col sm:flex-row gap-3">
@@ -59,7 +64,7 @@
           <option v-for="sub in filterSubcategories" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
         </select>
         <button
-          v-if="roleFilter || profileKindFilter || categoryFilter || subcategoryFilter || search"
+          v-if="roleFilter || profileKindFilter || statusFilter || categoryFilter || subcategoryFilter || search"
           class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap"
           @click="resetFilters"
         >Limpiar filtros</button>
@@ -257,6 +262,7 @@ const page              = ref(1)
 const limit             = 20
 const roleFilter        = ref('')
 const profileKindFilter = ref<'' | 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER'>('')
+const statusFilter = ref<'' | 'ACTIVE' | 'INACTIVE'>('')
 const categoryFilter    = ref('')
 const subcategoryFilter = ref('')
 const search            = ref('')
@@ -307,6 +313,7 @@ async function load() {
     roleFilter: roleFilter.value, categoryFilter: categoryFilter.value,
     subcategoryFilter: subcategoryFilter.value, search: search.value,
     profileKind: profileKindFilter.value,
+    statusFilter: statusFilter.value,
   }
   try {
     const [res, statsRes] = await Promise.all([
@@ -320,7 +327,7 @@ async function load() {
 }
 
 function resetFilters() {
-  search.value = ''; roleFilter.value = ''; profileKindFilter.value = ''
+  search.value = ''; roleFilter.value = ''; profileKindFilter.value = ''; statusFilter.value = ''
   categoryFilter.value = ''; subcategoryFilter.value = ''
   page.value = 1; load()
 }
@@ -376,8 +383,8 @@ async function confirmDelete(target: UserItem | UserItem[]) {
   await confirm({
     title: isBulk ? `¿Eliminar ${targets.length} usuarios?` : '¿Eliminar usuario?',
     message: isBulk
-      ? `Se eliminarán permanentemente ${targets.length} cuentas. Esta acción no se puede deshacer.`
-      : `Se eliminará permanentemente a ${targets[0].firstName} ${targets[0].lastName}. Esta acción no se puede deshacer.`,
+      ? `Se anonimizarán ${targets.length} cuentas y se conservarán los registros financieros e históricos. La operación puede bloquearse si existen saldos, retiros, depósitos o pagos protegidos pendientes.`
+      : `Se anonimizará la cuenta de ${targets[0].firstName} ${targets[0].lastName}. Se conservarán los registros financieros e históricos y la operación puede bloquearse si existen obligaciones pendientes.`,
     confirmText: 'Eliminar',
     variant: 'danger',
     onConfirm: async () => {
