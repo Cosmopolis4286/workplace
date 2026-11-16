@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -29,4 +30,24 @@ export class UpdateServiceRequestDto {
   @IsString()
   @MaxLength(50)
   priceUnit?: string;
+
+  @IsOptional()
+  @IsDateString()
+  estimatedStartAt?: string;
+
+  @IsOptional()
+  @IsDateString()
+  estimatedCompletionAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  @NoContactInfo()
+  statusReason?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  @NoContactInfo()
+  etaReason?: string;
 }
