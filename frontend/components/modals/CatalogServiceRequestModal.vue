@@ -251,9 +251,7 @@ const defaultForm = () => ({
   preferredTime: '',
   address: '',
   city: providerCity.value || '',
-  clientName: user.value ? `${user.value.firstName} ${user.value.lastName}`.trim() : '',
   clientPhone: (user.value as any)?.phone ?? '',
-  clientEmail: user.value?.email ?? '',
   description: '',
 })
 
@@ -284,14 +282,8 @@ const fieldErrors = computed(() => {
   if (touched.value.address && form.value.modality === 'IN_PERSON' && form.value.address.trim().length < 5) {
     e.address = 'Ingresa una dirección más detallada'
   }
-  if (touched.value.clientName && form.value.clientName.trim().length < 3) {
-    e.clientName = 'Ingresa tu nombre completo'
-  }
   if (touched.value.clientPhone && !PHONE_REGEX.test(form.value.clientPhone.trim())) {
     e.clientPhone = 'Ingresa un teléfono válido'
-  }
-  if (touched.value.clientEmail && form.value.clientEmail && !EMAIL_REGEX.test(form.value.clientEmail.trim())) {
-    e.clientEmail = 'Ingresa un correo válido'
   }
   return e
 })
@@ -299,21 +291,16 @@ const fieldErrors = computed(() => {
 watch(() => props.service, () => {
   form.value = defaultForm()
   errorMsg.value = ''
-  items.value = []
-  itemErrors.value = {}
 })
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
     form.value.modality = modalityOptions.value[0]?.value ?? 'ANY'
-    fetchMyKycStatus()
   }
 })
 
 watch(() => user.value, (u) => {
   if (u) {
-    form.value.clientName = `${u.firstName} ${u.lastName}`.trim()
-    form.value.clientEmail = u.email ?? ''
     form.value.clientPhone = (u as any).phone ?? ''
   }
 }, { immediate: true })
@@ -328,9 +315,7 @@ function validateAll(): boolean {
     preferredDate: true,
     preferredTime: true,
     address: true,
-    clientName: true,
     clientPhone: true,
-    clientEmail: true,
   }
 
   if (!form.value.preferredDate) {
@@ -368,8 +353,6 @@ async function submit() {
 
   if (!validateAll()) return
 
-  const hasFiles = items.value.some(i => i.photoFiles.length || i.videoFiles.length)
-
   if (!user.value) {
     redirectToLoginAndResume()
     return
@@ -392,8 +375,6 @@ async function submit() {
     emit('success')
     form.value = defaultForm()
     touched.value = {}
-    items.value = []
-    itemErrors.value = {}
   } catch (e: any) {
     errorMsg.value = e?.message ?? 'No se pudo enviar la consulta. Intenta de nuevo.'
   } finally {
