@@ -881,7 +881,11 @@ export class ServicesService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: { items: { orderBy: { sortOrder: 'asc' } } },
+        include: {
+        items: { orderBy: { sortOrder: 'asc' } },
+        statusHistory: { orderBy: { createdAt: 'asc' }, take: 100 },
+        etaHistory: { orderBy: { createdAt: 'desc' }, take: 50 },
+      },
       }),
       this.prisma.serviceRequest.count({ where }),
     ]);
