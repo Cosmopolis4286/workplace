@@ -69,6 +69,36 @@
                 </div>
               </div>
 
+              <!-- Cronograma estimado, visible para ambas partes -->
+              <div class="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 space-y-3">
+                <div class="flex items-center gap-2 text-indigo-800">
+                  <InformationCircleIcon class="h-4 w-4" />
+                  <p class="text-xs font-semibold">Cronograma del servicio</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-indigo-500">Inicio estimado</p>
+                    <p class="font-medium text-gray-800">{{ req.estimatedStartAt ? formatDateTime(req.estimatedStartAt) : 'Sin definir' }}</p>
+                  </div>
+                  <div>
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-indigo-500">Finalización estimada</p>
+                    <p class="font-medium text-gray-800">{{ req.estimatedCompletionAt ? formatDateTime(req.estimatedCompletionAt) : 'Sin definir' }}</p>
+                  </div>
+                </div>
+                <form v-if="isProvider && !['CLOSED', 'CANCELLED', 'REJECTED', 'COMPLETION_PENDING'].includes(req.status)" class="grid grid-cols-1 sm:grid-cols-2 gap-2" @submit.prevent="saveEta">
+                  <label class="text-[11px] text-gray-600">Inicio
+                    <input v-model="etaStartInput" type="datetime-local" class="mt-1 w-full rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-xs" />
+                  </label>
+                  <label class="text-[11px] text-gray-600">Finalización
+                    <input v-model="etaCompletionInput" type="datetime-local" class="mt-1 w-full rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-xs" />
+                  </label>
+                  <input v-model="etaReason" maxlength="300" placeholder="Motivo del cambio (opcional)" class="sm:col-span-2 rounded-lg border border-indigo-200 bg-white px-2 py-1.5 text-xs" />
+                  <div class="sm:col-span-2 flex justify-end">
+                    <button type="submit" :disabled="savingEta" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{{ savingEta ? 'Guardando…' : 'Actualizar cronograma' }}</button>
+                  </div>
+                </form>
+              </div>
+
               <!-- Comisión de plataforma — proveedor: lo que descuenta su billetera -->
               <div v-if="isProvider && req.platformFeePayer === 'PROVIDER' && req.platformFeeAmount" class="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-1.5">
                 <div class="flex items-center justify-between text-xs">
@@ -289,19 +319,18 @@
           </div>
 
           <!-- Footer esperando confirmación del cliente — proveedor (CONTACTED) -->
-          <div v-else-if="isProvider && req.status === 'CONTACTED'" class="p-4 border-t border-gray-100 bg-blue-50">
+          <div v-else-if="isProvider && ['CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING'].includes(req.status)" class="p-4 border-t border-gray-100 bg-blue-50">
             <div class="flex items-center justify-between gap-3 flex-wrap">
               <div class="flex items-start gap-2">
                 <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
                 <p v-if="req.providerCompletedAt" class="text-xs text-blue-700">
-                  Marcaste el trabajo como terminado. Si el cliente no confirma ni reporta un problema,
-                  se cerrará automáticamente el <strong>{{ autoCloseAt }}</strong>.
+                  Declaraste el trabajo terminado. {{ req.requesterCompletedAt ? 'Ambas partes confirmaron; el servicio se está cerrando.' : `Esperando confirmación del cliente hasta ${autoCloseAt}.` }}
                 </p>
                 <p v-else-if="req.escrowStatus === 'PENDING_FUNDS'" class="text-xs text-blue-700">
                   Espera a que el cliente pague la garantía antes de hacer el trabajo.
                 </p>
                 <p v-else class="text-xs text-blue-700">
-                  Cuando termines el trabajo, márcalo: el cliente tendrá {{ AUTO_CLOSE_HOURS }} horas para confirmar o reportar un problema.
+                  Actualiza el estado durante el trabajo y declara la finalización cuando hayas terminado. La confirmación del cliente también es necesaria.
                 </p>
               </div>
               <button
@@ -325,16 +354,18 @@
           </div>
 
           <!-- Footer — cliente: confirmar finalización -->
-          <div v-else-if="!isProvider && req.status === 'CONTACTED'" class="p-4 border-t border-gray-100 bg-blue-50">
+          <div v-else-if="!isProvider && ['CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY', 'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING'].includes(req.status)" class="p-4 border-t border-gray-100 bg-blue-50">
             <div class="flex items-center justify-between gap-3 flex-wrap">
               <div class="flex items-start gap-2">
                 <InformationCircleIcon class="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                <p v-if="req.providerCompletedAt" class="text-xs text-blue-700">
-                  {{ req.providerName }} marcó el trabajo como terminado. Confírmalo o reporta un problema antes del
-                  <strong>{{ autoCloseAt }}</strong>; si no respondes, se cerrará automáticamente.
+                <p v-if="req.requesterCompletedAt" class="text-xs text-blue-700">
+                  Ya declaraste que recibiste el servicio. {{ req.providerCompletedAt ? 'El prestador también confirmó; se está cerrando.' : `Esperando la confirmación del prestador hasta ${autoCloseAt}.` }}
+                </p>
+                <p v-else-if="req.providerCompletedAt" class="text-xs text-blue-700">
+                  {{ req.providerName }} declaró que terminó el trabajo. Confirma la recepción o reporta un problema antes del <strong>{{ autoCloseAt }}</strong>.
                 </p>
                 <p v-else class="text-xs text-blue-700">
-                  El proveedor ya se contactó contigo. Cuando recibas el servicio, confirma para poder dejar tu reseña.
+                  El servicio está en seguimiento. Cuando recibas el trabajo, confirma la recepción; el prestador también deberá declarar que terminó.
                 </p>
               </div>
               <button
@@ -346,12 +377,13 @@
                 Pagar al proveedor
               </button>
               <button
+                v-if="!req.requesterCompletedAt"
                 :disabled="confirming"
                 class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex-shrink-0"
                 @click="confirmCompletion"
               >
                 <CheckCircleIcon class="h-4 w-4" />
-                {{ confirming ? 'Confirmando…' : 'Confirmar recibido' }}
+                {{ confirming ? 'Guardando…' : 'Confirmar recibido' }}
               </button>
             </div>
           </div>
@@ -512,6 +544,10 @@ interface ServiceRequest {
   platformFeePayer?: 'CLIENT' | 'PROVIDER' | null
   escrowStatus?: 'NONE' | 'HELD' | 'PENDING_FUNDS' | 'RELEASED' | 'REFUNDED' | 'DISPUTED'
   providerCompletedAt?: string | null
+  requesterCompletedAt?: string | null
+  completionDeadlineAt?: string | null
+  estimatedStartAt?: string | null
+  estimatedCompletionAt?: string | null
   escrowAmount?: number | null
   escrowHeldAt?: string | null
   providerAvatar?: string | null
@@ -525,6 +561,40 @@ const { defaultRate, formatConversion, fetchRates } = useExchangeRates()
 const { getAssetUrl } = useAssetUrl()
 const { user: currentUser } = useAuth()
 const currentUserId = computed(() => currentUser.value?.id ?? '')
+
+const etaStartInput = ref('')
+const etaCompletionInput = ref('')
+const etaReason = ref('')
+const savingEta = ref(false)
+
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 16)
+}
+watch(() => props.req.estimatedStartAt, value => { etaStartInput.value = toDateTimeLocal(value) }, { immediate: true })
+watch(() => props.req.estimatedCompletionAt, value => { etaCompletionInput.value = toDateTimeLocal(value) }, { immediate: true })
+
+async function saveEta() {
+  if (savingEta.value) return
+  savingEta.value = true
+  clearError()
+  try {
+    const { patch } = useApi()
+    const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}`, {
+      estimatedStartAt: etaStartInput.value ? new Date(etaStartInput.value).toISOString() : null,
+      estimatedCompletionAt: etaCompletionInput.value ? new Date(etaCompletionInput.value).toISOString() : null,
+      etaReason: etaReason.value.trim() || undefined,
+    })
+    emit('updated', { ...props.req, ...updated })
+    etaReason.value = ''
+  } catch (e: any) {
+    actionError.value = getApiErrorMessage(e, 'No se pudo actualizar el cronograma')
+  } finally {
+    savingEta.value = false
+  }
+}
 
 const contactAvatarUrl = computed(() =>
   getAssetUrl(props.isProvider ? props.req.clientAvatar : props.req.providerAvatar)
@@ -765,7 +835,7 @@ async function confirmCompletion() {
   try {
     const { patch } = useApi()
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/confirm-completion`, {})
-    emit('updated', { ...props.req, ...updated, status: 'CLOSED' })
+    emit('updated', { ...props.req, ...updated })
   } catch (e: any) {
     actionError.value = getApiErrorMessage(e, 'Error al confirmar la finalización')
   } finally {
@@ -825,8 +895,9 @@ async function openDispute() {
 const AUTO_CLOSE_HOURS = 72
 const markingDone = ref(false)
 const autoCloseAt = computed(() => {
-  if (!props.req.providerCompletedAt) return ''
-  const at = new Date(new Date(props.req.providerCompletedAt).getTime() + AUTO_CLOSE_HOURS * 3600 * 1000)
+  const deadline = props.req.completionDeadlineAt ?? (props.req.providerCompletedAt ? new Date(new Date(props.req.providerCompletedAt).getTime() + AUTO_CLOSE_HOURS * 3600 * 1000).toISOString() : null)
+  if (!deadline) return ''
+  const at = new Date(deadline)
   return at.toLocaleString('es-VE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Caracas' })
 })
 
@@ -837,7 +908,7 @@ async function markDone() {
   try {
     const { patch } = useApi()
     const updated = await patch<ServiceRequest>(`/services/requests/${props.req.id}/mark-done`, {})
-    emit('updated', { ...props.req, providerCompletedAt: updated.providerCompletedAt ?? new Date().toISOString() })
+    emit('updated', { ...props.req, ...updated })
   } catch (e: any) {
     actionError.value = getApiErrorMessage(e, 'No se pudo marcar como terminado')
   } finally {
