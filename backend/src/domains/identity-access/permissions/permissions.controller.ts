@@ -106,7 +106,7 @@ export class PermissionsController {
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   async remove(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: { id: string }
   ) {
     const isSystem = await this.permissionsService.isSystemPermission(id);
     if (isSystem) {
