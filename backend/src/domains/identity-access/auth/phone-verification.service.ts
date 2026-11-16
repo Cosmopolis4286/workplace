@@ -24,7 +24,7 @@ export class PhoneVerificationService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly config: ConfigService,
-    private readonly smsProvider: MessangiSmsProvider
+    private readonly smsProvider: MessangiSmsProvider,
   ) {}
 
   async sendCode(userId: string, rawPhone: string) {
