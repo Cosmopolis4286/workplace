@@ -404,9 +404,6 @@ export class PermissionsService implements PermissionsFacade {
     }>,
     updatedBy: string
   ) {
-    if (updates.some((u) => u.role === Role.SUPERADMIN)) {
-      throw new ForbiddenException('El rol SUPERADMIN está protegido');
-    }
     const ids = [...new Set(updates.map((u) => u.permissionId))];
     const systemPerms = await this.prisma.permission.findMany({
       where: { id: { in: ids }, isSystem: true },
@@ -608,6 +605,9 @@ export class PermissionsService implements PermissionsFacade {
     updates: Array<{ role: Role; permissionId: string; granted: boolean }>,
     updatedBy: string
   ) {
+    if (updates.some((u) => u.role === Role.SUPERADMIN)) {
+      throw new ForbiddenException('El rol SUPERADMIN está protegido');
+    }
     const ids = [...new Set(updates.map((u) => u.permissionId))];
     const systemPerms = await this.prisma.permission.findMany({
       where: { id: { in: ids }, isSystem: true },
