@@ -297,7 +297,8 @@ export class AccountDeletionService {
 
     await this.audit.log({
       userId: context.actor?.id ?? userId,
-      userEmail: context.actor?.email ?? (context.actor ? undefined : user.email),
+      userEmail:
+        context.actor?.email ?? (context.actor ? undefined : user.email),
       userRole: context.actor?.role ?? user.role,
       action: 'DELETE',
       module: context.actor ? 'users' : 'account',
