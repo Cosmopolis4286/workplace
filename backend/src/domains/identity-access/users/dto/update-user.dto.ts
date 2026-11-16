@@ -43,7 +43,7 @@ export class UpdateUserDto {
   // actual sin tocar (ver UsersService.updateUser).
   @IsIn([ProfileType.BUSINESS, ProfileType.PROFESSIONAL])
   @IsOptional()
-  businessProfileType?: ProfileType.BUSINESS | ProfileType.PROFESSIONAL | null;
+  businessProfileType?: 'BUSINESS' | 'PROFESSIONAL' | null;
 
   @IsEnum(ProfessionalSubtype)
   @IsOptional()
