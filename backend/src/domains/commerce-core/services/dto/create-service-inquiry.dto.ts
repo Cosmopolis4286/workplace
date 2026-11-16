@@ -50,7 +50,7 @@ export class CreateServiceInquiryDto {
   // mecanismo de verificación y una política explícita de compartición.
   @IsString()
   @IsOptional()
-  @Matches(/^[+]?[\d\\s()-]{7,20}$/, {
+  @Matches(/^[+]?[ \d\s()-]{7,20}$/, {
     message: 'Ingresa un teléfono válido',
   })
   clientPhone?: string;
