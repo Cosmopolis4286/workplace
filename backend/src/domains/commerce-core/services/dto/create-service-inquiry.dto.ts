@@ -8,6 +8,7 @@ import {
   MinLength,
   Validate,
 } from 'class-validator';
+import { NoContactInfo } from '../../../../common/validators/no-contact-info.validator';
 import {
   IsFutureDateConstraint,
   ServiceRequestModality,
@@ -57,5 +58,6 @@ export class CreateServiceInquiryDto {
   @IsString()
   @IsOptional()
   @MaxLength(600)
+  @NoContactInfo()
   message?: string;
 }
