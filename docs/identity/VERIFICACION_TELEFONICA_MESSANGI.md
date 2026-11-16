@@ -6,12 +6,12 @@ La integración inicial está preparada detrás de una configuración explícita
 
 ## Arquitectura
 
-- `PhoneVerificationService` genera códigos aleatorios de seis dígitos.
+- `PhoneVerificationService` genera códigos aleatorios de seis dígitos y delega el envío a `MessangiSmsProvider`, un adaptador sustituible.
 - El código no se almacena en texto plano: Redis conserva un HMAC-SHA256 ligado al usuario y al teléfono.
 - El desafío vence a los cinco minutos.
 - Se permiten cinco intentos de validación por desafío.
-- Se limita el envío a tres códigos por usuario y hora y cinco por teléfono y hora; además se aplican límites por IP en el controlador.
-- El teléfono se escribe en `User.phone` y `User.phoneVerifiedAt` únicamente después de validar el código.
+- Se limita el envío a uno por minuto, tres códigos por usuario y hora y cinco por teléfono y hora; además se aplican límites por IP en el controlador.
+- El teléfono se escribe en `User.phone` y `User.phoneVerifiedAt` únicamente después de validar el código. Cambiar el teléfono desde el perfil o desde administración invalida la verificación anterior.
 - La API de Messangi se consume con Bearer token mediante `POST https://elastic.messangi.me/raven/v3/messages`, con `from`, `to` E.164, `text` y `type: MT`.
 - Los errores del proveedor no exponen credenciales, códigos ni números completos en logs o respuestas.
 
