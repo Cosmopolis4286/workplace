@@ -187,7 +187,7 @@ export class NotificationsService {
       {
         type: NotificationType.ORDER,
         title: '🕒 Actualización del horario del servicio',
-        message: `${providerName} actualizó el horario estimado de "${serviceName}". Inicio: ${format(estimatedStartAt)}. Finalización: ${format(estimatedCompletionAt)}.`,
+        message: `${providerName} actualizó el horario estimado de "${serviceName}". Revisa el detalle de la solicitud para consultar las nuevas fechas.`,
         link: '/service-requests',
         metadata: {
           serviceName,
