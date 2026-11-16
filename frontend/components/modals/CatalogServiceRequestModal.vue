@@ -276,13 +276,10 @@ const fieldErrors = computed(() => {
     today.setHours(0, 0, 0, 0)
     if (selected < today) e.preferredDate = 'La fecha no puede ser en el pasado'
   }
-  if (touched.value.preferredTime && !form.value.preferredTime) {
-    e.preferredTime = 'Selecciona una hora'
-  }
   if (touched.value.address && form.value.modality === 'IN_PERSON' && form.value.address.trim().length < 5) {
     e.address = 'Ingresa una dirección más detallada'
   }
-  if (touched.value.clientPhone && !PHONE_REGEX.test(form.value.clientPhone.trim())) {
+  if (touched.value.clientPhone && form.value.clientPhone.trim() && !PHONE_REGEX.test(form.value.clientPhone.trim())) {
     e.clientPhone = 'Ingresa un teléfono válido'
   }
   return e
@@ -313,7 +310,6 @@ function imageSrc(image: string) {
 function validateAll(): boolean {
   touched.value = {
     preferredDate: true,
-    preferredTime: true,
     address: true,
     clientPhone: true,
   }
