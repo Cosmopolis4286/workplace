@@ -210,40 +210,41 @@ describe('UsersService', () => {
     it(
       'returns account, profiles, masked identity documents and recent activity',
       async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: 'user-kyc',
-        email: 'person@example.com',
-        role: Role.NORMAL,
-        isActive: true,
-        identityVerifications: [
-          {
-            id: 'verification-1',
-            documentNumber: 'V12345678',
-            status: 'APPROVED',
-          },
-        ],
-        profiles: [],
-      });
-      mockPrismaService.auditLog.findMany.mockResolvedValue([
-        { id: 'audit-1', summary: 'Solicitud KYC enviada' },
-      ]);
+        mockPrismaService.user.findUnique.mockResolvedValue({
+          id: 'user-kyc',
+          email: 'person@example.com',
+          role: Role.NORMAL,
+          isActive: true,
+          identityVerifications: [
+            {
+              id: 'verification-1',
+              documentNumber: 'V12345678',
+              status: 'APPROVED',
+            },
+          ],
+          profiles: [],
+        });
+        mockPrismaService.auditLog.findMany.mockResolvedValue([
+          { id: 'audit-1', summary: 'Solicitud KYC enviada' },
+        ]);
 
-      const result = await service.getAdminOverview('user-kyc');
+        const result = await service.getAdminOverview('user-kyc');
 
-      expect(
-        result.user.identityVerifications[0].documentNumber
-      ).toBe('****5678');
-      expect(result.activity).toHaveLength(1);
-      expect(mockPrismaService.auditLog.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            module: { in: ['users', 'kyc', 'account', 'auth'] },
-            OR: [{ userId: 'user-kyc' }, { entityId: 'user-kyc' }],
-          }),
-          take: 30,
-        })
-      );
-    });
+        expect(
+          result.user.identityVerifications[0].documentNumber
+        ).toBe('****5678');
+        expect(result.activity).toHaveLength(1);
+        expect(mockPrismaService.auditLog.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              module: { in: ['users', 'kyc', 'account', 'auth'] },
+              OR: [{ userId: 'user-kyc' }, { entityId: 'user-kyc' }],
+            }),
+            take: 30,
+          })
+        );
+      }
+    );
 
     it('does not return a full document number when it is short', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
