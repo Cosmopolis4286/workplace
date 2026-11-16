@@ -508,11 +508,19 @@ describe('PermissionsService', () => {
         firstName: 'User',
         lastName: 'Test',
         role: Role.NORMAL,
-        profiles: [{ type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER }],
+        profiles: [
+          {
+            type: ProfileType.PROFESSIONAL,
+            subtype: ProfessionalSubtype.FREELANCER,
+          },
+        ],
       });
       mockPrisma.rolePermission.findMany.mockResolvedValue([]);
       mockPrisma.userProfile.findMany.mockResolvedValue([
-        { type: ProfileType.PROFESSIONAL, subtype: ProfessionalSubtype.FREELANCER },
+        {
+          type: ProfileType.PROFESSIONAL,
+          subtype: ProfessionalSubtype.FREELANCER,
+        },
       ]);
       mockPrisma.profilePermission.findMany.mockResolvedValue([
         { permission: { key: 'services:view' } },
