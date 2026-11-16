@@ -173,7 +173,7 @@
               <!-- Submit -->
               <button
                 type="submit"
-                 :disabled="sending"
+                :disabled="sending"
                 class="w-full py-3.5 bg-blue-600 text-white font-black text-sm rounded-2xl hover:bg-blue-700 active:scale-[0.98] transition-all duration-200 shadow-sm shadow-blue-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <span v-if="sending" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -328,8 +328,7 @@ function validateAll(): boolean {
   return true
 }
 
-// Guarda la selección actual (sin archivos — no son serializables a
-// sessionStorage) y redirige a login; se retoma automáticamente al volver.
+// Guarda la consulta inicial y redirige a login; se retoma al volver.
 function redirectToLoginAndResume() {
   if (!props.service) return
   saveCheckoutDraft({
@@ -378,8 +377,8 @@ async function submit() {
 }
 
 // Llamado por la página anfitriona cuando detecta un draft de solicitud
-// pendiente tras volver de /login — rellena el formulario pero deja que el
-// usuario confirme el envío con un click.
+// pendiente tras volver de /login — rellena el formulario para que el usuario
+// confirme el envío de la consulta con un click.
 function applyDraftForm(draftForm: Record<string, unknown>) {
   form.value = { ...form.value, ...draftForm } as typeof form.value
 }
