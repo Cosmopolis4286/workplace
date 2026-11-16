@@ -120,15 +120,23 @@ export class PermissionsService implements PermissionsFacade {
 
     const overrides: Record<string, boolean> = {};
     const now = new Date();
+    let cacheTtl = CACHE_TTL;
     for (const up of userPerms) {
       // Override expirado: no concede ni deniega, cae de vuelta al permiso de rol.
-      if (up.expiresAt && up.expiresAt <= now) continue;
+      if (up.expiresAt) {
+        const remainingSeconds = Math.ceil(
+          (up.expiresAt.getTime() - now.getTime()) / 1000
+        );
+        if (remainingSeconds <= 0) continue;
+        // La caché nunca debe sobrevivir al primer override que expire.
+        cacheTtl = Math.min(cacheTtl, Math.max(1, remainingSeconds));
+      }
       overrides[up.permission.key] = up.granted;
     }
 
     await this.redis.setex(
       userOverridesCacheKey(userId),
-      CACHE_TTL,
+      cacheTtl,
       JSON.stringify(overrides)
     );
     return overrides;
