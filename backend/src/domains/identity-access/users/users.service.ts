@@ -656,13 +656,6 @@ export class UsersService {
     return updated;
   }
 
-  async deleteUser(id: string) {
-    await this.prisma.user.findUnique({ where: { id } });
-    await this.prisma.user.delete({ where: { id } });
-    await this.invalidateFindByIdCache(id);
-    return { message: this.i18n.t('users.deleted') };
-  }
-
   // ─── Categories CRUD ─────────────────────────────────────────────────────────
 
   async findAllCategories() {
