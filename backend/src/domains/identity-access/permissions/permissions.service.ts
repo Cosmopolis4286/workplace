@@ -1139,12 +1139,7 @@ export class PermissionsService implements PermissionsFacade {
 
     const existing = await this.prisma.userPermission.findMany({
       where: { userId },
-      select: {
-        permissionId: true,
-        granted: true,
-        reason: true,
-        expiresAt: true,
-      },
+      select: { permissionId: true, granted: true, reason: true, expiresAt: true },
     });
     await this.prisma.userPermission.deleteMany({
       where: { userId },
