@@ -24,7 +24,7 @@ export class PhoneVerificationService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly config: ConfigService,
-    private readonly smsProvider: MessangiSmsProvider
+    private readonly smsProvider: MessangiSmsProvider,
   ) {}
 
   async sendCode(userId: string, rawPhone: string) {
@@ -202,7 +202,7 @@ export class PhoneVerificationService {
     // Numero movil venezolano E.164: +58 y diez digitos nacionales.
     if (!/^\+584\d{9}$/.test(normalized)) {
       throw new BadRequestException(
-        'Introduce un número móvil venezolano válido, por ejemplo +584121234567'
+        'Introduce un número móvil venezolano válido, por ejemplo +584121234567',
       );
     }
     return normalized;
