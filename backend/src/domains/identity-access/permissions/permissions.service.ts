@@ -19,9 +19,8 @@ import { PermissionsFacade } from './permissions.facade';
 
 const CACHE_TTL = 300;
 const cacheKey = (role: Role) => `permissions:role:${role}`;
-// Corto a propósito: un cambio en los permisos del ROL (togglePermission/
-// bulkUpdate) no invalida estas claves por-usuario, así que el TTL acota el
-// staleness en vez de depender de invalidación explícita en ese camino.
+// Caché independiente de excepciones individuales; los cambios de rol
+// no alteran este mapa y los cambios de usuario lo invalidan explícitamente.
 const userOverridesCacheKey = (userId: string) =>
   `permissions:overrides:user:${userId}`;
 const userVersionKey = (userId: string) => `permissions:version:user:${userId}`;
