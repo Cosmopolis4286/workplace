@@ -31,7 +31,7 @@ El teléfono proporcionado en la consulta se guarda como dato privado y el endpo
 - Solo se puede consultar un servicio activo.
 - No se puede consultar el propio servicio.
 - La modalidad debe coincidir con las ofrecidas por el servicio.
-- Una consulta abierta o respondida impide duplicar otra consulta para el mismo servicio.
+- Una consulta abierta impide duplicar otra consulta para el mismo servicio; después de una respuesta se puede iniciar una nueva consulta.
 - Se limita a cinco consultas por usuario en diez minutos.
 - La respuesta solo puede enviarla el propietario del servicio y se aplica mediante actualización condicional de estado para evitar respuestas simultáneas.
 
