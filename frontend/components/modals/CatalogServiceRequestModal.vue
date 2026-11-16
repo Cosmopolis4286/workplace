@@ -147,7 +147,7 @@
                   @blur="touch('clientPhone')"
                 />
                 <p v-if="fieldErrors.clientPhone" class="text-[11px] text-red-500 mt-1">{{ fieldErrors.clientPhone }}</p>
-                <p class="text-[11px] text-gray-400 mt-1">No compartiremos este número con el prestador desde la consulta inicial.</p>
+                <p class="text-[11px] text-gray-400 mt-1">Este número aún no está verificado y no se comparte con el prestador durante la consulta inicial.</p>
               </div>
               <!-- Descripción -->
               <div>
