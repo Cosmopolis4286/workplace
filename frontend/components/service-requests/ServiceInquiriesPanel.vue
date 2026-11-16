@@ -106,7 +106,12 @@ function statusLabel(status: Inquiry['status']) {
   return ({ OPEN: 'Pendiente', RESPONDED: 'Respondida', CLOSED: 'Cerrada', CANCELLED: 'Cancelada' })[status]
 }
 function modalityLabel(value: string) {
-  return ({ IN_PERSON: 'Presencial', REMOTE: 'Remoto', ANY: 'A convenir' })[value] ?? value
+  const labels: Record<string, string> = {
+    IN_PERSON: 'Presencial',
+    REMOTE: 'Remoto',
+    ANY: 'A convenir',
+  }
+  return labels[value] ?? value
 }
 
 async function load() {
