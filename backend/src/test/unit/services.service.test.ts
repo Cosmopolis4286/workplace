@@ -76,18 +76,18 @@ describe('ServicesService — service request status transitions', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findFirst: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
-        create: jest.fn().mockImplementation(({ data }) =>
-          Promise.resolve(data)
-        ),
+        create: jest
+          .fn()
+          .mockImplementation(({ data }) => Promise.resolve(data)),
         findMany: jest.fn().mockResolvedValue([]),
       },
       serviceRequest: {
         findUnique: jest.fn(),
         findFirst: jest.fn().mockResolvedValue(null),
         count: jest.fn().mockResolvedValue(0),
-        create: jest.fn().mockImplementation(({ data }) =>
-          Promise.resolve(data)
-        ),
+        create: jest
+          .fn()
+          .mockImplementation(({ data }) => Promise.resolve(data)),
         findMany: jest.fn().mockResolvedValue([]),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         update: jest
