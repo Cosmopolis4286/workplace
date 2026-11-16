@@ -255,6 +255,28 @@ describe('PermissionsService', () => {
       await service.getUserOverrides('user-1');
       expect(mockPrisma.userPermission.findMany).toHaveBeenCalledTimes(1);
     });
+
+    it('expires the Redis cache no later than the earliest temporary override', async () => {
+      const expiresAt = new Date(Date.now() + 30_000);
+      mockPrisma.userPermission.findMany.mockResolvedValue([
+        {
+          granted: true,
+          expiresAt,
+          permission: { key: 'orders:export' },
+        },
+        {
+          granted: true,
+          expiresAt: null,
+          permission: { key: 'orders:view' },
+        },
+      ]);
+
+      await service.getUserOverrides('user-1');
+
+      const [, ttl] = mockRedis.setex.mock.calls[0];
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(30);
+    });
   });
 
   describe('bumpUserVersion / getUserVersion', () => {
