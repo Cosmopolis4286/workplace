@@ -218,7 +218,9 @@ describe('UsersService', () => {
 
       const result = await service.getAdminOverview('user-kyc');
 
-      expect(result.user.identityVerifications[0].documentNumber).toBe('****5678');
+      expect(
+        result.user.identityVerifications[0].documentNumber
+      ).toBe('****5678');
       expect(result.activity).toHaveLength(1);
       expect(mockPrismaService.auditLog.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -234,14 +236,18 @@ describe('UsersService', () => {
     it('does not return a full document number when it is short', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-kyc',
-        identityVerifications: [{ id: 'verification-2', documentNumber: '123' }],
+        identityVerifications: [
+          { id: 'verification-2', documentNumber: '123' },
+        ],
         profiles: [],
       });
       mockPrismaService.auditLog.findMany.mockResolvedValue([]);
 
       const result = await service.getAdminOverview('user-kyc');
 
-      expect(result.user.identityVerifications[0].documentNumber).toBe('****');
+      expect(
+        result.user.identityVerifications[0].documentNumber
+      ).toBe('****');
     });
   });
 
