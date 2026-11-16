@@ -1903,9 +1903,14 @@ export class ServicesService {
     if (req.providerId !== userId && req.requesterId !== userId) {
       throw new ForbiddenException('No tienes permiso');
     }
-    if (req.status !== 'CONTACTED') {
+    if (
+      ![
+        'CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY',
+        'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY', 'COMPLETION_PENDING',
+      ].includes(req.status)
+    ) {
       throw new BadRequestException(
-        'Solo se puede disputar una solicitud en curso (contactada)'
+        'Solo se puede disputar una solicitud aceptada que siga en curso'
       );
     }
 
