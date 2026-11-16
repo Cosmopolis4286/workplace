@@ -243,8 +243,9 @@ export class KycService {
       details: {
         targetUserId: verification.userId,
         status: dto.status,
-        rejectionReason:
-          dto.status === KycStatus.REJECTED ? dto.rejectionReason : undefined,
+        ...(dto.status === KycStatus.REJECTED
+          ? { rejectionReason: dto.rejectionReason }
+          : {}),
       },
     });
 
