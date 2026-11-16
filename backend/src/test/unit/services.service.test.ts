@@ -208,9 +208,7 @@ describe('ServicesService — service request status transitions', () => {
   });
 
   describe('consultas preliminares y datos canónicos', () => {
-    it(
-      'crea una consulta sin KYC, usando proveedor del servicio y ocultando el teléfono al proveedor',
-      async () => {
+    it('crea consulta y oculta el teléfono al prestador', async () => {
       mockPrismaService.service.findUnique.mockResolvedValue({
         id: 'service-1',
         userId: 'provider-1',
@@ -254,9 +252,7 @@ describe('ServicesService — service request status transitions', () => {
       expect(providerView.data[0].contactHidden).toBe(true);
     });
 
-    it(
-      'permite responder al prestador propietario y conserva la consulta como RESPONDED',
-      async () => {
+    it('el prestador propietario puede responder la consulta', async () => {
       mockPrismaService.serviceInquiry.findUnique
         .mockResolvedValueOnce({
           id: 'inquiry-1',
@@ -295,9 +291,7 @@ describe('ServicesService — service request status transitions', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it(
-      'rechaza consultas al propio servicio y modalidades no ofrecidas',
-      async () => {
+    it('rechaza consultas propias y modalidades no disponibles', async () => {
       mockPrismaService.service.findUnique.mockResolvedValue({
         id: 'service-1',
         userId: 'provider-1',
@@ -323,9 +317,7 @@ describe('ServicesService — service request status transitions', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it(
-      'ignora los nombres, proveedor y precio enviados por el navegador al contratar',
-      async () => {
+    it('contratación usa proveedor, cliente y precio canónicos', async () => {
       mockPrismaService.service.findUnique.mockResolvedValue({
         id: 'service-1',
         userId: 'provider-real',
