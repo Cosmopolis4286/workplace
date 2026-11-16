@@ -16,6 +16,7 @@ import { QueryServicesDto, ServiceSortBy } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { CreateServiceInquiryDto } from './dto/create-service-inquiry.dto';
+import { RespondServiceInquiryDto } from './dto/respond-service-inquiry.dto';
 import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
 import { NotificationsService } from '../../engagement/notifications/notifications.service';
 import {
@@ -780,6 +781,40 @@ export class ServicesService {
         clientPhone: dto.clientPhone,
         message: dto.message,
       },
+      include: {
+        service: {
+          select: { id: true, name: true, price: true, priceUnit: true },
+        },
+      },
+    });
+  }
+
+  async respondToServiceInquiry(
+    inquiryId: string,
+    providerId: string,
+    dto: RespondServiceInquiryDto
+  ) {
+    const inquiry = await this.prisma.serviceInquiry.findUnique({
+      where: { id: inquiryId },
+      select: { id: true, providerId: true, status: true },
+    });
+    if (!inquiry) throw new NotFoundException('Consulta no encontrada');
+    if (inquiry.providerId !== providerId) {
+      throw new ForbiddenException('No puedes responder esta consulta');
+    }
+    if (inquiry.status !== 'OPEN') {
+      throw new ConflictException('La consulta ya fue respondida o cerrada');
+    }
+
+    const updated = await this.prisma.serviceInquiry.updateMany({
+      where: { id: inquiryId, providerId, status: 'OPEN' },
+      data: { providerResponse: dto.response.trim(), status: 'RESPONDED' },
+    });
+    if (updated.count !== 1) {
+      throw new ConflictException('La consulta cambió; actualiza e intenta de nuevo');
+    }
+    return this.prisma.serviceInquiry.findUnique({
+      where: { id: inquiryId },
       include: {
         service: {
           select: { id: true, name: true, price: true, priceUnit: true },
