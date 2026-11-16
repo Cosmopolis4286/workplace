@@ -85,11 +85,11 @@
                   <input
                     type="checkbox"
                     :checked="localMatrix[perm.id]?.[r] ?? false"
-                    :disabled="perm.isSystem || r === disabledColumnKey"
+                    :disabled="perm.isSystem || disabledColumns?.includes(r) || r === disabledColumnKey"
                     @change="$emit('toggle', perm.id, r, ($event.target as HTMLInputElement).checked)"
                     class="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 focus:ring-2
                            disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
-                    :title="perm.isSystem ? 'Permiso de sistema — no editable' : r === disabledColumnKey ? 'Este rol siempre tiene todos los permisos' : ''"
+                    :title="perm.isSystem ? 'Permiso de sistema — no editable' : disabledColumns?.includes(r) || r === disabledColumnKey ? 'Rol protegido por jerarquía' : ''"
                   />
                 </td>
                 <!-- Delete action -->
@@ -156,6 +156,7 @@ defineProps<{
   plansForModule: Record<string, PlanInfo[]>
   localMatrix: Record<string, Record<Role, boolean>>
   disabledColumnKey?: Role
+  disabledColumns?: Role[]
 }>()
 
 defineEmits<{
