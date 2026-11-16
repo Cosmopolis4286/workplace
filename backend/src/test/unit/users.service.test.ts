@@ -263,8 +263,8 @@ describe('UsersService', () => {
     });
   });
 
- DATABASE_URL: ***localhost:5432/ci
- PNPM_HOME: /home/runner/work/_temp/setup-pnpm/node_modules/.bin
+  describe('findById', () => {
+    it('should return user if found', async () => {
       const user = { id: 1, email: 'test@example.com', name: 'Test User' };
 
       mockPrismaService.user.findUnique.mockResolvedValue(user);
