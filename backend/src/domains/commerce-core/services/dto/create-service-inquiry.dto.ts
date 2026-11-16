@@ -30,7 +30,7 @@ export class CreateServiceInquiryDto {
 
   @IsString()
   @IsOptional()
-  @Matches(/^([01]\\d|2[0-3]):[0-5]\\d$/, {
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
     message: 'La hora preferida debe tener formato HH:mm',
   })
   preferredTime?: string;
@@ -50,7 +50,7 @@ export class CreateServiceInquiryDto {
   // mecanismo de verificación y una política explícita de compartición.
   @IsString()
   @IsOptional()
-  @Matches(/^[+]?[\\d\\s()-]{7,20}$/, {
+  @Matches(/^[+]?[\d\\s()-]{7,20}$/, {
     message: 'Ingresa un teléfono válido',
   })
   clientPhone?: string;
