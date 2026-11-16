@@ -28,6 +28,12 @@ import {
   assignableRolesFor,
 } from '../../../common/utils/role-hierarchy.util';
 
+function parseUserStatus(status?: 'ACTIVE' | 'INACTIVE'): boolean | undefined {
+  if (status === 'ACTIVE') return true;
+  if (status === 'INACTIVE') return false;
+  return undefined;
+}
+
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
@@ -63,7 +69,7 @@ export class UsersController {
       subcategoryId,
       search,
       profileKind,
-      isActive: status === 'ACTIVE' ? true : status === 'INACTIVE' ? false : undefined,
+      isActive: parseUserStatus(status),
       page: parseInt(page),
       limit: parseInt(limit),
     });
