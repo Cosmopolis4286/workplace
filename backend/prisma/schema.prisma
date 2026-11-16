@@ -2391,17 +2391,17 @@ model ServiceInquiry {
   providerId  String
   requesterId String
   requester   User                 @relation(fields: [requesterId], references: [id], onDelete: Cascade)
-  modality    ServiceRequestModality @default(ANY)
-  preferredDate DateTime?
-  preferredTime String?
-  address     String?
-  city        String?
-  clientPhone String?
-  message     String?
+  modality         ServiceRequestModality @default(ANY)
+  preferredDate    DateTime?
+  preferredTime    String?
+  address          String?
+  city             String?
+  clientPhone      String?
+  message          String?
   providerResponse String?
-  status      ServiceInquiryStatus @default(OPEN)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  status           ServiceInquiryStatus   @default(OPEN)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
   @@index([requesterId, createdAt(sort: Desc)])
   @@index([providerId, status, createdAt(sort: Desc)])
