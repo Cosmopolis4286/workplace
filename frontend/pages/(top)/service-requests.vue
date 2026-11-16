@@ -8,6 +8,18 @@
       :stats="headerStats"
     >
       <template #actions>
+        <div class="mr-2 flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+          <button
+            class="rounded-lg px-3 py-2 text-xs font-semibold transition-all"
+            :class="viewMode === 'requests' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'"
+            @click="viewMode = 'requests'"
+          >Contrataciones</button>
+          <button
+            class="rounded-lg px-3 py-2 text-xs font-semibold transition-all"
+            :class="viewMode === 'inquiries' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'"
+            @click="viewMode = 'inquiries'"
+          >Consultas</button>
+        </div>
         <!-- Toggle recibidas / enviadas — solo para PROFESIONAL (proveedores) -->
         <div v-if="!isNormal" class="flex items-center bg-white border border-gray-200 rounded-xl p-1 gap-1 shadow-sm">
           <button
@@ -52,7 +64,9 @@
       </div>
     </Transition>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <ServiceInquiriesPanel v-if="viewMode === 'inquiries'" :as-role="viewAs" />
+
+    <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <ServiceRequestsList
         :filtered="filtered"
         :filters="filters"
@@ -102,6 +116,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import ServiceRequestsList, { type ServiceRequest } from '~/components/service-requests/ServiceRequestsList.vue'
 import ServiceRequestsSidebar from '~/components/service-requests/ServiceRequestsSidebar.vue'
 import ServiceRequestDetailModal from '~/components/modals/ServiceRequestDetailModal.vue'
+import ServiceInquiriesPanel from '~/components/service-requests/ServiceInquiriesPanel.vue'
 import { useApi } from '~/composables/core/useApi'
 import { useExchangeRates } from '~/composables/wallets/useExchangeRates'
 import { useNotifications, type Notification } from '~/composables/notifications/useNotifications'
@@ -121,6 +136,7 @@ const { getAssetUrl } = useAssetUrl()
 const { formatDate: fmtDate, formatDateTime: fmtDateTime, timeAgo: fmtTimeAgo } = useDateFormat()
 
 const isNormal = computed(() => user.value?.role === 'NORMAL')
+const viewMode = ref<'requests' | 'inquiries'>('requests')
 
 function contactAvatarUrl(req: ServiceRequest): string | null {
   return getAssetUrl(viewAs.value === 'provider' ? req.clientAvatar : req.providerAvatar)
