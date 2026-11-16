@@ -1078,6 +1078,18 @@ export class ServicesService {
     if (req.providerId !== userId)
       throw new ForbiddenException('No tienes permiso');
     const update: any = {};
+    const etaFieldsProvided =
+      data.estimatedStartAt !== undefined ||
+      data.estimatedCompletionAt !== undefined;
+    if (
+      etaFieldsProvided &&
+      ![
+        'CONTACTED', 'SCHEDULED', 'PREPARING', 'ON_THE_WAY',
+        'IN_PROGRESS', 'PAUSED', 'AWAITING_DELIVERY',
+      ].includes(req.status)
+    ) {
+      throw new ForbiddenException('Solo puedes modificar el cronograma de un servicio aceptado y activo');
+    }
     const nextStart = data.estimatedStartAt !== undefined
       ? new Date(data.estimatedStartAt)
       : req.estimatedStartAt;
