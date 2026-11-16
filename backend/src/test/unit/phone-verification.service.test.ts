@@ -66,12 +66,12 @@ describe('PhoneVerificationService', () => {
         to: '+584121234567',
         externalId: 'wp-phone-user-1',
         clientId: 'user-1',
-        text: expect.stringMatching(/^Tu codigo WorkPlace: \\d{6}\\./),
+        text: expect.stringMatching(/^Tu codigo WorkPlace: \d{6}\./),
       })
     );
 
     const sentCode =
-      smsProvider.send.mock.calls[0][0].text.match(/\\d{6}/)?.[0];
+      smsProvider.send.mock.calls[0][0].text.match(/\d{6}/)?.[0];
     expect(challenge).not.toContain(sentCode);
   });
 
