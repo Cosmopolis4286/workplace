@@ -669,7 +669,7 @@ describe('ServicesService — service request status transitions', () => {
           'No llegó nunca el técnico'
         )
       ).rejects.toThrow(
-        'Solo se puede disputar una solicitud en curso (contactada)'
+        'Solo se puede disputar una solicitud aceptada que siga en curso'
       );
     });
 
