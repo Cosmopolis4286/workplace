@@ -411,7 +411,6 @@ export class UsersService {
             ...(dto.email !== undefined && { email: dto.email }),
             ...(dto.phone !== undefined && { phone: dto.phone || null }),
             ...(dto.role !== undefined && { role: dto.role }),
-            ...(dto.isActive !== undefined && { isActive: dto.isActive }),
             ...(dto.categoryId !== undefined && {
               categoryId: dto.categoryId || null,
             }),
