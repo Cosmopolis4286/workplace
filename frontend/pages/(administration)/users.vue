@@ -376,8 +376,8 @@ async function confirmDelete(target: UserItem | UserItem[]) {
   await confirm({
     title: isBulk ? `¿Eliminar ${targets.length} usuarios?` : '¿Eliminar usuario?',
     message: isBulk
-      ? `Se eliminarán permanentemente ${targets.length} cuentas. Esta acción no se puede deshacer.`
-      : `Se eliminará permanentemente a ${targets[0].firstName} ${targets[0].lastName}. Esta acción no se puede deshacer.`,
+      ? `Se anonimizarán ${targets.length} cuentas y se conservarán los registros financieros e históricos. La operación puede bloquearse si existen saldos, retiros, depósitos o pagos protegidos pendientes.`
+      : `Se anonimizará la cuenta de ${targets[0].firstName} ${targets[0].lastName}. Se conservarán los registros financieros e históricos y la operación puede bloquearse si existen obligaciones pendientes.`,
     confirmText: 'Eliminar',
     variant: 'danger',
     onConfirm: async () => {
