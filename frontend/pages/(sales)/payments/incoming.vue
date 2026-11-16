@@ -43,7 +43,10 @@
             <p class="text-sm text-gray-600 truncate">
               {{ r.payerName || 'Cliente' }} · {{ r.paymentIntent.metadata?.description || SOURCE_LABELS[r.paymentIntent.sourceType] }}
             </p>
-            <p class="text-xs text-gray-500 mt-1">
+            <p v-if="r.destination.method === 'CASH'" class="text-xs text-amber-700 mt-1 font-medium">
+              Efectivo al entregar · cóbralo al entregar y confírmalo aquí
+            </p>
+            <p v-else class="text-xs text-gray-500 mt-1">
               Ref. <span class="font-mono font-semibold text-gray-800">{{ r.reference }}</span>
               · {{ DIRECT_PAYMENT_METHOD_LABELS[r.destination.method as DirectPaymentMethod] ?? '' }}
               {{ r.destination.bankName ? `· ${r.destination.bankName}` : '' }}
@@ -165,7 +168,9 @@ function setTab(tab: DirectPaymentReportStatus | '') {
 async function askConfirm(r: IncomingPaymentReport) {
   await confirm({
     title: 'Confirmar pago recibido',
-    message: `¿Verificaste en tu banco que llegó ${formatPaymentAmount(r.paidAmount, r.paidCurrency)} con la referencia ${r.reference}? Esta acción no se puede deshacer.`,
+    message: r.destination.method === 'CASH'
+      ? `¿Recibiste ${formatPaymentAmount(r.paidAmount, r.paidCurrency)} en efectivo? Esta acción no se puede deshacer.`
+      : `¿Verificaste en tu banco que llegó ${formatPaymentAmount(r.paidAmount, r.paidCurrency)} con la referencia ${r.reference}? Esta acción no se puede deshacer.`,
     confirmText: 'Sí, llegó',
     onConfirm: async () => {
       busyId.value = r.id

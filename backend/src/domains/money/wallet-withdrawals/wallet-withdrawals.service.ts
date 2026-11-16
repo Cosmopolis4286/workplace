@@ -10,6 +10,7 @@ import {
   NotificationType,
   Prisma,
   Role,
+  SellerPaymentMethod,
   WithdrawalStatus,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -40,6 +41,11 @@ const MAX_PENDING_PER_USER = 1;
  * admin hace la transferencia y registra la referencia; si la rechaza, el
  * monto vuelve a la billetera.
  */
+
+// Un retiro es una transferencia a una cuenta propia: nunca en efectivo.
+const NO_CASH_WITHDRAWAL = new BadRequestException(
+  'Los retiros se hacen a una cuenta bancaria, pago móvil o Zelle'
+);
 @Injectable()
 export class WalletWithdrawalsService {
   private readonly logger = new Logger(WalletWithdrawalsService.name);
@@ -231,9 +237,14 @@ export class WalletWithdrawalsService {
         where: { id: dto.accountId, userId },
       });
       if (!account) throw new NotFoundException('Cuenta no encontrada');
+      if (account.method === SellerPaymentMethod.CASH) throw NO_CASH_WITHDRAWAL;
       return account;
     }
-    if (dto.destination) return this.accounts.normalize(dto.destination);
+    if (dto.destination) {
+      if (dto.destination.method === SellerPaymentMethod.CASH)
+        throw NO_CASH_WITHDRAWAL;
+      return this.accounts.normalize(dto.destination);
+    }
     throw new BadRequestException('Indica la cuenta donde quieres recibirlo');
   }
 

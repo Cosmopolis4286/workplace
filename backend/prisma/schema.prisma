@@ -3691,6 +3691,9 @@ enum SellerPaymentMethod {
   PAGO_MOVIL
   BANK_TRANSFER
   ZELLE
+  // Efectivo (Bs o USD) al entregar: sin datos bancarios. El comprador avisa
+  // que pagará/pagó en efectivo y el vendedor confirma al recibirlo.
+  CASH
 }
 
 model SellerPaymentAccount {

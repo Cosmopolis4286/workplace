@@ -2,6 +2,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
@@ -19,13 +20,21 @@ export class CreateSellerPaymentAccountDto {
   @MaxLength(4)
   bankCode?: string;
 
+  // Titular y cédula: obligatorios salvo en efectivo (no hay cuenta).
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  holderName: string;
+  holderName?: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(20)
-  holderDocument: string;
+  holderDocument?: string;
+
+  // Solo efectivo: en qué moneda lo recibe (USD o Bs).
+  @IsOptional()
+  @IsIn(['USD', 'VES'])
+  currency?: 'USD' | 'VES';
 
   @IsOptional()
   @IsString()

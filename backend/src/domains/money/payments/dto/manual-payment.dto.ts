@@ -27,16 +27,20 @@ export class ReportManualPaymentDto {
   @IsUUID()
   sellerPaymentAccountId: string;
 
+  // Obligatoria salvo en efectivo (no hay referencia bancaria).
+  @IsOptional()
   @IsString()
   @MaxLength(40)
-  reference: string;
+  reference?: string;
 
   @IsOptional()
   @Matches(/^\d{4}$/, { message: 'Código de banco inválido' })
   payerBankCode?: string;
 
+  // En efectivo puede omitirse: el pago se hace al entregar.
+  @IsOptional()
   @IsDateString()
-  paidAt: string;
+  paidAt?: string;
 }
 
 export class RejectManualPaymentDto {
