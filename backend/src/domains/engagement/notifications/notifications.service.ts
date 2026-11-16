@@ -199,6 +199,25 @@ export class NotificationsService {
     );
   }
 
+  async notifyServiceRequestRequesterCompleted(
+    providerId: string,
+    clientName: string,
+    serviceName: string,
+    serviceRequestId: string
+  ) {
+    return this.createForUser(
+      providerId,
+      {
+        type: NotificationType.ORDER,
+        title: '✅ El cliente confirmó la recepción',
+        message: `${clientName} confirmó que recibió el servicio "${serviceName}". Declara la finalización desde el detalle de la solicitud para cerrar el servicio.`,
+        link: `/service-requests/${serviceRequestId}`,
+        metadata: { serviceRequestId, serviceName },
+      },
+      { email: false }
+    );
+  }
+
   async notifyServiceRequestProviderCompleted(
     clientId: string,
     providerName: string,
