@@ -1,0 +1,47 @@
+name: Formatear archivos de PR
+
+on:
+  push:
+    branches:
+      - feat/rbac-audit-history-scope-v1
+      - feat/verificacion-telefonica-messangi
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+      - name: Formatear archivos modificados
+        shell: bash
+        run: |
+          case "$GITHUB_REF_NAME" in
+            feat/rbac-audit-history-scope-v1)
+              FILES=(src/domains/identity-access/permissions/permissions.service.ts)
+              ;;
+            feat/verificacion-telefonica-messangi)
+              FILES=(src/domains/identity-access/auth/auth.controller.ts src/domains/identity-access/auth/phone-verification.service.ts src/test/unit/phone-verification.service.test.ts)
+              ;;
+          esac
+          cd backend
+          pnpm exec prettier --config .prettierrc --write "${FILES[@]}"
+          cd ..
+          git add "${FILES[@]/#/backend/}"
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "style: aplicar formato Prettier"
+          git push
