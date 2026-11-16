@@ -570,6 +570,10 @@ export class PermissionsService implements PermissionsFacade {
       skipDuplicates: true,
     });
 
+    // Un permiso nuevo puede nacer concedido a roles seleccionados.
+    await Promise.all(
+      [...grantedSet].map((role) => this.invalidateRoleVersion(role))
+    );
     return permission;
   }
 
@@ -713,6 +717,8 @@ export class PermissionsService implements PermissionsFacade {
       const hasRolePermission = rolePermMap.has(p.id);
       const hasProfilePermission = profileKeys.has(p.key);
       const userPerm = userPermMap.get(p.id);
+      const hasActiveUserOverride =
+        !!userPerm && (!userPerm.expiresAt || userPerm.expiresAt > new Date());
 
       let effectiveGranted = hasRolePermission || hasProfilePermission;
       let source: 'role' | 'profile' | 'user' | 'none' = hasRolePermission
@@ -721,7 +727,8 @@ export class PermissionsService implements PermissionsFacade {
           ? 'profile'
           : 'none';
 
-      if (userPerm) {
+      // Un override vencido deja de existir: vuelve a aplicar rol/perfil.
+      if (hasActiveUserOverride) {
         effectiveGranted = userPerm.isGranted;
         source = 'user';
       }
@@ -735,10 +742,10 @@ export class PermissionsService implements PermissionsFacade {
         isSystem: p.isSystem,
         roleGranted: hasRolePermission,
         profileGranted: hasProfilePermission,
-        userGranted: userPerm?.granted ?? null,
-        userDenied: userPerm && !userPerm.granted ? true : false,
-        expiresAt: userPerm?.expiresAt ?? null,
-        reason: userPerm?.reason ?? null,
+        userGranted: hasActiveUserOverride ? userPerm.granted : null,
+        userDenied: hasActiveUserOverride && !userPerm.granted,
+        expiresAt: hasActiveUserOverride ? userPerm.expiresAt : null,
+        reason: hasActiveUserOverride ? userPerm.reason : null,
         effectiveGranted,
         source,
       };
