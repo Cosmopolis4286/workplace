@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -16,6 +17,7 @@ import {
   NotificationType,
   Prisma,
   SellerPaymentAccount,
+  SellerPaymentMethod,
 } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { NotificationsService } from '../../../engagement/notifications/notifications.service';
@@ -201,13 +203,22 @@ export class ManualPaymentsService {
       throw new BadRequestException('La cuenta de destino no está disponible');
     }
 
-    const reference = normalizeReference(dto.reference);
+    // Efectivo: no hay referencia bancaria ni fecha de pago (se paga al
+    // entregar). Se genera una referencia interna única para el historial y
+    // el vendedor confirma cuando recibe el dinero.
+    const isCash = account.method === SellerPaymentMethod.CASH;
+    const reference = isCash
+      ? `EF-${randomBytes(4).toString('hex').toUpperCase()}`
+      : normalizeReference(dto.reference ?? '');
     if (!reference) {
       throw new BadRequestException(
         'Referencia inválida: usa entre 4 y 30 letras o números'
       );
     }
-    const paidAt = this.validatePaidAt(dto.paidAt);
+    if (!isCash && !dto.paidAt) {
+      throw new BadRequestException('Indica la fecha del pago');
+    }
+    const paidAt = isCash ? new Date() : this.validatePaidAt(dto.paidAt!);
 
     // La misma referencia no puede respaldar dos pagos al mismo vendedor.
     const duplicate = await this.prisma.manualPaymentReport.findFirst({
@@ -262,7 +273,9 @@ export class ManualPaymentsService {
 
     await this.notifySafe(intent.sellerUserId, {
       title: '💸 Pago reportado',
-      message: `Te reportaron un pago de ${this.formatMoney(priced.amount!, account.currency)} (ref. ${reference}). Verifica tu cuenta y confírmalo.`,
+      message: isCash
+        ? `El cliente pagará ${this.formatMoney(priced.amount!, account.currency)} en efectivo al entregar. Confírmalo cuando lo recibas.`
+        : `Te reportaron un pago de ${this.formatMoney(priced.amount!, account.currency)} (ref. ${reference}). Verifica tu cuenta y confírmalo.`,
       link: '/payments/incoming',
       metadata: { paymentIntentId: intent.id, reportId },
     });

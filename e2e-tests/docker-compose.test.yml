@@ -123,7 +123,10 @@ services:
       - workplace-test-network
     volumes:
       - ./playwright-report:/app/playwright-report
-    command: ["sh", "-c", "npx playwright test --reporter=html"]
+    # --output en /tmp: Playwright borra y recrea su carpeta de resultados, y
+    # /app es de root mientras el contenedor corre con el UID del runner
+    # (EACCES: mkdir '/app/test-results').
+    command: ["sh", "-c", "npx playwright test --reporter=html --output=/tmp/test-results"]
     restart: "no"
 
 # Volúmenes para persistencia de tests

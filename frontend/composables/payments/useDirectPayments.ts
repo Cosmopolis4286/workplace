@@ -7,7 +7,7 @@
 import { ref } from 'vue'
 import { useApi } from '../core/useApi'
 
-export type DirectPaymentMethod = 'PAGO_MOVIL' | 'BANK_TRANSFER' | 'ZELLE'
+export type DirectPaymentMethod = 'PAGO_MOVIL' | 'BANK_TRANSFER' | 'ZELLE' | 'CASH'
 export type DirectPaymentSourceType = 'SERVICE_REQUEST' | 'CATALOG_ORDER'
 export type DirectPaymentReportStatus = 'SUBMITTED' | 'CONFIRMED' | 'REJECTED'
 
@@ -76,6 +76,7 @@ export const DIRECT_PAYMENT_METHOD_LABELS: Record<DirectPaymentMethod, string> =
   PAGO_MOVIL: 'Pago móvil',
   BANK_TRANSFER: 'Transferencia',
   ZELLE: 'Zelle',
+  CASH: 'Efectivo al entregar',
 }
 
 export function formatPaymentAmount(amount: number | null | undefined, currency: string) {
@@ -109,7 +110,7 @@ export function useDirectPayments() {
     post<DirectPaymentSession>('/payments/manual/intents', { sourceType, sourceId })
   const reportPayment = (
     intentId: string,
-    data: { sellerPaymentAccountId: string; reference: string; paidAt: string; payerBankCode?: string },
+    data: { sellerPaymentAccountId: string; reference?: string; paidAt?: string; payerBankCode?: string },
   ) => post<DirectPaymentReport>(`/payments/manual/intents/${intentId}/report`, data)
 
   // ─── Vendedor: confirmación ──────────────────────────────────────────────

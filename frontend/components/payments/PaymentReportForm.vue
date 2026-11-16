@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <div>
-      <p class="text-xs font-medium text-gray-700 mb-2">1. Elige cómo pagar y copia los datos</p>
+      <p class="text-xs font-medium text-gray-700 mb-2">1. Elige cómo pagar</p>
       <p v-if="accounts.length === 0" class="text-sm text-amber-700 bg-amber-50 rounded-lg p-3">
         No hay cuentas disponibles para pagar en este momento.
       </p>
@@ -37,7 +37,10 @@
             </p>
           </div>
 
-          <dl v-if="selectedId === acc.id" class="mt-3 space-y-1.5">
+          <p v-if="selectedId === acc.id && acc.method === 'CASH'" class="mt-2 text-xs text-gray-600">
+            Pagas {{ formatPaymentAmount(acc.amount, acc.currency) }} en efectivo cuando recibas tu pedido o servicio. El vendedor lo confirma al cobrarlo.
+          </p>
+          <dl v-else-if="selectedId === acc.id" class="mt-3 space-y-1.5">
             <div v-for="field in fieldsOf(acc)" :key="field.label" class="flex items-center justify-between gap-2 text-sm">
               <dt class="text-gray-500">{{ field.label }}</dt>
               <dd class="flex items-center gap-1.5 min-w-0">
@@ -63,8 +66,8 @@
     </div>
 
     <form class="space-y-3" novalidate @submit.prevent="submit">
-      <p class="text-xs font-medium text-gray-700">2. Cuando hayas pagado, reporta la referencia</p>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <p v-if="!isCash" class="text-xs font-medium text-gray-700">2. Cuando hayas pagado, reporta la referencia</p>
+      <div v-if="!isCash" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-gray-500 mb-1">Número de referencia *</label>
           <input
@@ -81,7 +84,7 @@
           <input v-model="form.paidAt" type="date" :max="today" :min="minDate" class="input-field" />
         </div>
       </div>
-      <div v-if="selectedAccount && selectedAccount.method !== 'ZELLE'">
+      <div v-if="selectedAccount && !isCash && selectedAccount.method !== 'ZELLE'">
         <label class="block text-xs text-gray-500 mb-1">Banco desde el que pagaste</label>
         <select v-model="form.payerBankCode" class="input-field bg-white">
           <option value="">Prefiero no indicarlo</option>
@@ -90,9 +93,9 @@
       </div>
       <p v-if="localError || error" class="text-sm text-red-600">{{ localError || error }}</p>
       <button type="submit" class="btn-primary w-full" :disabled="submitting || !selectedId">
-        {{ submitting ? 'Enviando…' : 'Reportar pago' }}
+        {{ submitting ? 'Enviando…' : isCash ? 'Pagaré en efectivo al recibir' : 'Reportar pago' }}
       </button>
-      <p class="text-[11px] text-gray-400 text-center">
+      <p v-if="!isCash" class="text-[11px] text-gray-400 text-center">
         Reportar una referencia falsa puede suspender tu cuenta.
       </p>
     </form>
@@ -111,8 +114,9 @@ import {
 
 export interface PaymentReportPayload {
   accountId: string
-  reference: string
-  paidAt: string
+  // Vacíos en efectivo: el backend genera la referencia y la fecha.
+  reference?: string
+  paidAt?: string
   payerBankCode?: string
 }
 
@@ -140,6 +144,7 @@ const localError = ref<string | null>(null)
 const form = ref({ reference: '', paidAt: today, payerBankCode: '' })
 
 const selectedAccount = computed(() => props.accounts.find(a => a.id === selectedId.value) ?? null)
+const isCash = computed(() => selectedAccount.value?.method === 'CASH')
 
 watch(
   () => props.accounts,
@@ -175,6 +180,10 @@ async function copy(value: string, label: string) {
 
 function submit() {
   localError.value = null
+  if (isCash.value) {
+    if (selectedId.value) emit('submit', { accountId: selectedId.value })
+    return
+  }
   const reference = form.value.reference.replace(/\s+/g, '')
   if (!/^[A-Za-z0-9-]{4,30}$/.test(reference)) {
     localError.value = 'Escribe la referencia tal como aparece en tu comprobante (4 a 30 caracteres).'

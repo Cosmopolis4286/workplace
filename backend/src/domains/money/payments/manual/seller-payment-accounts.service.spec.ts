@@ -81,6 +81,24 @@ describe('SellerPaymentAccountsService', () => {
     });
   });
 
+  it('efectivo no pide titular, cédula ni banco y respeta la moneda elegida', () => {
+    const ves = service.normalize({
+      method: SellerPaymentMethod.CASH,
+      currency: 'VES',
+    } as any);
+    expect(ves).toEqual(
+      expect.objectContaining({
+        method: 'CASH',
+        currency: 'VES',
+        bankCode: null,
+        accountNumber: null,
+      })
+    );
+    expect(
+      service.normalize({ method: SellerPaymentMethod.CASH } as any).currency
+    ).toBe('USD');
+  });
+
   it('rechaza cédula o RIF con formato inválido', () => {
     expect(() =>
       service.normalize({

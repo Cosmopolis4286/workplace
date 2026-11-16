@@ -27,9 +27,9 @@
 
     <!-- Formulario -->
     <form v-if="showForm" class="mb-5 p-4 bg-gray-50 rounded-xl space-y-3" novalidate @submit.prevent="save">
-      <div class="grid grid-cols-3 gap-2">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <button
-          v-for="(label, method) in DIRECT_PAYMENT_METHOD_LABELS"
+          v-for="(label, method) in methodOptions"
           :key="method"
           type="button"
           class="py-2 rounded-lg border-2 text-xs font-semibold transition-all"
@@ -40,7 +40,24 @@
         </button>
       </div>
 
-      <div v-if="form.method !== 'ZELLE'">
+      <!-- Efectivo: solo la moneda; no hay banco, titular ni cuenta. -->
+      <div v-if="form.method === 'CASH'">
+        <label class="block text-xs font-medium text-gray-700 mb-1">¿En qué moneda recibes el efectivo? *</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            v-for="cur in (['USD', 'VES'] as const)"
+            :key="cur"
+            type="button"
+            class="py-2 rounded-lg border-2 text-xs font-semibold"
+            :class="form.currency === cur ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-500 bg-white'"
+            @click="form.currency = cur"
+          >
+            {{ cur === 'USD' ? 'Dólares ($)' : 'Bolívares (Bs)' }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="form.method !== 'ZELLE' && form.method !== 'CASH'">
         <label class="block text-xs font-medium text-gray-700 mb-1">Banco *</label>
         <select v-model="form.bankCode" class="input-field bg-white">
           <option value="" disabled>Selecciona tu banco</option>
@@ -48,7 +65,7 @@
         </select>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div v-if="form.method !== 'CASH'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1">Titular *</label>
           <input v-model="form.holderName" type="text" maxlength="100" class="input-field" placeholder="Nombre o razón social" />
@@ -70,14 +87,19 @@
           Las cuentas de este banco empiezan por {{ form.bankCode }}.
         </p>
       </div>
-      <div v-else>
+      <div v-else-if="form.method === 'ZELLE'">
         <label class="block text-xs font-medium text-gray-700 mb-1">Correo de Zelle *</label>
         <input v-model="form.email" type="email" maxlength="120" class="input-field" placeholder="tucorreo@ejemplo.com" />
       </div>
 
       <p class="text-xs text-gray-400">
-        {{ form.method === 'ZELLE' ? 'Se cobra en dólares.' : 'Se cobra en bolívares, a la tasa BCV del día del pedido.' }}
-        {{ copy.holderHint }}
+        <template v-if="form.method === 'CASH'">
+          El cliente paga al recibir y tú confirmas en la app cuando cobras. La comisión se calcula igual.
+        </template>
+        <template v-else>
+          {{ form.method === 'ZELLE' ? 'Se cobra en dólares.' : 'Se cobra en bolívares, a la tasa BCV del día del pedido.' }}
+          {{ copy.holderHint }}
+        </template>
       </p>
 
       <div class="flex gap-2 justify-end">
@@ -106,7 +128,10 @@
             {{ DIRECT_PAYMENT_METHOD_LABELS[acc.method] }}
             <span class="text-gray-400 font-normal">· {{ acc.bankName ?? acc.currency }}</span>
           </p>
-          <p class="text-xs text-gray-500 truncate">
+          <p v-if="acc.method === 'CASH'" class="text-xs text-gray-500 truncate">
+            {{ acc.currency === 'USD' ? 'En dólares' : 'En bolívares' }} · el cliente paga al recibir
+          </p>
+          <p v-else class="text-xs text-gray-500 truncate">
             {{ acc.holderName }} · {{ acc.holderDocument }} · {{ accountDetail(acc) }}
           </p>
         </div>
@@ -156,7 +181,7 @@ const emit = defineEmits<{ saved: [message: string] }>()
 const COPY = {
   seller: {
     title: 'Cuentas de cobro',
-    subtitle: 'Tus clientes te pagan directo a estas cuentas y reportan la referencia',
+    subtitle: 'Tus clientes te pagan directo (pago móvil, transferencia, Zelle o efectivo al entregar)',
     holderHint: 'El titular debe ser tuyo o de tu negocio.',
     emptyTitle: 'Todavía no tienes cuentas de cobro',
     emptyHint: 'Sin una cuenta, tus clientes no pueden pagarte desde la app.',
@@ -209,8 +234,18 @@ const emptyForm = () => ({
   phone: '',
   accountNumber: '',
   email: '',
+  currency: 'USD' as 'USD' | 'VES',
 })
 const form = ref(emptyForm())
+
+// La plataforma cobra los estados de cuenta con referencia: sin efectivo.
+const methodOptions = computed(() =>
+  Object.fromEntries(
+    Object.entries(DIRECT_PAYMENT_METHOD_LABELS).filter(
+      ([method]) => props.scope === 'seller' || method !== 'CASH',
+    ),
+  ) as Partial<Record<DirectPaymentMethod, string>>,
+)
 
 const activeCount = computed(() => accounts.value.filter(a => a.isActive).length)
 const accountDigits = computed(() => form.value.accountNumber.replace(/\D/g, ''))
@@ -245,13 +280,12 @@ async function openForm() {
 async function save() {
   error.value = null
   const f = form.value
-  const payload: Partial<SellerPaymentAccount> = {
-    method: f.method,
-    holderName: f.holderName,
-    holderDocument: f.holderDocument,
-  }
+  const payload: Partial<SellerPaymentAccount> =
+    f.method === 'CASH'
+      ? { method: f.method, currency: f.currency }
+      : { method: f.method, holderName: f.holderName, holderDocument: f.holderDocument }
   if (f.method === 'ZELLE') payload.email = f.email
-  else {
+  else if (f.method !== 'CASH') {
     payload.bankCode = f.bankCode
     if (f.method === 'PAGO_MOVIL') payload.phone = f.phone
     else payload.accountNumber = f.accountNumber

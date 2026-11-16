@@ -228,8 +228,8 @@ async function submitPayment(payload: PaymentReportPayload) {
   try {
     await reportPayment(paying.value.id, {
       platformAccountId: payload.accountId,
-      reference: payload.reference,
-      paidAt: payload.paidAt,
+      reference: payload.reference ?? '',
+      paidAt: payload.paidAt ?? '',
       payerBankCode: payload.payerBankCode,
     })
     paying.value = null

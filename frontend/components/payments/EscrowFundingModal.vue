@@ -112,8 +112,8 @@ async function submit(payload: PaymentReportPayload) {
   try {
     await reportServiceRequestPayment(props.requestId, {
       platformAccountId: payload.accountId,
-      reference: payload.reference,
-      paidAt: payload.paidAt,
+      reference: payload.reference ?? '',
+      paidAt: payload.paidAt ?? '',
       payerBankCode: payload.payerBankCode,
     })
     await load()

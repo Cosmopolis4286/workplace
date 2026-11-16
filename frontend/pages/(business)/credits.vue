@@ -160,8 +160,8 @@ async function submit(payload: PaymentReportPayload) {
     await credits.reportPurchase({
       packageCode: selected.value.code,
       platformAccountId: payload.accountId,
-      reference: payload.reference,
-      paidAt: payload.paidAt,
+      reference: payload.reference ?? '',
+      paidAt: payload.paidAt ?? '',
       payerBankCode: payload.payerBankCode,
     })
     formRef.value?.reset()

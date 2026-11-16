@@ -131,7 +131,7 @@ const sections = [
   {
     title: 'Pagos entre usuarios',
     paragraphs: [
-      'WorkPlace Manager no es un banco ni una institución financiera: no recibe depósitos ni custodia dinero de los usuarios. El cliente le paga directamente al vendedor o proveedor (pago móvil, transferencia o Zelle) en las cuentas que este registra en la plataforma, y reporta la referencia del pago. WorkPlace Manager no recibe ese dinero ni es parte de esa compraventa: solo muestra los datos de cobro y registra los reportes.',
+      'WorkPlace Manager no es un banco ni una institución financiera: no recibe depósitos ni custodia dinero de los usuarios. El cliente le paga directamente al vendedor o proveedor (pago móvil, transferencia o Zelle a las cuentas que este registra en la plataforma, o en efectivo al recibir) y reporta el pago; en efectivo, el vendedor confirma cuando lo recibe. WorkPlace Manager no recibe ese dinero ni es parte de esa compraventa: solo muestra los datos de cobro y registra los reportes.',
       'El vendedor o proveedor es responsable de confirmar los pagos que recibe y de que las cuentas que registra sean suyas o de su negocio. Los montos en bolívares se calculan con la tasa de cambio vigente al momento del pago.',
     ],
   },

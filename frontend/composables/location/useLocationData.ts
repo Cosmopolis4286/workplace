@@ -1,48 +1,68 @@
+import { COUNTRIES } from './countries.data'
+import { useVeLocations } from './useVeLocations'
+
 export interface LocationOption {
   name: string
   isoCode: string
 }
 
-// country-state-city embebe el catálogo completo de países/estados/ciudades
-// del mundo (~8.7MB) — es, por lejos, el chunk más pesado del bundle. import()
-// dinámico lo separa en su propio chunk que Vite solo descarga la primera vez
-// que se abre un selector de ubicación, no en el bundle inicial.
-let modPromise: ReturnType<typeof loadModule> | null = null
-function loadModule() {
-  return import('country-state-city')
-}
-function getModule() {
-  if (!modPromise) modPromise = loadModule()
-  return modPromise
-}
+export const VENEZUELA_ISO = 'VE'
 
+/**
+ * Países, estados y ciudades para los selectores de ubicación.
+ *
+ * Antes cargaba `country-state-city` (~8,7 MB con todas las ciudades del
+ * mundo), que la PWA no podía guardar en caché: con datos lentos se
+ * descargaba cada vez. Ahora los países son una lista fija (~6 KB) y los
+ * estados y ciudades de Venezuela salen del catálogo propio (/locations/ve),
+ * el mismo que usan perfiles y comercios para guardar su ubicación, así que
+ * el filtro del buscador compara nombres que sí coinciden. Para otros
+ * países solo se elige el país.
+ */
 export function useLocationData() {
+  const ve = useVeLocations()
+
   async function getCountries(): Promise<LocationOption[]> {
-    const { Country } = await getModule()
-    return Country.getAllCountries().map(c => ({ name: c.name, isoCode: c.isoCode }))
+    return COUNTRIES.map(([isoCode, name]) => ({ name, isoCode }))
   }
 
+  /** Estados del país (solo Venezuela; isoCode = nombre del estado). */
   async function getStatesByCountry(countryIso: string): Promise<LocationOption[]> {
-    if (!countryIso) return []
-    const { State } = await getModule()
-    return State.getStatesOfCountry(countryIso).map(s => ({ name: s.name, isoCode: s.isoCode }))
+    if (countryIso !== VENEZUELA_ISO) return []
+    const states = await ve.getStates()
+    return states.map(name => ({ name, isoCode: name }))
   }
 
-  async function getCitiesByState(countryIso: string, stateIso: string): Promise<LocationOption[]> {
-    if (!countryIso || !stateIso) return []
-    const { City } = await getModule()
-    return City.getCitiesOfState(countryIso, stateIso).map(c => ({ name: c.name, isoCode: c.name }))
+  /** Municipios de un estado venezolano (isoCode = id del municipio). */
+  async function getMunicipiosByState(state: string): Promise<LocationOption[]> {
+    if (!state) return []
+    const municipios = await ve.getMunicipios(state)
+    return municipios.map(m => ({ name: m.name, isoCode: m.id }))
+  }
+
+  /** Ciudades de un municipio venezolano (isoCode = nombre de la ciudad). */
+  async function getCitiesByMunicipio(municipioId: string): Promise<LocationOption[]> {
+    if (!municipioId) return []
+    const ciudades = await ve.getCiudades(municipioId)
+    return ciudades.map(c => ({ name: c.name, isoCode: c.name }))
   }
 
   async function findCountryByName(name: string) {
-    const { Country } = await getModule()
-    return Country.getAllCountries().find(c => c.name.toLowerCase() === name.toLowerCase()) ?? null
+    const match = COUNTRIES.find(([, n]) => n.toLowerCase() === name.toLowerCase())
+    return match ? { isoCode: match[0], name: match[1] } : null
   }
 
   async function findStateByName(countryIso: string, name: string) {
-    const { State } = await getModule()
-    return State.getStatesOfCountry(countryIso).find(s => s.name.toLowerCase() === name.toLowerCase()) ?? null
+    const states = await getStatesByCountry(countryIso)
+    return states.find(s => s.name.toLowerCase() === name.toLowerCase()) ?? null
   }
 
-  return { getCountries, getStatesByCountry, getCitiesByState, findCountryByName, findStateByName }
+  return {
+    getCountries,
+    getStatesByCountry,
+    getMunicipiosByState,
+    getCitiesByMunicipio,
+    findCountryByName,
+    findStateByName,
+  }
 }

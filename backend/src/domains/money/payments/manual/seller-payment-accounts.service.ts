@@ -14,7 +14,12 @@ const METHOD_CURRENCY: Record<SellerPaymentMethod, 'VES' | 'USD'> = {
   PAGO_MOVIL: 'VES',
   BANK_TRANSFER: 'VES',
   ZELLE: 'USD',
+  CASH: 'USD',
 };
+
+/** Efectivo: sin titular ni cuenta; la moneda la elige el vendedor. */
+export const CASH_HOLDER = 'Efectivo al entregar';
+export const CASH_DOCUMENT = 'EFECTIVO';
 
 export type NormalizedSellerAccount = {
   method: SellerPaymentMethod;
@@ -60,6 +65,20 @@ export class SellerPaymentAccountsService {
   async create(userId: string, dto: CreateSellerPaymentAccountDto) {
     const data = this.normalize(dto);
     await this.assertActiveSlot(userId);
+    if (data.method === SellerPaymentMethod.CASH) {
+      const existing = await this.prisma.sellerPaymentAccount.findFirst({
+        where: {
+          userId,
+          method: SellerPaymentMethod.CASH,
+          currency: data.currency,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new BadRequestException('Ya aceptas efectivo en esa moneda');
+      }
+    }
     return this.prisma.sellerPaymentAccount.create({
       data: { ...data, userId },
     });
@@ -93,6 +112,19 @@ export class SellerPaymentAccountsService {
   }
 
   normalize(dto: CreateSellerPaymentAccountDto): NormalizedSellerAccount {
+    if (dto.method === SellerPaymentMethod.CASH) {
+      return {
+        method: dto.method,
+        currency: dto.currency === 'VES' ? 'VES' : 'USD',
+        holderName: CASH_HOLDER,
+        holderDocument: CASH_DOCUMENT,
+        bankCode: null,
+        bankName: null,
+        phone: null,
+        accountNumber: null,
+        email: null,
+      };
+    }
     const holderName = dto.holderName?.trim().replace(/\s+/g, ' ');
     if (!holderName || holderName.length < 3) {
       throw new BadRequestException('Indica el nombre del titular');

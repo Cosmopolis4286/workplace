@@ -12,6 +12,7 @@ import {
   NotificationType,
   Prisma,
   SellerChargeStatus,
+  SellerPaymentMethod,
   SellerStatementStatus,
   ServiceStatus,
 } from '@prisma/client';
@@ -703,6 +704,12 @@ export class SellerBillingService {
   }
 
   createPlatformAccount(adminId: string, dto: CreateSellerPaymentAccountDto) {
+    // Los estados de cuenta se pagan con una referencia que el admin concilia.
+    if (dto.method === SellerPaymentMethod.CASH) {
+      throw new BadRequestException(
+        'La plataforma cobra por pago móvil, transferencia o Zelle'
+      );
+    }
     const data = this.accounts.normalize(dto);
     return this.prisma.platformCollectionAccount.create({
       data: { ...data, createdById: adminId },

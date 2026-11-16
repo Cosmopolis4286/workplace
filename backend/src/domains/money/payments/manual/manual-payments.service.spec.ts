@@ -197,6 +197,44 @@ describe('ManualPaymentsService', () => {
       );
     });
 
+    it('efectivo: no pide referencia ni fecha, genera una referencia interna y avisa del cobro al entregar', async () => {
+      prisma.sellerPaymentAccount.findFirst.mockResolvedValue({
+        ...vesAccount,
+        id: 'acc-cash',
+        method: 'CASH',
+        currency: 'USD',
+        bankCode: null,
+        bankName: null,
+        phone: null,
+        holderName: 'Efectivo al entregar',
+        holderDocument: 'EFECTIVO',
+      });
+
+      await service.report('buyer-1', 'intent-1', {
+        sellerPaymentAccountId: 'acc-cash',
+      } as any);
+
+      const data = tx.manualPaymentReport.create.mock.calls[0][0].data;
+      expect(data.reference).toMatch(/^EF-[0-9A-F]{8}$/);
+      expect(data.paidCurrency).toBe('USD');
+      expect(data.paidAmount.toFixed(2)).toBe('10.00');
+      expect(notifications.createForUser).toHaveBeenCalledWith(
+        'seller-1',
+        expect.objectContaining({
+          message: expect.stringContaining('en efectivo al entregar'),
+        })
+      );
+    });
+
+    it('un pago que no es en efectivo sigue exigiendo referencia y fecha', async () => {
+      await expect(
+        service.report('buyer-1', 'intent-1', {
+          sellerPaymentAccountId: 'acc-ves',
+          reference: '00123456',
+        } as any)
+      ).rejects.toThrow('fecha del pago');
+    });
+
     it('rechaza una referencia ya usada con el mismo vendedor', async () => {
       prisma.manualPaymentReport.findFirst.mockResolvedValue({ id: 'other' });
       await expect(service.report('buyer-1', 'intent-1', dto)).rejects.toThrow(
