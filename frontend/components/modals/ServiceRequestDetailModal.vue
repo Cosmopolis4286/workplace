@@ -245,6 +245,29 @@
                 :time-ago="timeAgo"
               />
 
+              <div v-if="req.statusHistory?.length" class="rounded-xl border border-gray-100 p-4 space-y-2">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Historial de estados</p>
+                <div v-for="entry in req.statusHistory" :key="entry.id" class="flex items-start gap-2 border-l-2 border-blue-200 pl-3 py-1">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-semibold text-gray-800">{{ SERVICE_REQUEST_STATUS_LABELS[entry.newStatus as ServiceRequestStatus] ?? entry.newStatus }}</p>
+                    <p v-if="entry.reason" class="text-xs text-gray-500">{{ entry.reason }}</p>
+                    <p class="text-[10px] text-gray-400">{{ entry.changedBy === currentUserId ? 'Tú' : entry.changedBy ? 'Otra parte' : 'Sistema' }} · {{ formatDateTime(entry.createdAt) }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="req.etaHistory?.length" class="rounded-xl border border-indigo-100 p-4 space-y-2">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-indigo-500">Cambios del cronograma</p>
+                <div v-for="entry in req.etaHistory" :key="entry.id" class="border-l-2 border-indigo-200 pl-3 py-1">
+                  <p class="text-xs text-gray-700">
+                    Entrega: {{ entry.previousEstimatedCompletionAt ? formatDateTime(entry.previousEstimatedCompletionAt) : 'Sin definir' }}
+                    → {{ entry.newEstimatedCompletionAt ? formatDateTime(entry.newEstimatedCompletionAt) : 'Sin definir' }}
+                  </p>
+                  <p v-if="entry.reason" class="text-xs text-gray-500">{{ entry.reason }}</p>
+                  <p class="text-[10px] text-gray-400">{{ entry.changedBy === currentUserId ? 'Tú' : entry.changedBy ? 'Otra parte' : 'Sistema' }} · {{ formatDateTime(entry.createdAt) }}</p>
+                </div>
+              </div>
+
               <ServiceRequestNotesEditor
                 :request-id="req.id"
                 :is-provider="isProvider"
@@ -557,6 +580,8 @@ interface ServiceRequest {
   completionDeadlineAt?: string | null
   estimatedStartAt?: string | null
   estimatedCompletionAt?: string | null
+  statusHistory?: Array<{ id: string; previousStatus?: string | null; newStatus: string; changedBy?: string | null; reason?: string | null; createdAt: string }>
+  etaHistory?: Array<{ id: string; previousEstimatedStartAt?: string | null; newEstimatedStartAt?: string | null; previousEstimatedCompletionAt?: string | null; newEstimatedCompletionAt?: string | null; reason?: string | null; changedBy?: string | null; createdAt: string }>
   escrowAmount?: number | null
   escrowHeldAt?: string | null
   providerAvatar?: string | null
