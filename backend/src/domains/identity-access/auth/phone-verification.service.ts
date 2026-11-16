@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, randomInt, timingSafeEqual } from 'crypto';
-import axios from 'axios';
+import { MessangiSmsProvider } from './messangi-sms.provider';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 
@@ -23,17 +23,15 @@ export class PhoneVerificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly smsProvider: MessangiSmsProvider
   ) {}
 
   async sendCode(userId: string, rawPhone: string) {
     const phone = this.normalizeVenezuelanPhone(rawPhone);
-    const enabled = this.config.get<string>('MESSANGI_SMS_ENABLED') === 'true';
-    const apiKey = this.config.get<string>('MESSANGI_API_KEY');
-    const sender = this.config.get<string>('MESSANGI_SMS_FROM');
     const secret = this.config.get<string>('PHONE_OTP_SECRET');
 
-    if (!enabled || !apiKey || !sender || !secret) {
+    if (!secret) {
       throw new ServiceUnavailableException(
         'La verificación telefónica no está habilitada'
       );
@@ -83,34 +81,15 @@ export class PhoneVerificationService {
     await this.redis.del(attemptsKey);
 
     try {
-      await axios.post(
-        'https://elastic.messangi.me/raven/v3/messages',
-        {
-          from: sender,
-          text: `Tu codigo WorkPlace: ${code}. Vence en 5 minutos. No lo compartas.`,
-          to: phone,
-          type: 'MT',
-          requestDR: true,
-          externalId: `wp-phone-${userId.slice(0, 8)}`,
-          clientId: userId,
-        },
-        {
-          timeout: 10_000,
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    } catch (error) {
+      await this.smsProvider.send({
+        to: phone,
+        text: `Tu codigo WorkPlace: ${code}. Vence en 5 minutos. No lo compartas.`,
+        externalId: `wp-phone-${userId.slice(0, 8)}`,
+        clientId: userId,
+      });
+    } catch {
       await this.redis.del(challengeKey);
-      const status = axios.isAxiosError(error)
-        ? error.response?.status
-        : undefined;
-      this.logger.warn(
-        `Messangi SMS request failed (HTTP ${status ?? 'unknown'})`
-      );
+      this.logger.warn('No se pudo entregar el SMS de verificación');
       throw new ServiceUnavailableException(
         'No se pudo enviar el código. Inténtalo nuevamente'
       );
