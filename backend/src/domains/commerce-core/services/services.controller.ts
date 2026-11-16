@@ -30,6 +30,7 @@ import { ImportServiceImageDto } from './dto/import-service-image.dto';
 import { QueryServicesDto } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
+import { CreateServiceInquiryDto } from './dto/create-service-inquiry.dto';
 import { UpdateServiceRequestDto } from './dto/update-service-request.dto';
 import { AcceptLeadFeeDto } from './dto/accept-lead-fee.dto';
 import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
@@ -351,6 +352,33 @@ export class ServicesController {
       throw new NotFoundException('Archivo no encontrado');
 
     res.sendFile(filePath);
+  }
+
+  // Consulta preliminar: solo requiere sesión. No es una contratación ni
+  // permite retener fondos; el KYC sigue siendo obligatorio en /requests.
+  @Post('requests/inquiries')
+  @UseGuards(JwtAuthGuard)
+  createServiceInquiry(
+    @Body() dto: CreateServiceInquiryDto,
+    @CurrentUser() user: any
+  ) {
+    return this.servicesService.createServiceInquiry(dto, user.id);
+  }
+
+  @Get('requests/inquiries/mine')
+  @UseGuards(JwtAuthGuard)
+  getMyServiceInquiries(
+    @CurrentUser() user: any,
+    @Query('as') asRole?: 'provider' | 'client',
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
+  ) {
+    return this.servicesService.getMyServiceInquiries(
+      user.id,
+      asRole ?? 'client',
+      parseInt(page ?? '1'),
+      parseInt(limit ?? '20')
+    );
   }
 
   @Post('requests')
