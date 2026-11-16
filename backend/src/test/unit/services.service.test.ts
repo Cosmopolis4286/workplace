@@ -70,8 +70,18 @@ describe('ServicesService — service request status transitions', () => {
 
   beforeEach(async () => {
     mockPrismaService = {
+      service: { findUnique: jest.fn() },
+      serviceInquiry: {
+        findFirst: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockImplementation(({ data }) => Promise.resolve(data)),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       serviceRequest: {
         findUnique: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockImplementation(({ data }) => Promise.resolve(data)),
         findMany: jest.fn().mockResolvedValue([]),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         update: jest
@@ -101,13 +111,19 @@ describe('ServicesService — service request status transitions', () => {
         aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: null } }),
       },
       user: {
-        findUnique: jest.fn().mockResolvedValue({ username: 'proveedor1' }),
+        findUnique: jest.fn().mockResolvedValue({
+          username: 'proveedor1',
+          firstName: 'Cliente',
+          lastName: 'Uno',
+          email: 'cliente@example.com',
+        }),
         findMany: jest.fn().mockResolvedValue([]),
       },
       $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
     };
 
     mockNotificationsService = {
+      notifyNewServiceRequest: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestStatusChanged: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestRejected: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestCancelled: jest.fn().mockResolvedValue(undefined),
@@ -183,6 +199,116 @@ describe('ServicesService — service request status transitions', () => {
     }).compile();
 
     service = module.get<ServicesService>(ServicesService);
+  });
+
+  describe('consultas preliminares y datos canónicos', () => {
+    it('crea una consulta sin KYC, usando proveedor del servicio y ocultando el teléfono al proveedor', async () => {
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 'service-1',
+        userId: 'provider-1',
+        status: 'ACTIVE',
+        modalities: ['REMOTE'],
+      });
+
+      const created = await service.createServiceInquiry(
+        {
+          serviceId: 'service-1',
+          modality: 'REMOTE',
+          clientPhone: '+584121234567',
+          message: 'Quisiera consultar disponibilidad',
+        } as any,
+        'client-1'
+      );
+
+      expect(mockPrismaService.serviceInquiry.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            providerId: 'provider-1',
+            requesterId: 'client-1',
+            clientPhone: '+584121234567',
+          }),
+        })
+      );
+      expect(created.providerId).toBe('provider-1');
+
+      mockPrismaService.serviceInquiry.findMany.mockResolvedValue([
+        { id: 'inquiry-1', providerId: 'provider-1', clientPhone: '+584121234567' },
+      ]);
+      const providerView = await service.getMyServiceInquiries(
+        'provider-1',
+        'provider'
+      );
+      expect(providerView.data[0].clientPhone).toBeNull();
+      expect(providerView.data[0].contactHidden).toBe(true);
+    });
+
+    it('rechaza consultas al propio servicio y modalidades no ofrecidas', async () => {
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 'service-1',
+        userId: 'provider-1',
+        status: 'ACTIVE',
+        modalities: ['REMOTE'],
+      });
+
+      await expect(
+        service.createServiceInquiry({ serviceId: 'service-1' } as any, 'provider-1')
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.createServiceInquiry(
+          { serviceId: 'service-1', modality: 'IN_PERSON' } as any,
+          'client-1'
+        )
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.serviceInquiry.create).not.toHaveBeenCalled();
+    });
+
+    it('ignora los nombres, proveedor y precio enviados por el navegador al contratar', async () => {
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 'service-1',
+        userId: 'provider-real',
+        status: 'ACTIVE',
+        name: 'Servicio real',
+        price: 125,
+        priceUnit: 'USD',
+        modalities: ['REMOTE'],
+        user: { firstName: 'Proveedor', lastName: 'Real' },
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        firstName: 'Cliente',
+        lastName: 'Autenticado',
+        email: 'cliente@example.com',
+      });
+      mockPrismaService.serviceRequest.create.mockImplementation(
+        ({ data }: any) => Promise.resolve(data)
+      );
+
+      await service.createServiceRequest(
+        {
+          serviceId: 'service-1',
+          providerId: 'provider-falso',
+          providerName: 'Proveedor falso',
+          serviceName: 'Servicio falso',
+          price: 0.01,
+          priceUnit: 'VES',
+          modality: 'REMOTE',
+          preferredDate: '2026-12-01',
+          clientName: 'Cliente falso',
+          clientPhone: '+584121234567',
+          clientEmail: 'falso@example.com',
+        } as any,
+        'client-1'
+      );
+
+      const call = mockPrismaService.serviceRequest.create.mock.calls[0][0];
+      expect(call.data.providerId).toBe('provider-real');
+      expect(call.data.providerName).toBe('Proveedor Real');
+      expect(call.data.serviceName).toBe('Servicio real');
+      expect(Number(call.data.price)).toBe(125);
+      expect(call.data.priceUnit).toBe('USD');
+      expect(call.data.clientName).toBe('Cliente Autenticado');
+      expect(call.data.clientEmail).toBe('cliente@example.com');
+    });
   });
 
   describe('updateServiceRequest', () => {
