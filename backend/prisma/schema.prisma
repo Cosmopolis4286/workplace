@@ -2398,6 +2398,7 @@ model ServiceInquiry {
   city        String?
   clientPhone String?
   message     String?
+  providerResponse String?
   status      ServiceInquiryStatus @default(OPEN)
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
