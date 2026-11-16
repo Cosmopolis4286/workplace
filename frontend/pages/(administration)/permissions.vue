@@ -241,7 +241,7 @@ const { user, getHeaders, refreshAccessToken } = useAuth()
 const { reloadPermissions } = usePermissions()
 
 // ADMIN no puede modificar su propia columna ni roles superiores.
-const lockedRoleColumns = computed(() =>
+const lockedRoleColumns = computed<Role[]>(() =>
   user.value?.role === 'ADMIN' ? ['SUPERADMIN', 'ADMIN'] : ['SUPERADMIN']
 )
 const config = useRuntimeConfig()
