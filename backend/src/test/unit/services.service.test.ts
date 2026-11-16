@@ -126,6 +126,7 @@ describe('ServicesService — service request status transitions', () => {
         .fn()
         .mockResolvedValue(undefined),
       notifyEscrowDisputeOpened: jest.fn().mockResolvedValue(undefined),
+      notifyServiceRequestRequesterCompleted: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestProviderCompleted: jest
         .fn()
         .mockResolvedValue(undefined),
