@@ -99,3 +99,55 @@
 ## 6. Decisión de seguridad para la transición
 
 No retirar `KycApprovedGuard` de `POST /services/requests` ni de `POST /catalog/orders` hasta que la nueva consulta preliminar y la verificación telefónica estén implementadas, probadas y desplegadas. El cambio debe ser atómico desde el punto de vista de producto: no dejar una ventana en la que se puedan formalizar operaciones sin KYC.
+
+## 7. Configuración de restricciones desde administración
+
+**Sí, es viable y recomendable.** El repositorio ya dispone de `PlatformSettingsController` y `PlatformSettingsService`, con persistencia en `PlatformSetting`, claves permitidas declaradas en `PLATFORM_SETTINGS` y escritura restringida a `SUPERADMIN`. Debemos extender esa base, no crear un segundo sistema.
+
+Se propone añadir una sección administrativa **Identidad y restricciones** para configurar políticas por operación, sin desplegar código por cada ajuste.
+
+### Parámetros administrables propuestos
+
+| Parámetro | Valores posibles | Valor inicial |
+|---|---|---|
+| Explorar marketplace | Público / cuenta | Público |
+| Consultar proveedor | Cuenta / teléfono verificado / KYC | Teléfono verificado |
+| Crear solicitud formal de servicio | Teléfono / KYC | KYC |
+| Crear pedido de catálogo | Teléfono / KYC | KYC |
+| Publicar servicios | Teléfono / KYC | KYC |
+| Aceptar trabajos remunerados | Teléfono / KYC | KYC |
+| Crear/aceptar corridas | Teléfono / KYC | KYC |
+| Solicitar retiro | KYC / KYC + revisión manual | KYC + controles financieros actuales |
+| Verificación reforzada | Desactivada / requerida por operación | Según riesgo y regulación |
+
+Los niveles se modelarán como una escala ordenada: `PUBLIC`, `AUTHENTICATED`, `PHONE_VERIFIED`, `KYC_APPROVED` y `ENHANCED_REVIEW`. El backend valida y aplica el nivel; el frontend solo representa el resultado.
+
+### Límites de seguridad
+
+- Ningún administrador puede habilitar una operación financiera saltándose controles legales, antifraude, permisos o propiedad.
+- Retiros, cobros y movimientos de saldo conservan los controles mínimos definidos en backend.
+- Cada cambio registra administrador, fecha, valor anterior, valor nuevo y motivo.
+- Cambios atómicos, esquema validado y rechazo de claves desconocidas.
+- Si la configuración falta, es inválida o no puede leerse, se aplica el nivel seguro por defecto; nunca acceso libre.
+- La política se aplica nacionalmente. Excepciones territoriales futuras deberán ser explícitas, auditables y tener precedencia definida.
+- Lectura para ADMIN/SUPERADMIN según RBAC; edición solo SUPERADMIN inicialmente.
+
+### Experiencia de administración
+
+- Mostrar política efectiva por operación y usuarios afectados.
+- Simular cambios antes de guardarlos.
+- Advertir cuando reducir requisitos aumenta el riesgo.
+- Exigir motivo y confirmación para cambios de alto impacto.
+- Mostrar historial y permitir restaurar una política anterior mediante un nuevo cambio auditado.
+
+### Implementación técnica
+
+1. Extender `PLATFORM_SETTINGS` con un objeto versionado y validado para la política KYC; evitar flags sueltos sin tipado.
+2. Crear un servicio que resuelva el nivel requerido por acción y lo compare con el estado real de la cuenta.
+3. Asociar cada endpoint a una acción mediante metadatos/decoradores; no asumir que todos los endpoints tienen el mismo riesgo.
+4. Registrar cambios con actor, motivo y valores anterior/nuevo.
+5. Exponer lectura para el panel y escritura exclusiva para SUPERADMIN; invalidar caché tras cada actualización.
+6. Añadir pruebas unitarias, integración y E2E, incluyendo configuración ausente/inválida, concurrencia y rollback.
+7. El panel nunca podrá reducir requisitos por debajo del mínimo de seguridad codificado para cada operación.
+
+Los ajustes administrativos son configurables **dentro de límites seguros**; no serán un interruptor global para desactivar KYC.
