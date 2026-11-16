@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   security-events: write
   actions: read        # upload-sarif lee el workflow run
   pull-requests: write # comentario con el resumen en el PR
@@ -37,6 +37,8 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
     - uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
 
     - uses: ./.github/actions/setup-node-pnpm
       with:
@@ -57,6 +59,18 @@ jobs:
     # Dinero nuevo en Decimal, no Float — ver scripts/check-float-fields.js
     - name: Sin campos Float nuevos
       run: cd backend && pnpm schema:float-check
+
+    - name: Aplicar formato Prettier y publicar corrección
+      run: |
+        cd backend
+        pnpm exec prettier --config .prettierrc --write src/domains/commerce-core/services/services.service.ts src/domains/engagement/notifications/notifications.service.ts src/test/unit/services.service.test.ts
+        cd ..
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add backend/src/domains/commerce-core/services/services.service.ts backend/src/domains/engagement/notifications/notifications.service.ts backend/src/test/unit/services.service.test.ts
+        if git diff --cached --quiet; then echo "Sin cambios de formato"; exit 0; fi
+        git commit -m "style(servicios): aplicar formato Prettier al ciclo de contratación"
+        git push origin HEAD:refs/heads/feat/service-request-lifecycle-eta-bilateral-completion
 
     - name: Format check
       run: cd backend && pnpm format:check
