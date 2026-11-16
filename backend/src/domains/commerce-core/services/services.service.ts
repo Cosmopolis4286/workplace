@@ -53,8 +53,8 @@ import {
   type MoneyInput,
 } from '../../../common/money/money';
 
-// Plazo del cliente para confirmar o disputar después de que el proveedor
-// marca el trabajo terminado; luego se cierra solo.
+// Ventana de revisión desde la primera declaración de finalización.
+// Si la otra parte no responde y no hay disputa, se aplica el cierre automático.
 export const AUTO_CLOSE_AFTER_MS = 72 * 60 * 60 * 1000;
 // Plazo para pagar una garantía pendiente (Pago Protegido por operación).
 export const GUARANTEE_PAYMENT_WINDOW_MS = 72 * 60 * 60 * 1000;
@@ -1363,9 +1363,8 @@ export class ServicesService {
     return this.updateServiceRequest(id, userId, { status });
   }
 
-  // El cliente (requester) confirma que el servicio se completó realmente.
-  // Solo desde CONTACTED, para evitar que se cierre algo que nunca avanzó,
-  // y habilita la reseña verificada del proveedor.
+  // El cliente declara que recibió el servicio. La solicitud solo se cierra
+  // cuando también existe la declaración del prestador.
   /**
    * Cierra la solicitud: cobra la comisión y libera la garantía. La confirma el
    * cliente (`userId`) o, con `auto`, el cierre automático cuando el proveedor
@@ -1659,11 +1658,8 @@ export class ServicesService {
   // reembolso automáticos hasta que un admin la resuelva. Solo tiene sentido
   // desde CONTACTED (ya hay precio fijado y trabajo en curso); antes de eso
   // no hay nada que disputar todavía.
-  // El proveedor avisa que terminó el trabajo. Antes solo el cliente podía
-  // cerrar: si no confirmaba, la solicitud quedaba abierta para siempre (sin
-  // comisión, sin reseña y con la garantía retenida). Ahora el cliente tiene
-  // AUTO_CLOSE_AFTER_MS para confirmar o reportar un problema; si no hace
-  // nada, se cierra solo.
+  // El prestador declara que terminó el trabajo. Si el cliente ya confirmó,
+  // se finaliza; de lo contrario queda pendiente la confirmación bilateral.
   async markServiceRequestDone(id: string, providerId: string) {
     const req = await this.prisma.serviceRequest.findUnique({ where: { id } });
     if (!req) throw new NotFoundException('Solicitud no encontrada');
@@ -1727,10 +1723,8 @@ export class ServicesService {
     return { ...req, ...updated, ...latest, providerCompletedAt: now, status: nextStatus };
   }
 
-  // Cron: cierra las solicitudes que el proveedor marcó terminadas y el
-  // cliente no confirmó ni disputó a tiempo. Una por una: un fallo (ej. al
-  // liberar la garantía) no frena a las demás y se reintenta en la próxima
-  // corrida.
+  // Cron: finaliza solicitudes con ambas declaraciones o cuyo plazo de revisión
+  // venció sin disputa. Un fallo no frena las demás; se reintenta en la próxima corrida.
   async closeUnconfirmedCompletions(now = new Date()) {
     const due = await this.prisma.serviceRequest.findMany({
       where: {
