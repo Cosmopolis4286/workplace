@@ -9,6 +9,7 @@ interface Commerce {
   type?: string
   address?: string
   phone?: string
+  phoneVerifiedAt?: string | null
 }
 
 // Prerrequisitos operativos — mismos hechos que exigen los guards del backend
