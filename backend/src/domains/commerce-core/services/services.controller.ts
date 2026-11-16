@@ -31,6 +31,7 @@ import { QueryServicesDto } from './dto/query-services.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { CreateServiceInquiryDto } from './dto/create-service-inquiry.dto';
+import { RespondServiceInquiryDto } from './dto/respond-service-inquiry.dto';
 import { UpdateServiceRequestDto } from './dto/update-service-request.dto';
 import { AcceptLeadFeeDto } from './dto/accept-lead-fee.dto';
 import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
@@ -363,6 +364,16 @@ export class ServicesController {
     @CurrentUser() user: any
   ) {
     return this.servicesService.createServiceInquiry(dto, user.id);
+  }
+
+  @Patch('requests/inquiries/:id/respond')
+  @UseGuards(JwtAuthGuard)
+  respondToServiceInquiry(
+    @Param('id') id: string,
+    @Body() dto: RespondServiceInquiryDto,
+    @CurrentUser() user: any
+  ) {
+    return this.servicesService.respondToServiceInquiry(id, user.id, dto);
   }
 
   @Get('requests/inquiries/mine')
