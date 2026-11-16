@@ -130,6 +130,7 @@
       :module-labels="MODULE_LABELS"
       :roles="ROLES"
       :role-labels="ROLE_LABELS"
+      :disabled-roles="lockedRoleColumns"
       @close="showNewPermModal = false"
       @submit="saveNewPerm"
       @module-change="autoFillKey"
