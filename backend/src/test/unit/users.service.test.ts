@@ -207,7 +207,9 @@ describe('UsersService', () => {
       expect(mockPrismaService.auditLog.findMany).not.toHaveBeenCalled();
     });
 
-    it('returns account, profiles, masked identity documents and recent activity', async () => {
+    it(
+      'returns account, profiles, masked identity documents and recent activity',
+      async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-kyc',
         email: 'person@example.com',
