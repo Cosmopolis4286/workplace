@@ -4,8 +4,10 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import {
   Role,
+  AuditAction,
   ProfileType,
   ProfessionalSubtype,
   ProfileStatus,
@@ -54,10 +56,9 @@ export class PermissionsService implements PermissionsFacade {
     after: unknown;
     reason?: string | null;
   }): Promise<void> {
-    const { randomUUID } = await import('crypto');
     await this.auditService.log({
       userId: params.actorId,
-      action: 'UPDATE' as any,
+      action: AuditAction.UPDATE,
       module: 'permisos',
       entityId: String(params.target.id ?? params.target.permissionId ?? params.target.userId ?? params.target.role ?? params.target.profileType ?? 'rbac'),
       summary: `Cambio de permisos (${params.scope})`,
