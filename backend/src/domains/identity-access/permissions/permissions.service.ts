@@ -516,6 +516,11 @@ export class PermissionsService implements PermissionsFacade {
   // ── Admin panel: create permission ────────────────────────────────────────
 
   async createPermission(dto: CreatePermissionDto, createdBy?: string) {
+    if (dto.grantedRoles?.includes(Role.SUPERADMIN)) {
+      throw new ForbiddenException(
+        'SUPERADMIN no se configura desde la matriz de permisos'
+      );
+    }
     const exists = await this.prisma.permission.findUnique({
       where: { key: dto.key },
     });
