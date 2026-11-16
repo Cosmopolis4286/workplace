@@ -764,10 +764,7 @@ export class PermissionsService implements PermissionsFacade {
       select: { role: true, permissionId: true, granted: true },
     });
     const beforeMap = new Map(
-      beforeRows.map((row) => [
-        `${row.role}:${row.permissionId}`,
-        row.granted,
-      ])
+      beforeRows.map((row) => [`${row.role}:${row.permissionId}`, row.granted])
     );
     const systemPerms = await this.prisma.permission.findMany({
       where: { id: { in: ids }, isSystem: true },
