@@ -71,6 +71,21 @@ export class KycService {
     }
 
     const verification = await this.prisma.$transaction(async (tx) => {
+      // El estado se vuelve a comprobar dentro de la transacción para impedir
+      // dos solicitudes PENDING si llegan envíos simultáneos.
+      const claimed = await tx.user.updateMany({
+        where: {
+          id: userId,
+          kycStatus: { notIn: [KycStatus.PENDING, KycStatus.APPROVED] },
+        },
+        data: { kycStatus: KycStatus.PENDING },
+      });
+      if (claimed.count !== 1) {
+        throw new ConflictException(
+          'Ya existe una solicitud de verificación o la cuenta cambió. Actualiza el estado e inténtalo de nuevo.'
+        );
+      }
+
       const created = await tx.identityVerification.create({
         data: {
           userId,
@@ -83,11 +98,6 @@ export class KycService {
           selfieImageUrl: files.selfieImageUrl,
           status: KycStatus.PENDING,
         },
-      });
-
-      await tx.user.update({
-        where: { id: userId },
-        data: { kycStatus: KycStatus.PENDING },
       });
 
       return created;
