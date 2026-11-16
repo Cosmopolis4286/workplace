@@ -154,7 +154,7 @@ const resetting = ref(false)
 const showResetConfirm = ref(false)
 const permissions = ref<UserPermission[]>([])
 const search = ref('')
-const activeFilter = ref<'all' | 'granted' | 'denied' | 'role' | 'custom'>('all')
+const activeFilter = ref<'all' | 'granted' | 'denied' | 'role' | 'profile' | 'custom'>('all')
 
 const activeAction = ref<{ permissionId: string; type: 'grant' | 'deny' } | null>(null)
 const actionReason = ref('')
@@ -165,6 +165,7 @@ const filters: { value: typeof activeFilter.value; label: string }[] = [
   { value: 'granted', label: 'Concedidos' },
   { value: 'denied', label: 'Denegados' },
   { value: 'role', label: 'Del rol' },
+  { value: 'profile', label: 'Del perfil' },
   { value: 'custom', label: 'Personalizados' },
 ]
 
@@ -207,6 +208,9 @@ const filteredPermissions = computed(() => {
       break
     case 'role':
       result = result.filter(p => p.source === 'role')
+      break
+    case 'profile':
+      result = result.filter(p => p.source === 'profile')
       break
     case 'custom':
       result = result.filter(p => p.userGranted !== null)
