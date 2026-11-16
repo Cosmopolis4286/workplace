@@ -32,7 +32,14 @@ describe('PhoneVerificationService', () => {
   };
 
   const smsProvider = {
-    send: jest.fn().mockResolvedValue(undefined),
+    send: jest.fn(
+      async (_message: {
+        to: string;
+        text: string;
+        externalId: string;
+        clientId: string;
+      }) => undefined
+    ),
   };
 
   beforeEach(() => {
