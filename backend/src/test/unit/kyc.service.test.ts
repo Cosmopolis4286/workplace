@@ -9,14 +9,22 @@ describe('KycService review concurrency', () => {
     status: KycStatus.PENDING,
   };
 
-  it('rejects a second review when another admin already changed the request', async () => {
+  it(
+    'rejects a second review when another admin already changed the request',
+    async () => {
     const tx = {
-      identityVerification: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      identityVerification: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       user: { update: jest.fn() },
     };
     const prisma = {
-      identityVerification: { findUnique: jest.fn().mockResolvedValue(pending) },
-      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+      identityVerification: {
+        findUnique: jest.fn().mockResolvedValue(pending),
+      },
+      $transaction: jest.fn(
+        (callback: (client: typeof tx) => unknown) => callback(tx)
+      ),
     };
     const audit = { log: jest.fn() };
     const service = new KycService(
@@ -36,7 +44,9 @@ describe('KycService review concurrency', () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
-  it('writes the account KYC status and audit event in a successful review', async () => {
+  it(
+    'writes the account KYC status and audit event in a successful review',
+    async () => {
     const updated = { ...pending, status: KycStatus.APPROVED };
     const tx = {
       identityVerification: {
