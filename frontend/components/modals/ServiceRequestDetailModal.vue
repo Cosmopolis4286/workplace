@@ -307,6 +307,15 @@
                   {{ action.label }}
                 </button>
               </div>
+              <button
+                v-if="!req.providerCompletedAt && !['PENDING_FUNDS', 'DISPUTED'].includes(req.escrowStatus ?? 'NONE') && !['CLOSED', 'CANCELLED', 'REJECTED'].includes(req.status)"
+                :disabled="markingDone"
+                class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                @click="markDone"
+              >
+                <CheckCircleIcon class="h-4 w-4" />
+                {{ markingDone ? 'Guardando…' : 'Declarar trabajo terminado' }}
+              </button>
             </div>
           </div>
 
@@ -761,15 +770,45 @@ const nextActions = computed(() => {
   if (props.req.status === 'PENDING' || props.req.status === 'SEEN') return [
     {
       status: 'CONTACTED',
-      label: features.value.usageCredits ? 'Aceptar solicitud' : 'Marcar contactado',
+      label: features.value.usageCredits ? 'Aceptar solicitud' : 'Aceptar solicitud',
       icon: PhoneArrowUpRightIcon,
       class: 'bg-blue-600 text-white hover:bg-blue-700',
     },
     { status: 'REJECTED', label: 'Rechazar', icon: XCircleIcon, class: 'bg-red-50 text-red-600 hover:bg-red-100' },
   ]
-  // CONTACTED: el proveedor ya no puede forzar el cierre — solo el cliente puede
-  // confirmar la finalización (así se garantiza el cobro de la comisión de plataforma).
-  return []
+  const actions: Record<string, { status: string; label: string; icon: any; class: string }[]> = {
+    CONTACTED: [
+      { status: 'SCHEDULED', label: 'Programar', icon: InformationCircleIcon, class: 'bg-indigo-600 text-white hover:bg-indigo-700' },
+      { status: 'PREPARING', label: 'Preparar', icon: InformationCircleIcon, class: 'bg-violet-600 text-white hover:bg-violet-700' },
+      { status: 'IN_PROGRESS', label: 'Iniciar trabajo', icon: CheckCircleIcon, class: 'bg-blue-600 text-white hover:bg-blue-700' },
+    ],
+    SCHEDULED: [
+      { status: 'PREPARING', label: 'Preparar', icon: InformationCircleIcon, class: 'bg-violet-600 text-white hover:bg-violet-700' },
+      { status: 'ON_THE_WAY', label: 'En camino', icon: InformationCircleIcon, class: 'bg-cyan-600 text-white hover:bg-cyan-700' },
+      { status: 'IN_PROGRESS', label: 'Iniciar trabajo', icon: CheckCircleIcon, class: 'bg-blue-600 text-white hover:bg-blue-700' },
+    ],
+    PREPARING: [
+      { status: 'SCHEDULED', label: 'Programar', icon: InformationCircleIcon, class: 'bg-indigo-600 text-white hover:bg-indigo-700' },
+      { status: 'IN_PROGRESS', label: 'Iniciar trabajo', icon: CheckCircleIcon, class: 'bg-blue-600 text-white hover:bg-blue-700' },
+      { status: 'PAUSED', label: 'Pausar', icon: InformationCircleIcon, class: 'bg-amber-600 text-white hover:bg-amber-700' },
+    ],
+    ON_THE_WAY: [
+      { status: 'IN_PROGRESS', label: 'Iniciar trabajo', icon: CheckCircleIcon, class: 'bg-blue-600 text-white hover:bg-blue-700' },
+      { status: 'PAUSED', label: 'Pausar', icon: InformationCircleIcon, class: 'bg-amber-600 text-white hover:bg-amber-700' },
+    ],
+    IN_PROGRESS: [
+      { status: 'PAUSED', label: 'Pausar', icon: InformationCircleIcon, class: 'bg-amber-600 text-white hover:bg-amber-700' },
+      { status: 'AWAITING_DELIVERY', label: 'Pendiente de entrega', icon: CheckCircleIcon, class: 'bg-orange-600 text-white hover:bg-orange-700' },
+    ],
+    PAUSED: [
+      { status: 'PREPARING', label: 'Reanudar preparación', icon: InformationCircleIcon, class: 'bg-violet-600 text-white hover:bg-violet-700' },
+      { status: 'IN_PROGRESS', label: 'Reanudar trabajo', icon: CheckCircleIcon, class: 'bg-blue-600 text-white hover:bg-blue-700' },
+    ],
+    AWAITING_DELIVERY: [
+      { status: 'IN_PROGRESS', label: 'Continuar trabajo', icon: CheckCircleIcon, class: 'bg-blue-600 text-white hover:bg-blue-700' },
+    ],
+  }
+  return actions[props.req.status] ?? []
 })
 
 function onNotesUpdated(providerNotes: string, backendResponse: Record<string, unknown>) {
