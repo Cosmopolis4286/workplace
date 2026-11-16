@@ -34,3 +34,5 @@ ALTER TABLE "service_inquiries"
     ADD CONSTRAINT "service_inquiries_requesterId_fkey"
     FOREIGN KEY ("requesterId") REFERENCES "users"("id")
     ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "service_inquiries" ADD COLUMN "providerResponse" TEXT;
