@@ -207,48 +207,45 @@ describe('UsersService', () => {
       expect(mockPrismaService.auditLog.findMany).not.toHaveBeenCalled();
     });
 
-    it(
-      'returns account, profiles, masked identity documents and recent activity',
-      async () => {
-        mockPrismaService.user.findUnique.mockResolvedValue({
-          id: 'user-kyc',
-          email: 'person@example.com',
-          role: Role.NORMAL,
-          isActive: true,
-          identityVerifications: [
-            {
-              id: 'verification-1',
-              documentNumber: 'V12345678',
-              status: 'APPROVED',
-            },
-          ],
-          profiles: [],
-        });
-        mockPrismaService.auditLog.findMany.mockResolvedValue([
-          { id: 'audit-1', summary: 'Solicitud KYC enviada' },
-        ]);
+    it('returns account, profiles, masked identity documents and recent activity', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-kyc',
+        email: 'person@example.com',
+        role: Role.NORMAL,
+        isActive: true,
+        identityVerifications: [
+          {
+            id: 'verification-1',
+            documentNumber: 'V12345678',
+            status: 'APPROVED',
+          },
+        ],
+        profiles: [],
+      });
+      mockPrismaService.auditLog.findMany.mockResolvedValue([
+        { id: 'audit-1', summary: 'Solicitud KYC enviada' },
+      ]);
 
-        const result = await service.getAdminOverview('user-kyc');
+      const result = await service.getAdminOverview('user-kyc');
 
-        expect(
-          result.user.identityVerifications[0].documentNumber
-        ).toBe('****5678');
-        expect(result.activity).toHaveLength(1);
-        expect(mockPrismaService.auditLog.findMany).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: expect.objectContaining({
-              module: { in: ['users', 'kyc', 'account', 'auth'] },
-              OR: expect.arrayContaining([
-                { userId: 'user-kyc' },
-                { entityId: 'user-kyc' },
-                { details: { path: ['targetUserId'], equals: 'user-kyc' } },
-              ]),
-            }),
-            take: 30,
-          })
-        );
-      }
-    );
+      expect(result.user.identityVerifications[0].documentNumber).toBe(
+        '****5678'
+      );
+      expect(result.activity).toHaveLength(1);
+      expect(mockPrismaService.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            module: { in: ['users', 'kyc', 'account', 'auth'] },
+            OR: expect.arrayContaining([
+              { userId: 'user-kyc' },
+              { entityId: 'user-kyc' },
+              { details: { path: ['targetUserId'], equals: 'user-kyc' } },
+            ]),
+          }),
+          take: 30,
+        })
+      );
+    });
 
     it('does not return a full document number when it is short', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
@@ -262,14 +259,12 @@ describe('UsersService', () => {
 
       const result = await service.getAdminOverview('user-kyc');
 
-      expect(
-        result.user.identityVerifications[0].documentNumber
-      ).toBe('****');
+      expect(result.user.identityVerifications[0].documentNumber).toBe('****');
     });
   });
 
-  describe('findById', () => {
-    it('should return user if found', async () => {
+ DATABASE_URL: ***localhost:5432/ci
+ PNPM_HOME: /home/runner/work/_temp/setup-pnpm/node_modules/.bin
       const user = { id: 1, email: 'test@example.com', name: 'Test User' };
 
       mockPrismaService.user.findUnique.mockResolvedValue(user);
