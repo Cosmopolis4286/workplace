@@ -890,10 +890,9 @@ export class ServicesService {
       );
     }
     const providerId = service.userId;
-    const providerName = [
-      service.user.firstName,
-      service.user.lastName,
-    ].join(' ').trim();
+    const providerName = [service.user.firstName, service.user.lastName]
+      .join(' ')
+      .trim();
     if (requesterId === providerId) {
       throw new BadRequestException('No puedes solicitar tu propio servicio');
     }

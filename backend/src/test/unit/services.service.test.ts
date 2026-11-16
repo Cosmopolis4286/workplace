@@ -312,9 +312,7 @@ describe('ServicesService — service request status transitions', () => {
           'client-1'
         )
       ).rejects.toThrow(BadRequestException);
-      expect(
-        mockPrismaService.serviceInquiry.create
-      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.serviceInquiry.create).not.toHaveBeenCalled();
     });
 
     it('contratación usa proveedor, cliente y precio canónicos', async () => {
