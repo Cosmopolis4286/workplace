@@ -30,15 +30,27 @@
         :disabled="!countryIso || states.length === 0"
         @change="onStateChange"
       >
-        <option value="">Estado/Provincia (todos)</option>
+        <option value="">Estado (todos)</option>
         <option v-for="s in states" :key="s.isoCode" :value="s.isoCode">{{ s.name }}</option>
+      </select>
+
+      <!-- Venezuela: el municipio acota las ciudades (catálogo /locations/ve). -->
+      <select
+        v-model="municipioId"
+        class="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl outline-none bg-white text-gray-700 disabled:bg-gray-50 disabled:text-gray-400"
+        :class="accentFocusClass"
+        :disabled="!stateIso || municipios.length === 0"
+        @change="cityName = ''"
+      >
+        <option value="">Municipio (todos)</option>
+        <option v-for="m in municipios" :key="m.isoCode" :value="m.isoCode">{{ m.name }}</option>
       </select>
 
       <select
         v-model="cityName"
         class="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl outline-none bg-white text-gray-700 disabled:bg-gray-50 disabled:text-gray-400"
         :class="accentFocusClass"
-        :disabled="!stateIso || cities.length === 0"
+        :disabled="!municipioId || cities.length === 0"
       >
         <option value="">Ciudad (todas)</option>
         <option v-for="c in cities" :key="c.isoCode" :value="c.name">{{ c.name }}</option>
@@ -81,7 +93,7 @@ const emit = defineEmits<{
   apply: [country: string, state: string, city: string]
 }>()
 
-const { getCountries, getStatesByCountry, getCitiesByState, findCountryByName, findStateByName } = useLocationData()
+const { getCountries, getStatesByCountry, getMunicipiosByState, getCitiesByMunicipio, findCountryByName, findStateByName } = useLocationData()
 const { user } = useAuth()
 
 const countries = ref<LocationOption[]>([])
@@ -89,6 +101,7 @@ getCountries().then((c) => { countries.value = c })
 
 const countryIso = ref('')
 const stateIso = ref('')
+const municipioId = ref('')
 const cityName = ref('')
 
 async function syncFromProps() {
@@ -110,19 +123,25 @@ syncFromProps()
 watch([() => props.modelCountry, () => props.modelState, () => props.modelCity], syncFromProps)
 
 const states = ref<LocationOption[]>([])
+const municipios = ref<LocationOption[]>([])
 const cities = ref<LocationOption[]>([])
 watch(countryIso, async (iso) => {
-  states.value = await getStatesByCountry(iso)
+  states.value = await getStatesByCountry(iso).catch(() => [])
 }, { immediate: true })
-watch([countryIso, stateIso], async ([cIso, sIso]) => {
-  cities.value = await getCitiesByState(cIso, sIso)
+watch(stateIso, async (state) => {
+  municipios.value = await getMunicipiosByState(state).catch(() => [])
+}, { immediate: true })
+watch(municipioId, async (id) => {
+  cities.value = await getCitiesByMunicipio(id).catch(() => [])
 }, { immediate: true })
 
 function onCountryChange() {
   stateIso.value = ''
+  municipioId.value = ''
   cityName.value = ''
 }
 function onStateChange() {
+  municipioId.value = ''
   cityName.value = ''
 }
 
@@ -143,6 +162,13 @@ async function useMyLocation() {
     const s = await findStateByName(countryIso.value, u.state)
     stateIso.value = s?.isoCode ?? ''
   }
+  // Municipio del perfil (catálogo VE) para que el selector de ciudad muestre la suya.
+  const municipality = (u as { municipality?: string | null }).municipality
+  if (stateIso.value && municipality) {
+    municipios.value = await getMunicipiosByState(stateIso.value).catch(() => [])
+    municipioId.value =
+      municipios.value.find(m => m.name.toLowerCase() === municipality.toLowerCase())?.isoCode ?? ''
+  }
   cityName.value = u.city || ''
   apply()
 }
@@ -156,6 +182,7 @@ function apply() {
 function clear() {
   countryIso.value = ''
   stateIso.value = ''
+  municipioId.value = ''
   cityName.value = ''
   emit('apply', '', '', '')
 }

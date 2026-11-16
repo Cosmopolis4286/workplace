@@ -17,9 +17,8 @@ export interface VeParroquia {
 }
 
 // Lectura pública del catálogo de división territorial de Venezuela
-// (Estado → Municipio → Ciudad → Parroquia). El nivel Estado lo resuelve
-// useLocationData() (country-state-city); este composable solo cubre lo
-// que es propio del catálogo VE.
+// (Estado → Municipio → Ciudad → Parroquia). useLocationData() lo usa para
+// los selectores de ubicación de Venezuela.
 export function useVeLocations() {
   const { get } = useApi()
 
