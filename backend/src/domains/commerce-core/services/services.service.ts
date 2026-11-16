@@ -1084,7 +1084,7 @@ export class ServicesService {
     const nextCompletion = data.estimatedCompletionAt !== undefined
       ? new Date(data.estimatedCompletionAt)
       : req.estimatedCompletionAt;
-    if (nextStart && nextCompletion && nextCompletion < nextStart) {
+    if (nextStart && nextCompletion && nextCompletion.getTime() < nextStart.getTime()) {
       throw new BadRequestException('La fecha estimada de finalización debe ser posterior al inicio');
     }
     if (data.estimatedStartAt !== undefined) update.estimatedStartAt = nextStart;
