@@ -1,5 +1,9 @@
 # Consultas preliminares de servicios
 
+## Validación de formato
+
+El formato del backend se valida mediante Prettier en CI.
+
 ## Estado de esta entrega
 
 La primera fase incluye alta, bandeja y respuesta de consultas. La conversión a contratación formal queda para la siguiente fase.
