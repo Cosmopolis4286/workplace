@@ -265,7 +265,6 @@ function touch(field: string) {
 }
 
 const PHONE_REGEX = /^[+]?[\d\s()-]{7,20}$/
-const EMAIL_REGEX = /^\S+@\S+\.\S+$/
 
 const fieldErrors = computed(() => {
   const e: Record<string, string> = {}
