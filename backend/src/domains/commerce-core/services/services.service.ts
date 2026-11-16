@@ -1450,10 +1450,11 @@ export class ServicesService {
       (req.providerCompletedAt
         ? new Date(req.providerCompletedAt.getTime() + AUTO_CLOSE_AFTER_MS)
         : null);
+    const bothPartiesConfirmed =
+      Boolean(req.providerCompletedAt) && Boolean(req.requesterCompletedAt);
     if (
       options.auto &&
-      (!autoCloseAt ||
-        autoCloseAt > new Date() ||
+      ((!bothPartiesConfirmed && (!autoCloseAt || autoCloseAt > new Date())) ||
         req.escrowStatus === 'DISPUTED' ||
         req.escrowStatus === 'PENDING_FUNDS')
     ) {
@@ -1732,6 +1733,11 @@ export class ServicesService {
     const due = await this.prisma.serviceRequest.findMany({
       where: {
         OR: [
+          {
+            status: 'COMPLETION_PENDING',
+            providerCompletedAt: { not: null },
+            requesterCompletedAt: { not: null },
+          },
           {
             status: 'COMPLETION_PENDING',
             completionDeadlineAt: { lte: now },
