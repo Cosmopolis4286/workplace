@@ -47,6 +47,16 @@ export class PhoneVerificationService {
       );
     }
 
+    const cooldown = await this.redis.incrWithExpire(
+      `phone-otp:send:cooldown:${userId}`,
+      60
+    );
+    if (cooldown > 1) {
+      throw new BadRequestException(
+        'Espera un minuto antes de solicitar otro código'
+      );
+    }
+
     const userLimit = await this.redis.incrWithExpire(
       `phone-otp:send:user:${userId}`,
       60 * 60
