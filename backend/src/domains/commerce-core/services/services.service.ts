@@ -1415,10 +1415,19 @@ export class ServicesService {
         },
       });
     }
-    if (req.providerCompletedAt) {
+    const latest = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (latest?.providerCompletedAt && latest?.requesterCompletedAt) {
       return this.finalizeServiceRequestCompletion(id, userId);
     }
-    return { ...req, ...updated, requesterCompletedAt: now, status: nextStatus };
+    this.notifications
+      .notifyServiceRequestRequesterCompleted(
+        req.providerId,
+        req.clientName,
+        req.serviceName,
+        id
+      )
+      .catch(() => {});
+    return { ...req, ...updated, ...latest, requesterCompletedAt: now, status: nextStatus };
   }
 
   private async finalizeServiceRequestCompletion(
@@ -1704,10 +1713,11 @@ export class ServicesService {
         )
         .catch(() => {});
     }
-    if (req.requesterCompletedAt) {
+    const latest = await this.prisma.serviceRequest.findUnique({ where: { id } });
+    if (latest?.providerCompletedAt && latest?.requesterCompletedAt) {
       return this.finalizeServiceRequestCompletion(id, providerId);
     }
-    return { ...req, ...updated, providerCompletedAt: now, status: nextStatus };
+    return { ...req, ...updated, ...latest, providerCompletedAt: now, status: nextStatus };
   }
 
   // Cron: cierra las solicitudes que el proveedor marcó terminadas y el
