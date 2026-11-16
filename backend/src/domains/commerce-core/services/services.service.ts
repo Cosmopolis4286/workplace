@@ -746,7 +746,7 @@ export class ServicesService {
       where: {
         serviceId: service.id,
         requesterId,
-        status: { in: ['OPEN', 'RESPONDED'] },
+        status: 'OPEN',
       },
       select: { id: true },
     });
