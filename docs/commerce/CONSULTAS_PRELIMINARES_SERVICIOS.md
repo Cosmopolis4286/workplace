@@ -1,5 +1,9 @@
 # Consultas preliminares de servicios
 
+## Estado de esta entrega
+
+La primera fase incluye alta, bandeja y respuesta de consultas. La conversión a contratación formal queda para la siguiente fase.
+
 ## Objetivo
 
 Separar el primer contacto entre un cliente y un prestador de la contratación formal. Una consulta preliminar permite preguntar por disponibilidad, modalidad y alcance sin crear una ServiceRequest, cobrar comisiones, consumir créditos ni iniciar Pago Protegido.
