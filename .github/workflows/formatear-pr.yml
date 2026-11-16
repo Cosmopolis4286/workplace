@@ -1,5 +1,5 @@
 name: Formatear archivos de PR
-# Ejecutar Prettier en el siguiente push de esta rama
+# Ejecutar Prettier al sincronizar la PR
 
 on:
   push:
