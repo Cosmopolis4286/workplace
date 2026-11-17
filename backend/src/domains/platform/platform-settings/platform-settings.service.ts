@@ -81,7 +81,9 @@ export function validateKycProgressivePolicy(
   return expected.every((operation) => {
     const level = operations[operation] as KycLevel;
     const minimum = KYC_POLICY_MINIMUMS[operation as KycPolicyOperation];
-    return KYC_LEVELS.includes(level) && LEVEL_RANK[level] >= LEVEL_RANK[minimum];
+    return (
+      KYC_LEVELS.includes(level) && LEVEL_RANK[level] >= LEVEL_RANK[minimum]
+    );
   });
 }
 
@@ -99,7 +101,10 @@ export class PlatformSettingsService {
       .filter(([, def]) => !onlyPublic || def.public)
       .map(([key, def]) => {
         const value = stored.has(key) ? stored.get(key) : def.default;
-        if (key === 'identity.kycPolicy' && !validateKycProgressivePolicy(value)) {
+        if (
+          key === 'identity.kycPolicy' &&
+          !validateKycProgressivePolicy(value)
+        ) {
           return [key, DEFAULT_KYC_PROGRESSIVE_POLICY];
         }
         return [key, value];
