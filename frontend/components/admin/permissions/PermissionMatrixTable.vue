@@ -6,10 +6,11 @@
     </div>
 
     <!-- Permission Matrix Table -->
-    <div v-else class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div v-else class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div class="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/80 px-4 py-3"><p class="text-xs font-medium text-gray-500">Matriz de acceso · {{ roles.length }} ámbitos de asignación</p><p class="text-[11px] text-gray-400">Desplaza horizontalmente para ver todas las columnas</p></div>
       <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-50 border-b border-gray-200">
+        <table class="w-full min-w-[760px] border-separate border-spacing-0 text-sm">
+          <thead class="sticky top-0 z-20 bg-gray-50">
             <tr>
               <th class="sticky left-0 z-30 min-w-[260px] border-b border-gray-200 bg-gray-50 px-4 py-3 text-left font-semibold text-gray-700">Permiso</th>
               <th class="border-b border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">Módulo</th>
@@ -61,7 +62,7 @@
                 class="hover:bg-gray-50/80 transition-colors"
                 :class="{ 'opacity-60': perm.isSystem }"
               >
-                <td class="px-4 py-3">
+                <td class="sticky left-0 z-10 border-r border-gray-100 bg-white px-4 py-3">
                   <div class="flex items-start gap-2">
                     <svg
                       v-if="perm.isSystem"
@@ -72,6 +73,7 @@
                     </svg>
                     <div>
                       <div class="font-medium text-gray-800">{{ perm.label }}</div>
+                      <div v-if="perm.description" class="mt-0.5 max-w-xs text-xs leading-4 text-gray-500">{{ perm.description }}</div>
                       <div class="text-xs text-gray-400 font-mono mt-0.5">{{ perm.key }}</div>
                     </div>
                   </div>
@@ -97,7 +99,7 @@
                   <button
                     v-if="!perm.isSystem"
                     @click="$emit('delete', perm)"
-                    class="text-gray-300 hover:text-red-500 transition-colors"
+                    class="rounded-lg p-2 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                     title="Eliminar permiso"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
