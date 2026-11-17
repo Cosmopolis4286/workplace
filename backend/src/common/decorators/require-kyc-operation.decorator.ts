@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import { KycPolicyOperation } from '../../domains/platform/platform-settings/platform-settings.service';
+import type { KycPolicyOperation } from '../../domains/platform/platform-settings/platform-settings.service';
 
 export const KYC_POLICY_OPERATION = 'kyc:policy-operation';
 
