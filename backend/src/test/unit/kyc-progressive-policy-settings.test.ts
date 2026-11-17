@@ -24,7 +24,9 @@ describe('PlatformSettingsService — política KYC progresiva', () => {
 
   it('usa una política segura por defecto', async () => {
     const settings = await service.getAll();
-    expect(settings['identity.kycPolicy']).toEqual(DEFAULT_KYC_PROGRESSIVE_POLICY);
+    expect(settings['identity.kycPolicy']).toEqual(
+      DEFAULT_KYC_PROGRESSIVE_POLICY
+    );
   });
 
   it('rechaza una política mal formada o que rebaja mínimos', async () => {
@@ -37,7 +39,12 @@ describe('PlatformSettingsService — política KYC progresiva', () => {
     };
     expect(validateKycProgressivePolicy(lowered)).toBe(false);
     await expect(
-      service.set('identity.kycPolicy', lowered, 'root', 'Cambio de política de prueba')
+      service.set(
+        'identity.kycPolicy',
+        lowered,
+        'root',
+        'Cambio de política de prueba'
+      )
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -72,6 +79,8 @@ describe('PlatformSettingsService — política KYC progresiva', () => {
       { key: 'identity.kycPolicy', value: { version: 99 } },
     ]);
     const settings = await service.getAll();
-    expect(settings['identity.kycPolicy']).toEqual(DEFAULT_KYC_PROGRESSIVE_POLICY);
+    expect(settings['identity.kycPolicy']).toEqual(
+      DEFAULT_KYC_PROGRESSIVE_POLICY
+    );
   });
 });
