@@ -31,6 +31,15 @@ describe('ConversationsService', () => {
       report: {
         findUnique: jest.fn().mockResolvedValue({ reporterId: 'buyer' }),
       },
+      serviceInquiry: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'inquiry-1',
+          providerId: 'seller',
+          requesterId: 'buyer',
+          status: 'OPEN',
+          service: { name: 'Reparación de aire' },
+        }),
+      },
       delivery: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'd1',
@@ -138,6 +147,88 @@ describe('ConversationsService', () => {
       await expect(
         service.list('CATALOG_ORDER', 'nope', BUYER)
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('consulta preliminar de servicio', () => {
+    it('cliente y prestador usan el chat existente y notifican al otro lado', async () => {
+      await service.send(
+        'SERVICE_INQUIRY' as any,
+        'inquiry-1',
+        BUYER,
+        '¿Tienes disponibilidad el viernes?'
+      );
+      expect(prisma.conversationMessage.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            threadType: 'SERVICE_INQUIRY',
+            threadId: 'inquiry-1',
+            senderId: 'buyer',
+          }),
+        })
+      );
+      expect(notifications.createForUser).toHaveBeenCalledWith(
+        'seller',
+        expect.objectContaining({
+          type: 'SERVICE_REQUEST',
+          link: '/service-requests?view=inquiries&as=provider',
+        })
+      );
+
+      await service.send(
+        'SERVICE_INQUIRY' as any,
+        'inquiry-1',
+        SELLER,
+        'Sí, puedo el viernes'
+      );
+      expect(notifications.createForUser).toHaveBeenLastCalledWith(
+        'buyer',
+        expect.objectContaining({
+          type: 'SERVICE_REQUEST',
+          link: '/service-requests?view=inquiries&as=client',
+        })
+      );
+    });
+
+    it('bloquea datos de contacto y usuarios ajenos', async () => {
+      await expect(
+        service.send(
+          'SERVICE_INQUIRY' as any,
+          'inquiry-1',
+          BUYER,
+          'Escríbeme al 0412-555-1234'
+        )
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.conversationMessage.create).not.toHaveBeenCalled();
+
+      await expect(
+        service.list(
+          'SERVICE_INQUIRY' as any,
+          'inquiry-1',
+          { id: 'intruso', role: Role.NORMAL }
+        )
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('mantiene historial de consulta cerrada en solo lectura', async () => {
+      prisma.serviceInquiry.findUnique.mockResolvedValue({
+        id: 'inquiry-1',
+        providerId: 'seller',
+        requesterId: 'buyer',
+        status: 'CLOSED',
+        service: { name: 'Reparación de aire' },
+      });
+      await expect(
+        service.send(
+          'SERVICE_INQUIRY' as any,
+          'inquiry-1',
+          BUYER,
+          '¿Podemos retomarlo?'
+        )
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.list('SERVICE_INQUIRY' as any, 'inquiry-1', BUYER)
+      ).resolves.toEqual([]);
     });
   });
 
