@@ -247,6 +247,9 @@ const ROLE_DEFAULTS = {
   ADMIN: [
     ...ADMIN_KEYS,
     'users:view', 'users:manage',
+    // ADMIN gestiona la matriz solo para roles de menor privilegio; el controller
+    // aplica canAssignRole() y bloquea ADMIN/SUPERADMIN como destinos.
+    'permissions:manage',
     'plans:view', 'exchange_rates:view', 'platform_fees:view',
     // Permisos para categorías globales
     'categories_global:view',
