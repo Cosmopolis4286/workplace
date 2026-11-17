@@ -83,7 +83,7 @@ definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Ajustes de la plataforma — WorkPlace' })
 
 type Level = 'PUBLIC' | 'AUTHENTICATED' | 'PHONE_VERIFIED' | 'KYC_APPROVED' | 'ENHANCED_REVIEW'
-type Operation = 'marketplace.explore' | 'provider.contact' | 'service.request' | 'catalog.order' | 'service.publish' | 'work.accept' | 'ride.create' | 'ride.accept' | 'wallet.withdraw'
+type Operation = 'marketplace.explore' | 'provider.contact' | 'service.request' | 'catalog.order' | 'service.publish' | 'work.accept' | 'ride.create' | 'ride.accept' | 'wallet.withdraw | 'delivery.create' | 'job.publish' | 'job.apply' | 'usage-credits.purchase' | 'payment-account.manage''
 interface Policy { version: 1; operations: Record<Operation, Level> }
 
 const { get, patch } = useApi()
@@ -101,6 +101,11 @@ const operations: Array<{ key: Operation; label: string; minimum: Level }> = [
   { key: 'ride.create', label: 'Crear o solicitar corridas', minimum: 'KYC_APPROVED' },
   { key: 'ride.accept', label: 'Aceptar corridas', minimum: 'KYC_APPROVED' },
   { key: 'wallet.withdraw', label: 'Solicitar retiros', minimum: 'KYC_APPROVED' },
+  { key: 'delivery.create', label: 'Crear entregas', minimum: 'KYC_APPROVED' },
+  { key: 'job.publish', label: 'Publicar vacantes', minimum: 'KYC_APPROVED' },
+  { key: 'job.apply', label: 'Postular a empleos', minimum: 'KYC_APPROVED' },
+  { key: 'usage-credits.purchase', label: 'Comprar créditos de uso', minimum: 'KYC_APPROVED' },
+  { key: 'payment-account.manage', label: 'Registrar o modificar cuentas de cobro', minimum: 'KYC_APPROVED' },
 ]
 const policy = reactive<Policy>({
   version: 1,
@@ -114,6 +119,11 @@ const policy = reactive<Policy>({
     'ride.create': 'KYC_APPROVED',
     'ride.accept': 'KYC_APPROVED',
     'wallet.withdraw': 'KYC_APPROVED',
+    'delivery.create': 'KYC_APPROVED',
+    'job.publish': 'KYC_APPROVED',
+    'job.apply': 'KYC_APPROVED',
+    'usage-credits.purchase': 'KYC_APPROVED',
+    'payment-account.manage': 'KYC_APPROVED',
   },
 })
 const publicContact = ref(true)
