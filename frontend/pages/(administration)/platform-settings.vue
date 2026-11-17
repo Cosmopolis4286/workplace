@@ -83,7 +83,7 @@ definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Ajustes de la plataforma — WorkPlace' })
 
 type Level = 'PUBLIC' | 'AUTHENTICATED' | 'PHONE_VERIFIED' | 'KYC_APPROVED' | 'ENHANCED_REVIEW'
-type Operation = 'marketplace.explore' | 'provider.contact' | 'service.request' | 'catalog.order' | 'service.publish' | 'work.accept' | 'ride.create' | 'ride.accept' | 'wallet.withdraw | 'delivery.create' | 'job.publish' | 'job.apply' | 'usage-credits.purchase' | 'payment-account.manage''
+type Operation = 'marketplace.explore' | 'provider.contact' | 'service.request' | 'catalog.order' | 'service.publish' | 'work.accept' | 'ride.create' | 'ride.accept' | 'wallet.withdraw' | 'delivery.create' | 'job.publish' | 'job.apply' | 'usage-credits.purchase' | 'payment-account.manage'
 interface Policy { version: 1; operations: Record<Operation, Level> }
 
 const { get, patch } = useApi()
