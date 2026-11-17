@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ManualPaymentReportStatus } from '@prisma/client';
-import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
+import { RequireKycOperation } from '../../../../common/decorators/require-kyc-operation.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
 import { KycApprovedGuard } from '../../../../common/guards/kyc-approved.guard';
