@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, randomInt, timingSafeEqual } from 'crypto';
+import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
 import { MessangiSmsProvider } from './messangi-sms.provider';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
@@ -94,7 +94,7 @@ export class PhoneVerificationService {
       await this.smsProvider.send({
         to: phone,
         text: `Tu codigo WorkPlace: ${code}. Vence en 5 minutos. No lo compartas.`,
-        externalId: `wp-phone-${userId.slice(0, 8)}`,
+        externalId: `wp-phone-${randomUUID()}`,
         clientId: userId,
       });
     } catch {
