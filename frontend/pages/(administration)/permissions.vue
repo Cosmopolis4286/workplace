@@ -146,7 +146,20 @@
       </section>
     </div>
 
-
+    <NewPermissionModal
+      :show="showNewPermModal"
+      :saving="savingPerm"
+      :error="newPermError"
+      :form="newPermForm"
+      :all-modules="ALL_PERM_MODULES"
+      :module-labels="MODULE_LABELS"
+      :roles="ROLES"
+      :role-labels="ROLE_LABELS"
+      :disabled-roles="lockedRoleColumns"
+      @close="showNewPermModal = false"
+      @submit="saveNewPerm"
+      @module-change="autoFillKey"
+    />
   </div>
 </template>
 
