@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { PlatformSettingsController } from './platform-settings.controller';
 import { PlatformSettingsService } from './platform-settings.service';
 import { KycPolicyService } from './kyc-policy.service';
 
+@Global()
 @Module({
   imports: [PrismaModule],
   controllers: [PlatformSettingsController],
