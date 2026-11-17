@@ -1,0 +1,1 @@
+ALTER TYPE "ConversationThreadType" ADD VALUE 'SERVICE_INQUIRY';
