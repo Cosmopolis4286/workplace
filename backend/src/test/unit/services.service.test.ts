@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException, ConflictException } from '@nestjs/common';
 import { ServicesService } from '../../domains/commerce-core/services/services.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
@@ -249,6 +249,8 @@ describe('ServicesService — service request status transitions', () => {
           id: 'inquiry-1',
           providerId: 'provider-1',
           clientPhone: '+584121234567',
+          address: 'Av. Principal, casa 12',
+          city: 'Caracas',
         },
       ]);
       const providerView = await service.getMyServiceInquiries(
@@ -256,6 +258,8 @@ describe('ServicesService — service request status transitions', () => {
         'provider'
       );
       expect(providerView.data[0].clientPhone).toBeNull();
+      expect(providerView.data[0].address).toBeNull();
+      expect(providerView.data[0].city).toBe('Caracas');
       expect(providerView.data[0].contactHidden).toBe(true);
     });
 
