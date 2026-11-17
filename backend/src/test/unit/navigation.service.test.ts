@@ -449,6 +449,35 @@ describe('NavigationService', () => {
     ).toBeDefined();
   });
 
+  it('shows Permisos to ADMIN and keeps it hidden from PROFESIONAL and NORMAL', async () => {
+    permissionsService.getRolePermissions.mockImplementation(async (role) =>
+      role === Role.ADMIN ? ['permissions:manage'] : []
+    );
+
+    const adminResult = await service.buildNavigationForUser({
+      id: 'admin-1',
+      role: Role.ADMIN,
+    });
+    const adminSystem = adminResult.sections.find(
+      (section) => section.id === 'administration-system'
+    );
+    expect(
+      adminSystem?.items.find((item) => item.id === 'admin-permissions')
+    ).toBeDefined();
+
+    for (const role of [Role.PROFESIONAL, Role.NORMAL]) {
+      const result = await service.buildNavigationForUser({
+        id: `user-${role}`,
+        role,
+      });
+      expect(
+        result.sections
+          .flatMap((section) => section.items)
+          .find((item) => item.id === 'admin-permissions')
+      ).toBeUndefined();
+    }
+  });
+
   it('SUPERADMIN sees every permission-gated item regardless of role permissions', async () => {
     const result = await service.buildNavigationForUser({
       id: 'u1',
