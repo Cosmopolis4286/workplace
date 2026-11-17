@@ -3,6 +3,7 @@ import { PermissionsService } from '../../domains/identity-access/permissions/pe
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { UsersService } from '../../domains/identity-access/users/users.service';
+import { AuditService } from '../../domains/identity-access/audit/audit.service';
 import { Role, ProfileType, ProfessionalSubtype } from '@prisma/client';
 
 describe('PermissionsService', () => {
@@ -11,12 +12,14 @@ describe('PermissionsService', () => {
   const mockPrisma = {
     rolePermission: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
       upsert: jest.fn(),
       deleteMany: jest.fn(),
       createMany: jest.fn(),
     },
     userPermission: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
       upsert: jest.fn(),
       deleteMany: jest.fn(),
     },
@@ -56,6 +59,7 @@ describe('PermissionsService', () => {
   };
 
   const mockUsersService = { buildUsersWhere: jest.fn() };
+  const mockAuditService = { log: jest.fn().mockResolvedValue(undefined) };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -67,6 +71,7 @@ describe('PermissionsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: UsersService, useValue: mockUsersService },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -75,6 +80,46 @@ describe('PermissionsService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('auditoría de cambios RBAC', () => {
+    it('registra actor, alcance y estado anterior/posterior al cambiar un permiso de rol', async () => {
+      mockPrisma.permission.findUniqueOrThrow.mockResolvedValue({
+        id: 'permission-1',
+        key: 'orders:view',
+        isSystem: false,
+      });
+      mockPrisma.rolePermission.findUnique.mockResolvedValue({
+        granted: false,
+      });
+      mockPrisma.rolePermission.upsert.mockResolvedValue({ granted: true });
+
+      await service.togglePermission(
+        Role.PROFESIONAL,
+        'permission-1',
+        true,
+        'admin-1'
+      );
+
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'admin-1',
+          module: 'permisos',
+          details: expect.objectContaining({
+            eventType: 'RBAC_PERMISSION_CHANGED',
+            scope: 'role',
+            target: expect.objectContaining({
+              role: Role.PROFESIONAL,
+              permissionId: 'permission-1',
+              permissionKey: 'orders:view',
+            }),
+            before: { granted: false },
+            after: { granted: true },
+            operationId: expect.any(String),
+          }),
+        })
+      );
+    });
   });
 
   describe('hasEffectivePermission', () => {
