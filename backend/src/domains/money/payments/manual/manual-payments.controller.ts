@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ManualPaymentReportStatus } from '@prisma/client';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
 import { KycApprovedGuard } from '../../../../common/guards/kyc-approved.guard';
@@ -54,6 +55,7 @@ export class ManualPaymentsController {
   // KYC aprobado: el titular que recibe pagos de terceros tiene que estar
   // identificado.
   @Post('seller-accounts')
+  @RequireKycOperation('payment-account.manage')
   @UseGuards(KycApprovedGuard)
   createAccount(
     @CurrentUser() user: { id: string },
@@ -63,6 +65,7 @@ export class ManualPaymentsController {
   }
 
   @Patch('seller-accounts/:id')
+  @RequireKycOperation('payment-account.manage')
   @UseGuards(KycApprovedGuard)
   updateAccount(
     @CurrentUser() user: { id: string },
