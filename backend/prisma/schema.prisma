@@ -1168,6 +1168,7 @@ enum NotificationType {
   APPOINTMENT
   EXPENSE
   REVIEW
+  SERVICE_REQUEST
   SYSTEM
 }
 
