@@ -395,11 +395,20 @@ export class ServicesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string
   ) {
+    const parsedPage = Number(page ?? '1');
+    const parsedLimit = Number(limit ?? '20');
+    if (
+      (asRole !== undefined && asRole !== 'provider' && asRole !== 'client') ||
+      !Number.isSafeInteger(parsedPage) ||
+      !Number.isSafeInteger(parsedLimit)
+    ) {
+      throw new BadRequestException('Parámetros de consulta inválidos');
+    }
     return this.servicesService.getMyServiceInquiries(
       user.id,
       asRole ?? 'client',
-      parseInt(page ?? '1'),
-      parseInt(limit ?? '20')
+      parsedPage,
+      parsedLimit
     );
   }
 
