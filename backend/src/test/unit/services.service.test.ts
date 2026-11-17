@@ -272,10 +272,15 @@ describe('ServicesService — service request status transitions', () => {
         })
         .mockResolvedValueOnce({ id: 'inquiry-1', status: 'RESPONDED' });
 
-      await service.respondToServiceInquiry('inquiry-1', 'provider-1', {
-        response: 'Sí, tengo disponibilidad esta semana',
-      });
+      const response = await service.respondToServiceInquiry(
+        'inquiry-1',
+        'provider-1',
+        { response: 'Sí, tengo disponibilidad esta semana' }
+      );
 
+      expect(response?.clientPhone).toBeNull();
+      expect(response?.address).toBeNull();
+      expect(response?.contactHidden).toBe(true);
       expect(mockPrismaService.serviceInquiry.updateMany).toHaveBeenCalledWith({
         where: { id: 'inquiry-1', providerId: 'provider-1', status: 'OPEN' },
         data: {
@@ -283,6 +288,35 @@ describe('ServicesService — service request status transitions', () => {
           status: 'RESPONDED',
         },
       });
+    });
+
+    it('convierte una colisión del índice único en conflicto de dominio', async () => {
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 'service-1',
+        userId: 'provider-1',
+        status: 'ACTIVE',
+        modalities: ['REMOTE'],
+      });
+      mockPrismaService.serviceInquiry.create.mockRejectedValue({
+        code: 'P2002',
+      });
+
+      await expect(
+        service.createServiceInquiry(
+          { serviceId: 'service-1', modality: 'REMOTE' } as any,
+          'client-1'
+        )
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('rechaza paginación inválida sin consultar Prisma', async () => {
+      await expect(
+        service.getMyServiceInquiries('client-1', 'client', Number.NaN, 20)
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.getMyServiceInquiries('client-1', 'client', 1, 101)
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.serviceInquiry.findMany).not.toHaveBeenCalled();
     });
 
     it('impide que otro usuario responda una consulta ajena', async () => {
