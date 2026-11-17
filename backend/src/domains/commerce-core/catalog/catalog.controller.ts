@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { QueryCatalogDto } from './dto/query-catalog.dto';
 import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard';
@@ -66,6 +67,7 @@ export class CatalogController {
   }
 
   @Post('orders')
+  @RequireKycOperation('catalog.order')
   @UseGuards(JwtAuthGuard, KycApprovedGuard)
   createOrder(@Body() dto: CreateCatalogOrderDto, @CurrentUser() user: any) {
     return this.catalogService.createOrder(dto, user.id);
