@@ -152,14 +152,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import PermissionsWorkspaceHeader from '~/components/admin/permissions/PermissionsWorkspaceHeader.vue'
 import RolePermissionsPanel from '~/components/admin/permissions/RolePermissionsPanel.vue'
 import ProfilePermissionsPanel from '~/components/admin/permissions/ProfilePermissionsPanel.vue'
+import SystemModulesPanel from '~/components/admin/permissions/SystemModulesPanel.vue'
 import { ShieldCheckIcon, PlusIcon, UserGroupIcon, ArrowPathIcon, Squares2X2Icon } from '@heroicons/vue/24/outline'
-import PermissionsWorkspaceHeader from '~/components/admin/permissions/PermissionsWorkspaceHeader.vue'\nimport RolePermissionsPanel from '~/components/admin/permissions/RolePermissionsPanel.vue'\nimport ProfilePermissionsPanel from '~/components/admin/permissions/ProfilePermissionsPanel.vue'\nimport SystemModulesPanel from '~/components/admin/permissions/SystemModulesPanel.vue'
-import PermissionMatrixTable from '~/components/admin/permissions/PermissionMatrixTable.vue'
 import NewPermissionModal, { type NewPermissionForm } from '~/components/admin/permissions/NewPermissionModal.vue'
 import { useApi } from '~/composables/core/useApi'
 import { useAuth } from '~/composables/auth/useAuth'
