@@ -17,6 +17,7 @@ import {
   type CreateJobCategoryDto,
 } from './jobs.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { RequireModule } from '../../../common/decorators/require-module.decorator';
@@ -134,6 +135,7 @@ export class JobsController {
     CategoryScopeGuard,
     ModuleAccessGuard
   )
+  @RequireKycOperation('job.publish')
   @RequireModule('jobs')
   @RequirePermission('jobs:create')
   @RequireCategoryScope({ model: 'jobCategory', bodyField: 'categoryId' })
@@ -183,6 +185,7 @@ export class JobsController {
   // ─── Applications (Authenticated) ───────────────────────────────────────────────
 
   @UseGuards(JwtAuthGuard, PermissionsGuard, KycApprovedGuard)
+  @RequireKycOperation('job.apply')
   @RequirePermission('jobs:view')
   @RateLimit({
     windowMs: 60_000,
