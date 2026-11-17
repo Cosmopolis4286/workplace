@@ -665,6 +665,17 @@ export const NAVIGATION_TREE: NavSectionDef[] = [
     flat: false,
     items: [
       {
+        id: 'my-store',
+        to: '/my-store',
+        label: 'Mi tienda',
+        icon: 'menu',
+        order: -1,
+        condition: {
+          permission: null,
+          requiresAnyCapability: ['HAS_COMMERCE', 'HAS_PROFESSIONAL_PROFILE'],
+        },
+      },
+      {
         id: 'settings',
         to: '/settings',
         label: 'Configuración',
