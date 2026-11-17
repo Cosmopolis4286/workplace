@@ -4,7 +4,7 @@ import { useSocketIO } from '../../plugins/socket.io.client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type NotificationType = 'ORDER' | 'DELIVERY' | 'INVENTORY' | 'APPOINTMENT' | 'EXPENSE' | 'SYSTEM'
+export type NotificationType = 'ORDER' | 'DELIVERY' | 'INVENTORY' | 'APPOINTMENT' | 'EXPENSE' | 'REVIEW' | 'SERVICE_REQUEST' | 'SYSTEM'
 export type NotificationColor = 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'gray'
 
 export interface Notification {
