@@ -47,7 +47,9 @@ export class KycPolicyService {
       allowed,
       requiredLevel,
       currentLevel,
-      reason: allowed ? null : this.getDenialReason(requiredLevel, currentLevel),
+      reason: allowed
+        ? null
+        : this.getDenialReason(requiredLevel, currentLevel),
     };
   }
 
