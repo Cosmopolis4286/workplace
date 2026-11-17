@@ -18,6 +18,7 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join, basename } from 'path';
@@ -404,6 +405,7 @@ export class ServicesController {
   }
 
   @Post('requests')
+  @RequireKycOperation('service.request')
   @UseGuards(JwtAuthGuard, KycApprovedGuard)
   createRequest(
     @Body() dto: CreateServiceRequestDto,
