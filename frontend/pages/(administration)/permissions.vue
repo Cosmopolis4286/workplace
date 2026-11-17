@@ -5,7 +5,7 @@
         title="Administración de permisos"
         description="Configura el acceso de la plataforma por responsabilidades. Mantén separados los roles base, los perfiles de negocio y la disponibilidad global de módulos."
         :icon="ShieldCheckIcon"
-        :breadcrumb="[{ label: 'Administración', to: '/admin' }, { label: 'Permisos' }]"
+        :breadcrumb="[{ label: 'Administración' }, { label: 'Permisos' }]"
         :stats="headerStats"
       >
         <template #actions>
@@ -154,6 +154,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
+import PermissionsWorkspaceHeader from '~/components/admin/permissions/PermissionsWorkspaceHeader.vue'
+import RolePermissionsPanel from '~/components/admin/permissions/RolePermissionsPanel.vue'
+import ProfilePermissionsPanel from '~/components/admin/permissions/ProfilePermissionsPanel.vue'
 import { ShieldCheckIcon, PlusIcon, UserGroupIcon, ArrowPathIcon, Squares2X2Icon } from '@heroicons/vue/24/outline'
 import PermissionsWorkspaceHeader from '~/components/admin/permissions/PermissionsWorkspaceHeader.vue'\nimport RolePermissionsPanel from '~/components/admin/permissions/RolePermissionsPanel.vue'\nimport ProfilePermissionsPanel from '~/components/admin/permissions/ProfilePermissionsPanel.vue'\nimport SystemModulesPanel from '~/components/admin/permissions/SystemModulesPanel.vue'
 import PermissionMatrixTable from '~/components/admin/permissions/PermissionMatrixTable.vue'
@@ -324,7 +327,7 @@ const headerStats = computed(() => [
   { label: 'Permisos', value: permissions.value.length },
   { label: 'Módulos', value: Object.keys(groupedPermissions.value).length },
   { label: 'Del sistema', value: permissions.value.filter((p: PermissionRow) => p.isSystem).length },
-  { label: 'Sin guardar', value: pendingChanges.value.length },
+  { label: 'Sin guardar', value: pendingChanges.value.length + pendingProfileChanges.value.length },
 ])
 
 const { get, post, patch, del } = useApi()
