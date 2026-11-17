@@ -862,10 +862,14 @@ export class ServicesService {
       throw new BadRequestException('El ámbito debe ser provider o client');
     }
     if (!Number.isSafeInteger(page) || page < 1) {
-      throw new BadRequestException('La página debe ser un entero mayor que cero');
+      throw new BadRequestException(
+        'La página debe ser un entero mayor que cero'
+      );
     }
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
-      throw new BadRequestException('El límite debe ser un entero entre 1 y 100');
+      throw new BadRequestException(
+        'El límite debe ser un entero entre 1 y 100'
+      );
     }
     const where: Prisma.ServiceInquiryWhereInput =
       asRole === 'provider' ? { providerId: userId } : { requesterId: userId };
