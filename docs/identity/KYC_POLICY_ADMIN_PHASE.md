@@ -28,7 +28,11 @@
 | Aceptar trabajos remunerados | KYC_APPROVED |
 | Crear/aceptar corridas | KYC_APPROVED |
 | Solicitar retiros | KYC_APPROVED + controles financieros existentes |
+| Crear entregas | KYC_APPROVED |
+| Publicar vacantes / postular a empleos | KYC_APPROVED |
+| Comprar créditos de uso | KYC_APPROVED |
+| Registrar o modificar cuentas de cobro | KYC_APPROVED |
 
 ## Importante: límites de activación
 
-Esta fase no retira ni reemplaza `KycApprovedGuard` en endpoints existentes, ni afirma que la verificación telefónica esté operativa en `main`. La política es configurable y evaluable, pero la asociación de cada ruta al evaluador se hará en la fase siguiente, después de integrar y verificar el flujo OTP de teléfono. Los controles financieros existentes permanecen intactos.
+La guarda aplica la política en los endpoints clasificados. Los endpoints aún no clasificados conservan la comprobación KYC anterior. La política no permite reducir los mínimos codificados. No se considera verificado un teléfono porque exista `User.phone`; hasta disponer de OTP real, una exigencia `PHONE_VERIFIED` bloquea la operación. `ENHANCED_REVIEW` también falla de forma segura mientras no exista una aprobación reforzada persistida y auditable. Los controles financieros existentes permanecen intactos.
