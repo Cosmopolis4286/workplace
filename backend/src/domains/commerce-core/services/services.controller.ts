@@ -18,7 +18,6 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join, basename } from 'path';
@@ -40,6 +39,7 @@ import { RejectPriceChangeProposalDto } from './dto/reject-price-change-proposal
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RateLimit } from '../../../common/guards/rate-limit.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
