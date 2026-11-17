@@ -53,7 +53,10 @@ export class KycPolicyService {
 
   private resolveSubjectLevel(subject: KycPolicySubject): KycLevel {
     if (!subject.authenticated) return 'PUBLIC';
-    if (subject.enhancedReviewApproved && subject.kycStatus === KycStatus.APPROVED) {
+    if (
+      subject.enhancedReviewApproved &&
+      subject.kycStatus === KycStatus.APPROVED
+    ) {
       return 'ENHANCED_REVIEW';
     }
     if (subject.kycStatus === KycStatus.APPROVED) return 'KYC_APPROVED';
