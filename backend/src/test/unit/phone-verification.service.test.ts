@@ -66,19 +66,18 @@ describe('PhoneVerificationService', () => {
         to: '+584121234567',
         externalId: expect.stringMatching(/^wp-phone-[0-9a-f-]{36}$/),
         clientId: 'user-1',
-        text: expect.stringMatching(/^Tu codigo WorkPlace: \\d{6}\\./),
+        text: expect.stringMatching(/^Tu codigo WorkPlace: \d{6}\./),
       })
     );
 
-    const sentCode =
-      smsProvider.send.mock.calls[0][0].text.match(/\\d{6}/)?.[0];
+    const sentCode = smsProvider.send.mock.calls[0][0].text.match(/\d{6}/)?.[0];
     expect(challenge).not.toContain(sentCode);
   });
 
   it('marks the phone verified only after a valid code', async () => {
     await service.sendCode('user-1', '+584121234567');
     const text = smsProvider.send.mock.calls[0][0].text as string;
-    const code = text.match(/\\d{6}/)?.[0];
+    const code = text.match(/\d{6}/)?.[0];
     expect(code).toBeDefined();
 
     await expect(service.verifyCode('user-1', code!)).resolves.toEqual({
