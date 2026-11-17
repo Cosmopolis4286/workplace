@@ -87,7 +87,7 @@
                   <input
                     type="checkbox"
                     :checked="localMatrix[perm.id]?.[r] ?? false"
-                     :disabled="perm.isSystem || disabledColumns?.includes(r) || r === disabledColumnKey"
+                    :disabled="perm.isSystem || disabledColumns?.includes(r) || r === disabledColumnKey"
                     :aria-label="roleLabels[r] + ' · ' + perm.label"
                     @change="$emit('toggle', perm.id, r, ($event.target as HTMLInputElement).checked)"
                     class="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 focus:ring-2
@@ -101,7 +101,7 @@
                     v-if="!perm.isSystem"
                     @click="$emit('delete', perm)"
                     class="rounded-lg p-2 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                    title="Eliminar permiso"
+                    :aria-label="'Eliminar permiso ' + perm.label"\n                    title="Eliminar permiso"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
