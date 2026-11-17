@@ -258,15 +258,13 @@ interface PendingProfileChange {
   granted: boolean
 }
 
-const { user, getHeaders, refreshAccessToken } = useAuth()
+const { user } = useAuth()
 const { reloadPermissions } = usePermissions()
 
 // ADMIN no puede modificar su propia columna ni roles superiores.
 const lockedRoleColumns = computed<Role[]>(() =>
   user.value?.role === 'ADMIN' ? ['SUPERADMIN', 'ADMIN'] : ['SUPERADMIN']
 )
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
 
 interface PlanInfo { id: string; name: string; color: string; enabledModules: string[] }
 interface SystemModuleRow { module: string; enabled: boolean; label: string | null }
