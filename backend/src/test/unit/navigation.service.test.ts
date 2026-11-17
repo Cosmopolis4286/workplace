@@ -450,7 +450,9 @@ describe('NavigationService', () => {
   });
 
   it('shows Permisos to ADMIN and keeps it hidden from PROFESIONAL and NORMAL', async () => {
-    permissionsService.getRolePermissions.mockResolvedValue(['permissions:manage']);
+    permissionsService.getRolePermissions.mockImplementation(async (role) =>
+      role === Role.ADMIN ? ['permissions:manage'] : []
+    );
 
     const adminResult = await service.buildNavigationForUser({
       id: 'admin-1',
