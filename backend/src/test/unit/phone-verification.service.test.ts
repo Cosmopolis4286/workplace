@@ -64,7 +64,7 @@ describe('PhoneVerificationService', () => {
     expect(smsProvider.send).toHaveBeenCalledWith(
       expect.objectContaining({
         to: '+584121234567',
-        externalId: 'wp-phone-user-1',
+        externalId: expect.stringMatching(/^wp-phone-[0-9a-f-]{36}$/),
         clientId: 'user-1',
         text: expect.stringMatching(/^Tu codigo WorkPlace: \d{6}\./),
       })
