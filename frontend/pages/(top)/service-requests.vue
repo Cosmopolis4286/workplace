@@ -136,7 +136,7 @@ const { getAssetUrl } = useAssetUrl()
 const { formatDate: fmtDate, formatDateTime: fmtDateTime, timeAgo: fmtTimeAgo } = useDateFormat()
 
 const isNormal = computed(() => user.value?.role === 'NORMAL')
-const viewMode = ref<'requests' | 'inquiries'>('requests')
+const viewMode = ref<'requests' | 'inquiries'>(route.query.view === 'inquiries' ? 'inquiries' : 'requests')
 
 function contactAvatarUrl(req: ServiceRequest): string | null {
   return getAssetUrl(viewAs.value === 'provider' ? req.clientAvatar : req.providerAvatar)
@@ -157,7 +157,10 @@ const total        = ref(0)
 const loading      = ref(false)
 const error        = ref<string | null>(null)
 const activeFilter = ref('ALL')
-const viewAs       = ref<'provider' | 'client'>(user.value?.role === 'NORMAL' ? 'client' : 'provider')
+const initialViewAs = route.query.as === 'client' || route.query.as === 'provider'
+  ? route.query.as
+  : user.value?.role === 'NORMAL' ? 'client' : 'provider'
+const viewAs       = ref<'provider' | 'client'>(initialViewAs)
 const selectedReq  = ref<ServiceRequest | null>(null)
 
 const filtered = computed(() =>
@@ -324,6 +327,13 @@ function timeAgo(date: string) {
 const { notifications } = useNotifications()
 const hasLiveUpdate = ref(false)
 let lastSeenNotificationCount = 0
+
+watch(() => route.query.view, (value) => {
+  viewMode.value = value === 'inquiries' ? 'inquiries' : 'requests'
+})
+watch(() => route.query.as, (value) => {
+  if (value === 'provider' || value === 'client') viewAs.value = value
+})
 
 watch(notifications, (list: Notification[]) => {
   if (list.length <= lastSeenNotificationCount) return
