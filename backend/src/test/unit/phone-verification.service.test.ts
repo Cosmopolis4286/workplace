@@ -1,11 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  PhoneVerificationService,
-} from '../../domains/identity-access/auth/phone-verification.service';
-import {
-  MessangiSmsProvider,
-} from '../../domains/identity-access/auth/messangi-sms.provider';
+import { PhoneVerificationService } from '../../domains/identity-access/auth/phone-verification.service';
+import { MessangiSmsProvider } from '../../domains/identity-access/auth/messangi-sms.provider';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
