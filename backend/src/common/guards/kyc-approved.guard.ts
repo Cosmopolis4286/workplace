@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { KycStatus, Role } from '@prisma/client';
 import { KYC_POLICY_OPERATION } from '../decorators/require-kyc-operation.decorator';
 import { KycPolicyService } from '../../domains/platform/platform-settings/kyc-policy.service';
-import { KycPolicyOperation } from '../../domains/platform/platform-settings/platform-settings.service';
+import type { KycPolicyOperation } from '../../domains/platform/platform-settings/platform-settings.service';
 
 @Injectable()
 export class KycApprovedGuard implements CanActivate {
