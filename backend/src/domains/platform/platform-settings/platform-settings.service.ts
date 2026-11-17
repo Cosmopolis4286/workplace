@@ -26,6 +26,11 @@ export const KYC_POLICY_MINIMUMS = {
   'ride.create': 'KYC_APPROVED',
   'ride.accept': 'KYC_APPROVED',
   'wallet.withdraw': 'KYC_APPROVED',
+  'delivery.create': 'KYC_APPROVED',
+  'job.publish': 'KYC_APPROVED',
+  'job.apply': 'KYC_APPROVED',
+  'usage-credits.purchase': 'KYC_APPROVED',
+  'payment-account.manage': 'KYC_APPROVED',
 } as const;
 
 export type KycPolicyOperation = keyof typeof KYC_POLICY_MINIMUMS;
