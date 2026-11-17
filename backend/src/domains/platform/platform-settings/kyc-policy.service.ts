@@ -1,11 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { KycStatus } from '@prisma/client';
 import { PlatformSettingsService } from './platform-settings.service';
-import {
-  DEFAULT_KYC_PROGRESSIVE_POLICY,
-  KycLevel,
-  KycPolicyOperation,
-} from './platform-settings.service';
+import { DEFAULT_KYC_PROGRESSIVE_POLICY } from './platform-settings.service';
+import type { KycLevel, KycPolicyOperation } from './platform-settings.service';
 
 export interface KycPolicySubject {
   authenticated: boolean;
