@@ -153,7 +153,7 @@ describe('ConversationsService', () => {
   describe('consulta preliminar de servicio', () => {
     it('cliente y prestador usan el chat existente y notifican al otro lado', async () => {
       await service.send(
-        'SERVICE_INQUIRY' as any,
+        'SERVICE_INQUIRY',
         'inquiry-1',
         BUYER,
         '¿Tienes disponibilidad el viernes?'
@@ -176,7 +176,7 @@ describe('ConversationsService', () => {
       );
 
       await service.send(
-        'SERVICE_INQUIRY' as any,
+        'SERVICE_INQUIRY',
         'inquiry-1',
         SELLER,
         'Sí, puedo el viernes'
@@ -193,7 +193,7 @@ describe('ConversationsService', () => {
     it('bloquea datos de contacto y usuarios ajenos', async () => {
       await expect(
         service.send(
-          'SERVICE_INQUIRY' as any,
+          'SERVICE_INQUIRY',
           'inquiry-1',
           BUYER,
           'Escríbeme al 0412-555-1234'
@@ -203,7 +203,7 @@ describe('ConversationsService', () => {
 
       await expect(
         service.list(
-          'SERVICE_INQUIRY' as any,
+          'SERVICE_INQUIRY',
           'inquiry-1',
           { id: 'intruso', role: Role.NORMAL }
         )
@@ -220,14 +220,14 @@ describe('ConversationsService', () => {
       });
       await expect(
         service.send(
-          'SERVICE_INQUIRY' as any,
+          'SERVICE_INQUIRY',
           'inquiry-1',
           BUYER,
           '¿Podemos retomarlo?'
         )
       ).rejects.toBeInstanceOf(BadRequestException);
       await expect(
-        service.list('SERVICE_INQUIRY' as any, 'inquiry-1', BUYER)
+        service.list('SERVICE_INQUIRY', 'inquiry-1', BUYER)
       ).resolves.toEqual([]);
     });
   });
