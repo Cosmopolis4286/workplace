@@ -52,6 +52,26 @@
         <p class="mt-1 whitespace-pre-wrap text-sm text-green-900">{{ inquiry.providerResponse }}</p>
       </div>
 
+      <div class="mt-4 flex justify-end">
+        <button
+          class="rounded-xl border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+          @click="toggleConversation(inquiry.id)"
+        >
+          {{ openConversationId === inquiry.id ? 'Ocultar conversación' : 'Abrir conversación' }}
+        </button>
+      </div>
+      <ConversationChat
+        v-if="openConversationId === inquiry.id"
+        class="mt-3"
+        thread-type="SERVICE_INQUIRY"
+        :thread-id="inquiry.id"
+        :current-user-id="user?.id ?? ''"
+        title="Conversación preliminar"
+        hint="Mantén el contacto dentro de WorkPlace. No compartas teléfonos, correos ni enlaces externos."
+        :read-only="inquiry.status === 'CLOSED' || inquiry.status === 'CANCELLED'"
+        read-only-text="Consulta cerrada. Puedes revisar el historial, pero ya no enviar mensajes."
+      />
+
       <div v-if="asRole === 'provider' && inquiry.status === 'OPEN'" class="mt-4 space-y-2">
         <textarea
           v-model="responses[inquiry.id]"
@@ -77,6 +97,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
 import { useApi } from '~/composables/core/useApi'
+import ConversationChat from '~/components/conversations/ConversationChat.vue'
 
 type Inquiry = {
   id: string
@@ -92,6 +113,12 @@ type Inquiry = {
 }
 
 const props = defineProps<{ asRole: 'provider' | 'client' }>()
+const { user } = useAuth()
+const openConversationId = ref('')
+
+function toggleConversation(inquiryId: string) {
+  openConversationId.value = openConversationId.value === inquiryId ? '' : inquiryId
+}
 const { get, patch } = useApi()
 const inquiries = ref<Inquiry[]>([])
 const loading = ref(false)
