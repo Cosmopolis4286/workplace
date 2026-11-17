@@ -70,9 +70,12 @@
         <div class="rounded-xl bg-gray-50 p-4">
           <p class="font-semibold text-gray-800">Tienda pública</p>
           <p class="mt-1 text-sm text-gray-500">Catálogo comercial, precios y disponibilidad.</p>
-          <NuxtLink to="/menu" class="mt-3 inline-flex text-sm font-semibold text-workplace-red hover:underline">
-            Gestionar catálogo y abrir vista pública
+          <NuxtLink v-if="hasCommerce" to="/settings" class="mt-3 inline-flex text-sm font-semibold text-workplace-red hover:underline">
+            Configurar tienda y URL pública
           </NuxtLink>
+          <span v-else class="mt-3 inline-block text-xs text-gray-400">
+            Tu perfil profesional no necesita una tienda comercial para publicar servicios.
+          </span>
         </div>
       </div>
     </section>
