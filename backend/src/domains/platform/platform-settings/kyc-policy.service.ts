@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { KycStatus } from '@prisma/client';
-import { PlatformSettingsService } from './platform-settings.service';
 import {
   DEFAULT_KYC_PROGRESSIVE_POLICY,
   KycLevel,
   KycPolicyOperation,
 } from './platform-settings.service';
+import { PlatformSettingsService } from './platform-settings.service';
 
 export interface KycPolicySubject {
   authenticated: boolean;
@@ -31,6 +31,7 @@ export class KycPolicyService {
     const policy = settings['identity.kycPolicy'] as
       | typeof DEFAULT_KYC_PROGRESSIVE_POLICY
       | undefined;
+
     return (
       policy?.operations?.[operation] ??
       DEFAULT_KYC_PROGRESSIVE_POLICY.operations[operation]
@@ -54,15 +55,25 @@ export class KycPolicyService {
   }
 
   private resolveSubjectLevel(subject: KycPolicySubject): KycLevel {
-    if (!subject.authenticated) return 'PUBLIC';
+    if (!subject.authenticated) {
+      return 'PUBLIC';
+    }
+
     if (
       subject.enhancedReviewApproved &&
       subject.kycStatus === KycStatus.APPROVED
     ) {
       return 'ENHANCED_REVIEW';
     }
-    if (subject.kycStatus === KycStatus.APPROVED) return 'KYC_APPROVED';
-    if (subject.phoneVerified) return 'PHONE_VERIFIED';
+
+    if (subject.kycStatus === KycStatus.APPROVED) {
+      return 'KYC_APPROVED';
+    }
+
+    if (subject.phoneVerified) {
+      return 'PHONE_VERIFIED';
+    }
+
     return 'AUTHENTICATED';
   }
 
@@ -70,15 +81,19 @@ export class KycPolicyService {
     if (required === 'ENHANCED_REVIEW') {
       return 'Esta operación requiere una revisión reforzada por parte de administración.';
     }
+
     if (required === 'KYC_APPROVED') {
       return 'Debes completar y obtener la aprobación de tu verificación de identidad (KYC).';
     }
+
     if (required === 'PHONE_VERIFIED') {
       return 'Debes verificar tu número de teléfono antes de continuar.';
     }
+
     if (required === 'AUTHENTICATED' && current === 'PUBLIC') {
       return 'Debes iniciar sesión para continuar.';
     }
+
     return 'No cumples los requisitos de identidad para esta operación.';
   }
 }
