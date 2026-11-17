@@ -44,7 +44,7 @@
         <span v-if="inquiry.city">{{ inquiry.city }}</span>
       </div>
       <p v-if="asRole === 'provider' && inquiry.contactHidden" class="mt-3 text-xs text-gray-500">
-        El teléfono del cliente permanece privado durante la consulta preliminar.
+        El teléfono y la dirección exacta del cliente permanecen privados durante la consulta preliminar.
       </p>
 
       <div v-if="inquiry.providerResponse" class="mt-4 rounded-xl bg-green-50 p-3">
