@@ -270,7 +270,12 @@ describe('ServicesService — service request status transitions', () => {
           providerId: 'provider-1',
           status: 'OPEN',
         })
-        .mockResolvedValueOnce({ id: 'inquiry-1', status: 'RESPONDED' });
+        .mockResolvedValueOnce({
+          id: 'inquiry-1',
+          status: 'RESPONDED',
+          clientPhone: '+584121234567',
+          address: 'Calle privada 123',
+        });
 
       const response = await service.respondToServiceInquiry(
         'inquiry-1',
