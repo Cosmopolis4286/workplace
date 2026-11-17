@@ -172,10 +172,10 @@ const ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'PROFESIONAL', 'NORMAL']
 
 type PermissionTab = 'roles' | 'profiles' | 'modules'
 const activeTab = ref<PermissionTab>('roles')
-const permissionTabs: Array<{ id: PermissionTab; label: string }> = [
-  { id: 'roles', label: 'Roles de acceso' },
-  { id: 'profiles', label: 'Perfiles de negocio' },
-  { id: 'modules', label: 'Módulos de plataforma' },
+const permissionTabs: Array<{ id: PermissionTab; label: string; description: string }> = [
+  { id: 'roles', label: 'Roles de acceso', description: 'Permisos base por rol' },
+  { id: 'profiles', label: 'Perfiles de negocio', description: 'Capacidades por tipo de perfil' },
+  { id: 'modules', label: 'Módulos de plataforma', description: 'Disponibilidad global' },
 ]
 
 const ROLE_LABELS: Record<Role, string> = {
