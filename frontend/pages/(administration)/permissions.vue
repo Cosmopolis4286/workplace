@@ -5,36 +5,38 @@
       <!-- Header -->
       <PageHeader
         title="Matriz de Permisos"
-        description="Configura qué acciones puede realizar cada rol. Los permisos con candado son del sistema y no pueden modificarse."
+        description="Administra por separado los permisos base de roles, los perfiles de negocio, la disponibilidad de módulos y las excepciones individuales."
         :icon="ShieldCheckIcon"
         :breadcrumb="[{ label: 'Permisos' }]"
         :stats="headerStats"
       >
         <template #actions>
           <HeaderActionButton to="/permissions/users" :icon="UserGroupIcon">
-            Permisos por Usuario
+            Excepciones por usuario
           </HeaderActionButton>
-          <HeaderActionButton :icon="PlusIcon" @click="openNewPermModal">
-            Nuevo permiso
-          </HeaderActionButton>
-          <HeaderActionButton
-            :icon="ArrowPathIcon"
-            :loading="reloadingPerms"
-            :disabled="reloadingPerms"
-            title="Fuerza recarga de permisos para todos los usuarios (incluyéndote)"
-            @click="reloadUserPermissions"
-          >
-            {{ reloadingPerms ? 'Recargando...' : 'Recargar mis permisos' }}
-          </HeaderActionButton>
-          <HeaderActionButton
-            variant="primary"
-            :icon="saving ? ArrowPathIcon : undefined"
-            :loading="saving"
-            :disabled="saving || pendingChanges.length === 0"
-            @click="saveAll"
-          >
-            {{ saving ? 'Guardando...' : `Guardar cambios${pendingChanges.length > 0 ? ` (${pendingChanges.length})` : ''}` }}
-          </HeaderActionButton>
+          <template v-if="activeTab === 'roles'">
+            <HeaderActionButton :icon="PlusIcon" @click="openNewPermModal">
+              Nuevo permiso
+            </HeaderActionButton>
+            <HeaderActionButton
+              :icon="ArrowPathIcon"
+              :loading="reloadingPerms"
+              :disabled="reloadingPerms"
+              title="Recarga únicamente los permisos de tu sesión"
+              @click="reloadUserPermissions"
+            >
+              {{ reloadingPerms ? 'Recargando...' : 'Recargar mi sesión' }}
+            </HeaderActionButton>
+            <HeaderActionButton
+              variant="primary"
+              :icon="saving ? ArrowPathIcon : undefined"
+              :loading="saving"
+              :disabled="saving || pendingChanges.length === 0"
+              @click="saveAll"
+            >
+              {{ saving ? 'Guardando...' : `Guardar cambios${pendingChanges.length > 0 ? ` (${pendingChanges.length})` : ''}` }}
+            </HeaderActionButton>
+          </template>
         </template>
       </PageHeader>
 
@@ -128,16 +130,17 @@
           @toggle="toggleProfileLocal"
           @delete="() => {}"
         />
-      </div>
-
       </section>
 
       <!-- Footer info -->
-      <div class="mt-4 text-xs text-gray-400 flex items-center gap-4">
-        <span>{{ permissions.length }} permisos totales</span>
+      <div v-if="activeTab === 'roles'" class="mt-4 text-xs text-gray-400 flex items-center gap-4">
+        <span>{{ permissions.length }} permisos registrados</span>
         <span v-if="pendingChanges.length > 0" class="text-amber-600 font-medium">
           {{ pendingChanges.length }} cambio(s) sin guardar
         </span>
+      </div>
+      <div v-else-if="activeTab === 'profiles'" class="mt-4 text-xs text-gray-400">
+        {{ profilePermissions.length }} permisos disponibles para asignación por perfil
       </div>
 
     </div>
