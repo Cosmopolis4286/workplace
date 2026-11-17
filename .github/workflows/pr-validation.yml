@@ -58,6 +58,17 @@ jobs:
     - name: Sin campos Float nuevos
       run: cd backend && pnpm schema:float-check
 
+    - name: Diagnóstico temporal Prettier
+      run: |
+        cd backend
+        pnpm exec prettier --config .prettierrc --write \
+          src/domains/platform/platform-settings/kyc-policy.service.ts \
+          src/domains/platform/platform-settings/platform-settings.service.ts \
+          src/test/unit/kyc-approved.guard.policy.test.ts \
+          src/test/unit/kyc-policy.service.test.ts \
+          src/test/unit/kyc-progressive-policy-settings.test.ts
+        git diff -- src/domains/platform/platform-settings/kyc-policy.service.ts src/domains/platform/platform-settings/platform-settings.service.ts src/test/unit/kyc-approved.guard.policy.test.ts src/test/unit/kyc-policy.service.test.ts src/test/unit/kyc-progressive-policy-settings.test.ts
+
     - name: Format check
       run: cd backend && pnpm format:check
 
