@@ -67,18 +67,19 @@ export function validateKycProgressivePolicy(
   value: unknown
 ): value is KycProgressivePolicy {
   if (!isPlainObject(value) || value.version !== 1) return false;
-  if (!isPlainObject(value.operations)) return false;
+  const operations = value.operations;
+  if (!isPlainObject(operations)) return false;
 
   const expected = Object.keys(KYC_POLICY_MINIMUMS);
   if (
-    Object.keys(value.operations).length !== expected.length ||
-    expected.some((operation) => !(operation in value.operations))
+    Object.keys(operations).length !== expected.length ||
+    expected.some((operation) => !(operation in operations))
   ) {
     return false;
   }
 
   return expected.every((operation) => {
-    const level = value.operations[operation] as KycLevel;
+    const level = operations[operation] as KycLevel;
     const minimum = KYC_POLICY_MINIMUMS[operation as KycPolicyOperation];
     return KYC_LEVELS.includes(level) && LEVEL_RANK[level] >= LEVEL_RANK[minimum];
   });
