@@ -100,7 +100,8 @@ export class ProfilesService {
     // es la fuente real para que el frontend muestre el badge/label correcto
     // en el perfil público (ver ProfilePublicView.vue).
     const accountType = await this.accountTypeResolver.resolve(user.id);
-    const canShowStoreLink = user.commerce?.isPublic || user.id === currentUserId;
+    const canShowStoreLink =
+      user.commerce?.isPublic || user.id === currentUserId;
 
     // Rating aggregado
     const ratingAgg = await this.prisma.review.aggregate({
