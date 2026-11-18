@@ -410,6 +410,13 @@ export class UsersService {
     let user;
     try {
       user = await this.prisma.$transaction(async (tx) => {
+        const currentUser = await tx.user.findUnique({
+          where: { id },
+          select: { phone: true },
+        });
+        const phoneChanged =
+          dto.phone !== undefined &&
+          (dto.phone || null) !== (currentUser?.phone ?? null);
         const updated = await tx.user.update({
           where: { id },
           data: {
@@ -417,6 +424,7 @@ export class UsersService {
             ...(dto.lastName !== undefined && { lastName: dto.lastName }),
             ...(dto.email !== undefined && { email: dto.email }),
             ...(dto.phone !== undefined && { phone: dto.phone || null }),
+            ...(phoneChanged && { phoneVerifiedAt: null }),
             ...(dto.role !== undefined && { role: dto.role }),
             ...(dto.categoryId !== undefined && {
               categoryId: dto.categoryId || null,
