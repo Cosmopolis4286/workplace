@@ -84,7 +84,7 @@ interface ConversationMessage {
 }
 
 const props = withDefaults(defineProps<{
-  threadType: 'CATALOG_ORDER' | 'REPORT' | 'DELIVERY'
+  threadType: 'CATALOG_ORDER' | 'REPORT' | 'DELIVERY' | 'SERVICE_INQUIRY'
   threadId: string
   currentUserId: string
   title?: string
