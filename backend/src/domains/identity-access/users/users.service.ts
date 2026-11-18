@@ -417,6 +417,7 @@ export class UsersService {
             ...(dto.lastName !== undefined && { lastName: dto.lastName }),
             ...(dto.email !== undefined && { email: dto.email }),
             ...(dto.phone !== undefined && { phone: dto.phone || null }),
+          ...(phoneChanged && { phoneVerifiedAt: null }),
             ...(dto.role !== undefined && { role: dto.role }),
             ...(dto.categoryId !== undefined && {
               categoryId: dto.categoryId || null,
@@ -1003,6 +1004,14 @@ export class UsersService {
 
   async updateProfile(id: string, dto: UpdateProfileDto) {
     let previousEmail: string | undefined;
+    let phoneChanged = false;
+    if (dto.phone !== undefined) {
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id },
+        select: { phone: true },
+      });
+      phoneChanged = (dto.phone || null) !== (currentUser?.phone ?? null);
+    }
     if (dto.email) {
       const existing = await this.prisma.user.findUnique({
         where: { email: dto.email },

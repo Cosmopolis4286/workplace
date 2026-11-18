@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Sex } from '@prisma/client';
 import { AuthController } from '../../domains/identity-access/auth/auth.controller';
+import { PhoneVerificationService } from '../../domains/identity-access/auth/phone-verification.service';
 import { AccountDeletionService } from '../../domains/identity-access/users/account-deletion.service';
 import { AuthService } from '../../domains/identity-access/auth/auth.service';
 import { JwtService } from '@nestjs/jwt';
@@ -46,6 +47,13 @@ describe('AuthController', () => {
         {
           provide: AccountDeletionService,
           useValue: { getBlockers: jest.fn(), deleteAccount: jest.fn() },
+        },
+        {
+          provide: PhoneVerificationService,
+          useValue: {
+            sendCode: jest.fn(),
+            verifyCode: jest.fn(),
+          },
         },
         JwtService,
       ],

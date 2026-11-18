@@ -16,6 +16,7 @@ model User {
   firstName         String
   lastName          String
   phone             String?
+  phoneVerifiedAt   DateTime?
   birthDate         DateTime?
   sex               Sex?
   avatar            String?
@@ -1168,6 +1169,7 @@ enum NotificationType {
   APPOINTMENT
   EXPENSE
   REVIEW
+  SERVICE_REQUEST
   SYSTEM
 }
 
@@ -4226,6 +4228,7 @@ enum ConversationThreadType {
   CATALOG_ORDER
   REPORT
   DELIVERY // cliente ↔ repartidor ↔ comercio, mientras la entrega está activa
+  SERVICE_INQUIRY // cliente ↔ prestador antes de una contratación formal
 }
 
 model ConversationMessage {
