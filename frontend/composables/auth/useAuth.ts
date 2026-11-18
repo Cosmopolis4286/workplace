@@ -130,6 +130,11 @@ export interface Session {
   isCurrent: boolean
 }
 
+// El refresh JWT es rotativo: todas las llamadas concurrentes que reciben 401
+// deben compartir una única renovación para no competir por el mismo token.
+let refreshInFlight: { generation: number; promise: Promise<boolean> } | null = null
+let sessionGeneration = 0
+
 // Estado global reactivo compartido entre todas las instancias
 const currentUser = ref<User | null>(null)
 const accessToken = ref<string | null>(null)
@@ -186,6 +191,7 @@ export const useAuth = () => {
   const token = computed(() => accessToken.value)
 
   function setSession(data: AuthResponse): void {
+    sessionGeneration += 1
     currentUser.value = data.user
     accessToken.value = data.accessToken
     refreshToken.value = data.refreshToken
@@ -205,6 +211,7 @@ export const useAuth = () => {
   }
 
   function clearSession(): void {
+    sessionGeneration += 1
     sessionVerification = null
     currentUser.value = null
     accessToken.value = null
@@ -368,26 +375,50 @@ export const useAuth = () => {
   }
 
   async function refreshAccessToken(): Promise<boolean> {
+    // useAuth() puede instanciarse desde muchos componentes. La promesa vive
+    // fuera del composable para compartirla entre authFetch() y useApi().
+    if (refreshInFlight?.generation === sessionGeneration) {
+      return refreshInFlight.promise
+    }
     if (isNative && !refreshToken.value) return false
-    try {
-      const data = await $fetch<Pick<AuthResponse, 'accessToken' | 'refreshToken'>>(
-        `${apiUrl}/auth/refresh`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          body: refreshToken.value ? { refreshToken: refreshToken.value } : undefined,
-        },
-      )
-      accessToken.value = data.accessToken
-      refreshToken.value = data.refreshToken
-      if (process.client && isNative) {
-        localStorage.setItem('auth_access_token', data.accessToken)
-        localStorage.setItem('auth_refresh_token', data.refreshToken)
+
+    const generation = sessionGeneration
+    const promise = (async (): Promise<boolean> => {
+      try {
+        const data = await $fetch<Pick<AuthResponse, 'accessToken' | 'refreshToken'>>(
+          `${apiUrl}/auth/refresh`,
+          {
+            method: 'POST',
+            credentials: 'include',
+            body: refreshToken.value ? { refreshToken: refreshToken.value } : undefined,
+          },
+        )
+
+        // Si hubo logout o login mientras el refresh estaba en vuelo, no
+        // permitir que la respuesta de la sesión anterior resucite tokens.
+        if (generation !== sessionGeneration) return false
+
+        accessToken.value = data.accessToken
+        refreshToken.value = data.refreshToken
+        if (process.client && isNative) {
+          localStorage.setItem('auth_access_token', data.accessToken)
+          localStorage.setItem('auth_refresh_token', data.refreshToken)
+        }
+        return true
+      } catch {
+        // Una respuesta tardía de la sesión anterior nunca debe cerrar la
+        // sesión nueva que el usuario pudo haber iniciado mientras tanto.
+        if (generation === sessionGeneration) clearSession()
+        return false
       }
-      return true
-    } catch {
-      clearSession()
-      return false
+    })()
+
+    const flight = { generation, promise }
+    refreshInFlight = flight
+    try {
+      return await promise
+    } finally {
+      if (refreshInFlight === flight) refreshInFlight = null
     }
   }
 
