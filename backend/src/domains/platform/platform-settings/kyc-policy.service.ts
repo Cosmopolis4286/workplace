@@ -78,28 +78,19 @@ export class KycPolicyService {
   }
 
   private getDenialReason(required: KycLevel, current: KycLevel): string {
-    if (required === 'ENHANCED_REVIEW') {
-      return [
-        'Esta operación requiere una revisión reforzada',
-        'por parte de administración.',
-      ].join(' ');
+    switch (required) {
+      case 'ENHANCED_REVIEW':
+        return 'Esta operación requiere una revisión reforzada por parte de administración.';
+      case 'KYC_APPROVED':
+        return 'Debes completar y obtener la aprobación de tu verificación de identidad (KYC).';
+      case 'PHONE_VERIFIED':
+        return 'Debes verificar tu número de teléfono antes de continuar.';
+      case 'AUTHENTICATED':
+        return current === 'PUBLIC'
+          ? 'Debes iniciar sesión para continuar.'
+          : 'No cumples los requisitos de identidad para esta operación.';
+      default:
+        return 'No cumples los requisitos de identidad para esta operación.';
     }
-
-    if (required === 'KYC_APPROVED') {
-      return [
-        'Debes completar y obtener la aprobación de tu verificación',
-        'de identidad (KYC).',
-      ].join(' ');
-    }
-
-    if (required === 'PHONE_VERIFIED') {
-      return 'Debes verificar tu número de teléfono antes de continuar.';
-    }
-
-    if (required === 'AUTHENTICATED' && current === 'PUBLIC') {
-      return 'Debes iniciar sesión para continuar.';
-    }
-
-    return 'No cumples los requisitos de identidad para esta operación.';
   }
 }
