@@ -52,6 +52,24 @@
         <p class="mt-1 whitespace-pre-wrap text-sm text-green-900">{{ inquiry.providerResponse }}</p>
       </div>
 
+      <div v-if="inquiry.status === 'OPEN' || inquiry.status === 'RESPONDED'" class="mt-4 flex flex-wrap justify-end gap-2">
+        <button
+          v-if="asRole === 'client'"
+          class="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+          :disabled="statusChangingId === inquiry.id"
+          @click="changeStatus(inquiry, 'CANCEL')"
+        >
+          Cancelar consulta
+        </button>
+        <button
+          class="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          :disabled="statusChangingId === inquiry.id"
+          @click="changeStatus(inquiry, 'CLOSE')"
+        >
+          {{ statusChangingId === inquiry.id ? 'Cerrando...' : 'Cerrar consulta' }}
+        </button>
+      </div>
+
       <div class="mt-4 flex justify-end">
         <button
           class="rounded-xl border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
@@ -124,6 +142,7 @@ const inquiries = ref<Inquiry[]>([])
 const loading = ref(false)
 const error = ref('')
 const sendingId = ref('')
+const statusChangingId = ref('')
 const responses = reactive<Record<string, string>>({})
 
 function formatDate(value: string) {
@@ -167,6 +186,25 @@ async function respond(inquiry: Inquiry) {
     error.value = e?.message ?? 'No se pudo enviar la respuesta.'
   } finally {
     sendingId.value = ''
+  }
+}
+
+async function changeStatus(inquiry: Inquiry, action: 'CANCEL' | 'CLOSE') {
+  const message = action === 'CANCEL'
+    ? '¿Quieres cancelar esta consulta? La conversación quedará en solo lectura.'
+    : '¿Quieres cerrar esta consulta? La conversación quedará en solo lectura.'
+  if (!window.confirm(message)) return
+
+  statusChangingId.value = inquiry.id
+  error.value = ''
+  try {
+    await patch(`/services/requests/inquiries/${inquiry.id}/status`, { action })
+    if (openConversationId.value === inquiry.id) openConversationId.value = ''
+    await load()
+  } catch (e: any) {
+    error.value = e?.message ?? 'No se pudo actualizar la consulta.'
+  } finally {
+    statusChangingId.value = ''
   }
 }
 
