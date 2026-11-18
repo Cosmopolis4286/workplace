@@ -43,6 +43,12 @@ El teléfono proporcionado en la consulta se guarda como dato privado y el endpo
 - Se limita a cinco consultas por usuario en diez minutos.
 - La respuesta solo puede enviarla el propietario del servicio y se aplica mediante actualización condicional de estado para evitar respuestas simultáneas.
 
+## Conversación preliminar
+
+El chat de las consultas utiliza el sistema genérico existente `ConversationMessage` mediante el tipo `SERVICE_INQUIRY`; no crea una segunda infraestructura de mensajería. Solo pueden acceder el solicitante y el propietario real del servicio. Se bloquean teléfonos, correos y enlaces de contacto; los mensajes históricos también se muestran con datos de contacto redactados. Las consultas cerradas o canceladas conservan el historial en modo de solo lectura.
+
+Las notificaciones llevan a la bandeja de consultas con el ámbito correcto (recibidas o enviadas). Esta conversación sigue siendo preliminar: no crea una contratación, no inicia pagos y no cambia los requisitos KYC.
+
 ## Flujo posterior
 
 La conversión a contratación formal debe ser una operación explícita e idempotente. Debe verificar KYC aprobado en servidor, reconstruir los datos comerciales desde el catálogo, conservar la trazabilidad entre consulta y contratación y solo entonces habilitar el flujo de negociación/pagos. Esta conversión no forma parte de esta primera fase.
