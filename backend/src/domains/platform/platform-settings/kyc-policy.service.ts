@@ -43,14 +43,16 @@ export class KycPolicyService {
     const currentLevel = this.resolveSubjectLevel(subject);
     const allowed = LEVEL_RANK[currentLevel] >= LEVEL_RANK[requiredLevel];
 
+    const reason = allowed
+      ? null
+      : this.getDenialReason(requiredLevel, currentLevel);
+
     return {
       operation,
       allowed,
       requiredLevel,
       currentLevel,
-      reason: allowed
-        ? null
-        : this.getDenialReason(requiredLevel, currentLevel),
+      reason,
     };
   }
 
