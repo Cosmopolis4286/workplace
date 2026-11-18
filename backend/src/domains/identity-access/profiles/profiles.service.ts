@@ -80,7 +80,7 @@ export class ProfilesService {
         // slug: para el link "Ver tienda" en ProfilePublicView.vue (/loja/:slug)
         // cuando el PROFESIONAL también tiene Commerce ("opción 2") — null si
         // el comercio nunca eligió uno (ver StoreSlugCard.vue).
-        commerce: { select: { id: true, name: true, type: true, slug: true } },
+        commerce: { select: { id: true, name: true, type: true, slug: true, isPublic: true } },
         profileSettings: { select: { showCatalog: true, showServices: true } },
         _count: {
           select: {
@@ -146,7 +146,20 @@ export class ProfilesService {
       coverImage: user.coverImage,
       role: user.role,
       accountType,
-      commerce: user.commerce,
+      // La tienda puede estar oculta sin que el perfil social deje de ser
+      // público. Solo el dueño conserva el enlace para previsualizarla; a los
+      // demás no les revelamos un slug que respondería 404.
+      commerce: user.commerce
+        ? {
+            id: user.commerce.id,
+            name: user.commerce.name,
+            type: user.commerce.type,
+            slug:
+              user.commerce.isPublic || user.id === currentUserId
+                ? user.commerce.slug
+                : null,
+          }
+        : null,
       profileSettings: user.profileSettings ?? {
         showCatalog: true,
         showServices: true,
