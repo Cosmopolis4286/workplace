@@ -79,11 +79,17 @@ export class KycPolicyService {
 
   private getDenialReason(required: KycLevel, current: KycLevel): string {
     if (required === 'ENHANCED_REVIEW') {
-      return 'Esta operación requiere una revisión reforzada por parte de administración.';
+      return [
+        'Esta operación requiere una revisión reforzada',
+        'por parte de administración.',
+      ].join(' ');
     }
 
     if (required === 'KYC_APPROVED') {
-      return 'Debes completar y obtener la aprobación de tu verificación de identidad (KYC).';
+      return [
+        'Debes completar y obtener la aprobación de tu verificación',
+        'de identidad (KYC).',
+      ].join(' ');
     }
 
     if (required === 'PHONE_VERIFIED') {
