@@ -53,7 +53,7 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
   const auth = useAuth()
   const { isAuthenticated, user } = auth
   const { can, initialized } = usePermissions()
-  const { routePermissions, routeCapabilities, loadNavigation } = useNavigation()
+  const { routePermissions, routeCapabilities, routeAnyCapabilities, loadNavigation } = useNavigation()
   const { hasCapability } = useProfileContext()
 
   const path  = to.path as string
@@ -142,6 +142,14 @@ export default defineNuxtRouteMiddleware(async (to: any) => {
   // quedan fuera por 4d/4e y por excludeRoles en el árbol del backend.
   const requiredCapability = Object.entries(routeCapabilities.value).find(([r]) => path.startsWith(r))?.[1]
   if (requiredCapability && !ADMIN_ROLES.includes(role) && !hasCapability(requiredCapability)) {
+    return navigateTo(defaultDest(role))
+  }
+
+  // ── 4c-4. Rutas que exigen al menos una capacidad alternativa ────────────
+  // El sidebar ya evalúa requiresAnyCapability; el acceso directo también
+  // debe respetar el mismo requisito (ej. /my-store: Commerce o perfil pro).
+  const requiredAnyCapabilities = Object.entries(routeAnyCapabilities.value).find(([r]) => path.startsWith(r))?.[1]
+  if (requiredAnyCapabilities?.length && !requiredAnyCapabilities.some(hasCapability)) {
     return navigateTo(defaultDest(role))
   }
 
