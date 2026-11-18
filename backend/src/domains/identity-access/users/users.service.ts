@@ -230,6 +230,7 @@ export class UsersService {
     subcategoryId?: string;
     search?: string;
     excludeUserId?: string;
+    isActive?: boolean;
     // Desglose fino que Role ya no captura (ver comentario en getUsersStats)
     // — filtra por el UserProfile ACTIVE del usuario, no por Role.
     profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
@@ -241,6 +242,7 @@ export class UsersService {
       subcategoryId,
       search,
       excludeUserId,
+      isActive,
       profileKind,
     } = options;
     const where: Record<string, unknown> = {};
@@ -259,6 +261,7 @@ export class UsersService {
     }
     if (categoryId) where.categoryId = categoryId;
     if (subcategoryId) where.subcategoryId = subcategoryId;
+    if (isActive !== undefined) where.isActive = isActive;
     if (excludeUserId) where.id = { not: excludeUserId };
     if (profileKind) {
       where.profiles = {
@@ -273,6 +276,8 @@ export class UsersService {
         { firstName: { contains: search, mode: 'insensitive' } },
         { lastName: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+        { username: { contains: search, mode: 'insensitive' } },
       ];
     }
     return where;
@@ -285,6 +290,7 @@ export class UsersService {
     subcategoryId?: string;
     search?: string;
     profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
+    isActive?: boolean;
     page: number;
     limit: number;
   }) {
@@ -343,6 +349,7 @@ export class UsersService {
     subcategoryId?: string;
     search?: string;
     profileKind?: 'BUSINESS' | 'FREELANCER' | 'SERVICE_PROVIDER';
+    isActive?: boolean;
   }) {
     const where = this.buildUsersWhere(options);
     // "commerce"/"freelancer" ya no son valores de Role (colapsados en
@@ -400,17 +407,6 @@ export class UsersService {
       }
     }
 
-    const currentPhone =
-      dto.phone !== undefined
-        ? await this.prisma.user.findUnique({
-            where: { id },
-            select: { phone: true },
-          })
-        : null;
-    const phoneChanged =
-      dto.phone !== undefined &&
-      (dto.phone || null) !== (currentPhone?.phone ?? null);
-
     let user;
     try {
       user = await this.prisma.$transaction(async (tx) => {
@@ -421,9 +417,8 @@ export class UsersService {
             ...(dto.lastName !== undefined && { lastName: dto.lastName }),
             ...(dto.email !== undefined && { email: dto.email }),
             ...(dto.phone !== undefined && { phone: dto.phone || null }),
-            ...(phoneChanged && { phoneVerifiedAt: null }),
+          ...(phoneChanged && { phoneVerifiedAt: null }),
             ...(dto.role !== undefined && { role: dto.role }),
-            ...(dto.isActive !== undefined && { isActive: dto.isActive }),
             ...(dto.categoryId !== undefined && {
               categoryId: dto.categoryId || null,
             }),
@@ -591,26 +586,81 @@ export class UsersService {
   }
 
   async toggleUserStatus(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
+    let updated: { id: string; isActive: boolean };
+    try {
+      updated = await this.prisma.$transaction(
+        async (tx) => {
+          const user = await tx.user.findUnique({
+            where: { id },
+            select: { id: true, role: true, isActive: true },
+          });
+          if (!user) {
+            throw new NotFoundException(this.i18n.t('users.not_found'));
+          }
 
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data: { isActive: !user.isActive },
-      select: { id: true, isActive: true },
-    });
-    // Crítico: isActive es lo que JwtStrategy.validate() chequea en cada
-    // request — un caché stale acá dejaría a un usuario desactivado seguir
-    // autenticado hasta que expire el TTL.
+          // Nunca dejar el sistema sin un SUPERADMIN activo. La transacción
+          // serializable evita que dos suspensiones concurrentes pasen ambas
+          // el conteo usando el mismo snapshot.
+          if (user.role === Role.SUPERADMIN && user.isActive) {
+            const activeSuperadmins = await tx.user.count({
+              where: { role: Role.SUPERADMIN, isActive: true },
+            });
+            if (activeSuperadmins <= 1) {
+              throw new ConflictException(
+                'No se puede suspender al último SUPERADMIN activo'
+              );
+            }
+          }
+
+          const nextIsActive = !user.isActive;
+          const changed = await tx.user.updateMany({
+            where: { id, isActive: user.isActive },
+            data: { isActive: nextIsActive },
+          });
+          if (changed.count !== 1) {
+            throw new ConflictException(
+              'La cuenta cambió mientras se procesaba la operación. Actualiza e inténtalo de nuevo.'
+            );
+          }
+
+          if (!nextIsActive) {
+            // Desactivar el usuario también revoca refresh tokens; invalidar
+            // solo el caché JWT no basta para impedir renovar una sesión.
+            await tx.refreshToken.updateMany({
+              where: { userId: id, revokedAt: null },
+              data: { revokedAt: new Date() },
+            });
+          }
+
+          return { id, isActive: nextIsActive };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034'
+      ) {
+        throw new ConflictException(
+          'La cuenta cambió durante la operación. Actualiza e inténtalo de nuevo.'
+        );
+      }
+      throw error;
+    }
+
+    // JwtStrategy consulta findById en cada request. Invalidamos caché y
+    // sesiones Redis tras el commit para cortar el acceso cuanto antes.
     await this.invalidateFindByIdCache(id);
+    if (!updated.isActive) {
+      try {
+        await this.redis.deleteByPattern(`session:${id}:*`);
+      } catch (error) {
+        this.logger.warn(
+          `No se pudieron limpiar las sesiones Redis de ${id}: ${(error as Error).message}`
+        );
+      }
+    }
     return updated;
-  }
-
-  async deleteUser(id: string) {
-    await this.prisma.user.findUnique({ where: { id } });
-    await this.prisma.user.delete({ where: { id } });
-    await this.invalidateFindByIdCache(id);
-    return { message: this.i18n.t('users.deleted') };
   }
 
   // ─── Categories CRUD ─────────────────────────────────────────────────────────
@@ -824,6 +874,110 @@ export class UsersService {
   }
 
   /**
+   * Vista administrativa agregada. No reutiliza el cache de findById porque
+   * la ficha incluye KYC y auditoría, que deben reflejar el estado actual.
+   * Los números de documento se enmascaran: las imágenes y datos completos
+   * siguen disponibles únicamente en el flujo de revisión KYC autorizado.
+   */
+  async getAdminOverview(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        userType: true,
+        isActive: true,
+        emailVerified: true,
+        kycStatus: true,
+        createdAt: true,
+        updatedAt: true,
+        country: true,
+        state: true,
+        city: true,
+        municipality: true,
+        parish: true,
+        twoFactorEnabled: true,
+        category: { select: { id: true, name: true } },
+        subcategory: { select: { id: true, name: true } },
+        commerce: { select: { id: true, name: true, isPublic: true } },
+        profiles: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            type: true,
+            subtype: true,
+            status: true,
+            rejectionReason: true,
+            reviewedAt: true,
+            createdAt: true,
+            category: { select: { id: true, name: true } },
+            subcategory: { select: { id: true, name: true } },
+          },
+        },
+        identityVerifications: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          select: {
+            id: true,
+            documentType: true,
+            documentNumber: true,
+            status: true,
+            rejectionReason: true,
+            reviewedBy: true,
+            reviewedAt: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
+
+    const activity = await this.prisma.auditLog.findMany({
+      where: {
+        module: { in: ['users', 'kyc', 'account', 'auth'] },
+        OR: [
+          { userId: id },
+          { entityId: id },
+          { details: { path: ['targetUserId'], equals: id } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      select: {
+        id: true,
+        userId: true,
+        userEmail: true,
+        userRole: true,
+        action: true,
+        module: true,
+        summary: true,
+        statusCode: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      user: {
+        ...user,
+        identityVerifications: user.identityVerifications.map((item) => ({
+          ...item,
+          documentNumber:
+            item.documentNumber.length > 4
+              ? `${'*'.repeat(Math.max(4, item.documentNumber.length - 4))}${item.documentNumber.slice(-4)}`
+              : '****',
+        })),
+      },
+      activity,
+    };
+  }
+
+  /**
    * Variante de findById que incluye twoFactorSecret (cifrado) y
    * twoFactorEnabled para el flujo de verificación 2FA. Uso interno
    * exclusivo — nunca devolver el resultado de este método al cliente.
@@ -919,7 +1073,6 @@ export class UsersService {
           ...(dto.lastName && { lastName: dto.lastName }),
           ...(dto.email && { email: dto.email }),
           ...(dto.phone !== undefined && { phone: dto.phone || null }),
-          ...(phoneChanged && { phoneVerifiedAt: null }),
           ...(dto.username !== undefined && { username: dto.username || null }),
           ...(usernameChanged && { usernameUpdatedAt: new Date() }),
           ...((dto as any).categoryId !== undefined && {
