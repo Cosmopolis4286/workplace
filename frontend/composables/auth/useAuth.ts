@@ -132,7 +132,9 @@ export interface Session {
 
 // El refresh JWT es rotativo: todas las llamadas concurrentes que reciben 401
 // deben compartir una única renovación para no competir por el mismo token.
-let refreshInFlight: { generation: number; promise: Promise<boolean> } | null = null
+import { createKeyedSingleFlight } from '../../utils/keyedSingleFlight'
+
+const refreshSingleFlight = createKeyedSingleFlight<number, boolean>()
 let sessionGeneration = 0
 
 // Estado global reactivo compartido entre todas las instancias
@@ -375,15 +377,10 @@ export const useAuth = () => {
   }
 
   async function refreshAccessToken(): Promise<boolean> {
-    // useAuth() puede instanciarse desde muchos componentes. La promesa vive
-    // fuera del composable para compartirla entre authFetch() y useApi().
-    if (refreshInFlight?.generation === sessionGeneration) {
-      return refreshInFlight.promise
-    }
     if (isNative && !refreshToken.value) return false
 
     const generation = sessionGeneration
-    const promise = (async (): Promise<boolean> => {
+    return refreshSingleFlight(generation, async () => {
       try {
         const data = await $fetch<Pick<AuthResponse, 'accessToken' | 'refreshToken'>>(
           `${apiUrl}/auth/refresh`,
@@ -411,15 +408,7 @@ export const useAuth = () => {
         if (generation === sessionGeneration) clearSession()
         return false
       }
-    })()
-
-    const flight = { generation, promise }
-    refreshInFlight = flight
-    try {
-      return await promise
-    } finally {
-      if (refreshInFlight === flight) refreshInFlight = null
-    }
+    })
   }
 
   async function fetchProfile(): Promise<User | null> {
