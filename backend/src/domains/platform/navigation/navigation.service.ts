@@ -143,6 +143,7 @@ export class NavigationService {
     routeModules: Record<string, string>;
     routeCapabilities: Record<string, Capability>;
     routeAnyModules: Record<string, string[]>;
+    routeAnyCapabilities: Record<string, Capability[]>;
   } {
     const routePermissions: Record<string, string | null> = {};
     const routeModules: Record<string, string> = {};
@@ -151,6 +152,7 @@ export class NavigationService {
     // la regla solo existía al armar el sidebar: el acceso rápido y el
     // middleware de rutas dejaban entrar igual (ej. /jobs para un delivery).
     const routeAnyModules: Record<string, string[]> = {};
+    const routeAnyCapabilities: Record<string, Capability[]> = {};
     const allItems = [
       ...NAVIGATION_TREE.flatMap((section) => section.items),
       ...EXTRA_PROTECTED_ROUTES,
@@ -166,12 +168,16 @@ export class NavigationService {
       if (item.condition.requiresAnyModule) {
         routeAnyModules[item.to] = item.condition.requiresAnyModule;
       }
+      if (item.condition.requiresAnyCapability) {
+        routeAnyCapabilities[item.to] = item.condition.requiresAnyCapability;
+      }
     }
     return {
       routePermissions,
       routeModules,
       routeCapabilities,
       routeAnyModules,
+      routeAnyCapabilities,
     };
   }
 }
