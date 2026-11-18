@@ -28,7 +28,12 @@ describe('Visibilidad de la tienda desde el perfil público', () => {
   beforeEach(() => {
     prisma = {
       user: { findUnique: jest.fn() },
-      review: { aggregate: jest.fn().mockResolvedValue({ _avg: { rating: null }, _count: { rating: 0 } }) },
+      review: {
+        aggregate: jest.fn().mockResolvedValue({
+          _avg: { rating: null },
+          _count: { rating: 0 },
+        }),
+      },
       serviceRequest: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const notifications = {} as any;
@@ -36,8 +41,16 @@ describe('Visibilidad de la tienda desde el perfil público', () => {
       get: jest.fn().mockResolvedValue(null),
       setex: jest.fn().mockResolvedValue(undefined),
     };
-    const accountTypeResolver = { resolve: jest.fn().mockResolvedValue('COMMERCE') };
-    service = new ProfilesService(prisma, notifications, redis as any, accountTypeResolver as any);
+    const accountTypeResolver = {
+      resolve: jest.fn().mockResolvedValue('COMMERCE'),
+    };
+
+    service = new ProfilesService(
+      prisma,
+      notifications,
+      redis as any,
+      accountTypeResolver as any
+    );
   });
 
   it('no expone el slug de una tienda privada a visitantes', async () => {
