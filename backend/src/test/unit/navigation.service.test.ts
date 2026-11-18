@@ -74,6 +74,25 @@ describe('NavigationService', () => {
     expect(service).toBeDefined();
   });
 
+  it('muestra Mi tienda a Commerce, Professional e híbridos, pero no a clientes sin perfiles de negocio', async () => {
+    const hasMyStore = async (capabilities: CapabilityMap) => {
+      currentCapabilities = capabilities;
+      const result = await service.buildNavigationForUser({
+        id: 'u1',
+        role: Role.PROFESIONAL,
+      });
+      return result.sections
+        .find((section) => section.id === 'business')
+        ?.items.some((item) => item.id === 'my-store');
+    };
+
+    expect(await hasMyStore(BUSINESS_WITH_COMMERCE)).toBe(true);
+    expect(await hasMyStore(PROFESSIONAL_WITHOUT_COMMERCE)).toBe(true);
+    expect(await hasMyStore(PROFESSIONAL_WITH_COMMERCE)).toBe(true);
+    expect(await hasMyStore(NONE)).toBe(false);
+  });
+
+
   it('excludes sections with no visible items for a restricted role', async () => {
     // NORMAL sin permisos de rol ni overrides: la mayoría de secciones
     // (empresa, ventas, operaciones) deberían quedar vacías y no aparecer.
