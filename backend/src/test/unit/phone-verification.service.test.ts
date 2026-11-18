@@ -70,7 +70,8 @@ describe('PhoneVerificationService', () => {
       })
     );
 
-    const sentCode = smsProvider.send.mock.calls[0][0].text.match(/\d{6}/)?.[0];
+    const sentCode =
+      smsProvider.send.mock.calls[0][0].text.match(/\d{6}/)?.[0];
     expect(challenge).not.toContain(sentCode);
   });
 
