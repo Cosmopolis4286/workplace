@@ -417,7 +417,6 @@ export class UsersService {
             ...(dto.lastName !== undefined && { lastName: dto.lastName }),
             ...(dto.email !== undefined && { email: dto.email }),
             ...(dto.phone !== undefined && { phone: dto.phone || null }),
-          ...(phoneChanged && { phoneVerifiedAt: null }),
             ...(dto.role !== undefined && { role: dto.role }),
             ...(dto.categoryId !== undefined && {
               categoryId: dto.categoryId || null,
@@ -1073,6 +1072,7 @@ export class UsersService {
           ...(dto.lastName && { lastName: dto.lastName }),
           ...(dto.email && { email: dto.email }),
           ...(dto.phone !== undefined && { phone: dto.phone || null }),
+          ...(phoneChanged && { phoneVerifiedAt: null }),
           ...(dto.username !== undefined && { username: dto.username || null }),
           ...(usernameChanged && { usernameUpdatedAt: new Date() }),
           ...((dto as any).categoryId !== undefined && {
