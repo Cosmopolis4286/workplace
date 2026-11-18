@@ -1,6 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { CatalogService } from '../../domains/commerce-core/catalog/catalog.service';
-import { PlatformSettingsService } from '../../domains/platform/platform-settings/platform-settings.service';
+import {
+  DEFAULT_KYC_PROGRESSIVE_POLICY,
+  PlatformSettingsService,
+} from '../../domains/platform/platform-settings/platform-settings.service';
 
 function store(overrides: Partial<any> = {}) {
   return {
@@ -81,20 +84,26 @@ describe('Contacto público de la tienda', () => {
 
 describe('PlatformSettingsService', () => {
   let prisma: any;
+  let audit: any;
   let service: PlatformSettingsService;
 
   beforeEach(() => {
     prisma = {
       platformSetting: {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue(null),
         upsert: jest.fn().mockResolvedValue({}),
       },
     };
-    service = new PlatformSettingsService(prisma);
+    audit = { log: jest.fn().mockResolvedValue(undefined) };
+    service = new PlatformSettingsService(prisma, audit);
   });
 
   it('devuelve los valores por defecto si no hay nada guardado', async () => {
-    expect(await service.getAll()).toEqual({ 'store.publicContact': true });
+    expect(await service.getAll()).toEqual({
+      'store.publicContact': true,
+      'identity.kycPolicy': DEFAULT_KYC_PROGRESSIVE_POLICY,
+    });
   });
 
   it('solo acepta claves conocidas con su tipo', async () => {
