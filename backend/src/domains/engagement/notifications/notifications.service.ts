@@ -1174,6 +1174,7 @@ export class NotificationsService {
       APPOINTMENT: 'CalendarIcon',
       EXPENSE: 'BanknotesIcon',
       REVIEW: 'StarIcon',
+      SERVICE_REQUEST: 'ChatBubbleLeftRightIcon',
       SYSTEM: 'BellIcon',
     };
     return map[type] ?? 'BellIcon';
@@ -1187,6 +1188,7 @@ export class NotificationsService {
       APPOINTMENT: 'purple',
       EXPENSE: 'red',
       REVIEW: 'amber',
+      SERVICE_REQUEST: 'blue',
       SYSTEM: 'gray',
     };
     return map[type] ?? 'gray';
