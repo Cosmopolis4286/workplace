@@ -41,6 +41,7 @@ describe('createKeyedSingleFlight', () => {
 
     const first = singleFlight(1, firstTask)
     const second = singleFlight(2, secondTask)
+    await Promise.resolve()
     resolveFirst('old')
     await expect(first).resolves.toBe('old')
 
