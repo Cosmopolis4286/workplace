@@ -251,7 +251,11 @@ export class CatalogService {
     return {
       data: {
         ...rest,
-        user: { avatar: user.avatar, coverImage: user.coverImage },
+        user: {
+          username: user.username,
+          avatar: user.avatar,
+          coverImage: user.coverImage,
+        },
         productCount: _count.products,
         // Solo se expone si el dueño tiene perfil profesional activo con
         // slug propio — ver ProfilePublicView.vue, que arma /pro/:slug.
