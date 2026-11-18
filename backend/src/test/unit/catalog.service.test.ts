@@ -820,7 +820,7 @@ describe('CatalogService', () => {
         isPublic: true,
         description: null,
         socialLinks: null,
-        user: { avatar: null, coverImage: null },
+        user: { username: 'ana', avatar: null, coverImage: null },
         settings: null,
         _count: { products: 3 },
         ...overrides,
@@ -872,6 +872,7 @@ describe('CatalogService', () => {
       mockPrismaService.commerce.findUnique.mockResolvedValue(
         baseCommerce({
           user: {
+            username: 'ana',
             avatar: null,
             coverImage: null,
             freelancerSettings: { slug: 'maria-cocina' },
@@ -891,6 +892,7 @@ describe('CatalogService', () => {
 
       expect((result.data as any).professionalSlug).toBeNull();
       expect((result.data as any).user).toEqual({
+        username: 'ana',
         avatar: null,
         coverImage: null,
       });
