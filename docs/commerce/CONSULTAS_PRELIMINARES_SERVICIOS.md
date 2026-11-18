@@ -32,15 +32,16 @@ Separar el primer contacto entre un cliente y un prestador de la contratación f
 
 ## Privacidad
 
-El teléfono proporcionado en la consulta se guarda como dato privado y el endpoint de consultas recibidas lo devuelve como null. No se comparte con el prestador en esta etapa y todavía no se considera verificado. El mensaje y la respuesta rechazan datos de contacto mediante NoContactInfo, para mantener la conversación dentro de WorkPlace.
+El teléfono y la dirección exacta se guardan como datos privados. En la bandeja del prestador y en la respuesta HTTP de su endpoint de respuesta ambos se devuelven como null; la ciudad puede mostrarse como ubicación general. El cliente conserva sus propios datos. El mensaje y la respuesta rechazan datos de contacto mediante NoContactInfo, para mantener la conversación dentro de WorkPlace.
 
 ## Límites y validaciones
 
 - Solo se puede consultar un servicio activo.
 - No se puede consultar el propio servicio.
 - La modalidad debe coincidir con las ofrecidas por el servicio.
-- Una consulta abierta impide duplicar otra consulta para el mismo servicio; después de una respuesta se puede iniciar una nueva consulta.
+- Una consulta abierta impide duplicar otra consulta para el mismo servicio. Un índice único parcial en PostgreSQL garantiza esta regla incluso ante altas simultáneas; los duplicados históricos se conservan como CANCELLED durante la migración. Después de una respuesta se puede iniciar una nueva consulta.
 - Se limita a cinco consultas por usuario en diez minutos.
+- Los parámetros de paginación se validan como enteros seguros y el límite permitido es de 1 a 100.
 - La respuesta solo puede enviarla el propietario del servicio y se aplica mediante actualización condicional de estado para evitar respuestas simultáneas.
 
 ## Flujo posterior

@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { ServicesService } from '../../domains/commerce-core/services/services.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
@@ -249,6 +253,8 @@ describe('ServicesService — service request status transitions', () => {
           id: 'inquiry-1',
           providerId: 'provider-1',
           clientPhone: '+584121234567',
+          address: 'Av. Principal, casa 12',
+          city: 'Caracas',
         },
       ]);
       const providerView = await service.getMyServiceInquiries(
@@ -256,6 +262,8 @@ describe('ServicesService — service request status transitions', () => {
         'provider'
       );
       expect(providerView.data[0].clientPhone).toBeNull();
+      expect(providerView.data[0].address).toBeNull();
+      expect(providerView.data[0].city).toBe('Caracas');
       expect(providerView.data[0].contactHidden).toBe(true);
     });
 
@@ -266,12 +274,22 @@ describe('ServicesService — service request status transitions', () => {
           providerId: 'provider-1',
           status: 'OPEN',
         })
-        .mockResolvedValueOnce({ id: 'inquiry-1', status: 'RESPONDED' });
+        .mockResolvedValueOnce({
+          id: 'inquiry-1',
+          status: 'RESPONDED',
+          clientPhone: '+584121234567',
+          address: 'Calle privada 123',
+        });
 
-      await service.respondToServiceInquiry('inquiry-1', 'provider-1', {
-        response: 'Sí, tengo disponibilidad esta semana',
-      });
+      const response = await service.respondToServiceInquiry(
+        'inquiry-1',
+        'provider-1',
+        { response: 'Sí, tengo disponibilidad esta semana' }
+      );
 
+      expect(response?.clientPhone).toBeNull();
+      expect(response?.address).toBeNull();
+      expect(response?.contactHidden).toBe(true);
       expect(mockPrismaService.serviceInquiry.updateMany).toHaveBeenCalledWith({
         where: { id: 'inquiry-1', providerId: 'provider-1', status: 'OPEN' },
         data: {
@@ -279,6 +297,35 @@ describe('ServicesService — service request status transitions', () => {
           status: 'RESPONDED',
         },
       });
+    });
+
+    it('convierte una colisión del índice único en conflicto de dominio', async () => {
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 'service-1',
+        userId: 'provider-1',
+        status: 'ACTIVE',
+        modalities: ['REMOTE'],
+      });
+      mockPrismaService.serviceInquiry.create.mockRejectedValue({
+        code: 'P2002',
+      });
+
+      await expect(
+        service.createServiceInquiry(
+          { serviceId: 'service-1', modality: 'REMOTE' } as any,
+          'client-1'
+        )
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('rechaza paginación inválida sin consultar Prisma', async () => {
+      await expect(
+        service.getMyServiceInquiries('client-1', 'client', Number.NaN, 20)
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.getMyServiceInquiries('client-1', 'client', 1, 101)
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.serviceInquiry.findMany).not.toHaveBeenCalled();
     });
 
     it('impide que otro usuario responda una consulta ajena', async () => {
