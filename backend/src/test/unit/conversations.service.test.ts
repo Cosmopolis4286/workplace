@@ -202,11 +202,10 @@ describe('ConversationsService', () => {
       expect(prisma.conversationMessage.create).not.toHaveBeenCalled();
 
       await expect(
-        service.list(
-          'SERVICE_INQUIRY',
-          'inquiry-1',
-          { id: 'intruso', role: Role.NORMAL }
-        )
+        service.list('SERVICE_INQUIRY', 'inquiry-1', {
+          id: 'intruso',
+          role: Role.NORMAL,
+        })
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
