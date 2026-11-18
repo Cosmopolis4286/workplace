@@ -117,6 +117,7 @@ export class NavigationService {
       routeModules,
       routeCapabilities,
       routeAnyModules,
+      routeAnyCapabilities,
     } = this.getRouteMaps();
 
     return {
@@ -125,6 +126,7 @@ export class NavigationService {
       routeModules,
       routeCapabilities,
       routeAnyModules,
+      routeAnyCapabilities,
       generatedAt: new Date().toISOString(),
     };
   }
