@@ -610,6 +610,18 @@ describe('NavigationService', () => {
       expect(routeAnyModules['/orders']).toBeUndefined();
     });
 
+    it('expone requiresAnyCapability por ruta para proteger accesos directos', () => {
+      const { routeAnyCapabilities } = service.getRouteMaps();
+      expect(routeAnyCapabilities['/my-store']).toEqual([
+        'HAS_COMMERCE',
+        'HAS_PROFESSIONAL_PROFILE',
+      ]);
+      expect(routeAnyCapabilities['/payments/incoming']).toEqual([
+        'HAS_COMMERCE',
+        'HAS_PROFESSIONAL_PROFILE',
+      ]);
+    });
+
     it('is static and does not depend on the user', () => {
       const first = service.getRouteMaps();
       const second = service.getRouteMaps();
