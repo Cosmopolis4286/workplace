@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { resetWallets } from '../wallets/useWallets'
 import type { ProfileActivation } from '../users/useProfileActivations'
+import { createKeyedSingleFlight } from '../../utils/keyedSingleFlight'
 
 interface Commerce {
   id: string
@@ -132,8 +133,6 @@ export interface Session {
 
 // El refresh JWT es rotativo: todas las llamadas concurrentes que reciben 401
 // deben compartir una única renovación para no competir por el mismo token.
-import { createKeyedSingleFlight } from '../../utils/keyedSingleFlight'
-
 const refreshSingleFlight = createKeyedSingleFlight<number, boolean>()
 let sessionGeneration = 0
 
