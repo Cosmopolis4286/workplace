@@ -37,7 +37,7 @@
             class="group flex min-w-0 items-center gap-3 rounded-lg px-3 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-workplace-red focus-visible:ring-offset-2"
             :class="activeTab === tab.id ? 'bg-red-50 text-workplace-red ring-1 ring-inset ring-red-100' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
             :aria-pressed="activeTab === tab.id"
-            @click="activeTab = tab.id"
+            @click="selectTab(tab.id)"
           >
             <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors" :class="activeTab === tab.id ? 'bg-white text-workplace-red shadow-sm' : 'bg-gray-100 text-gray-500 group-hover:bg-white'">
               <ShieldCheckIcon v-if="tab.id === 'roles'" class="h-5 w-5" />
@@ -176,6 +176,7 @@ import { useApi } from '~/composables/core/useApi'
 import { useAuth } from '~/composables/auth/useAuth'
 import { useConfirm } from '~/composables/ui/useConfirm'
 import { useModuleCatalog } from '~/composables/commerce/useModuleCatalog'
+import { getPermissionMatrixChanges } from '~/utils/permissionMatrixDraft'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -284,7 +285,14 @@ interface SystemModuleRow { module: string; enabled: boolean; label: string | nu
 
 const permissions = ref<PermissionRow[]>([])
 const localMatrix = ref<Record<string, Record<Role, boolean>>>({})
-const pendingChanges = ref<PendingChange[]>([])
+const originalMatrix = ref<Record<string, Record<Role, boolean>>>({})
+const pendingChanges = computed<PendingChange[]>(() =>
+  getPermissionMatrixChanges(originalMatrix.value, localMatrix.value, ROLES).map(change => ({
+    role: change.key as Role,
+    permissionId: change.permissionId,
+    granted: change.granted,
+  }))
+)
 const plans = ref<PlanInfo[]>([])
 const systemModules = ref<SystemModuleRow[]>([])
 const loadingModules = ref(false)
@@ -298,7 +306,13 @@ const successMsg = ref<string | null>(null)
 
 const profilePermissions = ref<ProfilePermissionRow[]>([])
 const localProfileMatrix = ref<Record<string, Record<string, boolean>>>({})
-const pendingProfileChanges = ref<PendingProfileChange[]>([])
+const originalProfileMatrix = ref<Record<string, Record<string, boolean>>>({})
+const pendingProfileChanges = computed<PendingProfileChange[]>(() =>
+  getPermissionMatrixChanges(originalProfileMatrix.value, localProfileMatrix.value, PROFILE_KEYS).map(change => {
+    const parts = PROFILE_KEY_TO_PARTS[change.key]
+    return { ...parts, permissionId: change.permissionId, granted: change.granted }
+  })
+)
 const loadingProfileMatrix = ref(false)
 const savingProfile = ref(false)
 
@@ -342,6 +356,26 @@ const headerStats = computed(() => [
 const { get, post, patch, del } = useApi()
 const { confirm } = useConfirm()
 
+async function selectTab(tab: PermissionTab) {
+  if (tab === activeTab.value) return
+
+  const hasUnsavedChanges = activeTab.value === 'roles'
+    ? pendingChanges.value.length > 0
+    : activeTab.value === 'profiles' && pendingProfileChanges.value.length > 0
+
+  if (hasUnsavedChanges) {
+    const discard = await confirm({
+      title: 'Descartar cambios sin guardar',
+      message: 'Hay cambios pendientes en esta sección. Si continúas, se descartarán y se cargarán los datos del servidor.',
+      confirmText: 'Descartar y continuar',
+      variant: 'danger',
+    })
+    if (!discard) return
+  }
+
+  activeTab.value = tab
+}
+
 async function loadMatrix() {
   loading.value = true
   error.value = null
@@ -357,7 +391,9 @@ async function loadMatrix() {
       }
     }
     localMatrix.value = matrix
-    pendingChanges.value = []
+    originalMatrix.value = Object.fromEntries(
+      Object.entries(matrix).map(([id, values]) => [id, { ...values }])
+    )
   } catch (e: unknown) {
     error.value = (e as Error).message
   } finally {
@@ -372,14 +408,7 @@ function toggleLocal(permissionId: string, roleKey: string, granted: boolean) {
   if (!localMatrix.value[permissionId]) return
   localMatrix.value[permissionId][role] = granted
 
-  const existing = pendingChanges.value.findIndex(
-    c => c.permissionId === permissionId && c.role === role
-  )
-  if (existing >= 0) {
-    pendingChanges.value[existing].granted = granted
-  } else {
-    pendingChanges.value.push({ role, permissionId, granted })
-  }
+
 }
 
 async function saveAll() {
@@ -388,9 +417,12 @@ async function saveAll() {
   error.value = null
   successMsg.value = null
   try {
-    const count = pendingChanges.value.length
-    await patch('/permissions/bulk', { updates: pendingChanges.value })
-    pendingChanges.value = []
+    const updates = [...pendingChanges.value]
+    const count = updates.length
+    await patch('/permissions/bulk', { updates })
+    originalMatrix.value = Object.fromEntries(
+      Object.entries(localMatrix.value).map(([id, values]) => [id, { ...values }])
+    )
     successMsg.value = `${count} permiso(s) actualizados correctamente. Los cambios se aplican en los próximos 5 minutos (cache Redis).`
     setTimeout(() => { successMsg.value = null }, 6000)
   } catch (e: unknown) {
@@ -414,7 +446,9 @@ async function loadProfileMatrix() {
       }
     }
     localProfileMatrix.value = matrix
-    pendingProfileChanges.value = []
+    originalProfileMatrix.value = Object.fromEntries(
+      Object.entries(matrix).map(([id, values]) => [id, { ...values }])
+    )
   } catch (e: unknown) {
     error.value = (e as Error).message
   } finally {
@@ -427,14 +461,7 @@ function toggleProfileLocal(permissionId: string, profileKey: string, granted: b
   localProfileMatrix.value[permissionId][profileKey] = granted
 
   const { profileType, subtype } = PROFILE_KEY_TO_PARTS[profileKey]
-  const existing = pendingProfileChanges.value.findIndex(
-    c => c.permissionId === permissionId && c.profileType === profileType && c.subtype === subtype
-  )
-  if (existing >= 0) {
-    pendingProfileChanges.value[existing].granted = granted
-  } else {
-    pendingProfileChanges.value.push({ profileType, subtype, permissionId, granted })
-  }
+
 }
 
 async function saveAllProfile() {
@@ -443,9 +470,12 @@ async function saveAllProfile() {
   error.value = null
   successMsg.value = null
   try {
-    const count = pendingProfileChanges.value.length
-    await patch('/permissions/profile-bulk', { updates: pendingProfileChanges.value })
-    pendingProfileChanges.value = []
+    const updates = [...pendingProfileChanges.value]
+    const count = updates.length
+    await patch('/permissions/profile-bulk', { updates })
+    originalProfileMatrix.value = Object.fromEntries(
+      Object.entries(localProfileMatrix.value).map(([id, values]) => [id, { ...values }])
+    )
     successMsg.value = `${count} permiso(s) de perfil actualizados correctamente. Los cambios se aplican en los próximos 5 minutos (cache Redis).`
     setTimeout(() => { successMsg.value = null }, 6000)
   } catch (e: unknown) {
