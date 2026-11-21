@@ -27,6 +27,7 @@
         <UserPreferencesCard @saved="showUserToast" />
         <UserNotificationsCard />
         <UserPrivacyCard />
+        <TelegramAlertsCard />
         <LocationPreferenceCard @saved="showUserToast" />
         <LocalDataCard @cleared="showUserToast" />
         <AboutCard :email="user?.email" :role-label="roleLabel" />
@@ -203,6 +204,7 @@ import BnplSettingsSection from '~/components/settings/BnplSettingsSection.vue'
 import UserPreferencesCard from '~/components/settings/UserPreferencesCard.vue'
 import UserNotificationsCard from '~/components/settings/UserNotificationsCard.vue'
 import UserPrivacyCard from '~/components/settings/UserPrivacyCard.vue'
+import TelegramAlertsCard from '~/components/settings/TelegramAlertsCard.vue'
 import LocationPreferenceCard from '~/components/settings/LocationPreferenceCard.vue'
 import LocalDataCard from '~/components/settings/LocalDataCard.vue'
 import AboutCard from '~/components/settings/AboutCard.vue'

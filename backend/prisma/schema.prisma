@@ -47,6 +47,11 @@ model User {
 
   emailVerified Boolean @default(false)
 
+  // Chat de Telegram vinculado por el propio usuario para recibir avisos que
+  // piden acción (pedido nuevo, pago reportado) cuando el push no llega:
+  // respaldo gratis con mala señal. Null = no vinculado.
+  telegramChatId String? @unique
+
   // Denormalizado para checks rápidos en guards (sin join); la fuente de
   // verdad detallada vive en IdentityVerification.
   kycStatus             KycStatus              @default(NONE)
