@@ -19,7 +19,7 @@ export class ConvertServiceInquiryDto {
   // La consulta puede haberse creado sin teléfono; se confirma al contratar.
   @IsString()
   @IsOptional()
-  @Matches(/^[+]?[\\d\\s()-]{7,20}$/, {
+  @Matches(/^[+]?[\d\s()-]{7,20}$/, {
     message: 'Ingresa un teléfono válido',
   })
   clientPhone?: string;
