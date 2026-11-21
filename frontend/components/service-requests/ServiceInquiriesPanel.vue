@@ -153,6 +153,7 @@ type Inquiry = {
   status: 'OPEN' | 'RESPONDED' | 'CLOSED' | 'CANCELLED' | 'CONVERTED'
   modality: string
   preferredDate?: string | null
+  clientPhone?: string | null
   city?: string | null
   message?: string | null
   providerResponse?: string | null
@@ -228,7 +229,7 @@ async function respond(inquiry: Inquiry) {
 function openConversion(inquiry: Inquiry) {
   conversionTargetId.value = inquiry.id
   conversionDate.value = inquiry.preferredDate ? new Date(inquiry.preferredDate).toISOString().slice(0, 10) : ''
-  conversionPhone.value = ''
+  conversionPhone.value = inquiry.clientPhone ?? ''
 }
 function closeConversion() {
   conversionTargetId.value = ''
