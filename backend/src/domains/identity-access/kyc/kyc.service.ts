@@ -233,7 +233,7 @@ export class KycService {
     id: string,
     reviewerId: string,
     dto: {
-      status: EnhancedReviewStatus.APPROVED | EnhancedReviewStatus.REJECTED;
+      status: 'APPROVED' | 'REJECTED';
       reason: string;
       expiresAt?: string;
     }
