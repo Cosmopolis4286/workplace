@@ -237,6 +237,29 @@ jobs:
         cache-from: ${{ runner.environment == 'github-hosted' && 'type=gha,scope=pr-frontend' || '' }}
         cache-to: ${{ runner.environment == 'github-hosted' && 'type=gha,mode=max,scope=pr-frontend' || '' }}
 
+  # ─── E2E (Playwright) ──────────────────────────────────────────────────────
+  # Las mismas pruebas que el deploy, pero en un runner de GitHub: un fallo se
+  # ve en el PR, con el reporte y los logs guardados, y no recién en el deploy
+  # del runner propio (donde se perdían si la PC se suspendía).
+  e2e:
+    name: Tests E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+    - uses: actions/checkout@v7
+    - name: Ejecutar E2E
+      run: |
+        chmod +x scripts/ci/run-e2e-optimized.sh
+        ./scripts/ci/run-e2e-optimized.sh
+    - name: Subir reporte de Playwright
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: playwright-report-pr
+        path: e2e-tests/playwright-report/
+        retention-days: 14
+        if-no-files-found: ignore
+
   # ─── Escaneo de seguridad ──────────────────────────────────────────────────
   security-scan:
     name: Escaneo de Seguridad
@@ -310,7 +333,7 @@ jobs:
   notify:
     name: Comentar Estado en PR
     runs-on: ubuntu-latest
-    needs: [validate, validate-migrations, validate-frontend, docker-build-check, security-scan, dependency-review]
+    needs: [validate, validate-migrations, validate-frontend, docker-build-check, e2e, security-scan, dependency-review]
     # Sin comentario si el run se canceló (p.ej. lo reemplazó un push nuevo).
     if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     steps:
@@ -323,12 +346,13 @@ jobs:
             validateMigrations: '${{ needs.validate-migrations.result }}',
             validateFrontend:  '${{ needs.validate-frontend.result }}',
             dockerBuildCheck:  '${{ needs.docker-build-check.result }}',
+            e2e:               '${{ needs.e2e.result }}',
             securityScan:      '${{ needs.security-scan.result }}',
             dependencyReview:  '${{ needs.dependency-review.result }}',
           };
 
           const icon = (r) => r === 'success' ? '✅' : r === 'skipped' ? '⏭️' : '❌';
-          const allOk = ['validate', 'validateMigrations', 'validateFrontend', 'dockerBuildCheck', 'securityScan', 'dependencyReview']
+          const allOk = ['validate', 'validateMigrations', 'validateFrontend', 'dockerBuildCheck', 'e2e', 'securityScan', 'dependencyReview']
             .every((k) => results[k] === 'success' || results[k] === 'skipped');
 
           const body = [
@@ -340,6 +364,7 @@ jobs:
             `| Migraciones (base vacía) | ${icon(results.validateMigrations)} ${results.validateMigrations} |`,
             `| Types frontend (trinquete) | ${icon(results.validateFrontend)} ${results.validateFrontend} |`,
             `| Build Docker | ${icon(results.dockerBuildCheck)} ${results.dockerBuildCheck} |`,
+            `| E2E (Playwright) | ${icon(results.e2e)} ${results.e2e} |`,
             `| Seguridad (Trivy) | ${icon(results.securityScan)} ${results.securityScan} |`,
             `| Dependencias | ${icon(results.dependencyReview)} ${results.dependencyReview} |`,
             '',
