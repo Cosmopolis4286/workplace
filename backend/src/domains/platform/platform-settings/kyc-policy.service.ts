@@ -33,6 +33,18 @@ export class KycPolicyService {
    * La revisión reforzada se resuelve siempre desde la base de datos. Nunca
    * se consume un booleano de request.user, JWT ni del payload del cliente.
    */
+  async getRequiredLevel(operation: KycPolicyOperation): Promise<KycLevel> {
+    const settings = await this.settings.getAll();
+    const policy = settings['identity.kycPolicy'] as
+      | typeof DEFAULT_KYC_PROGRESSIVE_POLICY
+      | undefined;
+
+    return (
+      policy?.operations?.[operation] ??
+      DEFAULT_KYC_PROGRESSIVE_POLICY.operations[operation]
+    );
+  }
+
   async evaluate(
     operation: KycPolicyOperation,
     subject: KycPolicySubject
