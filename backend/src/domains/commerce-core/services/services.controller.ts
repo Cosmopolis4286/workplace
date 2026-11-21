@@ -38,7 +38,6 @@ import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal
 import { RejectPriceChangeProposalDto } from './dto/reject-price-change-proposal.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RateLimit } from '../../../common/guards/rate-limit.guard';
-import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ResolveDisputeDto } from '../../money/escrow/dto/resolve-dispute.dto';
@@ -412,8 +411,10 @@ export class ServicesController {
     );
   }
 
+  // Sin KYC al solicitar: no mueve dinero (el precio se acuerda después).
+  // Se exige al pagar, por encima del umbral (ManualPaymentsService).
   @Post('requests')
-  @UseGuards(JwtAuthGuard, KycApprovedGuard)
+  @UseGuards(JwtAuthGuard)
   createRequest(
     @Body() dto: CreateServiceRequestDto,
     @CurrentUser() user: any
