@@ -29,6 +29,7 @@ Separar el primer contacto entre un cliente y un prestador de la contratación f
 | GET | /services/requests/inquiries/mine?as=client | Consultas enviadas |
 | GET | /services/requests/inquiries/mine?as=provider | Consultas recibidas |
 | PATCH | /services/requests/inquiries/:id/respond | Responder como prestador propietario |
+| PATCH | /services/requests/inquiries/:id/status | Cancelar (solicitante) o cerrar (cualquiera de los participantes) |
 
 ## Privacidad
 
@@ -43,6 +44,10 @@ El teléfono y la dirección exacta se guardan como datos privados. En la bandej
 - Se limita a cinco consultas por usuario en diez minutos.
 - Los parámetros de paginación se validan como enteros seguros y el límite permitido es de 1 a 100.
 - La respuesta solo puede enviarla el propietario del servicio y se aplica mediante actualización condicional de estado para evitar respuestas simultáneas.
+- El solicitante puede cancelar una consulta en estado OPEN o RESPONDED. Cualquiera de los dos participantes puede cerrarla en esos mismos estados.
+- El endpoint recibe acciones explícitas CANCEL o CLOSE; nunca acepta un estado arbitrario del cliente.
+- Las transiciones se aplican con updateMany condicional. Si una petición concurrente ya aplicó el mismo estado, la repetición responde idempotentemente y no vuelve a notificar.
+- Se notifica al prestador al crear una consulta, al cliente cuando el prestador responde y al participante contrario cuando se cancela o cierra. Las notificaciones no incluyen teléfono, dirección ni contenido privado.
 
 ## Conversación preliminar
 

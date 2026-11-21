@@ -767,7 +767,7 @@ export class ServicesService {
     }
 
     try {
-      return await this.prisma.serviceInquiry.create({
+      const inquiry = await this.prisma.serviceInquiry.create({
         data: {
           serviceId: service.id,
           providerId: service.userId,
@@ -788,6 +788,18 @@ export class ServicesService {
           },
         },
       });
+      try {
+        await this.notifications.notifyNewServiceInquiry(
+          service.userId,
+          inquiry.service.name,
+          inquiry.id
+        );
+      } catch (error) {
+        this.logger.warn(
+          `No se pudo notificar la nueva consulta ${inquiry.id}: ${String(error)}`
+        );
+      }
+      return inquiry;
     } catch (error) {
       // El índice único parcial es la garantía final ante dos altas simultáneas.
       if (
@@ -842,14 +854,105 @@ export class ServicesService {
       throw new NotFoundException('Consulta no encontrada');
     }
 
-    // Esta respuesta vuelve al prestador: nunca debe incluir datos de contacto
-    // ni la dirección exacta guardada durante la consulta.
+    try {
+      await this.notifications.notifyServiceInquiryResponded(
+        updatedInquiry.requesterId,
+        updatedInquiry.service.name,
+        updatedInquiry.id
+      );
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo notificar la respuesta de consulta ${inquiryId}: ${String(error)}`
+      );
+    }
+
+    // Esta respuesta nunca expone teléfono ni dirección exacta.
     return {
       ...updatedInquiry,
       clientPhone: null,
       address: null,
       contactHidden: true,
     };
+  }
+
+  async updateServiceInquiryStatus(
+    inquiryId: string,
+    actorId: string,
+    action: 'CANCEL' | 'CLOSE'
+  ) {
+    const inquiry = await this.prisma.serviceInquiry.findUnique({
+      where: { id: inquiryId },
+      select: {
+        id: true,
+        requesterId: true,
+        providerId: true,
+        status: true,
+        service: { select: { name: true } },
+      },
+    });
+    if (!inquiry) throw new NotFoundException('Consulta no encontrada');
+
+    const isRequester = inquiry.requesterId === actorId;
+    const isProvider = inquiry.providerId === actorId;
+    if (!isRequester && !isProvider) {
+      throw new ForbiddenException('No puedes modificar esta consulta');
+    }
+    if (action === 'CANCEL' && !isRequester) {
+      throw new ForbiddenException(
+        'Solo quien envió la consulta puede cancelarla'
+      );
+    }
+
+    const targetStatus = action === 'CANCEL' ? 'CANCELLED' : 'CLOSED';
+    if (inquiry.status === targetStatus) {
+      return { id: inquiry.id, status: targetStatus, alreadyApplied: true };
+    }
+    if (inquiry.status !== 'OPEN' && inquiry.status !== 'RESPONDED') {
+      throw new ConflictException('La consulta ya no admite cambios');
+    }
+
+    const updated = await this.prisma.serviceInquiry.updateMany({
+      where: {
+        id: inquiryId,
+        status: { in: ['OPEN', 'RESPONDED'] },
+        ...(action === 'CANCEL' ? { requesterId: actorId } : {}),
+        ...(action === 'CLOSE'
+          ? { OR: [{ requesterId: actorId }, { providerId: actorId }] }
+          : {}),
+      },
+      data: { status: targetStatus },
+    });
+
+    if (updated.count !== 1) {
+      const current = await this.prisma.serviceInquiry.findUnique({
+        where: { id: inquiryId },
+        select: { status: true },
+      });
+      if (current?.status === targetStatus) {
+        return { id: inquiry.id, status: targetStatus, alreadyApplied: true };
+      }
+      throw new ConflictException(
+        'La consulta cambió; actualiza e intenta de nuevo'
+      );
+    }
+
+    const recipientId =
+      actorId === inquiry.requesterId
+        ? inquiry.providerId
+        : inquiry.requesterId;
+    try {
+      await this.notifications.notifyServiceInquiryClosed(
+        recipientId,
+        inquiry.service.name,
+        inquiry.id,
+        targetStatus
+      );
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo notificar el cierre de consulta ${inquiryId}: ${String(error)}`
+      );
+    }
+    return { id: inquiry.id, status: targetStatus, alreadyApplied: false };
   }
 
   async getMyServiceInquiries(
