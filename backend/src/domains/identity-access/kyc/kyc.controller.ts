@@ -181,6 +181,18 @@ export class KycController {
     );
   }
 
+  @Get('admin/enhanced-review/active')
+  @Roles(Role.SUPERADMIN)
+  findActiveEnhancedReviews(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20'
+  ) {
+    return this.kycService.findActiveEnhancedReviews(
+      parseInt(page, 10),
+      parseInt(limit, 10)
+    );
+  }
+
   @Patch('admin/enhanced-review/:id/review')
   @Roles(Role.SUPERADMIN)
   @RateLimit({
