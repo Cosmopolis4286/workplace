@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EnhancedReviewStatus, KycStatus, Role } from '@prisma/client';
+import { AuditAction, EnhancedReviewStatus, KycStatus, Role } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
@@ -93,42 +93,58 @@ export class KycService {
       throw new ConflictException('Ya tienes una revisión reforzada vigente');
     }
 
-    let request;
     try {
-      if (current) {
-        const changed = await this.prisma.enhancedReviewRequest.updateMany({
-          where: {
-            id: current.id,
-            status: current.status,
-            ...(current.status === EnhancedReviewStatus.APPROVED
-              ? { expiresAt: { lte: now } }
-              : {}),
-          },
-          data: {
-            status: EnhancedReviewStatus.PENDING,
-            requestReason: reason.trim(),
-            decisionReason: null,
-            reviewedBy: null,
-            reviewedAt: null,
-            expiresAt: null,
-            revokedBy: null,
-            revokedAt: null,
-            revocationReason: null,
-          },
-        });
-        if (changed.count !== 1) {
-          throw new ConflictException(
-            'La solicitud cambió mientras se procesaba. Actualiza el estado e inténtalo de nuevo.'
-          );
+      await this.prisma.$transaction(async (tx) => {
+        let request;
+        if (current) {
+          const changed = await tx.enhancedReviewRequest.updateMany({
+            where: {
+              id: current.id,
+              status: current.status,
+              ...(current.status === EnhancedReviewStatus.APPROVED
+                ? { expiresAt: { lte: now } }
+                : {}),
+            },
+            data: {
+              status: EnhancedReviewStatus.PENDING,
+              requestReason: reason.trim(),
+              decisionReason: null,
+              reviewedBy: null,
+              reviewedAt: null,
+              expiresAt: null,
+              revokedBy: null,
+              revokedAt: null,
+              revocationReason: null,
+            },
+          });
+          if (changed.count !== 1) {
+            throw new ConflictException(
+              'La solicitud cambió mientras se procesaba. Actualiza el estado e inténtalo de nuevo.'
+            );
+          }
+          request = await tx.enhancedReviewRequest.findUniqueOrThrow({
+            where: { id: current.id },
+          });
+        } else {
+          request = await tx.enhancedReviewRequest.create({
+            data: { userId, requestReason: reason.trim() },
+          });
         }
-        request = await this.prisma.enhancedReviewRequest.findUniqueOrThrow({
-          where: { id: current.id },
+
+        await tx.auditLog.create({
+          data: {
+            userId,
+            action: AuditAction.CREATE,
+            module: 'kyc',
+            entityId: request.id,
+            summary: 'Solicitud de revisión reforzada enviada',
+            details: {
+              targetUserId: userId,
+              status: EnhancedReviewStatus.PENDING,
+            },
+          },
         });
-      } else {
-        request = await this.prisma.enhancedReviewRequest.create({
-          data: { userId, requestReason: reason.trim() },
-        });
-      }
+      });
     } catch (error) {
       if (
         error instanceof ConflictException ||
@@ -138,15 +154,6 @@ export class KycService {
       }
       throw new ConflictException('Ya existe una solicitud de revisión reforzada');
     }
-
-    await this.audit.log({
-      userId,
-      action: 'CREATE',
-      module: 'kyc',
-      entityId: request.id,
-      summary: 'Solicitud de revisión reforzada enviada',
-      details: { targetUserId: userId, status: EnhancedReviewStatus.PENDING },
-    });
     return this.getMyEnhancedReview(userId);
   }
 
@@ -264,43 +271,47 @@ export class KycService {
       );
     }
 
-    const changed = await this.prisma.enhancedReviewRequest.updateMany({
-      where: { id, status: EnhancedReviewStatus.PENDING },
-      data: {
-        status: dto.status,
-        decisionReason: dto.reason.trim(),
-        reviewedBy: reviewerId,
-        reviewedAt: now,
-        expiresAt,
-      },
-    });
-    if (changed.count !== 1) {
-      throw new ConflictException(
-        'La solicitud fue revisada por otro administrador. Actualiza la bandeja.'
-      );
-    }
+    return this.prisma.$transaction(async (tx) => {
+      const changed = await tx.enhancedReviewRequest.updateMany({
+        where: { id, status: EnhancedReviewStatus.PENDING },
+        data: {
+          status: dto.status,
+          decisionReason: dto.reason.trim(),
+          reviewedBy: reviewerId,
+          reviewedAt: now,
+          expiresAt,
+        },
+      });
+      if (changed.count !== 1) {
+        throw new ConflictException(
+          'La solicitud fue revisada por otro administrador. Actualiza la bandeja.'
+        );
+      }
 
-    const updated = await this.prisma.enhancedReviewRequest.findUniqueOrThrow({
-      where: { id },
+      const updated = await tx.enhancedReviewRequest.findUniqueOrThrow({
+        where: { id },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: reviewerId,
+          action: AuditAction.UPDATE,
+          module: 'kyc',
+          entityId: id,
+          summary:
+            dto.status === EnhancedReviewStatus.APPROVED
+              ? 'Revisión reforzada aprobada por SUPERADMIN'
+              : 'Revisión reforzada rechazada por SUPERADMIN',
+          details: {
+            targetUserId: current.userId,
+            previousStatus: current.status,
+            status: dto.status,
+            reason: dto.reason.trim(),
+            expiresAt: expiresAt?.toISOString() ?? null,
+          },
+        },
+      });
+      return updated;
     });
-    await this.audit.log({
-      userId: reviewerId,
-      action: 'UPDATE',
-      module: 'kyc',
-      entityId: id,
-      summary:
-        dto.status === EnhancedReviewStatus.APPROVED
-          ? 'Revisión reforzada aprobada por SUPERADMIN'
-          : 'Revisión reforzada rechazada por SUPERADMIN',
-      details: {
-        targetUserId: current.userId,
-        previousStatus: current.status,
-        status: dto.status,
-        reason: dto.reason.trim(),
-        expiresAt,
-      },
-    });
-    return updated;
   }
 
   async revokeEnhancedReview(
@@ -309,41 +320,45 @@ export class KycService {
     reason: string
   ) {
     const now = new Date();
-    const changed = await this.prisma.enhancedReviewRequest.updateMany({
-      where: {
-        id,
-        status: EnhancedReviewStatus.APPROVED,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-      },
-      data: {
-        status: EnhancedReviewStatus.REVOKED,
-        revokedBy: reviewerId,
-        revokedAt: now,
-        revocationReason: reason.trim(),
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const changed = await tx.enhancedReviewRequest.updateMany({
+        where: {
+          id,
+          status: EnhancedReviewStatus.APPROVED,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
+        data: {
+          status: EnhancedReviewStatus.REVOKED,
+          revokedBy: reviewerId,
+          revokedAt: now,
+          revocationReason: reason.trim(),
+        },
+      });
+      if (changed.count !== 1) {
+        throw new ConflictException(
+          'La revisión reforzada no está vigente o ya fue revocada'
+        );
+      }
+      const updated = await tx.enhancedReviewRequest.findUniqueOrThrow({
+        where: { id },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: reviewerId,
+          action: AuditAction.UPDATE,
+          module: 'kyc',
+          entityId: id,
+          summary: 'Revisión reforzada revocada por SUPERADMIN',
+          details: {
+            targetUserId: updated.userId,
+            previousStatus: EnhancedReviewStatus.APPROVED,
+            status: EnhancedReviewStatus.REVOKED,
+            reason: reason.trim(),
+          },
+        },
+      });
+      return updated;
     });
-    if (changed.count !== 1) {
-      throw new ConflictException(
-        'La revisión reforzada no está vigente o ya fue revocada'
-      );
-    }
-    const updated = await this.prisma.enhancedReviewRequest.findUniqueOrThrow({
-      where: { id },
-    });
-    await this.audit.log({
-      userId: reviewerId,
-      action: 'UPDATE',
-      module: 'kyc',
-      entityId: id,
-      summary: 'Revisión reforzada revocada por SUPERADMIN',
-      details: {
-        targetUserId: updated.userId,
-        previousStatus: EnhancedReviewStatus.APPROVED,
-        status: EnhancedReviewStatus.REVOKED,
-        reason: reason.trim(),
-      },
-    });
-    return updated;
   }
 
   async submit(
