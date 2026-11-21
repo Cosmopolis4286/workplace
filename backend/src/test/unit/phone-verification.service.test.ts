@@ -42,7 +42,7 @@ describe('PhoneVerificationService', () => {
       prisma as unknown as PrismaService,
       redis as unknown as RedisService,
       config as unknown as ConfigService,
-      smsProvider as unknown as MessangiSmsProvider,
+      smsProvider as unknown as MessangiSmsProvider
     );
   });
 
@@ -60,7 +60,7 @@ describe('PhoneVerificationService', () => {
         externalId: expect.stringMatching(/^wp-phone-[0-9a-f-]{36}$/),
         clientId: 'user-1',
         text: expect.stringMatching(/^Tu codigo WorkPlace: \d{6}\./),
-      }),
+      })
     );
 
     const sentMessage = smsProvider.send.mock.calls[0][0];
@@ -88,9 +88,9 @@ describe('PhoneVerificationService', () => {
   });
 
   it('rejects malformed codes without updating the user', async () => {
-    await expect(
-      service.verifyCode('user-1', '123'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.verifyCode('user-1', '123')).rejects.toBeInstanceOf(
+      BadRequestException
+    );
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
