@@ -12,7 +12,6 @@ export interface KycPolicySubject {
   authenticated: boolean;
   phoneVerified?: boolean;
   kycStatus?: KycStatus;
-  enhancedReviewApproved?: boolean;
 }
 
 const LEVEL_RANK: Record<KycLevel, number> = {
@@ -34,9 +33,20 @@ export class KycPolicyService {
    * La revisión reforzada se resuelve siempre desde la base de datos. Nunca
    * se consume un booleano de request.user, JWT ni del payload del cliente.
    */
+  async evaluate(
+    operation: KycPolicyOperation,
+    subject: KycPolicySubject
+  ) {
+    return this.evaluateWithReview(operation, subject, false);
+  }
+
+  /**
+   * La revisión reforzada se resuelve siempre desde la base de datos. Nunca
+   * se consume un booleano de request.user, JWT ni del payload del cliente.
+   */
   async evaluateForUser(
     operation: KycPolicyOperation,
-    subject: Omit<KycPolicySubject, 'enhancedReviewApproved'>,
+    subject: KycPolicySubject,
     userId?: string
   ) {
     if (!userId) return this.evaluate(operation, subject);
@@ -50,23 +60,19 @@ export class KycPolicyService {
         (!review.expiresAt || review.expiresAt > new Date())
     );
 
-    return this.evaluate(operation, { ...subject, enhancedReviewApproved });
+    return this.evaluateWithReview(operation, subject, enhancedReviewApproved);
   }
 
-  async getRequiredLevel(operation: KycPolicyOperation): Promise<KycLevel> {
-    const settings = await this.settings.getAll();
-    const policy = settings['identity.kycPolicy'] as
-      typeof DEFAULT_KYC_PROGRESSIVE_POLICY | undefined;
-
-    return (
-      policy?.operations?.[operation] ??
-      DEFAULT_KYC_PROGRESSIVE_POLICY.operations[operation]
-    );
-  }
-
-  async evaluate(operation: KycPolicyOperation, subject: KycPolicySubject) {
+  private async evaluateWithReview(
+    operation: KycPolicyOperation,
+    subject: KycPolicySubject,
+    enhancedReviewApproved: boolean
+  ) {
     const requiredLevel = await this.getRequiredLevel(operation);
-    const currentLevel = this.resolveSubjectLevel(subject);
+    const currentLevel = this.resolveSubjectLevel(
+      subject,
+      enhancedReviewApproved
+    );
     const allowed = LEVEL_RANK[currentLevel] >= LEVEL_RANK[requiredLevel];
 
     const reason = allowed
@@ -82,13 +88,16 @@ export class KycPolicyService {
     };
   }
 
-  private resolveSubjectLevel(subject: KycPolicySubject): KycLevel {
+  private resolveSubjectLevel(
+    subject: KycPolicySubject,
+    enhancedReviewApproved: boolean
+  ): KycLevel {
     if (!subject.authenticated) {
       return 'PUBLIC';
     }
 
     if (
-      subject.enhancedReviewApproved &&
+      enhancedReviewApproved &&
       subject.kycStatus === KycStatus.APPROVED
     ) {
       return 'ENHANCED_REVIEW';
