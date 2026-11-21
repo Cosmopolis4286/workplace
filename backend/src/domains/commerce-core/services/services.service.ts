@@ -898,7 +898,9 @@ export class ServicesService {
       throw new ForbiddenException('No puedes modificar esta consulta');
     }
     if (action === 'CANCEL' && !isRequester) {
-      throw new ForbiddenException('Solo quien envió la consulta puede cancelarla');
+      throw new ForbiddenException(
+        'Solo quien envió la consulta puede cancelarla'
+      );
     }
 
     const targetStatus = action === 'CANCEL' ? 'CANCELLED' : 'CLOSED';
@@ -914,7 +916,9 @@ export class ServicesService {
         id: inquiryId,
         status: { in: ['OPEN', 'RESPONDED'] },
         ...(action === 'CANCEL' ? { requesterId: actorId } : {}),
-        ...(action === 'CLOSE' ? { OR: [{ requesterId: actorId }, { providerId: actorId }] } : {}),
+        ...(action === 'CLOSE'
+          ? { OR: [{ requesterId: actorId }, { providerId: actorId }] }
+          : {}),
       },
       data: { status: targetStatus },
     });
@@ -927,12 +931,15 @@ export class ServicesService {
       if (current?.status === targetStatus) {
         return { id: inquiry.id, status: targetStatus, alreadyApplied: true };
       }
-      throw new ConflictException('La consulta cambió; actualiza e intenta de nuevo');
+      throw new ConflictException(
+        'La consulta cambió; actualiza e intenta de nuevo'
+      );
     }
 
-    const recipientId = actorId === inquiry.requesterId
-      ? inquiry.providerId
-      : inquiry.requesterId;
+    const recipientId =
+      actorId === inquiry.requesterId
+        ? inquiry.providerId
+        : inquiry.requesterId;
     try {
       await this.notifications.notifyServiceInquiryClosed(
         recipientId,

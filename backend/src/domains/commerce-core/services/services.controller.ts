@@ -400,7 +400,11 @@ export class ServicesController {
     @Body() dto: UpdateServiceInquiryStatusDto,
     @CurrentUser() user: any
   ) {
-    return this.servicesService.updateServiceInquiryStatus(id, user.id, dto.action);
+    return this.servicesService.updateServiceInquiryStatus(
+      id,
+      user.id,
+      dto.action
+    );
   }
 
   @Get('requests/inquiries/mine')

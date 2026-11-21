@@ -256,11 +256,9 @@ describe('ServicesService — service request status transitions', () => {
         })
       );
       expect(created.providerId).toBe('provider-1');
-      expect(mockNotificationsService.notifyNewServiceInquiry).toHaveBeenCalledWith(
-        'provider-1',
-        'Servicio real',
-        'inquiry-1'
-      );
+      expect(
+        mockNotificationsService.notifyNewServiceInquiry
+      ).toHaveBeenCalledWith('provider-1', 'Servicio real', 'inquiry-1');
 
       mockPrismaService.serviceInquiry.findMany.mockResolvedValue([
         {
@@ -306,11 +304,9 @@ describe('ServicesService — service request status transitions', () => {
       expect(response?.clientPhone).toBeNull();
       expect(response?.address).toBeNull();
       expect(response?.contactHidden).toBe(true);
-      expect(mockNotificationsService.notifyServiceInquiryResponded).toHaveBeenCalledWith(
-        'client-1',
-        'Servicio real',
-        'inquiry-1'
-      );
+      expect(
+        mockNotificationsService.notifyServiceInquiryResponded
+      ).toHaveBeenCalledWith('client-1', 'Servicio real', 'inquiry-1');
       expect(mockPrismaService.serviceInquiry.updateMany).toHaveBeenCalledWith({
         where: { id: 'inquiry-1', providerId: 'provider-1', status: 'OPEN' },
         data: {
@@ -344,7 +340,9 @@ describe('ServicesService — service request status transitions', () => {
         },
         data: { status: 'CANCELLED' },
       });
-      expect(mockNotificationsService.notifyServiceInquiryClosed).toHaveBeenCalledWith(
+      expect(
+        mockNotificationsService.notifyServiceInquiryClosed
+      ).toHaveBeenCalledWith(
         'provider-1',
         'Servicio real',
         'inquiry-1',
@@ -364,9 +362,15 @@ describe('ServicesService — service request status transitions', () => {
       await expect(
         service.updateServiceInquiryStatus('inquiry-1', 'provider-1', 'CANCEL')
       ).rejects.toThrow(ForbiddenException);
-      expect(mockPrismaService.serviceInquiry.updateMany).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.serviceInquiry.updateMany
+      ).not.toHaveBeenCalled();
 
-      await service.updateServiceInquiryStatus('inquiry-1', 'provider-1', 'CLOSE');
+      await service.updateServiceInquiryStatus(
+        'inquiry-1',
+        'provider-1',
+        'CLOSE'
+      );
       expect(mockPrismaService.serviceInquiry.updateMany).toHaveBeenCalledWith({
         where: {
           id: 'inquiry-1',
@@ -375,7 +379,9 @@ describe('ServicesService — service request status transitions', () => {
         },
         data: { status: 'CLOSED' },
       });
-      expect(mockNotificationsService.notifyServiceInquiryClosed).toHaveBeenCalledWith(
+      expect(
+        mockNotificationsService.notifyServiceInquiryClosed
+      ).toHaveBeenCalledWith(
         'client-1',
         'Servicio real',
         'inquiry-1',
@@ -399,8 +405,12 @@ describe('ServicesService — service request status transitions', () => {
         status: 'CANCELLED',
         alreadyApplied: true,
       });
-      expect(mockPrismaService.serviceInquiry.updateMany).not.toHaveBeenCalled();
-      expect(mockNotificationsService.notifyServiceInquiryClosed).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.serviceInquiry.updateMany
+      ).not.toHaveBeenCalled();
+      expect(
+        mockNotificationsService.notifyServiceInquiryClosed
+      ).not.toHaveBeenCalled();
     });
 
     it('resuelve una carrera como idempotente si otra petición ganó la transición', async () => {
@@ -413,7 +423,9 @@ describe('ServicesService — service request status transitions', () => {
           service: { name: 'Servicio real' },
         })
         .mockResolvedValueOnce({ id: 'inquiry-1', status: 'CANCELLED' });
-      mockPrismaService.serviceInquiry.updateMany.mockResolvedValueOnce({ count: 0 });
+      mockPrismaService.serviceInquiry.updateMany.mockResolvedValueOnce({
+        count: 0,
+      });
 
       await expect(
         service.updateServiceInquiryStatus('inquiry-1', 'client-1', 'CANCEL')
@@ -422,7 +434,9 @@ describe('ServicesService — service request status transitions', () => {
         status: 'CANCELLED',
         alreadyApplied: true,
       });
-      expect(mockNotificationsService.notifyServiceInquiryClosed).not.toHaveBeenCalled();
+      expect(
+        mockNotificationsService.notifyServiceInquiryClosed
+      ).not.toHaveBeenCalled();
     });
 
     it('convierte una colisión del índice único en conflicto de dominio', async () => {
