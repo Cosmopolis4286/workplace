@@ -37,7 +37,7 @@ export class KycApprovedGuard implements CanActivate {
         authenticated: Boolean(user?.id),
         // No inferir verificación telefónica desde User.phone.
         // No aceptar señales de revisión reforzada enviadas por el cliente.
-        phoneVerified: false,
+        phoneVerified: Boolean(user?.phoneVerifiedAt),
         kycStatus: user?.kycStatus,
       });
 
