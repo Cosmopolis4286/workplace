@@ -28,9 +28,9 @@ export class PlatformSettingsController {
   @Roles(Role.SUPERADMIN)
   set(
     @Param('key') key: string,
-    @Body('value') value: unknown,
+    @Body() body: { value: unknown; reason?: string },
     @CurrentUser() user: { id: string }
   ) {
-    return this.settings.set(key, value, user.id);
+    return this.settings.set(key, body.value, user.id, body.reason);
   }
 }
