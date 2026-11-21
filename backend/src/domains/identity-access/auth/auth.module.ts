@@ -10,6 +10,8 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { UsersModule } from '../users/users.module';
 import { MailModule } from '../../engagement/mail/mail.module';
 import { SessionCleanupScheduler } from '../../../common/schedulers/session-cleanup.scheduler';
+import { PhoneVerificationService } from './phone-verification.service';
+import { MessangiSmsProvider } from './messangi-sms.provider';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { SessionCleanupScheduler } from '../../../common/schedulers/session-clea
   ],
   providers: [
     AuthService,
+    PhoneVerificationService,
+    MessangiSmsProvider,
     TwoFactorService,
     JwtStrategy,
     JwtRefreshStrategy,

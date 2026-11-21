@@ -32,13 +32,13 @@ import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { CreateServiceInquiryDto } from './dto/create-service-inquiry.dto';
 import { RespondServiceInquiryDto } from './dto/respond-service-inquiry.dto';
+import { UpdateServiceInquiryStatusDto } from './dto/update-service-inquiry-status.dto';
 import { UpdateServiceRequestDto } from './dto/update-service-request.dto';
 import { AcceptLeadFeeDto } from './dto/accept-lead-fee.dto';
 import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
 import { RejectPriceChangeProposalDto } from './dto/reject-price-change-proposal.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RateLimit } from '../../../common/guards/rate-limit.guard';
-import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ResolveDisputeDto } from '../../money/escrow/dto/resolve-dispute.dto';
@@ -387,6 +387,25 @@ export class ServicesController {
     return this.servicesService.respondToServiceInquiry(id, user.id, dto);
   }
 
+  @Patch('requests/inquiries/:id/status')
+  @UseGuards(JwtAuthGuard)
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 20,
+    keyGenerator: (req) => `service-inquiries:status:${req.ip}`,
+  })
+  updateServiceInquiryStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateServiceInquiryStatusDto,
+    @CurrentUser() user: any
+  ) {
+    return this.servicesService.updateServiceInquiryStatus(
+      id,
+      user.id,
+      dto.action
+    );
+  }
+
   @Get('requests/inquiries/mine')
   @UseGuards(JwtAuthGuard)
   getMyServiceInquiries(
@@ -412,8 +431,10 @@ export class ServicesController {
     );
   }
 
+  // Sin KYC al solicitar: no mueve dinero (el precio se acuerda después).
+  // Se exige al pagar, por encima del umbral (ManualPaymentsService).
   @Post('requests')
-  @UseGuards(JwtAuthGuard, KycApprovedGuard)
+  @UseGuards(JwtAuthGuard)
   createRequest(
     @Body() dto: CreateServiceRequestDto,
     @CurrentUser() user: any

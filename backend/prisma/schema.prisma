@@ -16,6 +16,7 @@ model User {
   firstName         String
   lastName          String
   phone             String?
+  phoneVerifiedAt   DateTime?
   birthDate         DateTime?
   sex               Sex?
   avatar            String?

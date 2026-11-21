@@ -33,6 +33,8 @@ export interface NavigationResponse {
   // Ruta → módulos alternativos: basta uno (con su permiso `:view`). Ej.
   // '/jobs' → ['employees']: publicar vacantes es de quien tiene personal.
   routeAnyModules: Record<string, string[]>
+  // Ruta → capacidades alternativas: basta una. Ej. '/my-store'.
+  routeAnyCapabilities: Record<string, Capability[]>
   generatedAt: string
 }
 
@@ -41,6 +43,7 @@ const routePermissions = ref<Record<string, string | null>>({})
 const routeModules = ref<Record<string, string>>({})
 const routeCapabilities = ref<Record<string, Capability>>({})
 const routeAnyModules = ref<Record<string, string[]>>({})
+const routeAnyCapabilities = ref<Record<string, Capability[]>>({})
 // Carga en curso compartida entre quienes llamen a la vez.
 let inFlight: Promise<void> | null = null
 const loaded = ref(false)
@@ -70,6 +73,7 @@ export function useNavigation() {
       routeModules.value = data.routeModules
       routeCapabilities.value = data.routeCapabilities ?? {}
       routeAnyModules.value = data.routeAnyModules ?? {}
+      routeAnyCapabilities.value = data.routeAnyCapabilities ?? {}
       loaded.value = true
     } catch {
       // Degradación: sections vacío, el sidebar no muestra items restringidos.
@@ -117,6 +121,7 @@ export function useNavigation() {
     routeModules: computed(() => routeModules.value),
     routeCapabilities: computed(() => routeCapabilities.value),
     routeAnyModules: computed(() => routeAnyModules.value),
+    routeAnyCapabilities: computed(() => routeAnyCapabilities.value),
     loaded: computed(() => loaded.value),
     loading: computed(() => loading.value),
     loadNavigation,

@@ -29,6 +29,7 @@ export const QUICK_ACCESS_CANDIDATES: QuickAccessCandidate[] = [
   { id: 'jobs',                 to: '/jobs',                 label: 'Empleos',     permission: 'jobs:view',             icon: 'jobs',      gradient: 'bg-gradient-to-br from-slate-600 to-slate-800',      normalOnly: false },
   { id: 'customer-dashboard',   to: '/customer-dashboard',   label: 'Mi Panel',    permission: 'orders:view',           icon: 'home',      gradient: 'bg-gradient-to-br from-rose-500 to-workplace-red',  normalOnly: false },
   { id: 'dashboard',            to: '/dashboard',            label: 'Dashboard',   permission: 'dashboard:view',        icon: 'dashboard', gradient: 'bg-gradient-to-br from-workplace-red to-red-800',   normalOnly: false },
+  { id: 'my-store',              to: '/my-store',              label: 'Mi tienda',   permission: null,                    icon: 'menu',      gradient: 'bg-gradient-to-br from-purple-600 to-indigo-700',   normalOnly: false },
   { id: 'analytics',            to: '/analytics',            label: 'Analytics',   permission: 'analytics:view',        icon: 'analytics', gradient: 'bg-gradient-to-br from-rose-600 to-red-900',        normalOnly: false },
   { id: 'customers',            to: '/customers',            label: 'Clientes',    permission: 'customers:view',        icon: 'customers', gradient: 'bg-gradient-to-br from-red-500 to-rose-700',        normalOnly: false },
   { id: 'delivery',             to: '/delivery',             label: 'Delivery',    permission: 'delivery:view',         icon: 'delivery',  gradient: 'bg-gradient-to-br from-gray-600 to-gray-800',       normalOnly: false },
@@ -43,7 +44,7 @@ export function useQuickAccess() {
   const { hasModule } = useModules()
   const { patch } = useApi()
 
-  const { routeCapabilities, routeAnyModules } = useNavigation()
+  const { routeCapabilities, routeAnyModules, routeAnyCapabilities } = useNavigation()
   const { hasCapability } = useProfileContext()
 
   const savedIds = computed<string[]>(() => user.value?.profileSettings?.quickAccessIds ?? [])
@@ -52,13 +53,15 @@ export function useQuickAccess() {
   // Mismas capas que el backend: permiso (rol base + perfiles) → módulo
   // (plan ∩ categoría) → capacidad de la ruta (¿tiene Commerce?).
   function canSee(permission: string | null, to?: string): boolean {
-    if (permission === null) return true
-    const module = permission.split(':')[0]
     if (to === '/orders' && role.value === 'NORMAL') return false
     const capability = to ? routeCapabilities.value[to] : undefined
     if (capability && !hasCapability(capability)) return false
+    const anyCapabilities = to ? routeAnyCapabilities.value[to] : undefined
+    if (anyCapabilities && !anyCapabilities.some(hasCapability)) return false
     const anyModules = to ? routeAnyModules.value[to] : undefined
     if (anyModules && !anyModules.some(m => hasModule(m) && can(`${m}:view`))) return false
+    if (permission === null) return true
+    const module = permission.split(':')[0]
     return can(permission) && hasModule(module)
   }
 

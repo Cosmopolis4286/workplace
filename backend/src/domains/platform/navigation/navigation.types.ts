@@ -144,5 +144,7 @@ export interface NavigationResponse {
   routeCapabilities: Record<string, Capability>;
   /** Ruta → módulos alternativos (basta uno, con su permiso `:view`), ej. '/jobs' → ['employees']. */
   routeAnyModules: Record<string, string[]>;
+  /** Ruta → capacidades alternativas: basta una (ej. '/my-store' → Commerce o perfil profesional). */
+  routeAnyCapabilities: Record<string, Capability[]>;
   generatedAt: string;
 }

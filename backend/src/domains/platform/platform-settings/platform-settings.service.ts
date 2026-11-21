@@ -47,6 +47,9 @@ export const PLATFORM_SETTINGS = {
     default: DEFAULT_KYC_PROGRESSIVE_POLICY,
     public: false,
   },
+  // Monto (USD) por encima del cual un comprador debe tener su identidad
+  // verificada (KYC) para pagar. 0 = siempre. Vender y retirar siempre la exigen.
+  'kyc.buyerThresholdUsd': { type: 'number', default: 50, public: true },
 } as const;
 
 export type PlatformSettingKey = keyof typeof PLATFORM_SETTINGS;

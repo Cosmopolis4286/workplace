@@ -13,9 +13,11 @@ import {
   ExternalPaymentStatus,
   ExternalSettlementMode,
   FeePayer,
+  KycStatus,
   ManualPaymentReportStatus,
   NotificationType,
   Prisma,
+  Role,
   SellerPaymentAccount,
   SellerPaymentMethod,
 } from '@prisma/client';
@@ -92,6 +94,11 @@ export class ManualPaymentsService {
       sourceType,
       sourceId,
       payerUserId
+    );
+    await this.assertBuyerKyc(
+      payerUserId,
+      source.currency,
+      new Prisma.Decimal(source.baseAmount)
     );
     const sellerAccounts = await this.accounts.listActiveForSeller(
       source.sellerUserId
@@ -184,6 +191,7 @@ export class ManualPaymentsService {
     if (intent.payerUserId !== payerUserId) {
       throw new ForbiddenException('Este pago no te pertenece');
     }
+    await this.assertBuyerKyc(payerUserId, intent.currency, intent.amount);
     if (!REPORTABLE.includes(intent.status)) {
       throw new ConflictException(
         intent.status === ExternalPaymentStatus.PROCESSING
@@ -396,6 +404,50 @@ export class ManualPaymentsService {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  /**
+   * KYC proporcional: el comprador solo debe verificar su identidad si el
+   * pago supera el umbral (ajuste `kyc.buyerThresholdUsd`, 50 USD por
+   * defecto; 0 = siempre). En zonas con mala señal, subir cédula y selfie
+   * para una compra chica frena al cliente; vender y retirar la exigen siempre.
+   */
+  private async assertBuyerKyc(
+    payerUserId: string,
+    currency: string,
+    amount: Prisma.Decimal
+  ) {
+    const payer = await this.prisma.user.findUnique({
+      where: { id: payerUserId },
+      select: { kycStatus: true, role: true },
+    });
+    if (
+      payer?.kycStatus === KycStatus.APPROVED ||
+      payer?.role === Role.SUPERADMIN ||
+      payer?.role === Role.ADMIN
+    )
+      return;
+
+    const setting = await this.prisma.platformSetting.findUnique({
+      where: { key: 'kyc.buyerThresholdUsd' },
+      select: { value: true },
+    });
+    const threshold = typeof setting?.value === 'number' ? setting.value : 50;
+
+    let amountUsd: Prisma.Decimal | null = amount;
+    if (currency !== 'USD') {
+      const rate = await this.rates.resolveRateToUsd(currency);
+      amountUsd =
+        rate && rate.rateToUsd.gt(0) ? amount.div(rate.rateToUsd) : null;
+    }
+    // Sin tasa no se puede comparar: se pide la verificación por seguridad.
+    if (threshold <= 0 || amountUsd === null || amountUsd.gt(threshold)) {
+      throw new ForbiddenException(
+        threshold > 0
+          ? `Para pagos de más de USD ${threshold} debes verificar tu identidad. Complétala en tu perfil.`
+          : 'Debes verificar tu identidad antes de pagar. Complétala en tu perfil.'
+      );
+    }
+  }
 
   private async settleReport(
     tx: Prisma.TransactionClient,
