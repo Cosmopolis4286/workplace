@@ -132,6 +132,39 @@ export class ConversationsService {
       };
     }
 
+    if (type === ConversationThreadType.SERVICE_INQUIRY) {
+      const inquiry = await this.prisma.serviceInquiry.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          providerId: true,
+          requesterId: true,
+          status: true,
+          service: { select: { name: true } },
+        },
+      });
+      if (!inquiry) throw new NotFoundException('Consulta no encontrada');
+
+      const isClient = inquiry.requesterId === user.id;
+      const isProvider = inquiry.providerId === user.id;
+      if (!isClient && !isProvider) {
+        throw new ForbiddenException('No tienes acceso a esta conversación');
+      }
+
+      return {
+        buyerSide: [inquiry.requesterId],
+        sellerSide: [inquiry.providerId],
+        viewerSide: isClient ? 'buyer' : 'seller',
+        blockContactInfo: true,
+        title: `la consulta de ${inquiry.service.name}`,
+        link: {
+          buyer: '/service-requests?view=inquiries&as=client',
+          seller: '/service-requests?view=inquiries&as=provider',
+        },
+        closed: !['OPEN', 'RESPONDED'].includes(inquiry.status),
+      };
+    }
+
     const report = await this.prisma.report.findUnique({
       where: { id },
       select: { reporterId: true },
@@ -229,7 +262,9 @@ export class ConversationsService {
           type:
             type === ConversationThreadType.DELIVERY
               ? NotificationType.DELIVERY
-              : NotificationType.ORDER,
+              : type === ConversationThreadType.SERVICE_INQUIRY
+                ? NotificationType.SERVICE_REQUEST
+                : NotificationType.ORDER,
           title: '💬 Nuevo mensaje',
           message: `Tienes un mensaje nuevo sobre ${thread.title}`,
           link,

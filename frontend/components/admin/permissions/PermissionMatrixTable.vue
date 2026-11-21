@@ -6,17 +6,18 @@
     </div>
 
     <!-- Permission Matrix Table -->
-    <div v-else class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div v-else class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div class="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/80 px-4 py-3"><p class="text-xs font-medium text-gray-500">Matriz de acceso · {{ roles.length }} ámbitos de asignación</p><p class="text-[11px] text-gray-400">Desplaza horizontalmente para ver todas las columnas</p></div>
       <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-50 border-b border-gray-200">
+        <table class="w-full min-w-[760px] border-separate border-spacing-0 text-sm">
+          <thead class="sticky top-0 z-20 bg-gray-50">
             <tr>
-              <th class="text-left px-4 py-3 font-semibold text-gray-700 min-w-[240px]">Permiso</th>
-              <th class="text-left px-4 py-3 font-semibold text-gray-700 w-28">Módulo</th>
+              <th class="sticky left-0 z-30 min-w-[260px] border-b border-gray-200 bg-gray-50 px-4 py-3 text-left font-semibold text-gray-700">Permiso</th>
+              <th class="border-b border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">Módulo</th>
               <th
                 v-for="r in roles"
                 :key="r"
-                class="text-center px-4 py-3 font-semibold text-gray-700 w-28"
+                class="w-32 border-b border-gray-200 px-4 py-3 text-center font-semibold text-gray-700"
               >
                 <span
                   class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
@@ -25,7 +26,7 @@
                   {{ roleLabels[r] }}
                 </span>
               </th>
-              <th class="w-10"></th>
+              <th class="w-12 border-b border-gray-200 bg-gray-50"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -61,7 +62,7 @@
                 class="hover:bg-gray-50/80 transition-colors"
                 :class="{ 'opacity-60': perm.isSystem }"
               >
-                <td class="px-4 py-3">
+                <td class="sticky left-0 z-10 border-r border-gray-100 bg-white px-4 py-3">
                   <div class="flex items-start gap-2">
                     <svg
                       v-if="perm.isSystem"
@@ -72,6 +73,7 @@
                     </svg>
                     <div>
                       <div class="font-medium text-gray-800">{{ perm.label }}</div>
+                      <div v-if="perm.description" class="mt-0.5 max-w-xs text-xs leading-4 text-gray-500">{{ perm.description }}</div>
                       <div class="text-xs text-gray-400 font-mono mt-0.5">{{ perm.key }}</div>
                     </div>
                   </div>
@@ -86,6 +88,7 @@
                     type="checkbox"
                     :checked="localMatrix[perm.id]?.[r] ?? false"
                     :disabled="perm.isSystem || disabledColumns?.includes(r) || r === disabledColumnKey"
+                    :aria-label="roleLabels[r] + ' · ' + perm.label"
                     @change="$emit('toggle', perm.id, r, ($event.target as HTMLInputElement).checked)"
                     class="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 focus:ring-2
                            disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
@@ -97,7 +100,8 @@
                   <button
                     v-if="!perm.isSystem"
                     @click="$emit('delete', perm)"
-                    class="text-gray-300 hover:text-red-500 transition-colors"
+                    class="rounded-lg p-2 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    :aria-label="'Eliminar permiso ' + perm.label"
                     title="Eliminar permiso"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -112,7 +116,7 @@
       </div>
 
       <!-- Empty state -->
-      <div v-if="!loading && permissions.length === 0" class="text-center py-16 text-gray-400">
+      <div v-if="!loading && permissions.length === 0" class="border-t border-gray-100 px-4 py-16 text-center text-gray-400">
         <svg class="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
         </svg>
