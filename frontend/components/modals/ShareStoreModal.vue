@@ -39,6 +39,18 @@
 
               <p class="text-xs text-gray-400 text-center break-all">{{ url }}</p>
 
+              <!-- WhatsApp es el canal de venta en la zona: el cliente abre el
+                   enlace y pide dentro de WorkPlace (la venta queda registrada). -->
+              <a
+                :href="whatsappUrl"
+                target="_blank"
+                rel="noopener"
+                class="w-full py-2.5 bg-[#25D366] text-white font-semibold rounded-xl hover:brightness-95 transition text-sm flex items-center justify-center gap-2"
+              >
+                <ChatBubbleLeftRightIcon class="h-4 w-4" />
+                Enviar por WhatsApp
+              </a>
+
               <div class="w-full flex gap-2">
                 <button
                   class="flex-1 py-2.5 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors text-sm flex items-center justify-center gap-2"
@@ -57,6 +69,14 @@
                   Compartir
                 </button>
               </div>
+              <a
+                v-if="qrDataUrl"
+                :href="qrDataUrl"
+                :download="qrFileName"
+                class="text-xs font-semibold text-gray-500 hover:text-gray-800 underline"
+              >
+                Descargar QR (para imprimir o subir al estado)
+              </a>
             </div>
           </div>
         </Transition>
@@ -66,8 +86,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { XMarkIcon, LinkIcon, ShareIcon, CheckIcon } from '@heroicons/vue/24/outline'
+import { computed, ref, watch } from 'vue'
+import { XMarkIcon, LinkIcon, ShareIcon, CheckIcon, ChatBubbleLeftRightIcon } from '@heroicons/vue/24/outline'
 import { useQrCode } from '~/composables/core/useQrCode'
 
 const props = defineProps<{
@@ -84,6 +104,19 @@ const { generateQrDataUrl } = useQrCode()
 const qrDataUrl = ref<string | null>(null)
 const copied = ref(false)
 const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share
+
+// wa.me/?text abre WhatsApp (app o web) con el mensaje listo para elegir el
+// contacto o el estado; no hace falta ningún número ni la API de pago.
+const whatsappUrl = computed(() => {
+  const name = props.title?.trim()
+  const text = name
+    ? `Mira ${name} en WorkPlace y haz tu pedido aquí 👉 ${props.url}`
+    : `Haz tu pedido aquí 👉 ${props.url}`
+  return `https://wa.me/?text=${encodeURIComponent(text)}`
+})
+const qrFileName = computed(() =>
+  `qr-${(props.title ?? 'tienda').toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'tienda'}.png`,
+)
 
 watch(() => props.modelValue, async (open) => {
   if (!open) return
