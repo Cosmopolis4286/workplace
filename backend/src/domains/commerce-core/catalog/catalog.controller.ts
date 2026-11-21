@@ -13,7 +13,6 @@ import { QueryCatalogDto } from './dto/query-catalog.dto';
 import { CreateCatalogOrderDto } from './dto/create-catalog-order.dto';
 import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { CapabilityGuard } from '../../../common/guards/capability.guard';
 import { RequireCapability } from '../../../common/decorators/require-capability.decorator';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
@@ -65,8 +64,10 @@ export class CatalogController {
     return this.catalogService.getProduct(id);
   }
 
+  // Sin KYC al pedir: no mueve dinero. Se exige al pagar, por encima del
+  // umbral (ManualPaymentsService.assertBuyerKyc).
   @Post('orders')
-  @UseGuards(JwtAuthGuard, KycApprovedGuard)
+  @UseGuards(JwtAuthGuard)
   createOrder(@Body() dto: CreateCatalogOrderDto, @CurrentUser() user: any) {
     return this.catalogService.createOrder(dto, user.id);
   }

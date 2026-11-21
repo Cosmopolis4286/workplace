@@ -35,6 +35,34 @@
         </button>
       </div>
     </div>
+
+    <div class="card-premium p-6">
+      <p class="text-sm font-semibold text-gray-800">Verificación de identidad de compradores</p>
+      <p class="text-xs text-gray-500 mt-1">
+        Los compradores pueden pedir y pagar sin verificar su identidad hasta este monto (en dólares; los pagos
+        en bolívares se convierten con la tasa del día). Por encima se les pide la verificación. 0 = siempre.
+        Vender y retirar dinero siempre la exigen.
+      </p>
+      <div class="flex items-center gap-2 mt-3">
+        <span class="text-sm text-gray-600">USD</span>
+        <input
+          v-model.number="buyerThreshold"
+          type="number"
+          min="0"
+          step="1"
+          class="input-field w-32"
+          :disabled="!isSuperAdmin || saving"
+        />
+        <button
+          type="button"
+          class="btn-primary text-sm"
+          :disabled="!isSuperAdmin || saving || !(buyerThreshold >= 0)"
+          @click="saveThreshold"
+        >
+          Guardar
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -53,6 +81,7 @@ const { get, patch } = useApi()
 const { user } = useAuth()
 const isSuperAdmin = computed(() => user.value?.role === 'SUPERADMIN')
 const publicContact = ref(true)
+const buyerThreshold = ref(50)
 const saving = ref(false)
 const error = ref<string | null>(null)
 
@@ -60,6 +89,9 @@ async function load() {
   try {
     const settings = await get<Record<string, unknown>>('/platform-settings')
     publicContact.value = settings['store.publicContact'] !== false
+    if (typeof settings['kyc.buyerThresholdUsd'] === 'number') {
+      buyerThreshold.value = settings['kyc.buyerThresholdUsd'] as number
+    }
   } catch (e) {
     error.value = getApiErrorMessage(e, 'No se pudieron cargar los ajustes')
   }
@@ -74,6 +106,22 @@ async function toggle() {
       value: !publicContact.value,
     })
     publicContact.value = settings['store.publicContact'] !== false
+  } catch (e) {
+    error.value = getApiErrorMessage(e, 'No se pudo guardar el ajuste')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function saveThreshold() {
+  if (!isSuperAdmin.value || saving.value) return
+  saving.value = true
+  error.value = null
+  try {
+    const settings = await patch<Record<string, unknown>>('/platform-settings/kyc.buyerThresholdUsd', {
+      value: Math.max(0, Math.round(buyerThreshold.value)),
+    })
+    buyerThreshold.value = settings['kyc.buyerThresholdUsd'] as number
   } catch (e) {
     error.value = getApiErrorMessage(e, 'No se pudo guardar el ajuste')
   } finally {

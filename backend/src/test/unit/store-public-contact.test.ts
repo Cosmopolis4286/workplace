@@ -94,7 +94,10 @@ describe('PlatformSettingsService', () => {
   });
 
   it('devuelve los valores por defecto si no hay nada guardado', async () => {
-    expect(await service.getAll()).toEqual({ 'store.publicContact': true });
+    expect(await service.getAll()).toEqual({
+      'store.publicContact': true,
+      'kyc.buyerThresholdUsd': 50,
+    });
   });
 
   it('solo acepta claves conocidas con su tipo', async () => {

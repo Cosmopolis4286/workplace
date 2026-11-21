@@ -10,6 +10,9 @@ export const PLATFORM_SETTINGS = {
   // Mostrar teléfono, correo y WhatsApp de las tiendas en su página pública.
   // Cada comercio puede además ocultarlo (Commerce.showPublicContact).
   'store.publicContact': { type: 'boolean', default: true, public: true },
+  // Monto (USD) por encima del cual un comprador debe tener su identidad
+  // verificada (KYC) para pagar. 0 = siempre. Vender y retirar siempre la exigen.
+  'kyc.buyerThresholdUsd': { type: 'number', default: 50, public: true },
 } as const;
 
 export type PlatformSettingKey = keyof typeof PLATFORM_SETTINGS;

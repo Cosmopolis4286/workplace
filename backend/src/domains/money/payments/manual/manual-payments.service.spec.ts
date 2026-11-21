@@ -70,7 +70,14 @@ describe('ManualPaymentsService', () => {
       sellerPaymentAccount: {
         findFirst: jest.fn().mockResolvedValue(vesAccount),
       },
-      user: { findMany: jest.fn().mockResolvedValue([]) },
+      user: {
+        findMany: jest.fn().mockResolvedValue([]),
+        // Comprador verificado por defecto; los tests del umbral lo cambian.
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ kycStatus: 'APPROVED', role: 'NORMAL' }),
+      },
+      platformSetting: { findUnique: jest.fn().mockResolvedValue(null) },
     };
     payments = {
       prepareIntent: jest
@@ -166,6 +173,47 @@ describe('ManualPaymentsService', () => {
       const result = await service.start('buyer-1', 'SERVICE_REQUEST', 'sr-1');
       expect(payments.prepareIntent).not.toHaveBeenCalled();
       expect(result.priceChanged).toBe(true);
+    });
+  });
+
+  describe('KYC proporcional del comprador', () => {
+    const unverified = { kycStatus: 'NOT_SUBMITTED', role: 'NORMAL' };
+
+    it('un comprador sin verificar paga hasta el umbral (50 USD por defecto)', async () => {
+      prisma.user.findUnique.mockResolvedValue(unverified);
+      await expect(
+        service.start('buyer-1', 'SERVICE_REQUEST' as any, 'sr-1')
+      ).resolves.toBeDefined();
+    });
+
+    it('por encima del umbral exige la verificación', async () => {
+      prisma.user.findUnique.mockResolvedValue(unverified);
+      prisma.externalPaymentIntent.findUnique.mockResolvedValue(
+        intent({ amount: D('80.00') })
+      );
+      await expect(
+        service.report('buyer-1', 'intent-1', {
+          sellerPaymentAccountId: 'acc-ves',
+          reference: '00123456',
+          paidAt: new Date().toISOString(),
+        })
+      ).rejects.toThrow('verificar tu identidad');
+    });
+
+    it('convierte Bs a USD con la tasa vigente y respeta el umbral del admin', async () => {
+      prisma.user.findUnique.mockResolvedValue(unverified);
+      prisma.platformSetting.findUnique.mockResolvedValue({ value: 5 });
+      // 365 Bs / 36,5 = 10 USD > 5 USD
+      prisma.externalPaymentIntent.findUnique.mockResolvedValue(
+        intent({ currency: 'VES', amount: D('365.00') })
+      );
+      await expect(
+        service.report('buyer-1', 'intent-1', {
+          sellerPaymentAccountId: 'acc-ves',
+          reference: '00123456',
+          paidAt: new Date().toISOString(),
+        })
+      ).rejects.toThrow('USD 5');
     });
   });
 
