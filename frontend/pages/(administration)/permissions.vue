@@ -407,8 +407,6 @@ function toggleLocal(permissionId: string, roleKey: string, granted: boolean) {
   const role = roleKey as Role
   if (!localMatrix.value[permissionId]) return
   localMatrix.value[permissionId][role] = granted
-
-
 }
 
 async function saveAll() {
