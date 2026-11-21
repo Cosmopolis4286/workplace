@@ -103,6 +103,7 @@ describe('PlatformSettingsService', () => {
     expect(await service.getAll()).toEqual({
       'store.publicContact': true,
       'identity.kycPolicy': DEFAULT_KYC_PROGRESSIVE_POLICY,
+      'kyc.buyerThresholdUsd': 50,
     });
   });
 

@@ -766,27 +766,54 @@ export class ServicesService {
       );
     }
 
-    return this.prisma.serviceInquiry.create({
-      data: {
-        serviceId: service.id,
-        providerId: service.userId,
-        requesterId,
-        modality: dto.modality ?? 'ANY',
-        preferredDate: dto.preferredDate
-          ? new Date(dto.preferredDate)
-          : undefined,
-        preferredTime: dto.preferredTime,
-        address: dto.address,
-        city: dto.city,
-        clientPhone: dto.clientPhone,
-        message: dto.message,
-      },
-      include: {
-        service: {
-          select: { id: true, name: true, price: true, priceUnit: true },
+    try {
+      const inquiry = await this.prisma.serviceInquiry.create({
+        data: {
+          serviceId: service.id,
+          providerId: service.userId,
+          requesterId,
+          modality: dto.modality ?? 'ANY',
+          preferredDate: dto.preferredDate
+            ? new Date(dto.preferredDate)
+            : undefined,
+          preferredTime: dto.preferredTime,
+          address: dto.address,
+          city: dto.city,
+          clientPhone: dto.clientPhone,
+          message: dto.message,
         },
-      },
-    });
+        include: {
+          service: {
+            select: { id: true, name: true, price: true, priceUnit: true },
+          },
+        },
+      });
+      try {
+        await this.notifications.notifyNewServiceInquiry(
+          service.userId,
+          inquiry.service.name,
+          inquiry.id
+        );
+      } catch (error) {
+        this.logger.warn(
+          `No se pudo notificar la nueva consulta ${inquiry.id}: ${String(error)}`
+        );
+      }
+      return inquiry;
+    } catch (error) {
+      // El índice único parcial es la garantía final ante dos altas simultáneas.
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Ya tienes una consulta abierta para este servicio'
+        );
+      }
+      throw error;
+    }
   }
 
   async respondToServiceInquiry(
@@ -815,7 +842,7 @@ export class ServicesService {
         'La consulta cambió; actualiza e intenta de nuevo'
       );
     }
-    return this.prisma.serviceInquiry.findUnique({
+    const updatedInquiry = await this.prisma.serviceInquiry.findUnique({
       where: { id: inquiryId },
       include: {
         service: {
@@ -823,6 +850,109 @@ export class ServicesService {
         },
       },
     });
+    if (!updatedInquiry) {
+      throw new NotFoundException('Consulta no encontrada');
+    }
+
+    try {
+      await this.notifications.notifyServiceInquiryResponded(
+        updatedInquiry.requesterId,
+        updatedInquiry.service.name,
+        updatedInquiry.id
+      );
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo notificar la respuesta de consulta ${inquiryId}: ${String(error)}`
+      );
+    }
+
+    // Esta respuesta nunca expone teléfono ni dirección exacta.
+    return {
+      ...updatedInquiry,
+      clientPhone: null,
+      address: null,
+      contactHidden: true,
+    };
+  }
+
+  async updateServiceInquiryStatus(
+    inquiryId: string,
+    actorId: string,
+    action: 'CANCEL' | 'CLOSE'
+  ) {
+    const inquiry = await this.prisma.serviceInquiry.findUnique({
+      where: { id: inquiryId },
+      select: {
+        id: true,
+        requesterId: true,
+        providerId: true,
+        status: true,
+        service: { select: { name: true } },
+      },
+    });
+    if (!inquiry) throw new NotFoundException('Consulta no encontrada');
+
+    const isRequester = inquiry.requesterId === actorId;
+    const isProvider = inquiry.providerId === actorId;
+    if (!isRequester && !isProvider) {
+      throw new ForbiddenException('No puedes modificar esta consulta');
+    }
+    if (action === 'CANCEL' && !isRequester) {
+      throw new ForbiddenException(
+        'Solo quien envió la consulta puede cancelarla'
+      );
+    }
+
+    const targetStatus = action === 'CANCEL' ? 'CANCELLED' : 'CLOSED';
+    if (inquiry.status === targetStatus) {
+      return { id: inquiry.id, status: targetStatus, alreadyApplied: true };
+    }
+    if (inquiry.status !== 'OPEN' && inquiry.status !== 'RESPONDED') {
+      throw new ConflictException('La consulta ya no admite cambios');
+    }
+
+    const updated = await this.prisma.serviceInquiry.updateMany({
+      where: {
+        id: inquiryId,
+        status: { in: ['OPEN', 'RESPONDED'] },
+        ...(action === 'CANCEL' ? { requesterId: actorId } : {}),
+        ...(action === 'CLOSE'
+          ? { OR: [{ requesterId: actorId }, { providerId: actorId }] }
+          : {}),
+      },
+      data: { status: targetStatus },
+    });
+
+    if (updated.count !== 1) {
+      const current = await this.prisma.serviceInquiry.findUnique({
+        where: { id: inquiryId },
+        select: { status: true },
+      });
+      if (current?.status === targetStatus) {
+        return { id: inquiry.id, status: targetStatus, alreadyApplied: true };
+      }
+      throw new ConflictException(
+        'La consulta cambió; actualiza e intenta de nuevo'
+      );
+    }
+
+    const recipientId =
+      actorId === inquiry.requesterId
+        ? inquiry.providerId
+        : inquiry.requesterId;
+    try {
+      await this.notifications.notifyServiceInquiryClosed(
+        recipientId,
+        inquiry.service.name,
+        inquiry.id,
+        targetStatus
+      );
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo notificar el cierre de consulta ${inquiryId}: ${String(error)}`
+      );
+    }
+    return { id: inquiry.id, status: targetStatus, alreadyApplied: false };
   }
 
   async getMyServiceInquiries(
@@ -831,8 +961,19 @@ export class ServicesService {
     page = 1,
     limit = 20
   ) {
-    limit = Math.min(100, Math.max(1, limit));
-    page = Math.max(1, page);
+    if (asRole !== 'provider' && asRole !== 'client') {
+      throw new BadRequestException('El ámbito debe ser provider o client');
+    }
+    if (!Number.isSafeInteger(page) || page < 1) {
+      throw new BadRequestException(
+        'La página debe ser un entero mayor que cero'
+      );
+    }
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new BadRequestException(
+        'El límite debe ser un entero entre 1 y 100'
+      );
+    }
     const where: Prisma.ServiceInquiryWhereInput =
       asRole === 'provider' ? { providerId: userId } : { requesterId: userId };
     const [data, total] = await Promise.all([
@@ -853,7 +994,12 @@ export class ServicesService {
     return {
       data: data.map((inquiry) =>
         asRole === 'provider'
-          ? { ...inquiry, clientPhone: null, contactHidden: true }
+          ? {
+              ...inquiry,
+              clientPhone: null,
+              address: null,
+              contactHidden: true,
+            }
           : { ...inquiry, contactHidden: false }
       ),
       total,

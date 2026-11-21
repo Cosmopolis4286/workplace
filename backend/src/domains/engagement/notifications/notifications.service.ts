@@ -92,6 +92,56 @@ export class NotificationsService {
     );
   }
 
+  async notifyNewServiceInquiry(
+    providerId: string,
+    serviceName: string,
+    inquiryId: string
+  ) {
+    return this.createForUser(
+      providerId,
+      {
+        type: NotificationType.SERVICE_REQUEST,
+        title: 'Nueva consulta sobre tu servicio',
+        message: `Recibiste una consulta preliminar sobre "${serviceName}".`,
+        link: '/service-requests?view=inquiries&as=provider',
+        metadata: { inquiryId },
+      },
+      { email: true }
+    );
+  }
+
+  async notifyServiceInquiryResponded(
+    requesterId: string,
+    serviceName: string,
+    inquiryId: string
+  ) {
+    return this.createForUser(requesterId, {
+      type: NotificationType.SERVICE_REQUEST,
+      title: 'Respondieron tu consulta',
+      message: `El prestador respondió tu consulta sobre "${serviceName}".`,
+      link: '/service-requests?view=inquiries&as=client',
+      metadata: { inquiryId },
+    });
+  }
+
+  async notifyServiceInquiryClosed(
+    recipientId: string,
+    serviceName: string,
+    inquiryId: string,
+    status: 'CLOSED' | 'CANCELLED'
+  ) {
+    const cancelled = status === 'CANCELLED';
+    return this.createForUser(recipientId, {
+      type: NotificationType.SERVICE_REQUEST,
+      title: cancelled ? 'Consulta cancelada' : 'Consulta cerrada',
+      message: cancelled
+        ? `La consulta sobre "${serviceName}" fue cancelada.`
+        : `La consulta sobre "${serviceName}" fue cerrada.`,
+      link: '/service-requests?view=inquiries',
+      metadata: { inquiryId, status },
+    });
+  }
+
   async notifyNewServiceRequest(
     providerId: string,
     clientName: string,
@@ -1174,6 +1224,7 @@ export class NotificationsService {
       APPOINTMENT: 'CalendarIcon',
       EXPENSE: 'BanknotesIcon',
       REVIEW: 'StarIcon',
+      SERVICE_REQUEST: 'ChatBubbleLeftRightIcon',
       SYSTEM: 'BellIcon',
     };
     return map[type] ?? 'BellIcon';
@@ -1187,6 +1238,7 @@ export class NotificationsService {
       APPOINTMENT: 'purple',
       EXPENSE: 'red',
       REVIEW: 'amber',
+      SERVICE_REQUEST: 'blue',
       SYSTEM: 'gray',
     };
     return map[type] ?? 'gray';

@@ -43,6 +43,13 @@ describe('permission-defaults', () => {
     expect(referenced.filter((k) => !allKeys.has(k))).toEqual([]);
   });
 
+  it('grants permissions:manage only to platform administration roles', () => {
+    expect(ROLE_DEFAULTS.SUPERADMIN).toContain('permissions:manage');
+    expect(ROLE_DEFAULTS.ADMIN).toContain('permissions:manage');
+    expect(ROLE_DEFAULTS.PROFESIONAL).not.toContain('permissions:manage');
+    expect(ROLE_DEFAULTS.NORMAL).not.toContain('permissions:manage');
+  });
+
   it('role PROFESIONAL grants only what EVERY business profile grants (intersection, not union)', () => {
     for (const profile of PROFILE_PERMISSION_DEFAULTS) {
       const missing = ROLE_DEFAULTS.PROFESIONAL.filter(

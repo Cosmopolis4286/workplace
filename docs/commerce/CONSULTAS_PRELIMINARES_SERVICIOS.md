@@ -29,19 +29,31 @@ Separar el primer contacto entre un cliente y un prestador de la contratación f
 | GET | /services/requests/inquiries/mine?as=client | Consultas enviadas |
 | GET | /services/requests/inquiries/mine?as=provider | Consultas recibidas |
 | PATCH | /services/requests/inquiries/:id/respond | Responder como prestador propietario |
+| PATCH | /services/requests/inquiries/:id/status | Cancelar (solicitante) o cerrar (cualquiera de los participantes) |
 
 ## Privacidad
 
-El teléfono proporcionado en la consulta se guarda como dato privado y el endpoint de consultas recibidas lo devuelve como null. No se comparte con el prestador en esta etapa y todavía no se considera verificado. El mensaje y la respuesta rechazan datos de contacto mediante NoContactInfo, para mantener la conversación dentro de WorkPlace.
+El teléfono y la dirección exacta se guardan como datos privados. En la bandeja del prestador y en la respuesta HTTP de su endpoint de respuesta ambos se devuelven como null; la ciudad puede mostrarse como ubicación general. El cliente conserva sus propios datos. El mensaje y la respuesta rechazan datos de contacto mediante NoContactInfo, para mantener la conversación dentro de WorkPlace.
 
 ## Límites y validaciones
 
 - Solo se puede consultar un servicio activo.
 - No se puede consultar el propio servicio.
 - La modalidad debe coincidir con las ofrecidas por el servicio.
-- Una consulta abierta impide duplicar otra consulta para el mismo servicio; después de una respuesta se puede iniciar una nueva consulta.
+- Una consulta abierta impide duplicar otra consulta para el mismo servicio. Un índice único parcial en PostgreSQL garantiza esta regla incluso ante altas simultáneas; los duplicados históricos se conservan como CANCELLED durante la migración. Después de una respuesta se puede iniciar una nueva consulta.
 - Se limita a cinco consultas por usuario en diez minutos.
+- Los parámetros de paginación se validan como enteros seguros y el límite permitido es de 1 a 100.
 - La respuesta solo puede enviarla el propietario del servicio y se aplica mediante actualización condicional de estado para evitar respuestas simultáneas.
+- El solicitante puede cancelar una consulta en estado OPEN o RESPONDED. Cualquiera de los dos participantes puede cerrarla en esos mismos estados.
+- El endpoint recibe acciones explícitas CANCEL o CLOSE; nunca acepta un estado arbitrario del cliente.
+- Las transiciones se aplican con updateMany condicional. Si una petición concurrente ya aplicó el mismo estado, la repetición responde idempotentemente y no vuelve a notificar.
+- Se notifica al prestador al crear una consulta, al cliente cuando el prestador responde y al participante contrario cuando se cancela o cierra. Las notificaciones no incluyen teléfono, dirección ni contenido privado.
+
+## Conversación preliminar
+
+El chat de las consultas utiliza el sistema genérico existente `ConversationMessage` mediante el tipo `SERVICE_INQUIRY`; no crea una segunda infraestructura de mensajería. Solo pueden acceder el solicitante y el propietario real del servicio. Se bloquean teléfonos, correos y enlaces de contacto; los mensajes históricos también se muestran con datos de contacto redactados. Las consultas cerradas o canceladas conservan el historial en modo de solo lectura.
+
+Las notificaciones llevan a la bandeja de consultas con el ámbito correcto (recibidas o enviadas). Esta conversación sigue siendo preliminar: no crea una contratación, no inicia pagos y no cambia los requisitos KYC.
 
 ## Flujo posterior
 

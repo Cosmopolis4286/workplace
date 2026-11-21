@@ -84,16 +84,16 @@
               />
             </div>
 
-            <p v-if="kycStatus && kycStatus !== 'APPROVED'" class="text-xs text-amber-700 font-medium bg-amber-50 px-3 py-2 rounded-xl">
-              Debes verificar tu identidad antes de solicitar un servicio.
-              <NuxtLink to="/verification" class="font-semibold underline" @click="$emit('update:modelValue', false)">Completa la verificación</NuxtLink>.
+            <p v-if="kycStatus && kycStatus !== 'APPROVED'" class="text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded-xl">
+              Puedes solicitar sin verificar tu identidad. Para pagos grandes te la pediremos:
+              <NuxtLink to="/verification" class="font-semibold underline" @click="$emit('update:modelValue', false)">Verifícate ahora</NuxtLink> y ahorra tiempo.
             </p>
 
             <p v-if="errorMsg" class="text-xs text-red-600 font-medium bg-red-50 px-3 py-2 rounded-xl">{{ errorMsg }}</p>
 
             <button
               type="submit"
-              :disabled="sending || (kycStatus !== undefined && kycStatus !== 'APPROVED')"
+              :disabled="sending"
               class="w-full py-3.5 bg-blue-600 text-white font-black text-sm rounded-2xl hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <span v-if="sending" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

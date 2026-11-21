@@ -104,12 +104,12 @@ export class PermissionsController {
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     const isSystem = await this.permissionsService.isSystemPermission(id);
     if (isSystem) {
       throw new ForbiddenException('No puedes eliminar permisos de sistema');
     }
-    return this.permissionsService.deletePermission(id);
+    return this.permissionsService.deletePermission(id, user.id);
   }
 
   /** Guarda múltiples cambios a la vez (bulk-save del panel admin) */

@@ -68,6 +68,36 @@
         </button>
       </div>
     </section>
+
+    <section class="card-premium space-y-4 p-6">
+      <div>
+        <h2 class="font-semibold text-gray-900">Verificación de identidad de compradores</h2>
+        <p class="mt-1 text-sm text-gray-500">
+          Los compradores pueden pedir y pagar sin verificar su identidad hasta este monto (en dólares; los pagos
+          en bolívares se convierten con la tasa del día). Por encima se les pide la verificación. 0 = siempre.
+          Vender y retirar dinero siempre la exigen.
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-600">USD</span>
+        <input
+          v-model.number="buyerThreshold"
+          type="number"
+          min="0"
+          step="1"
+          class="input-field w-32"
+          :disabled="!isSuperAdmin || saving"
+        />
+        <button
+          type="button"
+          class="btn-primary text-sm"
+          :disabled="!isSuperAdmin || saving || !(buyerThreshold >= 0)"
+          @click="saveThreshold"
+        >
+          Guardar
+        </button>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -94,8 +124,8 @@ const rank: Record<Level, number> = { PUBLIC: 0, AUTHENTICATED: 1, PHONE_VERIFIE
 const operations: Array<{ key: Operation; label: string; minimum: Level }> = [
   { key: 'marketplace.explore', label: 'Explorar el marketplace', minimum: 'PUBLIC' },
   { key: 'provider.contact', label: 'Contactar a un proveedor', minimum: 'PHONE_VERIFIED' },
-  { key: 'service.request', label: 'Crear una solicitud formal de servicio', minimum: 'KYC_APPROVED' },
-  { key: 'catalog.order', label: 'Crear un pedido de catálogo', minimum: 'KYC_APPROVED' },
+  { key: 'service.request', label: 'Crear una solicitud formal de servicio', minimum: 'AUTHENTICATED' },
+  { key: 'catalog.order', label: 'Crear un pedido de catálogo', minimum: 'AUTHENTICATED' },
   { key: 'service.publish', label: 'Publicar servicios o productos', minimum: 'KYC_APPROVED' },
   { key: 'work.accept', label: 'Aceptar trabajos remunerados', minimum: 'KYC_APPROVED' },
   { key: 'ride.create', label: 'Crear o solicitar corridas', minimum: 'KYC_APPROVED' },
@@ -112,8 +142,8 @@ const policy = reactive<Policy>({
   operations: {
     'marketplace.explore': 'PUBLIC',
     'provider.contact': 'PHONE_VERIFIED',
-    'service.request': 'KYC_APPROVED',
-    'catalog.order': 'KYC_APPROVED',
+    'service.request': 'AUTHENTICATED',
+    'catalog.order': 'AUTHENTICATED',
     'service.publish': 'KYC_APPROVED',
     'work.accept': 'KYC_APPROVED',
     'ride.create': 'KYC_APPROVED',
@@ -128,6 +158,7 @@ const policy = reactive<Policy>({
 })
 const publicContact = ref(true)
 const reason = ref('')
+const buyerThreshold = ref(50)
 const saving = ref(false)
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
@@ -142,6 +173,9 @@ async function load() {
     const stored = settings['identity.kycPolicy'] as Policy | undefined
     if (stored?.version === 1 && stored.operations) Object.assign(policy.operations, stored.operations)
     publicContact.value = settings['store.publicContact'] !== false
+    if (typeof settings['kyc.buyerThresholdUsd'] === 'number') {
+      buyerThreshold.value = settings['kyc.buyerThresholdUsd'] as number
+    }
   } catch (e) {
     error.value = getApiErrorMessage(e, 'No se pudieron cargar los ajustes')
   }
@@ -177,6 +211,22 @@ async function togglePublicContact() {
       value: !publicContact.value,
     })
     publicContact.value = settings['store.publicContact'] !== false
+  } catch (e) {
+    error.value = getApiErrorMessage(e, 'No se pudo guardar el ajuste')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function saveThreshold() {
+  if (!isSuperAdmin.value || saving.value) return
+  saving.value = true
+  error.value = null
+  try {
+    const settings = await patch<Record<string, unknown>>('/platform-settings/kyc.buyerThresholdUsd', {
+      value: Math.max(0, Math.round(buyerThreshold.value)),
+    })
+    buyerThreshold.value = settings['kyc.buyerThresholdUsd'] as number
   } catch (e) {
     error.value = getApiErrorMessage(e, 'No se pudo guardar el ajuste')
   } finally {

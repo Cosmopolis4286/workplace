@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { ServicesService } from '../../domains/commerce-core/services/services.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
@@ -133,6 +137,9 @@ describe('ServicesService — service request status transitions', () => {
 
     mockNotificationsService = {
       notifyNewServiceRequest: jest.fn().mockResolvedValue(undefined),
+      notifyNewServiceInquiry: jest.fn().mockResolvedValue(undefined),
+      notifyServiceInquiryResponded: jest.fn().mockResolvedValue(undefined),
+      notifyServiceInquiryClosed: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestStatusChanged: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestEtaChanged: jest.fn().mockResolvedValue(undefined),
       notifyServiceRequestRejected: jest.fn().mockResolvedValue(undefined),
@@ -223,6 +230,12 @@ describe('ServicesService — service request status transitions', () => {
         modalities: ['REMOTE'],
       });
 
+      mockPrismaService.serviceInquiry.create.mockResolvedValueOnce({
+        id: 'inquiry-1',
+        providerId: 'provider-1',
+        service: { name: 'Servicio real' },
+      });
+
       const created = await service.createServiceInquiry(
         {
           serviceId: 'service-1',
@@ -243,12 +256,17 @@ describe('ServicesService — service request status transitions', () => {
         })
       );
       expect(created.providerId).toBe('provider-1');
+      expect(
+        mockNotificationsService.notifyNewServiceInquiry
+      ).toHaveBeenCalledWith('provider-1', 'Servicio real', 'inquiry-1');
 
       mockPrismaService.serviceInquiry.findMany.mockResolvedValue([
         {
           id: 'inquiry-1',
           providerId: 'provider-1',
           clientPhone: '+584121234567',
+          address: 'Av. Principal, casa 12',
+          city: 'Caracas',
         },
       ]);
       const providerView = await service.getMyServiceInquiries(
@@ -256,6 +274,8 @@ describe('ServicesService — service request status transitions', () => {
         'provider'
       );
       expect(providerView.data[0].clientPhone).toBeNull();
+      expect(providerView.data[0].address).toBeNull();
+      expect(providerView.data[0].city).toBe('Caracas');
       expect(providerView.data[0].contactHidden).toBe(true);
     });
 
@@ -266,12 +286,27 @@ describe('ServicesService — service request status transitions', () => {
           providerId: 'provider-1',
           status: 'OPEN',
         })
-        .mockResolvedValueOnce({ id: 'inquiry-1', status: 'RESPONDED' });
+        .mockResolvedValueOnce({
+          id: 'inquiry-1',
+          requesterId: 'client-1',
+          status: 'RESPONDED',
+          service: { name: 'Servicio real' },
+          clientPhone: '+584121234567',
+          address: 'Calle privada 123',
+        });
 
-      await service.respondToServiceInquiry('inquiry-1', 'provider-1', {
-        response: 'Sí, tengo disponibilidad esta semana',
-      });
+      const response = await service.respondToServiceInquiry(
+        'inquiry-1',
+        'provider-1',
+        { response: 'Sí, tengo disponibilidad esta semana' }
+      );
 
+      expect(response?.clientPhone).toBeNull();
+      expect(response?.address).toBeNull();
+      expect(response?.contactHidden).toBe(true);
+      expect(
+        mockNotificationsService.notifyServiceInquiryResponded
+      ).toHaveBeenCalledWith('client-1', 'Servicio real', 'inquiry-1');
       expect(mockPrismaService.serviceInquiry.updateMany).toHaveBeenCalledWith({
         where: { id: 'inquiry-1', providerId: 'provider-1', status: 'OPEN' },
         data: {
@@ -279,6 +314,158 @@ describe('ServicesService — service request status transitions', () => {
           status: 'RESPONDED',
         },
       });
+    });
+
+    it('permite al cliente cancelar y notifica al prestador una sola vez', async () => {
+      mockPrismaService.serviceInquiry.findUnique.mockResolvedValue({
+        id: 'inquiry-1',
+        requesterId: 'client-1',
+        providerId: 'provider-1',
+        status: 'OPEN',
+        service: { name: 'Servicio real' },
+      });
+
+      await expect(
+        service.updateServiceInquiryStatus('inquiry-1', 'client-1', 'CANCEL')
+      ).resolves.toEqual({
+        id: 'inquiry-1',
+        status: 'CANCELLED',
+        alreadyApplied: false,
+      });
+      expect(mockPrismaService.serviceInquiry.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'inquiry-1',
+          status: { in: ['OPEN', 'RESPONDED'] },
+          requesterId: 'client-1',
+        },
+        data: { status: 'CANCELLED' },
+      });
+      expect(
+        mockNotificationsService.notifyServiceInquiryClosed
+      ).toHaveBeenCalledWith(
+        'provider-1',
+        'Servicio real',
+        'inquiry-1',
+        'CANCELLED'
+      );
+    });
+
+    it('impide al proveedor cancelar una consulta y permite cerrar solo a participantes', async () => {
+      mockPrismaService.serviceInquiry.findUnique.mockResolvedValue({
+        id: 'inquiry-1',
+        requesterId: 'client-1',
+        providerId: 'provider-1',
+        status: 'RESPONDED',
+        service: { name: 'Servicio real' },
+      });
+
+      await expect(
+        service.updateServiceInquiryStatus('inquiry-1', 'provider-1', 'CANCEL')
+      ).rejects.toThrow(ForbiddenException);
+      expect(
+        mockPrismaService.serviceInquiry.updateMany
+      ).not.toHaveBeenCalled();
+
+      await service.updateServiceInquiryStatus(
+        'inquiry-1',
+        'provider-1',
+        'CLOSE'
+      );
+      expect(mockPrismaService.serviceInquiry.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'inquiry-1',
+          status: { in: ['OPEN', 'RESPONDED'] },
+          OR: [{ requesterId: 'provider-1' }, { providerId: 'provider-1' }],
+        },
+        data: { status: 'CLOSED' },
+      });
+      expect(
+        mockNotificationsService.notifyServiceInquiryClosed
+      ).toHaveBeenCalledWith(
+        'client-1',
+        'Servicio real',
+        'inquiry-1',
+        'CLOSED'
+      );
+    });
+
+    it('trata como idempotente una cancelación ya aplicada', async () => {
+      mockPrismaService.serviceInquiry.findUnique.mockResolvedValue({
+        id: 'inquiry-1',
+        requesterId: 'client-1',
+        providerId: 'provider-1',
+        status: 'CANCELLED',
+        service: { name: 'Servicio real' },
+      });
+
+      await expect(
+        service.updateServiceInquiryStatus('inquiry-1', 'client-1', 'CANCEL')
+      ).resolves.toEqual({
+        id: 'inquiry-1',
+        status: 'CANCELLED',
+        alreadyApplied: true,
+      });
+      expect(
+        mockPrismaService.serviceInquiry.updateMany
+      ).not.toHaveBeenCalled();
+      expect(
+        mockNotificationsService.notifyServiceInquiryClosed
+      ).not.toHaveBeenCalled();
+    });
+
+    it('resuelve una carrera como idempotente si otra petición ganó la transición', async () => {
+      mockPrismaService.serviceInquiry.findUnique
+        .mockResolvedValueOnce({
+          id: 'inquiry-1',
+          requesterId: 'client-1',
+          providerId: 'provider-1',
+          status: 'OPEN',
+          service: { name: 'Servicio real' },
+        })
+        .mockResolvedValueOnce({ id: 'inquiry-1', status: 'CANCELLED' });
+      mockPrismaService.serviceInquiry.updateMany.mockResolvedValueOnce({
+        count: 0,
+      });
+
+      await expect(
+        service.updateServiceInquiryStatus('inquiry-1', 'client-1', 'CANCEL')
+      ).resolves.toEqual({
+        id: 'inquiry-1',
+        status: 'CANCELLED',
+        alreadyApplied: true,
+      });
+      expect(
+        mockNotificationsService.notifyServiceInquiryClosed
+      ).not.toHaveBeenCalled();
+    });
+
+    it('convierte una colisión del índice único en conflicto de dominio', async () => {
+      mockPrismaService.service.findUnique.mockResolvedValue({
+        id: 'service-1',
+        userId: 'provider-1',
+        status: 'ACTIVE',
+        modalities: ['REMOTE'],
+      });
+      mockPrismaService.serviceInquiry.create.mockRejectedValue({
+        code: 'P2002',
+      });
+
+      await expect(
+        service.createServiceInquiry(
+          { serviceId: 'service-1', modality: 'REMOTE' } as any,
+          'client-1'
+        )
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('rechaza paginación inválida sin consultar Prisma', async () => {
+      await expect(
+        service.getMyServiceInquiries('client-1', 'client', Number.NaN, 20)
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.getMyServiceInquiries('client-1', 'client', 1, 101)
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.serviceInquiry.findMany).not.toHaveBeenCalled();
     });
 
     it('impide que otro usuario responda una consulta ajena', async () => {

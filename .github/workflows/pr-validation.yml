@@ -37,6 +37,9 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
     - uses: actions/checkout@v7
+      with:
+        # El diff contra la base de la PR necesita el historial completo.
+        fetch-depth: 0
 
     - uses: ./.github/actions/setup-node-pnpm
       with:
@@ -70,7 +73,41 @@ jobs:
         git diff -- src/domains/platform/platform-settings/kyc-policy.service.ts src/domains/platform/platform-settings/platform-settings.service.ts src/test/unit/kyc-approved.guard.policy.test.ts src/test/unit/kyc-policy.service.test.ts src/test/unit/kyc-progressive-policy-settings.test.ts
 
     - name: Format check
-      run: cd backend && pnpm format:check
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        set -euo pipefail
+
+        # En ejecuciones manuales se conserva la comprobación integral.
+        if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
+          cd backend
+          pnpm format:check
+          exit 0
+        fi
+
+        # Solo archivos añadidos, copiados, modificados o renombrados.
+        # Los borrados no deben enviarse a Prettier.
+        mapfile -d '' -t changed_files < <(
+          git diff --name-only -z --diff-filter=ACMR "${BASE_SHA}...HEAD" -- backend/src backend/test
+        )
+
+        format_files=()
+        for file in "${changed_files[@]}"; do
+          case "${file}" in
+            backend/src/*.ts|backend/test/*.ts)
+              format_files+=("${file#backend/}")
+              ;;
+          esac
+        done
+
+        if (( ${#format_files[@]} == 0 )); then
+          echo "No hay archivos TypeScript modificados en backend/src o backend/test."
+          exit 0
+        fi
+
+        cd backend
+        pnpm exec prettier --config .prettierrc --check "${format_files[@]}"
 
     # Bloquea vulnerabilidades críticas (hoy 0). Queda una alta sin parche en
     # la cadena de build del frontend (node-forge); subir a --audit-level high

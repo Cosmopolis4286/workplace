@@ -1136,13 +1136,13 @@
               </div>
               <!-- Body -->
               <div class="px-5 py-5 space-y-4">
-                <p class="text-xs text-gray-400">Controla qué secciones son visibles en tu perfil público.</p>
+                <p class="text-xs text-gray-500">Estos ajustes solo controlan las secciones del perfil social. No publican ni ocultan tu tienda comercial (/loja).</p>
 
                 <!-- Toggle: Catálogo -->
                 <div class="flex items-center justify-between py-3 border-b border-gray-100">
                   <div>
                     <p class="font-semibold text-gray-800 text-sm">Catálogo de productos</p>
-                    <p class="text-xs text-gray-400 mt-0.5">Muestra tus productos disponibles a la venta</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Muestra el catálogo dentro de este perfil. La tienda /loja tiene su propia publicación.</p>
                   </div>
                   <button
                     class="relative w-11 h-6 rounded-full transition-colors duration-200"
@@ -1160,7 +1160,7 @@
                 <div class="flex items-center justify-between py-3 border-b border-gray-100">
                   <div>
                     <p class="font-semibold text-gray-800 text-sm">Servicios</p>
-                    <p class="text-xs text-gray-400 mt-0.5">Muestra los servicios que ofreces</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Muestra tus servicios dentro de este perfil profesional.</p>
                   </div>
                   <button
                     class="relative w-11 h-6 rounded-full transition-colors duration-200"

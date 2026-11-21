@@ -34,7 +34,11 @@ describe('KycApprovedGuard — política progresiva', () => {
 
     await expect(
       guard.canActivate(
-        context({ id: 'user-1', role: Role.NORMAL, kycStatus: KycStatus.APPROVED })
+        context({
+          id: 'user-1',
+          role: Role.NORMAL,
+          kycStatus: KycStatus.APPROVED,
+        })
       )
     ).resolves.toBe(true);
 
@@ -54,14 +58,21 @@ describe('KycApprovedGuard — política progresiva', () => {
 
     await expect(
       guard.canActivate(
-        context({ id: 'user-1', role: Role.NORMAL, kycStatus: KycStatus.APPROVED })
+        context({
+          id: 'user-1',
+          role: Role.NORMAL,
+          kycStatus: KycStatus.APPROVED,
+        })
       )
     ).rejects.toThrow(new ForbiddenException('Requiere revisión reforzada.'));
   });
 
   it('no confía en flags de teléfono o revisión reforzada enviados en request.user', async () => {
     Reflect.defineMetadata(KYC_POLICY_OPERATION, 'catalog.order', handler);
-    policy.evaluate.mockResolvedValue({ allowed: false, reason: 'No autorizado' });
+    policy.evaluate.mockResolvedValue({
+      allowed: false,
+      reason: 'No autorizado',
+    });
 
     await expect(
       guard.canActivate(
@@ -85,13 +96,21 @@ describe('KycApprovedGuard — política progresiva', () => {
   it('mantiene el comportamiento KYC anterior para rutas aún no clasificadas', async () => {
     await expect(
       guard.canActivate(
-        context({ id: 'user-1', role: Role.NORMAL, kycStatus: KycStatus.PENDING })
+        context({
+          id: 'user-1',
+          role: Role.NORMAL,
+          kycStatus: KycStatus.PENDING,
+        })
       )
     ).rejects.toBeInstanceOf(ForbiddenException);
 
     await expect(
       guard.canActivate(
-        context({ id: 'user-1', role: Role.NORMAL, kycStatus: KycStatus.APPROVED })
+        context({
+          id: 'user-1',
+          role: Role.NORMAL,
+          kycStatus: KycStatus.APPROVED,
+        })
       )
     ).resolves.toBe(true);
     expect(policy.evaluate).not.toHaveBeenCalled();

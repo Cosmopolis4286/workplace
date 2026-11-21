@@ -19,8 +19,10 @@ export type KycLevel = (typeof KYC_LEVELS)[number];
 export const KYC_POLICY_MINIMUMS = {
   'marketplace.explore': 'PUBLIC',
   'provider.contact': 'PHONE_VERIFIED',
-  'service.request': 'KYC_APPROVED',
-  'catalog.order': 'KYC_APPROVED',
+  // Pedir o solicitar no mueve dinero: basta con la sesión. El KYC del
+  // comprador se pide al pagar, por encima de `kyc.buyerThresholdUsd`.
+  'service.request': 'AUTHENTICATED',
+  'catalog.order': 'AUTHENTICATED',
   'service.publish': 'KYC_APPROVED',
   'work.accept': 'KYC_APPROVED',
   'ride.create': 'KYC_APPROVED',
@@ -52,6 +54,9 @@ export const PLATFORM_SETTINGS = {
     default: DEFAULT_KYC_PROGRESSIVE_POLICY,
     public: false,
   },
+  // Monto (USD) por encima del cual un comprador debe tener su identidad
+  // verificada (KYC) para pagar. 0 = siempre. Vender y retirar siempre la exigen.
+  'kyc.buyerThresholdUsd': { type: 'number', default: 50, public: true },
 } as const;
 
 export type PlatformSettingKey = keyof typeof PLATFORM_SETTINGS;
@@ -72,9 +77,9 @@ export function validateKycProgressivePolicy(
   value: unknown
 ): value is KycProgressivePolicy {
   if (!isPlainObject(value) || value.version !== 1) return false;
-  if (!isPlainObject(value.operations)) return false;
-
   const operations = value.operations;
+  if (!isPlainObject(operations)) return false;
+
   const expected = Object.keys(KYC_POLICY_MINIMUMS);
   if (
     Object.keys(operations).length !== expected.length ||
@@ -86,7 +91,9 @@ export function validateKycProgressivePolicy(
   return expected.every((operation) => {
     const level = operations[operation] as KycLevel;
     const minimum = KYC_POLICY_MINIMUMS[operation as KycPolicyOperation];
-    return KYC_LEVELS.includes(level) && LEVEL_RANK[level] >= LEVEL_RANK[minimum];
+    return (
+      KYC_LEVELS.includes(level) && LEVEL_RANK[level] >= LEVEL_RANK[minimum]
+    );
   });
 }
 
@@ -104,7 +111,10 @@ export class PlatformSettingsService {
       .filter(([, def]) => !onlyPublic || def.public)
       .map(([key, def]) => {
         const value = stored.has(key) ? stored.get(key) : def.default;
-        if (key === 'identity.kycPolicy' && !validateKycProgressivePolicy(value)) {
+        if (
+          key === 'identity.kycPolicy' &&
+          !validateKycProgressivePolicy(value)
+        ) {
           return [key, DEFAULT_KYC_PROGRESSIVE_POLICY];
         }
         return [key, value];

@@ -130,8 +130,8 @@
 
       <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
         <div>
-          <p class="text-sm font-semibold text-gray-700">Tienda pública visible</p>
-          <p class="text-xs text-gray-500">Si la desactivas, tu página /loja dejará de mostrarse a clientes</p>
+          <p class="text-sm font-semibold text-gray-700">Publicar tienda comercial</p>
+          <p class="text-xs text-gray-500">Controla únicamente /loja/:slug. Tu perfil público (/p o /pro) y sus secciones seguirán funcionando.</p>
         </div>
         <button
           type="button"

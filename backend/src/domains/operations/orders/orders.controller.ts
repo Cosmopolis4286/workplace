@@ -11,7 +11,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
-import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
@@ -106,8 +105,9 @@ export class OrdersController {
     return this.ordersService.findOne(id, commerceId);
   }
 
+  // Pedido creado por el propio comercio desde su panel: conserva el KYC
+  // aprobado (ruta no clasificada). El de compradores es catalog.order.
   @Post()
-  @RequireKycOperation('catalog.order')
   @UseGuards(KycApprovedGuard)
   @RequirePermission('orders:create')
   @RequireModule('orders')

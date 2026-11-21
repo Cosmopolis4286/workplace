@@ -1,67 +1,78 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="max-w-full p-6">
-
-      <!-- Header -->
-      <PageHeader
-        title="Matriz de Permisos"
-        description="Configura qué acciones puede realizar cada rol. Los permisos con candado son del sistema y no pueden modificarse."
+  <div class="min-h-screen bg-slate-50/80">
+    <div class="mx-auto max-w-[1800px] px-4 py-5 sm:px-6 lg:px-8">
+      <PermissionsWorkspaceHeader
+        title="Administración de permisos"
+        description="Configura el acceso de la plataforma por responsabilidades. Mantén separados los roles base, los perfiles de negocio y la disponibilidad global de módulos."
         :icon="ShieldCheckIcon"
-        :breadcrumb="[{ label: 'Permisos' }]"
+        :breadcrumb="[{ label: 'Administración' }, { label: 'Permisos' }]"
         :stats="headerStats"
       >
         <template #actions>
           <HeaderActionButton to="/permissions/users" :icon="UserGroupIcon">
-            Permisos por Usuario
+            Excepciones por usuario
           </HeaderActionButton>
-          <HeaderActionButton :icon="PlusIcon" @click="openNewPermModal">
+          <HeaderActionButton v-if="activeTab === 'roles'" :icon="PlusIcon" @click="openNewPermModal">
             Nuevo permiso
           </HeaderActionButton>
           <HeaderActionButton
+            v-if="activeTab === 'roles'"
             :icon="ArrowPathIcon"
             :loading="reloadingPerms"
             :disabled="reloadingPerms"
-            title="Fuerza recarga de permisos para todos los usuarios (incluyéndote)"
+            title="Recarga únicamente los permisos de tu sesión"
             @click="reloadUserPermissions"
           >
-            {{ reloadingPerms ? 'Recargando...' : 'Recargar mis permisos' }}
-          </HeaderActionButton>
-          <HeaderActionButton
-            variant="primary"
-            :icon="saving ? ArrowPathIcon : undefined"
-            :loading="saving"
-            :disabled="saving || pendingChanges.length === 0"
-            @click="saveAll"
-          >
-            {{ saving ? 'Guardando...' : `Guardar cambios${pendingChanges.length > 0 ? ` (${pendingChanges.length})` : ''}` }}
+            {{ reloadingPerms ? 'Recargando...' : 'Recargar mi sesión' }}
           </HeaderActionButton>
         </template>
-      </PageHeader>
+      </PermissionsWorkspaceHeader>
 
-      <!-- Alerts -->
-      <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-3">
-        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <nav class="mb-5 rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm" aria-label="Ámbitos de permisos">
+        <div class="grid grid-cols-1 gap-1 sm:grid-cols-3">
+          <button
+            v-for="tab in permissionTabs"
+            :key="tab.id"
+            type="button"
+            class="group flex min-w-0 items-center gap-3 rounded-lg px-3 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-workplace-red focus-visible:ring-offset-2"
+            :class="activeTab === tab.id ? 'bg-red-50 text-workplace-red ring-1 ring-inset ring-red-100' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
+            :aria-pressed="activeTab === tab.id"
+            @click="activeTab = tab.id"
+          >
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors" :class="activeTab === tab.id ? 'bg-white text-workplace-red shadow-sm' : 'bg-gray-100 text-gray-500 group-hover:bg-white'">
+              <ShieldCheckIcon v-if="tab.id === 'roles'" class="h-5 w-5" />
+              <UserGroupIcon v-else-if="tab.id === 'profiles'" class="h-5 w-5" />
+              <Squares2X2Icon v-else class="h-5 w-5" />
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center gap-2 text-sm font-semibold">{{ tab.label }}</span>
+              <span class="mt-0.5 block text-xs font-normal" :class="activeTab === tab.id ? 'text-red-700/70' : 'text-gray-400'">{{ tab.description }}</span>
+            </span>
+            <span v-if="tab.id === 'roles' && pendingChanges.length" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">{{ pendingChanges.length }}</span>
+            <span v-if="tab.id === 'profiles' && pendingProfileChanges.length" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">{{ pendingProfileChanges.length }}</span>
+            <span v-if="activeTab === tab.id" class="h-2 w-2 shrink-0 rounded-full bg-workplace-red" />
+          </button>
+        </div>
+      </nav>
+
+      <div v-if="error" role="alert" class="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <svg class="mt-0.5 h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        <span>{{ error }}</span>
+        <span class="min-w-0 flex-1">{{ error }}</span>
+        <button type="button" class="text-xs font-semibold underline underline-offset-2" @click="error = null">Cerrar</button>
       </div>
 
-      <div v-if="successMsg" class="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm flex items-start gap-3">
-        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div v-if="successMsg" role="status" aria-live="polite" class="mb-4 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <svg class="mt-0.5 h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         <span>{{ successMsg }}</span>
+        <button type="button" class="ml-auto text-xs font-semibold underline underline-offset-2" @click="successMsg = null">Cerrar</button>
       </div>
 
-      <SystemModulesPanel
-        :loading="loadingModules"
-        :modules="systemModules"
-        :toggling-module="togglingModule"
-        :module-labels="MODULE_LABELS"
-        @toggle="toggleSystemModule"
-      />
-
-      <PermissionMatrixTable
+      <RolePermissionsPanel
+        v-if="activeTab === 'roles'"
         :loading="loading"
         :permissions="permissions"
         :grouped-permissions="groupedPermissions"
@@ -72,53 +83,67 @@
         :plans-for-module="plansForModule"
         :local-matrix="localMatrix"
         :disabled-columns="lockedRoleColumns"
+        :pending-count="pendingChanges.length"
         @toggle="toggleLocal"
         @delete="confirmDelete"
-      />
+      >
+        <template #actions>
+          <HeaderActionButton
+            variant="primary"
+            :icon="saving ? ArrowPathIcon : undefined"
+            :loading="saving"
+            :disabled="saving || pendingChanges.length === 0"
+            @click="saveAll"
+          >
+            {{ saving ? 'Guardando...' : `Guardar cambios${pendingChanges.length ? ` (${pendingChanges.length})` : ''}` }}
+          </HeaderActionButton>
+        </template>
+      </RolePermissionsPanel>
 
-      <!-- Matriz por Perfil (UserProfile — perfiles múltiples) -->
-      <div class="mt-8">
-        <PageHeader
-          title="Matriz de Permisos por Perfil"
-          description="Permisos otorgados por cada UserProfile activo (perfiles múltiples). Un usuario con varios perfiles activos obtiene la unión de sus permisos, sumada a los de su rol RBAC."
-          :icon="ShieldCheckIcon"
-        >
-          <template #actions>
-            <HeaderActionButton
-              variant="primary"
-              :icon="savingProfile ? ArrowPathIcon : undefined"
-              :loading="savingProfile"
-              :disabled="savingProfile || pendingProfileChanges.length === 0"
-              @click="saveAllProfile"
-            >
-              {{ savingProfile ? 'Guardando...' : `Guardar cambios${pendingProfileChanges.length > 0 ? ` (${pendingProfileChanges.length})` : ''}` }}
-            </HeaderActionButton>
-          </template>
-        </PageHeader>
+      <ProfilePermissionsPanel
+        v-else-if="activeTab === 'profiles'"
+        :loading="loadingProfileMatrix"
+        :permissions="profilePermissions"
+        :grouped-permissions="groupedProfilePermissions"
+        :profile-keys="PROFILE_KEYS"
+        :profile-labels="PROFILE_LABELS"
+        :profile-badge-classes="PROFILE_BADGE_CLASSES"
+        :module-labels="MODULE_LABELS"
+        :local-matrix="localProfileMatrix"
+        :pending-count="pendingProfileChanges.length"
+        @toggle="toggleProfileLocal"
+      >
+        <template #actions>
+          <HeaderActionButton
+            variant="primary"
+            :icon="savingProfile ? ArrowPathIcon : undefined"
+            :loading="savingProfile"
+            :disabled="savingProfile || pendingProfileChanges.length === 0"
+            @click="saveAllProfile"
+          >
+            {{ savingProfile ? 'Guardando...' : `Guardar cambios${pendingProfileChanges.length ? ` (${pendingProfileChanges.length})` : ''}` }}
+          </HeaderActionButton>
+        </template>
+      </ProfilePermissionsPanel>
 
-        <PermissionMatrixTable
-          :loading="loadingProfileMatrix"
-          :permissions="profilePermissions"
-          :grouped-permissions="groupedProfilePermissions"
-          :roles="PROFILE_KEYS"
-          :role-labels="PROFILE_LABELS"
-          :role-badge-classes="PROFILE_BADGE_CLASSES"
+      <section v-else class="space-y-4" aria-labelledby="system-modules-heading">
+        <div class="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-4">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-700 shadow-sm">
+            <Squares2X2Icon class="h-5 w-5" />
+          </div>
+          <div>
+            <h2 id="system-modules-heading" class="text-sm font-semibold text-blue-950">Disponibilidad global de módulos</h2>
+            <p class="mt-1 text-xs leading-5 text-blue-800/80">Controla qué módulos están disponibles en toda la plataforma. Activar un módulo no concede permisos RBAC ni capacidades de perfil.</p>
+          </div>
+        </div>
+        <SystemModulesPanel
+          :loading="loadingModules"
+          :modules="systemModules"
+          :toggling-module="togglingModule"
           :module-labels="MODULE_LABELS"
-          :plans-for-module="{}"
-          :local-matrix="localProfileMatrix"
-          @toggle="toggleProfileLocal"
-          @delete="() => {}"
+          @toggle="toggleSystemModule"
         />
-      </div>
-
-      <!-- Footer info -->
-      <div class="mt-4 text-xs text-gray-400 flex items-center gap-4">
-        <span>{{ permissions.length }} permisos totales</span>
-        <span v-if="pendingChanges.length > 0" class="text-amber-600 font-medium">
-          {{ pendingChanges.length }} cambio(s) sin guardar
-        </span>
-      </div>
-
+      </section>
     </div>
 
     <NewPermissionModal
@@ -139,12 +164,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import PageHeader from '~/components/ui/PageHeader.vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
-import { ShieldCheckIcon, PlusIcon, UserGroupIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
+import PermissionsWorkspaceHeader from '~/components/admin/permissions/PermissionsWorkspaceHeader.vue'
+import RolePermissionsPanel from '~/components/admin/permissions/RolePermissionsPanel.vue'
+import ProfilePermissionsPanel from '~/components/admin/permissions/ProfilePermissionsPanel.vue'
 import SystemModulesPanel from '~/components/admin/permissions/SystemModulesPanel.vue'
-import PermissionMatrixTable from '~/components/admin/permissions/PermissionMatrixTable.vue'
+import { ShieldCheckIcon, PlusIcon, UserGroupIcon, ArrowPathIcon, Squares2X2Icon } from '@heroicons/vue/24/outline'
 import NewPermissionModal, { type NewPermissionForm } from '~/components/admin/permissions/NewPermissionModal.vue'
 import { useApi } from '~/composables/core/useApi'
 import { useAuth } from '~/composables/auth/useAuth'
@@ -156,6 +182,14 @@ definePageMeta({ middleware: 'auth' })
 type Role = 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
 
 const ROLES: Role[] = ['SUPERADMIN', 'ADMIN', 'PROFESIONAL', 'NORMAL']
+
+type PermissionTab = 'roles' | 'profiles' | 'modules'
+const activeTab = ref<PermissionTab>('roles')
+const permissionTabs: Array<{ id: PermissionTab; label: string; description: string }> = [
+  { id: 'roles', label: 'Roles de acceso', description: 'Permisos base por rol' },
+  { id: 'profiles', label: 'Perfiles de negocio', description: 'Capacidades por tipo de perfil' },
+  { id: 'modules', label: 'Módulos de plataforma', description: 'Disponibilidad global' },
+]
 
 const ROLE_LABELS: Record<Role, string> = {
   SUPERADMIN: 'SuperAdmin',
@@ -237,15 +271,13 @@ interface PendingProfileChange {
   granted: boolean
 }
 
-const { user, getHeaders, refreshAccessToken } = useAuth()
+const { user } = useAuth()
 const { reloadPermissions } = usePermissions()
 
 // ADMIN no puede modificar su propia columna ni roles superiores.
 const lockedRoleColumns = computed<Role[]>(() =>
   user.value?.role === 'ADMIN' ? ['SUPERADMIN', 'ADMIN'] : ['SUPERADMIN']
 )
-const config = useRuntimeConfig()
-const apiUrl = config.public.apiUrl as string
 
 interface PlanInfo { id: string; name: string; color: string; enabledModules: string[] }
 interface SystemModuleRow { module: string; enabled: boolean; label: string | null }
@@ -304,7 +336,7 @@ const headerStats = computed(() => [
   { label: 'Permisos', value: permissions.value.length },
   { label: 'Módulos', value: Object.keys(groupedPermissions.value).length },
   { label: 'Del sistema', value: permissions.value.filter((p: PermissionRow) => p.isSystem).length },
-  { label: 'Sin guardar', value: pendingChanges.value.length },
+  { label: 'Sin guardar', value: pendingChanges.value.length + pendingProfileChanges.value.length },
 ])
 
 const { get, post, patch, del } = useApi()
@@ -546,5 +578,12 @@ async function confirmDelete(perm: Pick<PermissionRow, 'id' | 'key' | 'label'>) 
   }
 }
 
-onMounted(() => { loadMatrix(); loadProfileMatrix(); loadPlans(); loadSystemModules(); loadModuleCatalog() })
+async function loadActiveTab() {
+  if (activeTab.value === 'roles') await Promise.all([loadMatrix(), loadPlans(), loadModuleCatalog()])
+  else if (activeTab.value === 'profiles') await Promise.all([loadProfileMatrix(), loadModuleCatalog()])
+  else await loadSystemModules()
+}
+
+watch(activeTab, () => { void loadActiveTab() })
+onMounted(() => { void loadActiveTab() })
 </script>

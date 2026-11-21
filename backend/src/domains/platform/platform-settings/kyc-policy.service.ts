@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { KycStatus } from '@prisma/client';
+import {
+  DEFAULT_KYC_PROGRESSIVE_POLICY,
+  KycLevel,
+  KycPolicyOperation,
+} from './platform-settings.service';
 import { PlatformSettingsService } from './platform-settings.service';
-import { DEFAULT_KYC_PROGRESSIVE_POLICY } from './platform-settings.service';
-import type { KycLevel, KycPolicyOperation } from './platform-settings.service';
 
 export interface KycPolicySubject {
   authenticated: boolean;
@@ -26,8 +29,8 @@ export class KycPolicyService {
   async getRequiredLevel(operation: KycPolicyOperation): Promise<KycLevel> {
     const settings = await this.settings.getAll();
     const policy = settings['identity.kycPolicy'] as
-      | typeof DEFAULT_KYC_PROGRESSIVE_POLICY
-      | undefined;
+      typeof DEFAULT_KYC_PROGRESSIVE_POLICY | undefined;
+
     return (
       policy?.operations?.[operation] ??
       DEFAULT_KYC_PROGRESSIVE_POLICY.operations[operation]
@@ -39,38 +42,56 @@ export class KycPolicyService {
     const currentLevel = this.resolveSubjectLevel(subject);
     const allowed = LEVEL_RANK[currentLevel] >= LEVEL_RANK[requiredLevel];
 
+    const reason = allowed
+      ? null
+      : this.getDenialReason(requiredLevel, currentLevel);
+
     return {
       operation,
       allowed,
       requiredLevel,
       currentLevel,
-      reason: allowed ? null : this.getDenialReason(requiredLevel, currentLevel),
+      reason,
     };
   }
 
   private resolveSubjectLevel(subject: KycPolicySubject): KycLevel {
-    if (!subject.authenticated) return 'PUBLIC';
-    if (subject.enhancedReviewApproved && subject.kycStatus === KycStatus.APPROVED) {
+    if (!subject.authenticated) {
+      return 'PUBLIC';
+    }
+
+    if (
+      subject.enhancedReviewApproved &&
+      subject.kycStatus === KycStatus.APPROVED
+    ) {
       return 'ENHANCED_REVIEW';
     }
-    if (subject.kycStatus === KycStatus.APPROVED) return 'KYC_APPROVED';
-    if (subject.phoneVerified) return 'PHONE_VERIFIED';
+
+    if (subject.kycStatus === KycStatus.APPROVED) {
+      return 'KYC_APPROVED';
+    }
+
+    if (subject.phoneVerified) {
+      return 'PHONE_VERIFIED';
+    }
+
     return 'AUTHENTICATED';
   }
 
   private getDenialReason(required: KycLevel, current: KycLevel): string {
-    if (required === 'ENHANCED_REVIEW') {
-      return 'Esta operación requiere una revisión reforzada por parte de administración.';
+    switch (required) {
+      case 'ENHANCED_REVIEW':
+        return 'Esta operación requiere una revisión reforzada por parte de administración.';
+      case 'KYC_APPROVED':
+        return 'Debes completar y obtener la aprobación de tu verificación de identidad (KYC).';
+      case 'PHONE_VERIFIED':
+        return 'Debes verificar tu número de teléfono antes de continuar.';
+      case 'AUTHENTICATED':
+        return current === 'PUBLIC'
+          ? 'Debes iniciar sesión para continuar.'
+          : 'No cumples los requisitos de identidad para esta operación.';
+      default:
+        return 'No cumples los requisitos de identidad para esta operación.';
     }
-    if (required === 'KYC_APPROVED') {
-      return 'Debes completar y obtener la aprobación de tu verificación de identidad (KYC).';
-    }
-    if (required === 'PHONE_VERIFIED') {
-      return 'Debes verificar tu número de teléfono antes de continuar.';
-    }
-    if (required === 'AUTHENTICATED' && current === 'PUBLIC') {
-      return 'Debes iniciar sesión para continuar.';
-    }
-    return 'No cumples los requisitos de identidad para esta operación.';
   }
 }

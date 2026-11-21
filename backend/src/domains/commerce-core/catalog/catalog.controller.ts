@@ -66,6 +66,8 @@ export class CatalogController {
     return this.catalogService.getProduct(id);
   }
 
+  // Sin KYC al pedir: no mueve dinero. Se exige al pagar, por encima del
+  // umbral (ManualPaymentsService.assertBuyerKyc).
   @Post('orders')
   @RequireKycOperation('catalog.order')
   @UseGuards(JwtAuthGuard, KycApprovedGuard)

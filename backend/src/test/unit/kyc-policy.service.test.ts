@@ -23,36 +23,105 @@ describe('KycPolicyService', () => {
   it('exige teléfono verificado para contactar proveedores', async () => {
     await expect(
       service.evaluate('provider.contact', { authenticated: true })
-    ).resolves.toMatchObject({ allowed: false, requiredLevel: 'PHONE_VERIFIED' });
+    ).resolves.toMatchObject({
+      allowed: false,
+      requiredLevel: 'PHONE_VERIFIED',
+    });
     await expect(
-      service.evaluate('provider.contact', { authenticated: true, phoneVerified: true })
-    ).resolves.toMatchObject({ allowed: true, currentLevel: 'PHONE_VERIFIED' });
+      service.evaluate('provider.contact', {
+        authenticated: true,
+        phoneVerified: true,
+      })
+    ).resolves.toMatchObject({
+      allowed: true,
+      currentLevel: 'PHONE_VERIFIED',
+    });
   });
 
-  it('exige KYC aprobado para crear pedidos', async () => {
+  it('por defecto basta la sesión para pedir: el KYC del comprador se pide al pagar', async () => {
     await expect(
-      service.evaluate('catalog.order', { authenticated: true, kycStatus: KycStatus.PENDING })
-    ).resolves.toMatchObject({ allowed: false, requiredLevel: 'KYC_APPROVED' });
+      service.evaluate('catalog.order', {
+        authenticated: true,
+        kycStatus: KycStatus.PENDING,
+      })
+    ).resolves.toMatchObject({
+      allowed: true,
+      requiredLevel: 'AUTHENTICATED',
+    });
     await expect(
-      service.evaluate('catalog.order', { authenticated: true, kycStatus: KycStatus.APPROVED })
-    ).resolves.toMatchObject({ allowed: true, currentLevel: 'KYC_APPROVED' });
+      service.evaluate('service.request', { authenticated: false })
+    ).resolves.toMatchObject({ allowed: false });
+  });
+
+  it('exige KYC aprobado para publicar servicios', async () => {
+    await expect(
+      service.evaluate('service.publish', {
+        authenticated: true,
+        kycStatus: KycStatus.PENDING,
+      })
+    ).resolves.toMatchObject({
+      allowed: false,
+      requiredLevel: 'KYC_APPROVED',
+    });
+    await expect(
+      service.evaluate('service.publish', {
+        authenticated: true,
+        kycStatus: KycStatus.APPROVED,
+      })
+    ).resolves.toMatchObject({
+      allowed: true,
+      currentLevel: 'KYC_APPROVED',
+    });
+  });
+
+  it('el admin puede subir el requisito de pedidos a KYC aprobado', async () => {
+    settings.getAll.mockResolvedValue({
+      'identity.kycPolicy': {
+        ...DEFAULT_KYC_PROGRESSIVE_POLICY,
+        operations: {
+          ...DEFAULT_KYC_PROGRESSIVE_POLICY.operations,
+          'catalog.order': 'KYC_APPROVED',
+        },
+      },
+    });
+    await expect(
+      service.evaluate('catalog.order', {
+        authenticated: true,
+        kycStatus: KycStatus.PENDING,
+      })
+    ).resolves.toMatchObject({
+      allowed: false,
+      requiredLevel: 'KYC_APPROVED',
+    });
   });
 
   it('no concede revisión reforzada solo por tener KYC aprobado', async () => {
     const policy = {
       ...DEFAULT_KYC_PROGRESSIVE_POLICY,
-      operations: { ...DEFAULT_KYC_PROGRESSIVE_POLICY.operations, 'catalog.order': 'ENHANCED_REVIEW' },
+      operations: {
+        ...DEFAULT_KYC_PROGRESSIVE_POLICY.operations,
+        'catalog.order': 'ENHANCED_REVIEW',
+      },
     };
     settings.getAll.mockResolvedValue({ 'identity.kycPolicy': policy });
     await expect(
-      service.evaluate('catalog.order', { authenticated: true, kycStatus: KycStatus.APPROVED })
-    ).resolves.toMatchObject({ allowed: false, requiredLevel: 'ENHANCED_REVIEW' });
+      service.evaluate('catalog.order', {
+        authenticated: true,
+        kycStatus: KycStatus.APPROVED,
+      })
+    ).resolves.toMatchObject({
+      allowed: false,
+      requiredLevel: 'ENHANCED_REVIEW',
+    });
     await expect(
       service.evaluate('catalog.order', {
         authenticated: true,
         kycStatus: KycStatus.APPROVED,
         enhancedReviewApproved: true,
       })
-    ).resolves.toMatchObject({ allowed: true, currentLevel: 'ENHANCED_REVIEW' });
+    ).resolves.toMatchObject({
+      allowed: true,
+      currentLevel: 'ENHANCED_REVIEW',
+    });
   });
 });
