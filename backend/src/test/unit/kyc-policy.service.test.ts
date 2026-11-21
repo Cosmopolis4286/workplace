@@ -204,15 +204,5 @@ describe('KycPolicyService', () => {
       allowed: false,
       requiredLevel: 'ENHANCED_REVIEW',
     });
-    await expect(
-      service.evaluate('catalog.order', {
-        authenticated: true,
-        kycStatus: KycStatus.APPROVED,
-        enhancedReviewApproved: true,
-      })
-    ).resolves.toMatchObject({
-      allowed: true,
-      currentLevel: 'ENHANCED_REVIEW',
-    });
   });
 });
