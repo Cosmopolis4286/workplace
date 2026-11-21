@@ -1093,7 +1093,7 @@ export class ServicesService {
         if (!requester) throw new NotFoundException('No se encontró el usuario solicitante');
 
         const phone = dto.clientPhone?.trim() || inquiry.clientPhone?.trim();
-        if (!phone || !/^[+]?[\\d\\s()-]{7,20}$/.test(phone)) {
+        if (!phone || !/^[+]?[\d\s()-]{7,20}$/.test(phone)) {
           throw new BadRequestException('Debes confirmar un teléfono válido para contratar');
         }
         const requestedDate = dto.preferredDate
