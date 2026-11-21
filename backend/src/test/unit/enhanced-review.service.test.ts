@@ -10,9 +10,14 @@ describe('KycService enhanced review workflow', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('solo permite solicitar revisión reforzada con KYC base aprobado', async () => {
+    const tx = {
+      enhancedReviewRequest: { findUnique: jest.fn(), create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
     const prisma = {
       user: { findUnique: jest.fn().mockResolvedValue({ kycStatus: KycStatus.PENDING }) },
-      enhancedReviewRequest: { findUnique: jest.fn(), create: jest.fn() },
+      enhancedReviewRequest: tx.enhancedReviewRequest,
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
     };
     const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
 
@@ -29,12 +34,19 @@ describe('KycService enhanced review workflow', () => {
       status: EnhancedReviewStatus.PENDING,
       requestReason: 'Necesito acceso a operaciones especiales',
     };
+    const tx = {
+      enhancedReviewRequest: {
+        findUnique: jest.fn().mockResolvedValue(request),
+        create: jest.fn().mockResolvedValue(request),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
     const prisma = {
       user: { findUnique: jest.fn().mockResolvedValue({ kycStatus: KycStatus.APPROVED }) },
       enhancedReviewRequest: {
         findUnique: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(request),
-        create: jest.fn().mockResolvedValue(request),
       },
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
     };
     const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
 
@@ -47,16 +59,19 @@ describe('KycService enhanced review workflow', () => {
         requestReason: 'Necesito acceso a operaciones especiales',
       },
     });
-    expect(audit.log).toHaveBeenCalledWith(
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: 'user-1',
-        module: 'kyc',
-        entityId: 'review-1',
+        data: expect.objectContaining({
+          userId: 'user-1',
+          module: 'kyc',
+          entityId: 'review-1',
+        }),
       })
     );
   });
 
   it('impide duplicar una solicitud que ya está pendiente', async () => {
+    const tx = { enhancedReviewRequest: { create: jest.fn() }, auditLog: { create: jest.fn() } };
     const prisma = {
       user: { findUnique: jest.fn().mockResolvedValue({ kycStatus: KycStatus.APPROVED }) },
       enhancedReviewRequest: {
@@ -66,6 +81,7 @@ describe('KycService enhanced review workflow', () => {
         }),
         create: jest.fn(),
       },
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
     };
     const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
 
@@ -88,12 +104,17 @@ describe('KycService enhanced review workflow', () => {
       status: EnhancedReviewStatus.APPROVED,
       expiresAt: new Date(Date.now() + 89 * 24 * 60 * 60 * 1000),
     };
-    const prisma = {
+    const tx = {
       enhancedReviewRequest: {
         findUnique: jest.fn().mockResolvedValue(pending),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findUniqueOrThrow: jest.fn().mockResolvedValue(updated),
       },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const prisma = {
+      enhancedReviewRequest: tx.enhancedReviewRequest,
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
     };
     const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
 
@@ -112,20 +133,22 @@ describe('KycService enhanced review workflow', () => {
     expect(update.data.expiresAt.getTime()).toBeLessThanOrEqual(
       Date.now() + 90 * 24 * 60 * 60 * 1000
     );
-    expect(audit.log).toHaveBeenCalledWith(
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: 'superadmin-1',
-        module: 'kyc',
-        details: expect.objectContaining({
-          targetUserId: 'user-1',
-          status: EnhancedReviewStatus.APPROVED,
+        data: expect.objectContaining({
+          userId: 'superadmin-1',
+          module: 'kyc',
+          details: expect.objectContaining({
+            targetUserId: 'user-1',
+            status: EnhancedReviewStatus.APPROVED,
+          }),
         }),
       })
     );
   });
 
   it('rechaza decisiones concurrentes sin sobrescribir la primera revisión', async () => {
-    const prisma = {
+    const tx = {
       enhancedReviewRequest: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'review-1',
@@ -135,6 +158,11 @@ describe('KycService enhanced review workflow', () => {
         }),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      enhancedReviewRequest: tx.enhancedReviewRequest,
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
     };
     const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
 
@@ -153,11 +181,16 @@ describe('KycService enhanced review workflow', () => {
       userId: 'user-1',
       status: EnhancedReviewStatus.REVOKED,
     };
-    const prisma = {
+    const tx = {
       enhancedReviewRequest: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findUniqueOrThrow: jest.fn().mockResolvedValue(updated),
       },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const prisma = {
+      enhancedReviewRequest: tx.enhancedReviewRequest,
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
     };
     const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
 
@@ -176,9 +209,11 @@ describe('KycService enhanced review workflow', () => {
         }),
       })
     );
-    expect(audit.log).toHaveBeenCalledWith(
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        summary: 'Revisión reforzada revocada por SUPERADMIN',
+        data: expect.objectContaining({
+          summary: 'Revisión reforzada revocada por SUPERADMIN',
+        }),
       })
     );
   });
