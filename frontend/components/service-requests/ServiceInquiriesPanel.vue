@@ -169,7 +169,7 @@ const openConversationId = ref('')
 function toggleConversation(inquiryId: string) {
   openConversationId.value = openConversationId.value === inquiryId ? '' : inquiryId
 }
-const { get, patch } = useApi()
+const { get, post, patch } = useApi()
 const inquiries = ref<Inquiry[]>([])
 const loading = ref(false)
 const error = ref('')
