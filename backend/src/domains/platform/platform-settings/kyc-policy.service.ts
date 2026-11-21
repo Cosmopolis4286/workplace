@@ -29,8 +29,7 @@ export class KycPolicyService {
   async getRequiredLevel(operation: KycPolicyOperation): Promise<KycLevel> {
     const settings = await this.settings.getAll();
     const policy = settings['identity.kycPolicy'] as
-      | typeof DEFAULT_KYC_PROGRESSIVE_POLICY
-      | undefined;
+      typeof DEFAULT_KYC_PROGRESSIVE_POLICY | undefined;
 
     return (
       policy?.operations?.[operation] ??
