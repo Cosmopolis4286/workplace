@@ -38,7 +38,11 @@ justamente el riesgo de fondo.
   entre 5 y 20 USD/mes. Producción y runner van ahí, no en la PC.
 - Mínimo inmediato: confirmar dónde corre hoy producción y qué versión tiene.
 
-### R2. Que el fallo del E2E sea visible y reproducible
+### R2. ✅ E2E visible y reproducible (PR #147)
+
+Ya corre en GitHub (`ubuntu-latest`) en cada PR, con el reporte de Playwright guardado. **Resultado: en una máquina limpia el E2E pasa**, así que el fallo del deploy viene del entorno del runner en la PC (contenedores viejos, disco, Docker Desktop), no del código. Eso refuerza R1.
+
+#### Contexto original
 
 Hoy los E2E solo corren en el runner self-hosted. Cuando falla, no hay logs (404 al
 descargarlos).
@@ -49,7 +53,11 @@ descargarlos).
 - Las 6 pruebas actuales son de humo (carga de páginas y health). Agregar 3 flujos: pedido
   de catálogo con pago en efectivo, solicitud de servicio y registro.
 
-### R3. Abuso de pedidos sin verificación
+### R3. ✅ Abuso de pedidos sin verificación (PR #147)
+
+Ya limitado: máximo 3 pedidos sin atender por comercio y 10 en total por comprador. Falta que el comercio pueda bloquear a un comprador.
+
+#### Contexto original
 
 Desde el PR #146, pedir no exige KYC. El catálogo no tiene límite propio de pedidos (solo
 el límite global por usuario), así que una cuenta nueva puede inundar a un comercio de
@@ -71,9 +79,9 @@ respaldo que nunca se restauró no es un respaldo.
 | # | Mejora | Estado hoy | Qué falta |
 |---|---|---|---|
 | M1 | Modo sin conexión | La PWA guarda las pantallas, no los datos ni las acciones. | Catálogo, pedidos y caja legibles sin señal; ventas POS y "marcar entregado" en cola local que se envía al volver la señal. |
-| M2 | Precio doble USD/Bs | La tasa BCV se sincroniza, pero la tienda pública no muestra los dos precios. | Mostrar $ y Bs en catálogo, pedido y ticket. |
+| M2 | Precio doble USD/Bs | ✅ PR #147: la tienda pública y el modal del pedido muestran $ y Bs. De paso, los comercios ya no nacen en MXN (no podían cobrar) sino en USD. | Falta mostrarlo también en el ticket del POS. |
 | M3 | Fiado en el plan Gratis | El módulo `accounts` solo está en Pro y Enterprise. | Fiado básico en Gratis, sin cuentas por pagar. |
-| M4 | Entrega por río | Vehículos de delivery y corridas: moto, bici, carro, pickup, camión, a pie. **No hay lancha ni curiara.** | Agregar "lancha/curiara", costo por parroquia o sector y "punto de encuentro" (muelle, plaza). |
+| M4 | Entrega por río (**fuera de esta versión**) | Vehículos de delivery y corridas: moto, bici, carro, pickup, camión, a pie. **No hay lancha ni curiara.** | Agregar "lancha/curiara", costo por parroquia o sector y "punto de encuentro" (muelle, plaza). |
 | M5 | Registro asistido | No existe. | Rol "promotor": registra al emprendedor en 5 minutos y la verificación se revisa después. |
 | M6 | APK y distribución | `/download` existe. | Medir el tamaño del APK; descarga directa desde la web para compartir por WhatsApp. |
 | M7 | Plan fundador | No existe. | 0 % o 2 % de comisión 3 meses para los primeros 50 negocios del municipio. |
@@ -89,10 +97,8 @@ respaldo que nunca se restauró no es un respaldo.
 | Costo | La API oficial cobra por conversación iniciada por la empresa y exige verificar el negocio. | Bot gratis; ya existe uno en el código (avisos a clientes del POS). |
 | Riesgo | Si la venta se cierra por WhatsApp, se pierden la comisión y la protección. | El mismo. |
 
-1. **WhatsApp para crecer.** Ya existe `ShareStoreModal` (enlace, QR y compartir nativo,
-   que en Android incluye WhatsApp). Falta:
-   - un botón directo "Enviar por WhatsApp" con un texto listo;
-   - una imagen para el estado con el nombre, tres productos y el QR.
+1. **WhatsApp para crecer.** ✅ PR #147: `ShareStoreModal` tiene "Enviar por WhatsApp" con un
+   texto listo y "Descargar QR". Falta una imagen para el estado con nombre, tres productos y QR.
 2. **Avisos por WhatsApp (opcional, de pago)** solo para eventos clave (pedido nuevo, pedido
    entregado) cuando el push no llegue.
 3. **Telegram como aviso gratis**: generalizar el bot para que cualquier vendedor reciba ahí
@@ -141,7 +147,7 @@ panel de admin con:
 4. **Después del piloto:**
    - M1: modo sin conexión;
    - M3: fiado en Gratis;
-   - M4: entrega por río;
+   - M4: entrega por río (en una versión posterior);
    - M5: rol promotor;
    - M7: plan fundador;
    - avisos por Telegram.
