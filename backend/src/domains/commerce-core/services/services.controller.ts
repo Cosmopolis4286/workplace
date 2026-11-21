@@ -39,6 +39,7 @@ import { RejectPriceChangeProposalDto } from './dto/reject-price-change-proposal
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RateLimit } from '../../../common/guards/rate-limit.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ResolveDisputeDto } from '../../money/escrow/dto/resolve-dispute.dto';
@@ -126,9 +127,11 @@ export class ServicesController {
   }
 
   @Post()
+  @RequireKycOperation('service.publish')
   @UseGuards(
     JwtAuthGuard,
     PermissionsGuard,
+    KycApprovedGuard,
     CategoryScopeGuard,
     ModuleAccessGuard
   )
@@ -413,6 +416,7 @@ export class ServicesController {
   }
 
   @Post('requests')
+  @RequireKycOperation('service.request')
   @UseGuards(JwtAuthGuard, KycApprovedGuard)
   createRequest(
     @Body() dto: CreateServiceRequestDto,

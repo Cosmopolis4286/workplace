@@ -13,6 +13,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { DeliveryService } from './delivery.service';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
@@ -119,6 +120,7 @@ export class DeliveryController {
   }
 
   @Post()
+  @RequireKycOperation('delivery.create')
   @UseGuards(KycApprovedGuard)
   @RequirePermission('delivery:create')
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateDeliveryDto) {

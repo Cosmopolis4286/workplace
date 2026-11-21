@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ManualPaymentReportStatus, Role } from '@prisma/client';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
@@ -42,6 +43,7 @@ export class UsageCreditsController {
 
   // Comprar exige identidad verificada (prevención de legitimación de capitales).
   @Post('purchases')
+  @RequireKycOperation('usage-credits.purchase')
   @UseGuards(KycApprovedGuard)
   @RateLimit({
     windowMs: 60_000,

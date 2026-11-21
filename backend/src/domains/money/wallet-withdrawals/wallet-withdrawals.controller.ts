@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Role, WithdrawalStatus } from '@prisma/client';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
@@ -48,6 +49,7 @@ export class WalletWithdrawalsController {
   }
 
   @Post()
+  @RequireKycOperation('wallet.withdraw')
   @RequirePermission('wallets:use')
   @UseGuards(EmailVerifiedGuard, KycApprovedGuard)
   @RateLimit({

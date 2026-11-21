@@ -11,6 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { RidesService } from './rides.service';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
@@ -102,6 +103,7 @@ export class RidesController {
 
   // POST /api/rides — passenger requests a ride
   @Post()
+  @RequireKycOperation('ride.create')
   @UseGuards(KycApprovedGuard)
   @RequirePermission('corridas:create')
   @RateLimit({
@@ -115,6 +117,7 @@ export class RidesController {
 
   // POST /api/rides/:id/accept — driver accepts
   @Post(':id/accept')
+  @RequireKycOperation('ride.accept')
   @UseGuards(KycApprovedGuard)
   @RequirePermission('corridas:manage')
   @RateLimit({
