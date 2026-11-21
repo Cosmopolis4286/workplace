@@ -68,6 +68,13 @@ export class KycService {
   }
 
   async requestEnhancedReview(userId: string, reason: string) {
+    const normalizedReason = reason?.trim() ?? '';
+    if (normalizedReason.length < 20 || normalizedReason.length > 500) {
+      throw new BadRequestException(
+        'El motivo debe tener entre 20 y 500 caracteres'
+      );
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { kycStatus: true },
@@ -107,7 +114,7 @@ export class KycService {
             },
             data: {
               status: EnhancedReviewStatus.PENDING,
-              requestReason: reason.trim(),
+              requestReason: normalizedReason,
               decisionReason: null,
               reviewedBy: null,
               reviewedAt: null,
@@ -231,6 +238,13 @@ export class KycService {
       expiresAt?: string;
     }
   ) {
+    const decisionReason = dto.reason?.trim() ?? '';
+    if (decisionReason.length < 10 || decisionReason.length > 500) {
+      throw new BadRequestException(
+        'El motivo de la decisión debe tener entre 10 y 500 caracteres'
+      );
+    }
+
     const current = await this.prisma.enhancedReviewRequest.findUnique({
       where: { id },
       include: { user: { select: { kycStatus: true } } },
@@ -276,7 +290,7 @@ export class KycService {
         where: { id, status: EnhancedReviewStatus.PENDING },
         data: {
           status: dto.status,
-          decisionReason: dto.reason.trim(),
+          decisionReason,
           reviewedBy: reviewerId,
           reviewedAt: now,
           expiresAt,
@@ -305,7 +319,7 @@ export class KycService {
             targetUserId: current.userId,
             previousStatus: current.status,
             status: dto.status,
-            reason: dto.reason.trim(),
+            reason: decisionReason,
             expiresAt: expiresAt?.toISOString() ?? null,
           },
         },
@@ -319,6 +333,13 @@ export class KycService {
     reviewerId: string,
     reason: string
   ) {
+    const revocationReason = reason?.trim() ?? '';
+    if (revocationReason.length < 10 || revocationReason.length > 500) {
+      throw new BadRequestException(
+        'El motivo de revocación debe tener entre 10 y 500 caracteres'
+      );
+    }
+
     const now = new Date();
     return this.prisma.$transaction(async (tx) => {
       const changed = await tx.enhancedReviewRequest.updateMany({
@@ -331,7 +352,7 @@ export class KycService {
           status: EnhancedReviewStatus.REVOKED,
           revokedBy: reviewerId,
           revokedAt: now,
-          revocationReason: reason.trim(),
+          revocationReason,
         },
       });
       if (changed.count !== 1) {
@@ -353,7 +374,7 @@ export class KycService {
             targetUserId: updated.userId,
             previousStatus: EnhancedReviewStatus.APPROVED,
             status: EnhancedReviewStatus.REVOKED,
-            reason: reason.trim(),
+            reason: revocationReason,
           },
         },
       });
