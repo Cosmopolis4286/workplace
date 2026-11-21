@@ -71,6 +71,13 @@ export function useKyc() {
     )
   }
 
+  async function fetchActiveEnhancedReviews(page = 1, limit = 20) {
+    const { get } = useApi()
+    return get<{ data: EnhancedReviewRequest[]; total: number; page: number; limit: number }>(
+      `/kyc/admin/enhanced-review/active?page=${page}&limit=${limit}`,
+    )
+  }
+
   async function reviewEnhancedRequest(
     id: string,
     status: 'APPROVED' | 'REJECTED',
@@ -150,6 +157,7 @@ export function useKyc() {
     submitVerification,
     requestEnhancedReview,
     fetchPendingEnhancedReviews,
+    fetchActiveEnhancedReviews,
     reviewEnhancedRequest,
     revokeEnhancedReview,
     fetchPending,
