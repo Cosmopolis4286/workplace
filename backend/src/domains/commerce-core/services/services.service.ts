@@ -1018,14 +1018,20 @@ export class ServicesService {
   async convertServiceInquiryToRequest(
     inquiryId: string,
     requesterId: string,
-    dto: { preferredDate?: string; clientPhone?: string; description?: string }
+    dto: {
+      preferredDate?: string;
+      clientPhone?: string;
+      description?: string;
+    }
   ) {
     const existing = await this.prisma.serviceRequest.findUnique({
       where: { inquiryId },
     });
     if (existing) {
       if (existing.requesterId !== requesterId) {
-        throw new ForbiddenException('No puedes acceder a esta contratación');
+        throw new ForbiddenException(
+          'No puedes acceder a esta contratación'
+        );
       }
       return { ...existing, alreadyApplied: true };
     }
@@ -1034,11 +1040,17 @@ export class ServicesService {
       where: { id: inquiryId },
       select: { providerId: true, requesterId: true },
     });
-    if (!inquirySnapshot) throw new NotFoundException('Consulta no encontrada');
-    if (inquirySnapshot.requesterId !== requesterId) {
-      throw new ForbiddenException('Solo quien inició la consulta puede contratar');
+    if (!inquirySnapshot) {
+      throw new NotFoundException('Consulta no encontrada');
     }
-    await this.planLimits.assertServiceRequestLimit(inquirySnapshot.providerId);
+    if (inquirySnapshot.requesterId !== requesterId) {
+      throw new ForbiddenException(
+        'Solo quien inició la consulta puede contratar'
+      );
+    }
+    await this.planLimits.assertServiceRequestLimit(
+      inquirySnapshot.providerId
+    );
 
     try {
       const outcome = await this.prisma.$transaction(async (tx) => {
@@ -1059,51 +1071,80 @@ export class ServicesService {
             },
           },
         });
-        if (!inquiry) throw new NotFoundException('Consulta no encontrada');
-        if (inquiry.requesterId !== requesterId) {
-          throw new ForbiddenException('Solo quien inició la consulta puede contratar');
+        if (!inquiry) {
+          throw new NotFoundException('Consulta no encontrada');
         }
+        if (inquiry.requesterId !== requesterId) {
+          throw new ForbiddenException(
+            'Solo quien inició la consulta puede contratar'
+          );
+        }
+
         const alreadyCreated = await tx.serviceRequest.findUnique({
           where: { inquiryId },
         });
-        if (alreadyCreated) return { request: alreadyCreated, created: false };
+        if (alreadyCreated) {
+          return { request: alreadyCreated, created: false };
+        }
         if (!['OPEN', 'RESPONDED'].includes(inquiry.status)) {
-          throw new ConflictException('Esta consulta ya no puede convertirse en contratación');
+          throw new ConflictException(
+            'Esta consulta ya no puede convertirse en contratación'
+          );
         }
 
         const service = inquiry.service;
         if (!service || service.status !== ServiceStatus.ACTIVE) {
           throw new ConflictException('El servicio ya no está disponible');
         }
-        if (service.userId !== inquiry.providerId || requesterId === service.userId) {
-          throw new ConflictException('La consulta ya no coincide con el prestador del servicio');
+        if (
+          service.userId !== inquiry.providerId ||
+          requesterId === service.userId
+        ) {
+          throw new ConflictException(
+            'La consulta ya no coincide con el prestador del servicio'
+          );
         }
         if (
           inquiry.modality &&
           service.modalities.length > 0 &&
           !service.modalities.includes(inquiry.modality)
         ) {
-          throw new ConflictException('La modalidad de la consulta ya no está disponible');
+          throw new ConflictException(
+            'La modalidad de la consulta ya no está disponible'
+          );
         }
 
         const requester = await tx.user.findUnique({
           where: { id: requesterId },
           select: { firstName: true, lastName: true, email: true },
         });
-        if (!requester) throw new NotFoundException('No se encontró el usuario solicitante');
+        if (!requester) {
+          throw new NotFoundException(
+            'No se encontró el usuario solicitante'
+          );
+        }
 
         const phone = dto.clientPhone?.trim() || inquiry.clientPhone?.trim();
         if (!phone || !/^[+]?[\d\s()-]{7,20}$/.test(phone)) {
-          throw new BadRequestException('Debes confirmar un teléfono válido para contratar');
+          throw new BadRequestException(
+            'Debes confirmar un teléfono válido para contratar'
+          );
         }
         const requestedDate = dto.preferredDate
           ? new Date(dto.preferredDate)
           : inquiry.preferredDate;
         if (!requestedDate || Number.isNaN(requestedDate.getTime())) {
-          throw new BadRequestException('Debes indicar una fecha preferida para contratar');
+          throw new BadRequestException(
+            'Debes indicar una fecha preferida para contratar'
+          );
         }
-        if (requestedDate.getTime() < new Date(new Date().setHours(0, 0, 0, 0)).getTime()) {
-          throw new BadRequestException('La fecha preferida no puede estar en el pasado');
+        if (
+          requestedDate.getTime() <
+          new Date(new Date().setHours(0, 0, 0, 0)).getTime()
+        ) {
+          throw new BadRequestException(
+            'La fecha preferida no puede estar en el pasado'
+          );
         }
         if (inquiry.preferredTime) {
           const [hours, minutes] = inquiry.preferredTime.split(':').map(Number);
@@ -1119,11 +1160,20 @@ export class ServicesService {
           data: { status: 'CONVERTED' },
         });
         if (claimed.count !== 1) {
-          throw new ConflictException('La consulta cambió; actualiza e intenta de nuevo');
+          throw new ConflictException(
+            'La consulta cambió; actualiza e intenta de nuevo'
+          );
         }
 
-        const providerName = [service.user.firstName, service.user.lastName].join(' ').trim();
-        const clientName = [requester.firstName, requester.lastName].join(' ').trim();
+        const providerName = [
+          service.user.firstName,
+          service.user.lastName,
+        ]
+          .join(' ')
+          .trim();
+        const clientName = [requester.firstName, requester.lastName]
+          .join(' ')
+          .trim();
         const createdRequest = await tx.serviceRequest.create({
           data: {
             inquiryId,
@@ -1138,7 +1188,10 @@ export class ServicesService {
             clientName,
             clientPhone: phone,
             clientEmail: requester.email,
-            description: dto.description?.trim() || inquiry.message || inquiry.providerResponse,
+            description:
+              dto.description?.trim() ||
+              inquiry.message ||
+              inquiry.providerResponse,
             price: service.price,
             priceUnit: service.priceUnit,
             requesterId,
@@ -1162,7 +1215,10 @@ export class ServicesService {
       // Una conversión concurrente puede ganar el índice único. Devolver su
       // resultado hace que los reintentos del cliente sean seguros.
       const isUniqueConflict =
-        error && typeof error === 'object' && 'code' in error && error.code === 'P2002';
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2002';
       if (isUniqueConflict || error instanceof ConflictException) {
         const winner = await this.prisma.serviceRequest.findUnique({
           where: { inquiryId },
