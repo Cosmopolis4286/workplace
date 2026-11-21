@@ -49,6 +49,6 @@ La política se aplica en backend mediante `@RequireKycOperation` a publicación
 - La bandeja, aprobación, rechazo y revocación están restringidas a `SUPERADMIN`; `ADMIN` puede seguir gestionando el KYC ordinario, pero no elevar ni revocar este nivel.
 - Toda decisión exige un motivo (10–500 caracteres). La aprobación vence por defecto a los 90 días; se puede fijar otra fecha futura hasta un máximo de 365 días.
 - Una aprobación se puede revocar con motivo. Rechazos, revocaciones y vencimientos permiten una nueva solicitud.
-- Las escrituras de estado y su evento `AuditLog` se realizan en la misma transacción. El registro identifica actor, usuario objetivo, estado anterior/nuevo, motivo y vigencia.
+- Las escrituras de estado y su evento `AuditLog` se realizan en la misma transacción. Si el registro de auditoría falla, la transacción completa se revierte y la decisión no queda aplicada. El registro identifica actor, usuario objetivo, estado anterior/nuevo, motivo y vigencia.
 - `KycPolicyService` consulta la fila persistida en cada evaluación protegida. Solo concede `ENHANCED_REVIEW` cuando el estado es `APPROVED`, no ha vencido y el KYC base continúa aprobado. No consume claims JWT ni flags del cliente.
 - El usuario gestiona la solicitud desde Mi perfil → Verificación de identidad; SUPERADMIN revisa y revoca desde Administración → Verificaciones de identidad.
