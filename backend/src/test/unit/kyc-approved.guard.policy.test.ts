@@ -90,7 +90,7 @@ describe('KycApprovedGuard — política progresiva', () => {
       authenticated: true,
       phoneVerified: false,
       kycStatus: KycStatus.APPROVED,
-    });
+    }, 'user-1');
   });
 
   it('reconoce solo la marca phoneVerifiedAt persistida', async () => {
