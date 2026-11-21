@@ -12,9 +12,7 @@ export class ReviewEnhancedReviewDto {
   @IsEnum([EnhancedReviewStatus.APPROVED, EnhancedReviewStatus.REJECTED], {
     message: 'La decisión debe ser APPROVED o REJECTED',
   })
-  status:
-    | typeof EnhancedReviewStatus.APPROVED
-    | typeof EnhancedReviewStatus.REJECTED;
+  status: 'APPROVED' | 'REJECTED';
 
   @IsString()
   @MinLength(10, {
