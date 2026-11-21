@@ -93,6 +93,30 @@ describe('KycApprovedGuard — política progresiva', () => {
     });
   });
 
+  it('reconoce solo la marca phoneVerifiedAt persistida', async () => {
+    Reflect.defineMetadata(KYC_POLICY_OPERATION, 'provider.contact', handler);
+    policy.evaluate.mockResolvedValue({ allowed: true });
+
+    await expect(
+      guard.canActivate(
+        context({
+          id: 'user-1',
+          role: Role.NORMAL,
+          phone: '+584121234567',
+          phoneVerified: true,
+          phoneVerifiedAt: new Date(),
+          kycStatus: KycStatus.PENDING,
+        })
+      )
+    ).resolves.toBe(true);
+
+    expect(policy.evaluate).toHaveBeenCalledWith('provider.contact', {
+      authenticated: true,
+      phoneVerified: true,
+      kycStatus: KycStatus.PENDING,
+    });
+  });
+
   it('mantiene el comportamiento KYC anterior para rutas aún no clasificadas', async () => {
     await expect(
       guard.canActivate(
