@@ -10,6 +10,7 @@ import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
 import { MessangiSmsProvider } from './messangi-sms.provider';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
+import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
 
 const OTP_TTL_SECONDS = 5 * 60;
 const MAX_VERIFY_ATTEMPTS = 5;
@@ -178,6 +179,9 @@ export class PhoneVerificationService {
         phoneVerifiedAt: new Date(),
       },
     });
+    // JwtStrategy obtiene el usuario desde findById(); invalidar el caché
+    // para que el nuevo estado OTP tenga efecto en la siguiente petición.
+    await this.redis.del(userFindByIdCacheKey(userId));
     await this.redis.del(challengeKey);
     await this.redis.del(attemptsKey);
 
