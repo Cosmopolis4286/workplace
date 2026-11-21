@@ -30,6 +30,9 @@ import {
 import { KycService } from './kyc.service';
 import { SubmitVerificationDto } from './dto/submit-verification.dto';
 import { ReviewVerificationDto } from './dto/review-verification.dto';
+import { RequestEnhancedReviewDto } from './dto/request-enhanced-review.dto';
+import { ReviewEnhancedReviewDto } from './dto/review-enhanced-review.dto';
+import { RevokeEnhancedReviewDto } from './dto/revoke-enhanced-review.dto';
 
 // Fuera del árbol "uploads/" (montado públicamente con useStaticAssets en
 // app.module.ts) para que estas imágenes NUNCA sean accesibles sin pasar por
@@ -66,6 +69,19 @@ export class KycController {
   @Get('me')
   getMyStatus(@CurrentUser() user: any) {
     return this.kycService.getMyStatus(user.id);
+  }
+
+  @Post('me/enhanced-review/request')
+  @RateLimit({
+    windowMs: 60_000 * 60,
+    maxRequests: 3,
+    keyGenerator: (req) => `kyc:enhanced-review:request:${(req as any).user?.id}`,
+  })
+  requestEnhancedReview(
+    @CurrentUser() user: any,
+    @Body() dto: RequestEnhancedReviewDto
+  ) {
+    return this.kycService.requestEnhancedReview(user.id, dto.reason);
   }
 
   @Post('me/submit')
@@ -151,6 +167,48 @@ export class KycController {
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   findOne(@Param('id') id: string, @CurrentUser() user: any) {
     return this.kycService.findOne(id, user.role);
+  }
+
+  @Get('admin/enhanced-review/pending')
+  @Roles(Role.SUPERADMIN)
+  findAllPendingEnhancedReviews(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20'
+  ) {
+    return this.kycService.findAllPendingEnhancedReviews(
+      parseInt(page, 10),
+      parseInt(limit, 10)
+    );
+  }
+
+  @Patch('admin/enhanced-review/:id/review')
+  @Roles(Role.SUPERADMIN)
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 20,
+    keyGenerator: (req) => `kyc:enhanced-review:decision:${(req as any).user?.id}`,
+  })
+  reviewEnhancedRequest(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: ReviewEnhancedReviewDto
+  ) {
+    return this.kycService.reviewEnhancedRequest(id, user.id, dto);
+  }
+
+  @Patch('admin/enhanced-review/:id/revoke')
+  @Roles(Role.SUPERADMIN)
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 20,
+    keyGenerator: (req) => `kyc:enhanced-review:revoke:${(req as any).user?.id}`,
+  })
+  revokeEnhancedReview(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: RevokeEnhancedReviewDto
+  ) {
+    return this.kycService.revokeEnhancedReview(id, user.id, dto.reason);
   }
 
   @Patch('admin/:id/review')
