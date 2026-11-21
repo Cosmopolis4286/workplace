@@ -205,6 +205,9 @@ export class CatalogService {
             avgDeliveryTime: true,
             deliveryFee: true,
             freeDeliveryMinimum: true,
+            // Moneda de los precios (USD o VES): la tienda muestra también el
+            // equivalente en la otra moneda con la tasa vigente.
+            currency: true,
           },
         },
         // username/freelancerSettings.slug: para el link "Ver perfil

@@ -85,7 +85,7 @@ const paymentMethodOptions = [
   { id: 'digital-wallet', name: 'Monedero Digital' },
 ]
 
-const form = ref({ currency: 'MXN', tax: 16, suggestedTip: 10, paymentMethods: ['cash', 'card', 'transfer'] as string[] })
+const form = ref({ currency: 'USD', tax: 16, suggestedTip: 10, paymentMethods: ['cash', 'card', 'transfer'] as string[] })
 
 watch(() => props.settings, (s) => {
   if (!s) return
