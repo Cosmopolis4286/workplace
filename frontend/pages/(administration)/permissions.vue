@@ -460,8 +460,6 @@ function toggleProfileLocal(permissionId: string, profileKey: string, granted: b
   if (!localProfileMatrix.value[permissionId]) return
   localProfileMatrix.value[permissionId][profileKey] = granted
 
-  const { profileType, subtype } = PROFILE_KEY_TO_PARTS[profileKey]
-
 }
 
 async function saveAllProfile() {
