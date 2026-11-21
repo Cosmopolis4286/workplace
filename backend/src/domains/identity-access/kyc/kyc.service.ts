@@ -1,3 +1,4 @@
+
 import {
   BadRequestException,
   ConflictException,
@@ -337,11 +338,7 @@ export class KycService {
     });
   }
 
-  async revokeEnhancedReview(
-    id: string,
-    reviewerId: string,
-    reason: string
-  ) {
+  async revokeEnhancedReview(id: string, reviewerId: string, reason: string) {
     const revocationReason = reason?.trim() ?? '';
     if (revocationReason.length < 10 || revocationReason.length > 500) {
       throw new BadRequestException(
