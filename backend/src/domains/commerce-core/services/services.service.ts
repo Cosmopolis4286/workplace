@@ -1029,9 +1029,7 @@ export class ServicesService {
     });
     if (existing) {
       if (existing.requesterId !== requesterId) {
-        throw new ForbiddenException(
-          'No puedes acceder a esta contratación'
-        );
+        throw new ForbiddenException('No puedes acceder a esta contratación');
       }
       return { ...existing, alreadyApplied: true };
     }
@@ -1048,9 +1046,7 @@ export class ServicesService {
         'Solo quien inició la consulta puede contratar'
       );
     }
-    await this.planLimits.assertServiceRequestLimit(
-      inquirySnapshot.providerId
-    );
+    await this.planLimits.assertServiceRequestLimit(inquirySnapshot.providerId);
 
     try {
       const outcome = await this.prisma.$transaction(async (tx) => {
@@ -1119,9 +1115,7 @@ export class ServicesService {
           select: { firstName: true, lastName: true, email: true },
         });
         if (!requester) {
-          throw new NotFoundException(
-            'No se encontró el usuario solicitante'
-          );
+          throw new NotFoundException('No se encontró el usuario solicitante');
         }
 
         const phone = dto.clientPhone?.trim() || inquiry.clientPhone?.trim();
