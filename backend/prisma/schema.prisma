@@ -430,7 +430,9 @@ model CommerceSettings {
   commerce   Commerce @relation(fields: [commerceId], references: [id], onDelete: Cascade)
 
   // Payment
-  currency       String   @default("MXN")
+  // USD o VES: los únicos que admite el cobro directo. Antes "MXN" (legado),
+  // que dejaba a cada comercio nuevo sin poder recibir pagos.
+  currency       String   @default("USD")
   tax            Decimal  @default(16) @db.Decimal(20, 8)
   suggestedTip   Decimal  @default(10) @db.Decimal(20, 8)
   paymentMethods String[] @default(["cash", "card", "transfer"])

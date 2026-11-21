@@ -158,7 +158,10 @@
             </div>
             <div class="p-3">
               <p class="font-semibold text-gray-900 text-sm line-clamp-1">{{ product.name }}</p>
-              <p class="text-red-600 font-black text-sm mt-0.5">${{ new Intl.NumberFormat('es-CO').format(product.price) }}</p>
+              <p class="text-red-600 font-black text-sm mt-0.5">{{ primaryPrice(Number(product.price), storeCurrency) }}</p>
+              <p v-if="secondaryPrice(Number(product.price), storeCurrency)" class="text-[11px] text-gray-500">
+                {{ secondaryPrice(Number(product.price), storeCurrency) }}
+              </p>
               <p v-if="product.category?.name" class="text-xs text-gray-400 mt-0.5">{{ product.category.name }}</p>
               <button
                 v-if="isAuthenticated"
@@ -197,6 +200,7 @@
       ref="orderModalRef"
       v-model="showOrderModal"
       :product="orderTarget"
+      :currency="storeCurrency"
       @success="onOrderSuccess"
     />
 
@@ -228,6 +232,7 @@ import { useApi } from '~/composables/core/useApi'
 import { useAssetUrl } from '~/composables/core/useAssetUrl'
 import { useAuth } from '~/composables/auth/useAuth'
 import { useCheckoutResume } from '~/composables/catalog/useCheckoutResume'
+import { useDualPrice } from '~/composables/catalog/useDualPrice'
 
 interface PublicStore {
   id: string
@@ -244,7 +249,7 @@ interface PublicStore {
   description: string | null
   socialLinks: { instagram?: string; facebook?: string; whatsapp?: string; tiktok?: string } | null
   user: { username: string | null; avatar: string | null; coverImage: string | null }
-  settings: { avgPrepTime: number | null; avgDeliveryTime: number | null; deliveryFee: number | null; freeDeliveryMinimum: number | null } | null
+  settings: { avgPrepTime: number | null; avgDeliveryTime: number | null; deliveryFee: number | null; freeDeliveryMinimum: number | null; currency?: string | null } | null
   // Solo presente si el dueño tiene FreelancerSettings con slug propio —
   // un Commerce puede pertenecer a un PROFESIONAL que también cotiza
   // trabajos a medida ("opción 2"), ver ProfilesService.getStoreBySlug.
@@ -262,6 +267,9 @@ const layout = computed(() => isAuthenticated.value ? 'default' : 'public')
 const slug = computed(() => String(route.params.slug ?? ''))
 
 const store = ref<PublicStore | null>(null)
+// Precio en la moneda del comercio y su equivalente ($ ↔ Bs) a la tasa vigente.
+const { loadRate, primary: primaryPrice, secondary: secondaryPrice } = useDualPrice()
+const storeCurrency = computed(() => store.value?.settings?.currency ?? 'USD')
 const loading = ref(true)
 const error = ref(false)
 
@@ -365,6 +373,7 @@ async function resumeCheckoutIfNeeded() {
 }
 
 onMounted(async () => {
+  loadRate()
   await fetchStore()
   if (store.value) await fetchProducts(1)
   await resumeCheckoutIfNeeded()
