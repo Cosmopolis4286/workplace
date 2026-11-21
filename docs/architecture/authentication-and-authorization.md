@@ -132,3 +132,8 @@ Por eso el frontend puede ocultar botones y rutas con `usePermissions().can()`, 
 - Mantener tests de concurrencia para la rotación de refresh tokens y pruebas de integración que validen guards sobre endpoints reales.
 - Mantener las invalidaciones de Redis y las versiones `/permissions/version` sincronizadas cuando cambien permisos por rol, perfil o usuario.
 - No duplicar reglas de autorización en componentes; añadir la clave al catálogo, aplicar el decorator en backend y comprobarla en frontend.
+
+## Renovación concurrente de sesión en frontend
+
+`useAuth.refreshAccessToken()` es el único punto de renovación usado tanto por `authFetch()` como por `useApi()`. Las llamadas 401 simultáneas de una misma generación de sesión comparten una sola promesa para evitar competir por el refresh token rotativo. Si ocurre logout o un nuevo login mientras la renovación anterior está en vuelo, la respuesta antigua no puede restaurar tokens ni cerrar la sesión nueva.
+
