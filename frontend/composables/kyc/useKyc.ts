@@ -20,9 +20,27 @@ export interface IdentityVerification {
   user?: { id: string; firstName: string; lastName: string; email: string; role: string }
 }
 
+export type EnhancedReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED'
+
+export interface EnhancedReviewRequest {
+  id: string
+  userId: string
+  status: EnhancedReviewStatus
+  requestReason: string
+  decisionReason: string | null
+  reviewedAt: string | null
+  expiresAt: string | null
+  revokedAt: string | null
+  revocationReason: string | null
+  createdAt: string
+  updatedAt: string
+  user?: { id: string; firstName: string; lastName: string; email: string; role: string; kycStatus: KycStatus }
+}
+
 export interface MyKycStatus {
   kycStatus: KycStatus
   latestSubmission: IdentityVerification | null
+  enhancedReview: EnhancedReviewRequest | null
 }
 
 const myStatus = ref<MyKycStatus | null>(null)
@@ -37,6 +55,39 @@ export function useKyc() {
     } finally {
       loading.value = false
     }
+  }
+
+  async function requestEnhancedReview(reason: string) {
+    const { post } = useApi()
+    const result = await post<EnhancedReviewRequest>('/kyc/me/enhanced-review/request', { reason })
+    await fetchMyStatus()
+    return result
+  }
+
+  async function fetchPendingEnhancedReviews(page = 1, limit = 20) {
+    const { get } = useApi()
+    return get<{ data: EnhancedReviewRequest[]; total: number; page: number; limit: number }>(
+      `/kyc/admin/enhanced-review/pending?page=${page}&limit=${limit}`,
+    )
+  }
+
+  async function reviewEnhancedRequest(
+    id: string,
+    status: 'APPROVED' | 'REJECTED',
+    reason: string,
+    expiresAt?: string,
+  ) {
+    const { patch } = useApi()
+    return patch<EnhancedReviewRequest>(`/kyc/admin/enhanced-review/${id}/review`, {
+      status,
+      reason,
+      expiresAt,
+    })
+  }
+
+  async function revokeEnhancedReview(id: string, reason: string) {
+    const { patch } = useApi()
+    return patch<EnhancedReviewRequest>(`/kyc/admin/enhanced-review/${id}/revoke`, { reason })
   }
 
   async function submitVerification(payload: {
@@ -97,6 +148,10 @@ export function useKyc() {
     loading,
     fetchMyStatus,
     submitVerification,
+    requestEnhancedReview,
+    fetchPendingEnhancedReviews,
+    reviewEnhancedRequest,
+    revokeEnhancedReview,
     fetchPending,
     fetchOne,
     review,
