@@ -26,6 +26,7 @@ export interface User {
   firstName: string
   lastName: string
   phone?: string
+  phoneVerifiedAt?: string | null
   avatar?: string
   role: 'SUPERADMIN' | 'ADMIN' | 'PROFESIONAL' | 'NORMAL'
   // role ya no distingue "tiene Commerce" de "es freelancer/service
