@@ -49,6 +49,9 @@ export interface CommerceSettings {
   avgDeliveryTime: number
   deliveryFee: number
   freeDeliveryMinimum: number
+  // Zonas de entrega del catálogo público, en la moneda del comercio.
+  deliveryZones?: { name: string; fee: number }[]
+  pickupEnabled?: boolean
   notifyNewOrders: boolean
   notifyLowStock: boolean
   notifyDailyReports: boolean

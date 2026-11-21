@@ -56,7 +56,12 @@
         </div>
         <div class="flex-shrink-0 text-right space-y-1">
           <p v-if="mo.totalEstimate" class="text-sm font-bold text-gray-900">${{ formatPrice(mo.totalEstimate) }}</p>
-          <p class="text-xs text-gray-400">{{ MKT_DELIVERY_LABELS[mo.deliveryType] }}</p>
+          <p class="text-xs text-gray-400">
+            {{ MKT_DELIVERY_LABELS[mo.deliveryType] }}<template v-if="mo.deliveryZone"> · {{ mo.deliveryZone }}</template>
+          </p>
+          <p v-if="mo.deliveryFee != null" class="text-xs text-gray-500">
+            Envío: {{ Number(mo.deliveryFee) > 0 ? formatFee(mo.deliveryFee) : 'gratis' }}
+          </p>
           <p class="text-[10px] text-gray-400">{{ formatDateTimeShort(mo.createdAt) }}</p>
         </div>
         <div class="flex-shrink-0 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -110,7 +115,7 @@ const chatOrderId = ref<string | null>(null)
 type MktOrderStatus = 'PENDING' | 'SEEN' | 'CONTACTED' | 'CLOSED'
 type MktDeliveryType = 'HOME_DELIVERY' | 'PICKUP' | 'DIGITAL'
 interface MktOrderItem { productId: string; productName: string; unitPrice: number; quantity: number; isBundle: boolean }
-interface MktOrder { id: string; commerceCompletedAt?: string | null; items: MktOrderItem[]; deliveryType: MktDeliveryType; address?: string; city?: string; buyerName: string; buyerPhone: string; buyerEmail?: string; notes?: string; totalEstimate?: number; status: MktOrderStatus; createdAt: string }
+interface MktOrder { id: string; commerceCompletedAt?: string | null; items: MktOrderItem[]; deliveryType: MktDeliveryType; address?: string; city?: string; buyerName: string; buyerPhone: string; buyerEmail?: string; notes?: string; totalEstimate?: number; deliveryZone?: string | null; deliveryFee?: number | string | null; status: MktOrderStatus; createdAt: string }
 
 function itemsSummary(order: MktOrder): string {
   if (!order.items?.length) return ''
@@ -179,6 +184,7 @@ async function markDelivered(id: string) {
   }
 }
 
+function formatFee(fee: number | string) { return '$' + Number(fee).toFixed(2) }
 function changePage(p: number) { page.value = p; load() }
 function formatPrice(p: number) { return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(p) }
 

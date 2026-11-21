@@ -28,6 +28,7 @@ export class CatalogOrderPaymentSourceResolver implements PaymentSourceResolver 
         commerceId: true,
         commerceName: true,
         totalEstimate: true,
+        deliveryFee: true,
         status: true,
         escrowStatus: true,
       },
@@ -86,7 +87,8 @@ export class CatalogOrderPaymentSourceResolver implements PaymentSourceResolver 
       payerUserId,
       sellerUserId: commerce.userId,
       currency,
-      baseAmount: order.totalEstimate.toFixed(2),
+      // Productos + envío por zona (la comisión se calcula solo sobre productos).
+      baseAmount: order.totalEstimate.plus(order.deliveryFee ?? 0).toFixed(2),
       description: `Pedido de catálogo - ${order.commerceName}`,
       quoteVersion: order.status,
     };

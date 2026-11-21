@@ -201,6 +201,7 @@
       v-model="showOrderModal"
       :product="orderTarget"
       :currency="storeCurrency"
+      :delivery="storeDelivery"
       @success="onOrderSuccess"
     />
 
@@ -250,7 +251,7 @@ interface PublicStore {
   description: string | null
   socialLinks: { instagram?: string; facebook?: string; whatsapp?: string; tiktok?: string } | null
   user: { username: string | null; avatar: string | null; coverImage: string | null }
-  settings: { avgPrepTime: number | null; avgDeliveryTime: number | null; deliveryFee: number | null; freeDeliveryMinimum: number | null; currency?: string | null } | null
+  settings: { avgPrepTime: number | null; avgDeliveryTime: number | null; deliveryFee: number | null; freeDeliveryMinimum: number | null; currency?: string | null; deliveryZones?: { name: string; fee: number }[]; pickupEnabled?: boolean } | null
   // Solo presente si el dueño tiene FreelancerSettings con slug propio —
   // un Commerce puede pertenecer a un PROFESIONAL que también cotiza
   // trabajos a medida ("opción 2"), ver ProfilesService.getStoreBySlug.
@@ -271,6 +272,16 @@ const store = ref<PublicStore | null>(null)
 // Precio en la moneda del comercio y su equivalente ($ ↔ Bs) a la tasa vigente.
 const { loadRate, primary: primaryPrice, secondary: secondaryPrice } = useDualPrice()
 const storeCurrency = computed(() => store.value?.settings?.currency ?? 'USD')
+// Zonas de entrega con costo, retiro y mínimo para envío gratis.
+const storeDelivery = computed(() => {
+  const st = store.value?.settings
+  if (!st) return null
+  return {
+    zones: (st.deliveryZones ?? []) as { name: string; fee: number }[],
+    pickupEnabled: st.pickupEnabled !== false,
+    freeDeliveryMinimum: Number(st.freeDeliveryMinimum ?? 0),
+  }
+})
 const loading = ref(true)
 const error = ref(false)
 
