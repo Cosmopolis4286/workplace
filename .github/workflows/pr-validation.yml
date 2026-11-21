@@ -61,6 +61,28 @@ jobs:
     - name: Sin campos Float nuevos
       run: cd backend && pnpm schema:float-check
 
+    - name: Diagnóstico temporal de formato KYC
+      if: github.event_name == 'pull_request'
+      run: |
+        cd backend
+        pnpm exec prettier --config .prettierrc --write \
+          src/domains/identity-access/kyc/dto/review-enhanced-review.dto.ts \
+          src/domains/identity-access/kyc/kyc.service.ts \
+          src/domains/platform/platform-settings/kyc-policy.service.ts \
+          src/test/unit/enhanced-review.service.test.ts \
+          src/test/unit/kyc-approved.guard.policy.test.ts \
+          src/test/unit/kyc-policy.service.test.ts
+        for file in \
+          src/domains/identity-access/kyc/dto/review-enhanced-review.dto.ts \
+          src/domains/identity-access/kyc/kyc.service.ts \
+          src/domains/platform/platform-settings/kyc-policy.service.ts \
+          src/test/unit/enhanced-review.service.test.ts \
+          src/test/unit/kyc-approved.guard.policy.test.ts \
+          src/test/unit/kyc-policy.service.test.ts; do
+          echo "===== FORMATTED FILE: $file ====="
+          cat "$file"
+        done
+
     - name: Format check
       shell: bash
       env:
