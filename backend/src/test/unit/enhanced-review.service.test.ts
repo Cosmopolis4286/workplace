@@ -65,7 +65,10 @@ describe('KycService enhanced review workflow', () => {
           .mockResolvedValue({ kycStatus: KycStatus.APPROVED }),
       },
       enhancedReviewRequest: {
-        findUnique: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(request),
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(request),
       },
       $transaction: jest.fn(
         (callback: (client: typeof tx) => unknown) => callback(tx)
