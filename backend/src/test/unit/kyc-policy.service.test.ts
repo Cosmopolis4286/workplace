@@ -1,4 +1,3 @@
-
 import { EnhancedReviewStatus, KycStatus } from '@prisma/client';
 import { KycPolicyService } from '../../domains/platform/platform-settings/kyc-policy.service';
 import { DEFAULT_KYC_PROGRESSIVE_POLICY } from '../../domains/platform/platform-settings/platform-settings.service';
