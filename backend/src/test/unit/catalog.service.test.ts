@@ -82,7 +82,11 @@ describe('CatalogService', () => {
         findUnique: jest.fn().mockResolvedValue({ stock: 98 }),
         update: jest.fn(),
       },
-      catalogOrder: { create: jest.fn() },
+      catalogOrder: {
+        create: jest.fn(),
+        // Pedidos sin atender del comprador (límite antiabuso).
+        count: jest.fn().mockResolvedValue(0),
+      },
       catalogOrderItem: { findMany: jest.fn().mockResolvedValue([]) },
       productBundleItem: { findMany: jest.fn().mockResolvedValue([]) },
       commerce: { findUnique: jest.fn() },
@@ -122,6 +126,31 @@ describe('CatalogService', () => {
   });
 
   describe('createOrder', () => {
+    it('rechaza un 4.º pedido sin atender al mismo comercio', async () => {
+      mockPrismaService.catalogOrder.count
+        .mockResolvedValueOnce(3) // en este comercio
+        .mockResolvedValueOnce(3); // en total
+      await expect(
+        service.createOrder(baseDto() as any, REQUESTER_ID)
+      ).rejects.toThrow('esperando respuesta de este comercio');
+      expect(mockPrismaService.catalogOrder.count).toHaveBeenCalledWith({
+        where: {
+          requesterId: REQUESTER_ID,
+          commerceId: expect.any(String),
+          status: { in: ['PENDING', 'SEEN'] },
+        },
+      });
+    });
+
+    it('rechaza más de 10 pedidos sin atender en total', async () => {
+      mockPrismaService.catalogOrder.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(10);
+      await expect(
+        service.createOrder(baseDto() as any, REQUESTER_ID)
+      ).rejects.toThrow('antes de pedir más');
+    });
+
     it('lanza NotFoundException si el producto no existe', async () => {
       mockPrismaService.product.findMany.mockResolvedValue([]);
 

@@ -39,6 +39,10 @@ import {
 } from '../../../common/money/money';
 import { appConfig } from '../../../config/app-config';
 
+// Pedidos sin atender (PENDING/SEEN) que un comprador puede tener abiertos.
+export const MAX_OPEN_ORDERS_PER_COMMERCE = 3;
+export const MAX_OPEN_ORDERS_TOTAL = 10;
+
 function withoutWhatsapp(links: Prisma.JsonValue | null) {
   if (!links || typeof links !== 'object' || Array.isArray(links)) return links;
   const { whatsapp: _hidden, ...others } = links as Record<string, unknown>;
@@ -587,7 +591,34 @@ export class CatalogService {
     return { data: attachProductRating(product) };
   }
 
+  /**
+   * Pedir no exige KYC (no mueve dinero), así que se limita cuántos pedidos
+   * sin atender puede tener abierto un comprador: evita que una cuenta nueva
+   * inunde a un comercio de pedidos falsos. "Sin atender" = PENDING/SEEN (el
+   * comercio todavía no contactó al cliente).
+   */
+  private async assertOpenOrderLimits(requesterId: string, commerceId: string) {
+    const open = { in: [CatalogOrderStatus.PENDING, CatalogOrderStatus.SEEN] };
+    const [atCommerce, total] = await Promise.all([
+      this.prisma.catalogOrder.count({
+        where: { requesterId, commerceId, status: open },
+      }),
+      this.prisma.catalogOrder.count({ where: { requesterId, status: open } }),
+    ]);
+    if (atCommerce >= MAX_OPEN_ORDERS_PER_COMMERCE) {
+      throw new BadRequestException(
+        `Ya tienes ${atCommerce} pedidos esperando respuesta de este comercio. Espera a que te atienda o cancela alguno.`
+      );
+    }
+    if (total >= MAX_OPEN_ORDERS_TOTAL) {
+      throw new BadRequestException(
+        `Tienes ${total} pedidos esperando respuesta. Espera a que te atiendan o cancela alguno antes de pedir más.`
+      );
+    }
+  }
+
   async createOrder(dto: CreateCatalogOrderDto, requesterId: string) {
+    await this.assertOpenOrderLimits(requesterId, dto.commerceId);
     // productName/commerceName/unitPrice se derivan siempre del producto
     // real, nunca del body: el cliente no debe poder falsificar a qué
     // comercio llega el pedido ni el monto que ve el comercio en la
