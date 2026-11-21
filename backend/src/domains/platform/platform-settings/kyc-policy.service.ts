@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { KycStatus } from '@prisma/client';
+import { EnhancedReviewStatus, KycStatus } from '@prisma/client';
+import { PrismaService } from '../../../prisma/prisma.service';
 import {
   DEFAULT_KYC_PROGRESSIVE_POLICY,
   KycLevel,
@@ -24,7 +25,33 @@ const LEVEL_RANK: Record<KycLevel, number> = {
 
 @Injectable()
 export class KycPolicyService {
-  constructor(private readonly settings: PlatformSettingsService) {}
+  constructor(
+    private readonly settings: PlatformSettingsService,
+    private readonly prisma: PrismaService
+  ) {}
+
+  /**
+   * La revisión reforzada se resuelve siempre desde la base de datos. Nunca
+   * se consume un booleano de request.user, JWT ni del payload del cliente.
+   */
+  async evaluateForUser(
+    operation: KycPolicyOperation,
+    subject: Omit<KycPolicySubject, 'enhancedReviewApproved'>,
+    userId?: string
+  ) {
+    if (!userId) return this.evaluate(operation, subject);
+
+    const review = await this.prisma.enhancedReviewRequest.findUnique({
+      where: { userId },
+      select: { status: true, expiresAt: true },
+    });
+    const enhancedReviewApproved = Boolean(
+      review?.status === EnhancedReviewStatus.APPROVED &&
+        (!review.expiresAt || review.expiresAt > new Date())
+    );
+
+    return this.evaluate(operation, { ...subject, enhancedReviewApproved });
+  }
 
   async getRequiredLevel(operation: KycPolicyOperation): Promise<KycLevel> {
     const settings = await this.settings.getAll();
