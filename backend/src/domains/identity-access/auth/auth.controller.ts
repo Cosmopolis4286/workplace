@@ -46,6 +46,7 @@ import {
   setAuthCookies,
   clearAuthCookies,
 } from '../../../common/utils/auth-cookies.util';
+import { appConfig } from '../../../config/app-config';
 
 @Controller('auth')
 export class AuthController {
@@ -422,6 +423,18 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async revokeAllSessions(@CurrentUser() user: any) {
     return this.authService.revokeAllSessions(user.id);
+  }
+
+  // Estado de la verificación telefónica del usuario y si el servidor puede
+  // enviar SMS. El frontend lo usa para mostrar u ocultar el paso del OTP.
+  @Get('phone/status')
+  @UseGuards(JwtAuthGuard)
+  phoneStatus(@CurrentUser() user: any) {
+    return {
+      available: appConfig.features.phoneVerification(),
+      verified: Boolean(user?.phoneVerifiedAt),
+      phone: user?.phone ?? null,
+    };
   }
 
   @Post('phone/send-verification')

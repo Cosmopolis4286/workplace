@@ -73,6 +73,8 @@
 
         <ProfilePasswordCard @success="showSuccess" @error="showError" />
 
+        <ProfilePhoneVerificationCard id="phone-verification" @success="showSuccess" @error="showError" />
+
         <ProfileActivationsCard @success="showSuccess" @error="showError" />
 
         <ProfileSessionsCard @success="showSuccess" @error="showError" />
@@ -105,6 +107,7 @@ import PageHeader from '~/components/ui/PageHeader.vue'
 import ProfileAvatarCard from '~/components/profile/ProfileAvatarCard.vue'
 import ProfilePersonalInfoCard from '~/components/profile/ProfilePersonalInfoCard.vue'
 import ProfilePasswordCard from '~/components/profile/ProfilePasswordCard.vue'
+import ProfilePhoneVerificationCard from '~/components/profile/ProfilePhoneVerificationCard.vue'
 import ProfileActivationsCard from '~/components/profile/ProfileActivationsCard.vue'
 import ProfileSessionsCard from '~/components/profile/ProfileSessionsCard.vue'
 import ProfileQuickAccessCard from '~/components/profile/ProfileQuickAccessCard.vue'

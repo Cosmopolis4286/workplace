@@ -107,10 +107,21 @@ export const appConfig = {
    *   dinero del comprador). Apagado tampoco hay billetera.
    * - BNPL_ENABLED: financiamiento Cashea/Krece (sin integración real aún).
    * - USAGE_CREDITS_ENABLED: créditos de uso prepagados.
+   * - MESSANGI_SMS_ENABLED: verificación de teléfono por SMS (OTP).
    */
   features: {
     protectedPayments: (): boolean => flag('PROTECTED_PAYMENTS_ENABLED'),
     bnpl: (): boolean => flag('BNPL_ENABLED'),
     usageCredits: (): boolean => flag('USAGE_CREDITS_ENABLED'),
+    /**
+     * Verificación de teléfono por SMS (Messangi) lista para usarse: el
+     * interruptor encendido y las credenciales y el secreto del OTP cargados.
+     * Sin esto ningún usuario puede llegar a PHONE_VERIFIED.
+     */
+    phoneVerification: (): boolean =>
+      flag('MESSANGI_SMS_ENABLED') &&
+      Boolean(raw('MESSANGI_API_KEY')) &&
+      Boolean(raw('MESSANGI_SMS_FROM')) &&
+      Boolean(raw('PHONE_OTP_SECRET')),
   },
 };

@@ -21,7 +21,7 @@
 | Operación | Mínimo |
 |---|---|
 | Explorar marketplace | PUBLIC |
-| Contactar proveedor | PHONE_VERIFIED |
+| Contactar proveedor | AUTHENTICATED (el admin puede exigir PHONE_VERIFIED si el SMS está activo) |
 | Solicitud formal de servicio | AUTHENTICATED |
 | Pedido de catálogo | AUTHENTICATED |
 | Publicar servicios/productos | KYC_APPROVED |
@@ -39,4 +39,4 @@ La guarda aplica la política en los endpoints clasificados. Los endpoints aún 
 
 ## Integración de guardas
 
-La política se aplica en backend mediante `@RequireKycOperation` a publicación de servicios, solicitudes formales, pedidos, corridas, entregas, publicación y postulación a empleos, compra de créditos, cuentas de cobro, confirmación con IA y retiros. La consulta preliminar para contactar proveedores (`POST /services/requests/inquiries`) exige `PHONE_VERIFIED`. Las rutas que aún no tienen clasificación conservan la guarda KYC anterior.
+La política se aplica en backend mediante `@RequireKycOperation` a publicación de servicios, solicitudes formales, pedidos, corridas, entregas, publicación y postulación a empleos, compra de créditos, cuentas de cobro, confirmación con IA y retiros. La consulta preliminar para contactar proveedores (`POST /services/requests/inquiries`) usa `provider.contact`: por defecto basta la sesión y el SUPERADMIN puede exigir `PHONE_VERIFIED` desde Ajustes de la plataforma. Ese nivel solo se puede guardar si el envío de SMS está listo en el servidor (`MESSANGI_SMS_ENABLED=true`, `MESSANGI_API_KEY`, `MESSANGI_SMS_FROM` y `PHONE_OTP_SECRET`; ver `GET /platform-settings/capabilities`); así una configuración incompleta no bloquea a todos los usuarios. Los usuarios verifican su teléfono en Mi perfil (`GET /auth/phone/status`, `POST /auth/phone/send-verification`, `POST /auth/phone/verify`). Las rutas que aún no tienen clasificación conservan la guarda KYC anterior.

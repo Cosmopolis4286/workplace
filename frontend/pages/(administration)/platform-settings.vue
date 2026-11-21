@@ -17,12 +17,20 @@
           Define el nivel mínimo requerido para cada operación. Los mínimos de seguridad del backend no se pueden reducir.
         </p>
         <p v-if="!isSuperAdmin" class="mt-2 text-xs text-amber-700">Puedes consultar la política; solo SUPERADMIN puede modificarla.</p>
+        <p v-if="phoneLevelWithoutSms" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          Hay operaciones que exigen teléfono verificado, pero el envío de SMS no está activo en el servidor: nadie puede
+          verificar su teléfono y esas operaciones quedan bloqueadas. Bájalas a «Cuenta autenticada» o activa Messangi.
+        </p>
       </div>
 
       <div v-for="item in operations" :key="item.key" class="grid gap-2 border-b border-gray-100 pb-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-center">
         <div>
           <label :for="item.key" class="text-sm font-medium text-gray-800">{{ item.label }}</label>
           <p class="text-xs text-gray-500">Mínimo de seguridad: {{ levelLabel(item.minimum) }}</p>
+          <p v-if="item.key === 'provider.contact'" class="text-xs text-gray-500">
+            «Teléfono verificado» pide un código por SMS antes de la primera consulta.
+            <span v-if="!phoneVerificationAvailable" class="text-amber-700">Requiere activar el envío de SMS (Messangi).</span>
+          </p>
         </div>
         <select
           :id="item.key"
@@ -30,8 +38,13 @@
           :disabled="!isSuperAdmin || saving"
           class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100"
         >
-          <option v-for="level in levels.filter(level => rank[level] >= rank[item.minimum])" :key="level" :value="level">
-            {{ levelLabel(level) }}
+          <option
+            v-for="level in levels.filter(level => rank[level] >= rank[item.minimum])"
+            :key="level"
+            :value="level"
+            :disabled="level === 'PHONE_VERIFIED' && !phoneVerificationAvailable && policy.operations[item.key] !== level"
+          >
+            {{ levelLabel(level) }}{{ level === 'PHONE_VERIFIED' && !phoneVerificationAvailable ? ' (requiere SMS)' : '' }}
           </option>
         </select>
       </div>
@@ -41,7 +54,7 @@
         <textarea id="policy-reason" v-model="reason" rows="3" maxlength="500" class="w-full rounded-lg border border-gray-300 p-3 text-sm" placeholder="Explica por qué se modifica esta política (mínimo 10 caracteres)." />
         <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-xs text-gray-500">Cada modificación queda registrada con actor, fecha, valores anterior/nuevo y motivo.</p>
-          <button type="button" class="btn-primary" :disabled="saving || reason.trim().length < 10" @click="savePolicy">
+          <button type="button" class="btn-primary" :disabled="saving || reason.trim().length < 10 || phoneLevelWithoutSms" @click="savePolicy">
             {{ saving ? 'Guardando…' : 'Guardar política' }}
           </button>
         </div>
@@ -123,7 +136,7 @@ const levels: Level[] = ['PUBLIC', 'AUTHENTICATED', 'PHONE_VERIFIED', 'KYC_APPRO
 const rank: Record<Level, number> = { PUBLIC: 0, AUTHENTICATED: 1, PHONE_VERIFIED: 2, KYC_APPROVED: 3, ENHANCED_REVIEW: 4 }
 const operations: Array<{ key: Operation; label: string; minimum: Level }> = [
   { key: 'marketplace.explore', label: 'Explorar el marketplace', minimum: 'PUBLIC' },
-  { key: 'provider.contact', label: 'Contactar a un proveedor', minimum: 'PHONE_VERIFIED' },
+  { key: 'provider.contact', label: 'Contactar a un proveedor', minimum: 'AUTHENTICATED' },
   { key: 'service.request', label: 'Crear una solicitud formal de servicio', minimum: 'AUTHENTICATED' },
   { key: 'catalog.order', label: 'Crear un pedido de catálogo', minimum: 'AUTHENTICATED' },
   { key: 'service.publish', label: 'Publicar servicios o productos', minimum: 'KYC_APPROVED' },
@@ -141,7 +154,7 @@ const policy = reactive<Policy>({
   version: 1,
   operations: {
     'marketplace.explore': 'PUBLIC',
-    'provider.contact': 'PHONE_VERIFIED',
+    'provider.contact': 'AUTHENTICATED',
     'service.request': 'AUTHENTICATED',
     'catalog.order': 'AUTHENTICATED',
     'service.publish': 'KYC_APPROVED',
@@ -159,6 +172,12 @@ const policy = reactive<Policy>({
 const publicContact = ref(true)
 const reason = ref('')
 const buyerThreshold = ref(50)
+// Si el servidor puede enviar SMS (Messangi activo). Sin eso, nadie llega a
+// «Teléfono verificado» y exigirlo bloquearía la operación.
+const phoneVerificationAvailable = ref(false)
+const phoneLevelWithoutSms = computed(
+  () => !phoneVerificationAvailable.value && Object.values(policy.operations).includes('PHONE_VERIFIED'),
+)
 const saving = ref(false)
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
@@ -169,7 +188,11 @@ function levelLabel(level: Level) {
 
 async function load() {
   try {
-    const settings = await get<Record<string, unknown>>('/platform-settings')
+    const [settings, capabilities] = await Promise.all([
+      get<Record<string, unknown>>('/platform-settings'),
+      get<{ phoneVerificationAvailable: boolean }>('/platform-settings/capabilities').catch(() => null),
+    ])
+    phoneVerificationAvailable.value = capabilities?.phoneVerificationAvailable === true
     const stored = settings['identity.kycPolicy'] as Policy | undefined
     if (stored?.version === 1 && stored.operations) Object.assign(policy.operations, stored.operations)
     publicContact.value = settings['store.publicContact'] !== false
