@@ -97,7 +97,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ArrowPathIcon } from '@heroicons/vue/24/outline'
-import { useApi } from '~/composables/core/useApi'
+import { OfflineQueuedError, useApi } from '~/composables/core/useApi'
+import { useToast } from '~/composables/ui/useToast'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 import ConversationChat from '~/components/conversations/ConversationChat.vue'
 import { useAuth } from '~/composables/auth/useAuth'
@@ -162,12 +163,18 @@ async function updateStatus(id: string, status: MktOrderStatus) {
 async function markDelivered(id: string) {
   if (updatingId.value) return
   updatingId.value = id
+  const o = orders.value.find(o => o.id === id)
   try {
     const { patch } = useApi()
-    await patch(`/catalog/orders/${id}/delivered`, {})
-    const o = orders.value.find(o => o.id === id)
+    // Sin señal queda en cola y se envía al volver (es idempotente).
+    await patch(`/catalog/orders/${id}/delivered`, {}, { queueIfOffline: 'Marcar pedido entregado' })
     if (o) o.commerceCompletedAt = new Date().toISOString()
-  } catch { } finally {
+  } catch (err) {
+    if (err instanceof OfflineQueuedError) {
+      if (o) o.commerceCompletedAt = new Date().toISOString()
+      useToast().info('Sin conexión', 'Se marcará como entregado cuando vuelva la señal.')
+    }
+  } finally {
     updatingId.value = null
   }
 }
