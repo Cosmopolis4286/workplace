@@ -181,6 +181,40 @@ export class KycService {
     return { data, total, page: safePage, limit: safeLimit };
   }
 
+  async findActiveEnhancedReviews(page = 1, limit = 20) {
+    const safePage = Number.isInteger(page) && page > 0 ? page : 1;
+    const safeLimit = Number.isInteger(limit)
+      ? Math.min(Math.max(limit, 1), 100)
+      : 20;
+    const now = new Date();
+    const where = {
+      status: EnhancedReviewStatus.APPROVED,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    };
+    const [data, total] = await Promise.all([
+      this.prisma.enhancedReviewRequest.findMany({
+        where,
+        orderBy: { reviewedAt: 'desc' },
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+              kycStatus: true,
+            },
+          },
+        },
+      }),
+      this.prisma.enhancedReviewRequest.count({ where }),
+    ]);
+    return { data, total, page: safePage, limit: safeLimit };
+  }
+
   async reviewEnhancedRequest(
     id: string,
     reviewerId: string,
