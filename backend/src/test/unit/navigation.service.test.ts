@@ -92,7 +92,6 @@ describe('NavigationService', () => {
     expect(await hasMyStore(NONE)).toBe(false);
   });
 
-
   it('excludes sections with no visible items for a restricted role', async () => {
     // NORMAL sin permisos de rol ni overrides: la mayoría de secciones
     // (empresa, ventas, operaciones) deberían quedar vacías y no aparecer.
