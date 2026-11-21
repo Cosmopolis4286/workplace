@@ -222,7 +222,9 @@ describe('ServicesService — service request status transitions', () => {
   });
 
   describe('conversión explícita de consulta a contratación', () => {
-    it('crea una contratación con datos canónicos y marca la consulta como CONVERTED', async () => {
+    it(
+      'crea una contratación con datos canónicos y marca la consulta como CONVERTED',
+      async () => {
       const tx = {
         serviceInquiry: {
           findUnique: jest.fn().mockResolvedValue({
@@ -253,7 +255,9 @@ describe('ServicesService — service request status transitions', () => {
         },
         serviceRequest: {
           findUnique: jest.fn().mockResolvedValue(null),
-          create: jest.fn().mockImplementation(({ data }) => Promise.resolve(data)),
+          create: jest
+            .fn()
+            .mockImplementation(({ data }) => Promise.resolve(data)),
         },
         user: {
           findUnique: jest.fn().mockResolvedValue({
@@ -300,7 +304,9 @@ describe('ServicesService — service request status transitions', () => {
         include: { items: true },
       });
       expect(result.alreadyApplied).toBe(false);
-      expect(mockNotificationsService.notifyNewServiceRequest).toHaveBeenCalledWith(
+      expect(
+        mockNotificationsService.notifyNewServiceRequest
+      ).toHaveBeenCalledWith(
         'provider-1',
         'Cliente Uno',
         'Servicio canónico'
