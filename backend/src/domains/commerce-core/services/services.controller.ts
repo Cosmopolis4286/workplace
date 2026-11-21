@@ -393,7 +393,11 @@ export class ServicesController {
     @Body() dto: ConvertServiceInquiryDto,
     @CurrentUser() user: any
   ) {
-    return this.servicesService.convertServiceInquiryToRequest(id, user.id, dto);
+    return this.servicesService.convertServiceInquiryToRequest(
+      id,
+      user.id,
+      dto
+    );
   }
 
   @Patch('requests/inquiries/:id/respond')
