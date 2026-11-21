@@ -75,7 +75,8 @@ export class KycController {
   @RateLimit({
     windowMs: 60_000 * 60,
     maxRequests: 3,
-    keyGenerator: (req) => `kyc:enhanced-review:request:${(req as any).user?.id}`,
+    keyGenerator: (req) =>
+      `kyc:enhanced-review:request:${(req as any).user?.id}`,
   })
   requestEnhancedReview(
     @CurrentUser() user: any,
@@ -198,7 +199,8 @@ export class KycController {
   @RateLimit({
     windowMs: 60_000,
     maxRequests: 20,
-    keyGenerator: (req) => `kyc:enhanced-review:decision:${(req as any).user?.id}`,
+    keyGenerator: (req) =>
+      `kyc:enhanced-review:decision:${(req as any).user?.id}`,
   })
   reviewEnhancedRequest(
     @Param('id') id: string,
@@ -213,7 +215,8 @@ export class KycController {
   @RateLimit({
     windowMs: 60_000,
     maxRequests: 20,
-    keyGenerator: (req) => `kyc:enhanced-review:revoke:${(req as any).user?.id}`,
+    keyGenerator: (req) =>
+      `kyc:enhanced-review:revoke:${(req as any).user?.id}`,
   })
   revokeEnhancedReview(
     @Param('id') id: string,
