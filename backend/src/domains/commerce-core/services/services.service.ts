@@ -1165,10 +1165,7 @@ export class ServicesService {
           );
         }
 
-        const providerName = [
-          service.user.firstName,
-          service.user.lastName,
-        ]
+        const providerName = [service.user.firstName, service.user.lastName]
           .join(' ')
           .trim();
         const clientName = [requester.firstName, requester.lastName]
