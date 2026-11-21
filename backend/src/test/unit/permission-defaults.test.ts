@@ -75,6 +75,7 @@ describe('permission-defaults', () => {
     ).toEqual([]);
   });
 
+  // El fiado (accounts) también es del autónomo que vende producto: no es solo de negocio.
   it('business-only modules are exactly the commerce-operations modules', () => {
     const businessOnlyModules = new Set(
       BUSINESS_PROFILE_KEYS.filter(
@@ -83,7 +84,6 @@ describe('permission-defaults', () => {
     );
     expect([...businessOnlyModules].sort()).toEqual(
       [
-        'accounts',
         'appointments',
         'branches',
         'cash',
