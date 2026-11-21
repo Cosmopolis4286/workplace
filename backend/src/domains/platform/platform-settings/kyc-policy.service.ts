@@ -45,10 +45,7 @@ export class KycPolicyService {
     );
   }
 
-  async evaluate(
-    operation: KycPolicyOperation,
-    subject: KycPolicySubject
-  ) {
+  async evaluate(operation: KycPolicyOperation, subject: KycPolicySubject) {
     return this.evaluateWithReview(operation, subject, false);
   }
 
