@@ -311,7 +311,7 @@ describe('ServicesService — service request status transitions', () => {
           'Cliente Uno',
           'Servicio canónico'
         );
-      },
+      }
     );
 
     it('devuelve la contratación existente sin duplicarla', async () => {
