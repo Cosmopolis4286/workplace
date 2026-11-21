@@ -85,6 +85,7 @@ describe('PhoneVerificationService', () => {
         phoneVerifiedAt: expect.any(Date),
       },
     });
+    expect(redis.del).toHaveBeenCalledWith('user:find-by-id:user-1');
   });
 
   it('rejects malformed codes without updating the user', async () => {
