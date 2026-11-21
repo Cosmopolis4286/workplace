@@ -96,8 +96,7 @@ jobs:
         fi
 
         cd backend
-        pnpm exec prettier --config .prettierrc --write "${format_files[@]}"
-        git -C .. diff -- backend/src backend/test
+        pnpm exec prettier --config .prettierrc --check "${format_files[@]}"
 
     # Bloquea vulnerabilidades críticas (hoy 0). Queda una alta sin parche en
     # la cadena de build del frontend (node-forge); subir a --audit-level high
