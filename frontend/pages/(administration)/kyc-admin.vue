@@ -111,6 +111,10 @@
         </div>
       </div>
     </div>
+
+    <div class="border-t border-gray-200 pt-8">
+      <EnhancedReviewAdminPanel />
+    </div>
   </div>
 </template>
 
@@ -121,6 +125,7 @@ import { ref, computed, onMounted } from 'vue'
 import { CheckCircleIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useKyc, type IdentityVerification, type KycDocumentType } from '~/composables/kyc/useKyc'
 import KycImagePreview from '~/components/kyc/KycImagePreview.vue'
+import EnhancedReviewAdminPanel from '~/components/kyc/EnhancedReviewAdminPanel.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
