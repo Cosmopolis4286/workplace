@@ -9,23 +9,40 @@ describe('KycService enhanced review workflow', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('solo permite solicitar revisión reforzada con KYC base aprobado', async () => {
-    const tx = {
-      enhancedReviewRequest: { findUnique: jest.fn(), create: jest.fn() },
-      auditLog: { create: jest.fn() },
-    };
-    const prisma = {
-      user: { findUnique: jest.fn().mockResolvedValue({ kycStatus: KycStatus.PENDING }) },
-      enhancedReviewRequest: tx.enhancedReviewRequest,
-      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
-    };
-    const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
+  it(
+    'solo permite solicitar revisión reforzada con KYC base aprobado',
+    async () => {
+      const tx = {
+        enhancedReviewRequest: { findUnique: jest.fn(), create: jest.fn() },
+        auditLog: { create: jest.fn() },
+      };
+      const prisma = {
+        user: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ kycStatus: KycStatus.PENDING }),
+        },
+        enhancedReviewRequest: tx.enhancedReviewRequest,
+        $transaction: jest.fn(
+          (callback: (client: typeof tx) => unknown) => callback(tx)
+        ),
+      };
+      const service = new KycService(
+        prisma as any,
+        redis as any,
+        mail as any,
+        audit as any
+      );
 
-    await expect(
-      service.requestEnhancedReview('user-1', 'Necesito acceso a operaciones especiales')
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(tx.enhancedReviewRequest.create).not.toHaveBeenCalled();
-  });
+      await expect(
+        service.requestEnhancedReview(
+          'user-1',
+          'Necesito acceso a operaciones especiales'
+        )
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(tx.enhancedReviewRequest.create).not.toHaveBeenCalled();
+    }
+  );
 
   it('crea una solicitud pendiente y registra auditoría', async () => {
     const request = {
@@ -42,16 +59,30 @@ describe('KycService enhanced review workflow', () => {
       auditLog: { create: jest.fn().mockResolvedValue({}) },
     };
     const prisma = {
-      user: { findUnique: jest.fn().mockResolvedValue({ kycStatus: KycStatus.APPROVED }) },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ kycStatus: KycStatus.APPROVED }),
+      },
       enhancedReviewRequest: {
         findUnique: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(request),
       },
-      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+      $transaction: jest.fn(
+        (callback: (client: typeof tx) => unknown) => callback(tx)
+      ),
     };
-    const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
+    const service = new KycService(
+      prisma as any,
+      redis as any,
+      mail as any,
+      audit as any
+    );
 
     await expect(
-      service.requestEnhancedReview('user-1', '  Necesito acceso a operaciones especiales  ')
+      service.requestEnhancedReview(
+        'user-1',
+        '  Necesito acceso a operaciones especiales  '
+      )
     ).resolves.toEqual(request);
     expect(tx.enhancedReviewRequest.create).toHaveBeenCalledWith({
       data: {
@@ -71,9 +102,16 @@ describe('KycService enhanced review workflow', () => {
   });
 
   it('impide duplicar una solicitud que ya está pendiente', async () => {
-    const tx = { enhancedReviewRequest: { create: jest.fn() }, auditLog: { create: jest.fn() } };
+    const tx = {
+      enhancedReviewRequest: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
     const prisma = {
-      user: { findUnique: jest.fn().mockResolvedValue({ kycStatus: KycStatus.APPROVED }) },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ kycStatus: KycStatus.APPROVED }),
+      },
       enhancedReviewRequest: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'review-1',
@@ -81,99 +119,129 @@ describe('KycService enhanced review workflow', () => {
         }),
         create: jest.fn(),
       },
-      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+      $transaction: jest.fn(
+        (callback: (client: typeof tx) => unknown) => callback(tx)
+      ),
     };
-    const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
+    const service = new KycService(
+      prisma as any,
+      redis as any,
+      mail as any,
+      audit as any
+    );
 
     await expect(
-      service.requestEnhancedReview('user-1', 'Necesito acceso a operaciones especiales')
+      service.requestEnhancedReview(
+        'user-1',
+        'Necesito acceso a operaciones especiales'
+      )
     ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.enhancedReviewRequest.create).not.toHaveBeenCalled();
   });
 
-  it('aprueba con vigencia por defecto de 90 días y auditoría de decisión', async () => {
-    const pending = {
-      id: 'review-1',
-      userId: 'user-1',
-      status: EnhancedReviewStatus.PENDING,
-      user: { kycStatus: KycStatus.APPROVED },
-    };
-    const updated = {
-      id: 'review-1',
-      userId: 'user-1',
-      status: EnhancedReviewStatus.APPROVED,
-      expiresAt: new Date(Date.now() + 89 * 24 * 60 * 60 * 1000),
-    };
-    const tx = {
-      enhancedReviewRequest: {
-        findUnique: jest.fn().mockResolvedValue(pending),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findUniqueOrThrow: jest.fn().mockResolvedValue(updated),
-      },
-      auditLog: { create: jest.fn().mockResolvedValue({}) },
-    };
-    const prisma = {
-      enhancedReviewRequest: tx.enhancedReviewRequest,
-      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
-    };
-    const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
-
-    await expect(
-      service.reviewEnhancedRequest('review-1', 'superadmin-1', {
+  it(
+    'aprueba con vigencia por defecto de 90 días y auditoría de decisión',
+    async () => {
+      const pending = {
+        id: 'review-1',
+        userId: 'user-1',
+        status: EnhancedReviewStatus.PENDING,
+        user: { kycStatus: KycStatus.APPROVED },
+      };
+      const updated = {
+        id: 'review-1',
+        userId: 'user-1',
         status: EnhancedReviewStatus.APPROVED,
-        reason: 'Documentación y controles revisados correctamente',
-      })
-    ).resolves.toEqual(updated);
-    const update = prisma.enhancedReviewRequest.updateMany.mock.calls[0][0];
-    expect(update.where).toEqual({
-      id: 'review-1',
-      status: EnhancedReviewStatus.PENDING,
-    });
-    expect(update.data.expiresAt.getTime()).toBeGreaterThan(Date.now());
-    expect(update.data.expiresAt.getTime()).toBeLessThanOrEqual(
-      Date.now() + 90 * 24 * 60 * 60 * 1000
-    );
-    expect(tx.auditLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          userId: 'superadmin-1',
-          module: 'kyc',
-          details: expect.objectContaining({
-            targetUserId: 'user-1',
-            status: EnhancedReviewStatus.APPROVED,
+        expiresAt: new Date(Date.now() + 89 * 24 * 60 * 60 * 1000),
+      };
+      const tx = {
+        enhancedReviewRequest: {
+          findUnique: jest.fn().mockResolvedValue(pending),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findUniqueOrThrow: jest.fn().mockResolvedValue(updated),
+        },
+        auditLog: { create: jest.fn().mockResolvedValue({}) },
+      };
+      const prisma = {
+        enhancedReviewRequest: tx.enhancedReviewRequest,
+        $transaction: jest.fn(
+          (callback: (client: typeof tx) => unknown) => callback(tx)
+        ),
+      };
+      const service = new KycService(
+        prisma as any,
+        redis as any,
+        mail as any,
+        audit as any
+      );
+
+      await expect(
+        service.reviewEnhancedRequest('review-1', 'superadmin-1', {
+          status: EnhancedReviewStatus.APPROVED,
+          reason: 'Documentación y controles revisados correctamente',
+        })
+      ).resolves.toEqual(updated);
+      const update = prisma.enhancedReviewRequest.updateMany.mock.calls[0][0];
+      expect(update.where).toEqual({
+        id: 'review-1',
+        status: EnhancedReviewStatus.PENDING,
+      });
+      expect(update.data.expiresAt.getTime()).toBeGreaterThan(Date.now());
+      expect(update.data.expiresAt.getTime()).toBeLessThanOrEqual(
+        Date.now() + 90 * 24 * 60 * 60 * 1000
+      );
+      expect(tx.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: 'superadmin-1',
+            module: 'kyc',
+            details: expect.objectContaining({
+              targetUserId: 'user-1',
+              status: EnhancedReviewStatus.APPROVED,
+            }),
           }),
-        }),
-      })
-    );
-  });
+        })
+      );
+    }
+  );
 
-  it('rechaza decisiones concurrentes sin sobrescribir la primera revisión', async () => {
-    const tx = {
-      enhancedReviewRequest: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'review-1',
-          userId: 'user-1',
-          status: EnhancedReviewStatus.PENDING,
-          user: { kycStatus: KycStatus.APPROVED },
-        }),
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-      },
-      auditLog: { create: jest.fn() },
-    };
-    const prisma = {
-      enhancedReviewRequest: tx.enhancedReviewRequest,
-      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
-    };
-    const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
+  it(
+    'rechaza decisiones concurrentes sin sobrescribir la primera revisión',
+    async () => {
+      const tx = {
+        enhancedReviewRequest: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'review-1',
+            userId: 'user-1',
+            status: EnhancedReviewStatus.PENDING,
+            user: { kycStatus: KycStatus.APPROVED },
+          }),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+        auditLog: { create: jest.fn() },
+      };
+      const prisma = {
+        enhancedReviewRequest: tx.enhancedReviewRequest,
+        $transaction: jest.fn(
+          (callback: (client: typeof tx) => unknown) => callback(tx)
+        ),
+      };
+      const service = new KycService(
+        prisma as any,
+        redis as any,
+        mail as any,
+        audit as any
+      );
 
-    await expect(
-      service.reviewEnhancedRequest('review-1', 'superadmin-1', {
-        status: EnhancedReviewStatus.REJECTED,
-        reason: 'La evidencia adicional no es suficiente',
-      })
-    ).rejects.toBeInstanceOf(ConflictException);
-    expect(tx.auditLog.create).not.toHaveBeenCalled();
-  });
+      await expect(
+        service.reviewEnhancedRequest('review-1', 'superadmin-1', {
+          status: EnhancedReviewStatus.REJECTED,
+          reason: 'La evidencia adicional no es suficiente',
+        })
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(tx.auditLog.create).not.toHaveBeenCalled();
+    }
+  );
 
   it('revoca una aprobación vigente con motivo y auditoría', async () => {
     const updated = {
@@ -190,12 +258,23 @@ describe('KycService enhanced review workflow', () => {
     };
     const prisma = {
       enhancedReviewRequest: tx.enhancedReviewRequest,
-      $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+      $transaction: jest.fn(
+        (callback: (client: typeof tx) => unknown) => callback(tx)
+      ),
     };
-    const service = new KycService(prisma as any, redis as any, mail as any, audit as any);
+    const service = new KycService(
+      prisma as any,
+      redis as any,
+      mail as any,
+      audit as any
+    );
 
     await expect(
-      service.revokeEnhancedReview('review-1', 'superadmin-1', 'Se detectó incumplimiento de las condiciones')
+      service.revokeEnhancedReview(
+        'review-1',
+        'superadmin-1',
+        'Se detectó incumplimiento de las condiciones'
+      )
     ).resolves.toEqual(updated);
     expect(prisma.enhancedReviewRequest.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
