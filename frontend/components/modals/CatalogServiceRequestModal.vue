@@ -168,7 +168,12 @@
               </p>
 
               <!-- Error -->
-              <p v-if="errorMsg" class="text-xs text-red-600 font-medium bg-red-50 px-3 py-2 rounded-xl">{{ errorMsg }}</p>
+              <p v-if="errorMsg" class="text-xs text-red-600 font-medium bg-red-50 px-3 py-2 rounded-xl">
+                {{ errorMsg }}
+                <NuxtLink v-if="needsPhoneVerification" to="/profile#phone-verification" class="ml-1 underline font-semibold">
+                  Verificar mi teléfono
+                </NuxtLink>
+              </p>
 
               <!-- Submit -->
               <button
@@ -258,6 +263,7 @@ const defaultForm = () => ({
 const form = ref(defaultForm())
 const sending = ref(false)
 const errorMsg = ref('')
+const needsPhoneVerification = ref(false)
 
 const touched = ref<Record<string, boolean>>({})
 function touch(field: string) {
@@ -344,6 +350,7 @@ function redirectToLoginAndResume() {
 async function submit() {
   if (!props.service) return
   errorMsg.value = ''
+  needsPhoneVerification.value = false
 
   if (!validateAll()) return
 
@@ -371,6 +378,8 @@ async function submit() {
     touched.value = {}
   } catch (e: any) {
     errorMsg.value = e?.message ?? 'No se pudo enviar la consulta. Intenta de nuevo.'
+    // El admin puede exigir teléfono verificado para contactar proveedores.
+    needsPhoneVerification.value = e?.status === 403 && /teléfono/i.test(errorMsg.value)
   } finally {
     sending.value = false
   }

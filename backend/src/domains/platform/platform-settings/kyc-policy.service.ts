@@ -85,7 +85,7 @@ export class KycPolicyService {
       case 'KYC_APPROVED':
         return 'Debes completar y obtener la aprobación de tu verificación de identidad (KYC).';
       case 'PHONE_VERIFIED':
-        return 'Debes verificar tu número de teléfono antes de continuar.';
+        return 'Debes verificar tu número de teléfono (en Mi perfil) antes de continuar.';
       case 'AUTHENTICATED':
         return current === 'PUBLIC'
           ? 'Debes iniciar sesión para continuar.'

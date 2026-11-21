@@ -23,6 +23,13 @@ export class PlatformSettingsController {
     return this.settings.getAll();
   }
 
+  @Get('capabilities')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  capabilities() {
+    return this.settings.capabilities();
+  }
+
   @Patch(':key')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN)

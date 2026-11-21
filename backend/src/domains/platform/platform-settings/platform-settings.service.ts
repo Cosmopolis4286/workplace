@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { appConfig } from '../../../config/app-config';
 
 interface AuditLogger {
   log(params: Record<string, unknown>): Promise<void>;
@@ -18,14 +19,23 @@ export type KycLevel = (typeof KYC_LEVELS)[number];
 
 export const KYC_POLICY_MINIMUMS = {
   'marketplace.explore': 'PUBLIC',
-  'provider.contact': 'PHONE_VERIFIED',
-  'service.request': 'KYC_APPROVED',
-  'catalog.order': 'KYC_APPROVED',
+  // Contactar con sesión basta. El admin puede exigir teléfono verificado
+  // (OTP por SMS) solo cuando el envío de SMS está activo en el servidor.
+  'provider.contact': 'AUTHENTICATED',
+  // Pedir o solicitar no mueve dinero: basta con la sesión. El KYC del
+  // comprador se pide al pagar, por encima de `kyc.buyerThresholdUsd`.
+  'service.request': 'AUTHENTICATED',
+  'catalog.order': 'AUTHENTICATED',
   'service.publish': 'KYC_APPROVED',
   'work.accept': 'KYC_APPROVED',
   'ride.create': 'KYC_APPROVED',
   'ride.accept': 'KYC_APPROVED',
   'wallet.withdraw': 'KYC_APPROVED',
+  'delivery.create': 'KYC_APPROVED',
+  'job.publish': 'KYC_APPROVED',
+  'job.apply': 'KYC_APPROVED',
+  'usage-credits.purchase': 'KYC_APPROVED',
+  'payment-account.manage': 'KYC_APPROVED',
 } as const;
 
 export type KycPolicyOperation = keyof typeof KYC_POLICY_MINIMUMS;
@@ -97,6 +107,13 @@ export class PlatformSettingsService {
     @Inject('AUDIT_SERVICE') private readonly audit: AuditLogger
   ) {}
 
+  /** Qué niveles de la política se pueden exigir hoy en este servidor. */
+  capabilities() {
+    return {
+      phoneVerificationAvailable: appConfig.features.phoneVerification(),
+    };
+  }
+
   async getAll(onlyPublic = false) {
     const rows = await this.prisma.platformSetting.findMany();
     const stored = new Map(rows.map((r) => [r.key, r.value]));
@@ -123,6 +140,14 @@ export class PlatformSettingsService {
       if (!validateKycProgressivePolicy(value)) {
         throw new BadRequestException(
           'La política KYC no es válida o reduce un requisito mínimo de seguridad'
+        );
+      }
+      const needsPhone = Object.values(value.operations).includes(
+        'PHONE_VERIFIED'
+      );
+      if (needsPhone && !appConfig.features.phoneVerification()) {
+        throw new BadRequestException(
+          'Para exigir teléfono verificado primero hay que activar el envío de SMS (Messangi) en el servidor'
         );
       }
       if (!reason || reason.trim().length < 10 || reason.trim().length > 500) {

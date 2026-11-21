@@ -1,5 +1,6 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../../common/guards/rate-limit.guard';
@@ -29,6 +30,7 @@ export class AiOrchestratorController {
   // KYC requerido: esto termina creando una ServiceRequest real, mismo
   // requisito que POST /services/requests.
   @Post('confirm')
+  @RequireKycOperation('service.request')
   @UseGuards(KycApprovedGuard)
   @RateLimit({
     windowMs: 60_000,

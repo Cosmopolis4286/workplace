@@ -105,6 +105,8 @@ export class OrdersController {
     return this.ordersService.findOne(id, commerceId);
   }
 
+  // Pedido creado por el propio comercio desde su panel: conserva el KYC
+  // aprobado (ruta no clasificada). El de compradores es catalog.order.
   @Post()
   @UseGuards(KycApprovedGuard)
   @RequirePermission('orders:create')

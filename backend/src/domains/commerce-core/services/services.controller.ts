@@ -39,6 +39,8 @@ import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal
 import { RejectPriceChangeProposalDto } from './dto/reject-price-change-proposal.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RateLimit } from '../../../common/guards/rate-limit.guard';
+import { KycApprovedGuard } from '../../../common/guards/kyc-approved.guard';
+import { RequireKycOperation } from '../../../common/decorators/require-kyc-operation.decorator';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ResolveDisputeDto } from '../../money/escrow/dto/resolve-dispute.dto';
@@ -126,9 +128,11 @@ export class ServicesController {
   }
 
   @Post()
+  @RequireKycOperation('service.publish')
   @UseGuards(
     JwtAuthGuard,
     PermissionsGuard,
+    KycApprovedGuard,
     CategoryScopeGuard,
     ModuleAccessGuard
   )
@@ -356,10 +360,11 @@ export class ServicesController {
     res.sendFile(filePath);
   }
 
-  // Consulta preliminar: solo requiere sesión. No es una contratación ni
-  // permite retener fondos; el KYC sigue siendo obligatorio en /requests.
+  // Contactar a un proveedor requiere teléfono verificado. La solicitud
+  // formal y los pagos conservan sus controles KYC/financieros propios.
   @Post('requests/inquiries')
-  @UseGuards(JwtAuthGuard)
+  @RequireKycOperation('provider.contact')
+  @UseGuards(JwtAuthGuard, KycApprovedGuard)
   @RateLimit({
     windowMs: 60_000,
     maxRequests: 10,
@@ -434,7 +439,8 @@ export class ServicesController {
   // Sin KYC al solicitar: no mueve dinero (el precio se acuerda después).
   // Se exige al pagar, por encima del umbral (ManualPaymentsService).
   @Post('requests')
-  @UseGuards(JwtAuthGuard)
+  @RequireKycOperation('service.request')
+  @UseGuards(JwtAuthGuard, KycApprovedGuard)
   createRequest(
     @Body() dto: CreateServiceRequestDto,
     @CurrentUser() user: any

@@ -20,7 +20,28 @@ describe('KycPolicyService', () => {
     ).resolves.toMatchObject({ allowed: true, requiredLevel: 'PUBLIC' });
   });
 
-  it('exige teléfono verificado para contactar proveedores', async () => {
+  it('por defecto basta la sesión para contactar proveedores', async () => {
+    await expect(
+      service.evaluate('provider.contact', { authenticated: true })
+    ).resolves.toMatchObject({
+      allowed: true,
+      requiredLevel: 'AUTHENTICATED',
+    });
+    await expect(
+      service.evaluate('provider.contact', { authenticated: false })
+    ).resolves.toMatchObject({ allowed: false });
+  });
+
+  it('si el admin lo exige, contactar pide teléfono verificado', async () => {
+    settings.getAll.mockResolvedValue({
+      'identity.kycPolicy': {
+        ...DEFAULT_KYC_PROGRESSIVE_POLICY,
+        operations: {
+          ...DEFAULT_KYC_PROGRESSIVE_POLICY.operations,
+          'provider.contact': 'PHONE_VERIFIED',
+        },
+      },
+    });
     await expect(
       service.evaluate('provider.contact', { authenticated: true })
     ).resolves.toMatchObject({
@@ -38,9 +59,24 @@ describe('KycPolicyService', () => {
     });
   });
 
-  it('exige KYC aprobado para crear pedidos', async () => {
+  it('por defecto basta la sesión para pedir: el KYC del comprador se pide al pagar', async () => {
     await expect(
       service.evaluate('catalog.order', {
+        authenticated: true,
+        kycStatus: KycStatus.PENDING,
+      })
+    ).resolves.toMatchObject({
+      allowed: true,
+      requiredLevel: 'AUTHENTICATED',
+    });
+    await expect(
+      service.evaluate('service.request', { authenticated: false })
+    ).resolves.toMatchObject({ allowed: false });
+  });
+
+  it('exige KYC aprobado para publicar servicios', async () => {
+    await expect(
+      service.evaluate('service.publish', {
         authenticated: true,
         kycStatus: KycStatus.PENDING,
       })
@@ -49,13 +85,34 @@ describe('KycPolicyService', () => {
       requiredLevel: 'KYC_APPROVED',
     });
     await expect(
-      service.evaluate('catalog.order', {
+      service.evaluate('service.publish', {
         authenticated: true,
         kycStatus: KycStatus.APPROVED,
       })
     ).resolves.toMatchObject({
       allowed: true,
       currentLevel: 'KYC_APPROVED',
+    });
+  });
+
+  it('el admin puede subir el requisito de pedidos a KYC aprobado', async () => {
+    settings.getAll.mockResolvedValue({
+      'identity.kycPolicy': {
+        ...DEFAULT_KYC_PROGRESSIVE_POLICY,
+        operations: {
+          ...DEFAULT_KYC_PROGRESSIVE_POLICY.operations,
+          'catalog.order': 'KYC_APPROVED',
+        },
+      },
+    });
+    await expect(
+      service.evaluate('catalog.order', {
+        authenticated: true,
+        kycStatus: KycStatus.PENDING,
+      })
+    ).resolves.toMatchObject({
+      allowed: false,
+      requiredLevel: 'KYC_APPROVED',
     });
   });
 

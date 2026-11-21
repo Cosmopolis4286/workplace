@@ -83,4 +83,64 @@ describe('PlatformSettingsService — política KYC progresiva', () => {
       DEFAULT_KYC_PROGRESSIVE_POLICY
     );
   });
+
+  describe('exigir teléfono verificado', () => {
+    const SMS_VARS = [
+      'MESSANGI_SMS_ENABLED',
+      'MESSANGI_API_KEY',
+      'MESSANGI_SMS_FROM',
+      'PHONE_OTP_SECRET',
+    ];
+    const saved: Record<string, string | undefined> = {};
+    const withPhone = {
+      ...DEFAULT_KYC_PROGRESSIVE_POLICY,
+      operations: {
+        ...DEFAULT_KYC_PROGRESSIVE_POLICY.operations,
+        'provider.contact': 'PHONE_VERIFIED' as const,
+      },
+    };
+
+    beforeEach(() => {
+      for (const name of SMS_VARS) saved[name] = process.env[name];
+    });
+    afterEach(() => {
+      for (const name of SMS_VARS) {
+        if (saved[name] === undefined) delete process.env[name];
+        else process.env[name] = saved[name];
+      }
+    });
+
+    it('lo rechaza si el envío de SMS no está activo', async () => {
+      delete process.env.MESSANGI_SMS_ENABLED;
+      expect(service.capabilities()).toEqual({
+        phoneVerificationAvailable: false,
+      });
+      await expect(
+        service.set(
+          'identity.kycPolicy',
+          withPhone,
+          'root',
+          'Exigir teléfono para contactar'
+        )
+      ).rejects.toThrow(/activar el envío de SMS/);
+      expect(prisma.platformSetting.upsert).not.toHaveBeenCalled();
+    });
+
+    it('lo permite con SMS activo y credenciales cargadas', async () => {
+      process.env.MESSANGI_SMS_ENABLED = 'true';
+      process.env.MESSANGI_API_KEY = 'clave';
+      process.env.MESSANGI_SMS_FROM = 'WorkPlace';
+      process.env.PHONE_OTP_SECRET = 'x'.repeat(32);
+      expect(service.capabilities()).toEqual({
+        phoneVerificationAvailable: true,
+      });
+      await service.set(
+        'identity.kycPolicy',
+        withPhone,
+        'root',
+        'Exigir teléfono para contactar'
+      );
+      expect(prisma.platformSetting.upsert).toHaveBeenCalled();
+    });
+  });
 });
