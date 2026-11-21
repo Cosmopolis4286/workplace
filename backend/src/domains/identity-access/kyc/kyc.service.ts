@@ -5,7 +5,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditAction, EnhancedReviewStatus, KycStatus, Role } from '@prisma/client';
+import {
+  AuditAction,
+  EnhancedReviewStatus,
+  KycStatus,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
@@ -134,7 +139,7 @@ export class KycService {
           });
         } else {
           request = await tx.enhancedReviewRequest.create({
-            data: { userId, requestReason: reason.trim() },
+            data: { userId, requestReason: normalizedReason },
           });
         }
 
@@ -159,7 +164,9 @@ export class KycService {
       ) {
         throw error;
       }
-      throw new ConflictException('Ya existe una solicitud de revisión reforzada');
+      throw new ConflictException(
+        'Ya existe una solicitud de revisión reforzada'
+      );
     }
     return this.getMyEnhancedReview(userId);
   }
@@ -250,7 +257,9 @@ export class KycService {
       include: { user: { select: { kycStatus: true } } },
     });
     if (!current)
-      throw new NotFoundException('Solicitud de revisión reforzada no encontrada');
+      throw new NotFoundException(
+        'Solicitud de revisión reforzada no encontrada'
+      );
     if (current.status !== EnhancedReviewStatus.PENDING) {
       throw new BadRequestException('Esta solicitud ya fue revisada');
     }
