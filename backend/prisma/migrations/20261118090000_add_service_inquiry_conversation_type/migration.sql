@@ -1,0 +1,2 @@
+ALTER TYPE "ConversationThreadType" ADD VALUE 'SERVICE_INQUIRY';
+ALTER TYPE "NotificationType" ADD VALUE 'SERVICE_REQUEST';
