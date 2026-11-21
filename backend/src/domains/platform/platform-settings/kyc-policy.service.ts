@@ -129,7 +129,9 @@ export class KycPolicyService {
   private getDenialReason(required: KycLevel, current: KycLevel): string {
     switch (required) {
       case 'ENHANCED_REVIEW':
-        return 'Esta operación requiere una revisión reforzada por parte de administración.';
+        return (
+          'Esta operación requiere una revisión reforzada por parte de administración.'
+        );
       case 'KYC_APPROVED':
         return (
           'Debes completar y obtener la aprobación de tu verificación de identidad (KYC).'
