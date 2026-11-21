@@ -218,6 +218,7 @@
       v-model="showShareModal"
       :url="shareUrl"
       :title="store?.name"
+      :highlights="statusHighlights"
     />
   </NuxtLayout>
 </template>
@@ -280,6 +281,13 @@ const initials = computed(() => (store.value?.name ?? '?').trim().charAt(0).toUp
 const showShareModal = ref(false)
 const reportTarget = ref<{ type: 'COMMERCE' | 'PRODUCT'; id: string } | null>(null)
 const shareUrl = computed(() => `${config.public.siteUrl}/loja/${slug.value}`)
+// Primeros 3 productos con precio, para la imagen del estado de WhatsApp.
+const statusHighlights = computed(() =>
+  products.value.slice(0, 3).map((p: any) => ({
+    name: String(p.name),
+    price: primaryPrice(Number(p.price), storeCurrency.value),
+  })),
+)
 
 // SEO/compartir: solo se completa una vez que el fetch resuelve (SPA sin
 // SSR — no indexa a crawlers que no ejecutan JS, pero sí mejora el title
