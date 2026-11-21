@@ -204,6 +204,8 @@ const PRODUCT_SELLER_KEYS = [
   'expenses:view', 'expenses:create', 'expenses:edit', 'expenses:delete',
   'sales:view',
   'catalog:manage_orders',
+  // Fiado: el autónomo que vende (comida, mercancía) también fía a sus clientes.
+  'accounts:view', 'accounts:create', 'accounts:edit', 'accounts:delete',
 ]
 
 const uniq = (keys) => Array.from(new Set(keys))

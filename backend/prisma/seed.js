@@ -251,7 +251,7 @@ async function seedPlans({ createOnly = false } = {}) {
       // Debe reflejar el mismo set que FREE_MODULES (plan-limits.service.ts) —
       // un freelancer suscrito EXPLÍCITAMENTE al plan Gratis (no solo el fallback
       // sin-suscripción) también necesita poder operar servicios/solicitudes/billetera.
-      enabledModules: ['dashboard', 'menu', 'inventory', 'orders', 'customers', 'settings', 'notifications', 'services', 'service_requests', 'wallets'],
+      enabledModules: ['dashboard', 'menu', 'inventory', 'orders', 'customers', 'settings', 'notifications', 'services', 'service_requests', 'wallets', 'accounts'],
       maxServices: 3,
       maxServiceRequests: -1,
     },
