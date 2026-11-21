@@ -1,3 +1,4 @@
+
 import { Injectable } from '@nestjs/common';
 import { EnhancedReviewStatus, KycStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -36,8 +37,7 @@ export class KycPolicyService {
   async getRequiredLevel(operation: KycPolicyOperation): Promise<KycLevel> {
     const settings = await this.settings.getAll();
     const policy = settings['identity.kycPolicy'] as
-      | typeof DEFAULT_KYC_PROGRESSIVE_POLICY
-      | undefined;
+      typeof DEFAULT_KYC_PROGRESSIVE_POLICY | undefined;
 
     return (
       policy?.operations?.[operation] ??
@@ -66,7 +66,7 @@ export class KycPolicyService {
     });
     const enhancedReviewApproved = Boolean(
       review?.status === EnhancedReviewStatus.APPROVED &&
-        (!review.expiresAt || review.expiresAt > new Date())
+      (!review.expiresAt || review.expiresAt > new Date())
     );
 
     return this.evaluateWithReview(operation, subject, enhancedReviewApproved);
@@ -105,10 +105,7 @@ export class KycPolicyService {
       return 'PUBLIC';
     }
 
-    if (
-      enhancedReviewApproved &&
-      subject.kycStatus === KycStatus.APPROVED
-    ) {
+    if (enhancedReviewApproved && subject.kycStatus === KycStatus.APPROVED) {
       return 'ENHANCED_REVIEW';
     }
 
@@ -126,17 +123,11 @@ export class KycPolicyService {
   private getDenialReason(required: KycLevel, current: KycLevel): string {
     switch (required) {
       case 'ENHANCED_REVIEW':
-        return (
-          'Esta operación requiere una revisión reforzada por parte de administración.'
-        );
+        return 'Esta operación requiere una revisión reforzada por parte de administración.';
       case 'KYC_APPROVED':
-        return (
-          'Debes completar y obtener la aprobación de tu verificación de identidad (KYC).'
-        );
+        return 'Debes completar y obtener la aprobación de tu verificación de identidad (KYC).';
       case 'PHONE_VERIFIED':
-        return (
-          'Debes verificar tu número de teléfono (en Mi perfil) antes de continuar.'
-        );
+        return 'Debes verificar tu número de teléfono (en Mi perfil) antes de continuar.';
       case 'AUTHENTICATED':
         return current === 'PUBLIC'
           ? 'Debes iniciar sesión para continuar.'
