@@ -72,6 +72,41 @@
         </button>
       </div>
     </article>
+
+    <div class="border-t border-gray-200 pt-5">
+      <h3 class="font-semibold text-gray-900">Aprobaciones vigentes</h3>
+      <p class="mb-3 text-xs text-gray-500">Puedes revocar una habilitación en cualquier momento. La revocación queda auditada.</p>
+      <div v-if="activeItems.length === 0 && !loading" class="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500">
+        No hay revisiones reforzadas activas.
+      </div>
+      <article v-for="item in activeItems" :key="item.id" class="mb-3 rounded-2xl border border-green-200 bg-white p-4">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p class="font-semibold text-gray-900">{{ item.user?.firstName }} {{ item.user?.lastName }}</p>
+            <p class="text-xs text-gray-500">{{ item.user?.email }}</p>
+          </div>
+          <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+            Vigente hasta {{ item.expiresAt ? formatDate(item.expiresAt) : 'sin vencimiento' }}
+          </span>
+        </div>
+        <p class="mt-2 text-sm text-gray-600">{{ item.decisionReason }}</p>
+        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+          <input
+            v-model="revokeReasons[item.id]"
+            maxlength="500"
+            placeholder="Motivo de revocación (mínimo 10 caracteres)"
+            class="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400"
+          />
+          <button
+            class="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+            :disabled="processingId === item.id || (revokeReasons[item.id] || '').trim().length < 10"
+            @click="revoke(item.id)"
+          >
+            {{ processingId === item.id ? 'Procesando…' : 'Revocar acceso' }}
+          </button>
+        </div>
+      </article>
+    </div>
   </section>
 </template>
 
@@ -84,11 +119,13 @@ import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 const { user } = useAuth()
 const isSuperAdmin = computed(() => user.value?.role === 'SUPERADMIN')
-const { fetchPendingEnhancedReviews, reviewEnhancedRequest } = useKyc()
+const { fetchPendingEnhancedReviews, fetchActiveEnhancedReviews, reviewEnhancedRequest, revokeEnhancedReview } = useKyc()
 const { formatDate } = useDateFormat()
 
 const items = ref<EnhancedReviewRequest[]>([])
 const reasons = ref<Record<string, string>>({})
+const revokeReasons = ref<Record<string, string>>({})
+const activeItems = ref<EnhancedReviewRequest[]>([])
 const loading = ref(false)
 const processingId = ref<string | null>(null)
 const error = ref<string | null>(null)
@@ -98,8 +135,12 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const result = await fetchPendingEnhancedReviews()
-    items.value = result.data
+    const [pending, active] = await Promise.all([
+      fetchPendingEnhancedReviews(),
+      fetchActiveEnhancedReviews(),
+    ])
+    items.value = pending.data
+    activeItems.value = active.data
   } catch (e: any) {
     error.value = getApiErrorMessage(e, 'No se pudo cargar la bandeja de revisión reforzada')
   } finally {
@@ -118,6 +159,22 @@ async function decide(id: string, status: 'APPROVED' | 'REJECTED') {
     delete reasons.value[id]
   } catch (e: any) {
     error.value = getApiErrorMessage(e, 'No se pudo registrar la decisión')
+  } finally {
+    processingId.value = null
+  }
+}
+
+async function revoke(id: string) {
+  const reason = (revokeReasons.value[id] || '').trim()
+  if (reason.length < 10) return
+  processingId.value = id
+  error.value = null
+  try {
+    await revokeEnhancedReview(id, reason)
+    activeItems.value = activeItems.value.filter(item => item.id !== id)
+    delete revokeReasons.value[id]
+  } catch (e: any) {
+    error.value = getApiErrorMessage(e, 'No se pudo revocar la revisión reforzada')
   } finally {
     processingId.value = null
   }
