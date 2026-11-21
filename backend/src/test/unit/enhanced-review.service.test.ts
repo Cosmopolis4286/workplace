@@ -24,7 +24,7 @@ describe('KycService enhanced review workflow', () => {
     await expect(
       service.requestEnhancedReview('user-1', 'Necesito acceso a operaciones especiales')
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(prisma.enhancedReviewRequest.create).not.toHaveBeenCalled();
+    expect(tx.enhancedReviewRequest.create).not.toHaveBeenCalled();
   });
 
   it('crea una solicitud pendiente y registra auditoría', async () => {
@@ -53,7 +53,7 @@ describe('KycService enhanced review workflow', () => {
     await expect(
       service.requestEnhancedReview('user-1', '  Necesito acceso a operaciones especiales  ')
     ).resolves.toEqual(request);
-    expect(prisma.enhancedReviewRequest.create).toHaveBeenCalledWith({
+    expect(tx.enhancedReviewRequest.create).toHaveBeenCalledWith({
       data: {
         userId: 'user-1',
         requestReason: 'Necesito acceso a operaciones especiales',
@@ -172,7 +172,7 @@ describe('KycService enhanced review workflow', () => {
         reason: 'La evidencia adicional no es suficiente',
       })
     ).rejects.toBeInstanceOf(ConflictException);
-    expect(audit.log).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 
   it('revoca una aprobación vigente con motivo y auditoría', async () => {
