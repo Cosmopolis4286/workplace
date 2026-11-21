@@ -22,8 +22,8 @@
 |---|---|
 | Explorar marketplace | PUBLIC |
 | Contactar proveedor | PHONE_VERIFIED |
-| Solicitud formal de servicio | KYC_APPROVED |
-| Pedido de catálogo | KYC_APPROVED |
+| Solicitud formal de servicio | AUTHENTICATED |
+| Pedido de catálogo | AUTHENTICATED |
 | Publicar servicios/productos | KYC_APPROVED |
 | Aceptar trabajos remunerados | KYC_APPROVED |
 | Crear/aceptar corridas | KYC_APPROVED |
@@ -35,10 +35,8 @@
 
 ## Importante: límites de activación
 
-La guarda aplica la política en los endpoints clasificados. Los endpoints aún no clasificados conservan la comprobación KYC anterior. La política no permite reducir los mínimos codificados. No se considera verificado un teléfono porque exista `User.phone`; hasta disponer de OTP real, una exigencia `PHONE_VERIFIED` bloquea la operación. `ENHANCED_REVIEW` también falla de forma segura mientras no exista una aprobación reforzada persistida y auditable. Los controles financieros existentes permanecen intactos.
+La guarda aplica la política en los endpoints clasificados. Los endpoints aún no clasificados conservan la comprobación KYC anterior. La política no permite reducir los mínimos codificados. El nivel `PHONE_VERIFIED` se acredita exclusivamente con `User.phoneVerifiedAt`, escrito por el flujo OTP de Messangi; no se infiere a partir de `User.phone` ni de flags del cliente. Al confirmar el OTP se invalida el caché de usuario para que la nueva marca se refleje en la siguiente petición autenticada. `ENHANCED_REVIEW` sigue fallando de forma segura mientras no exista una aprobación reforzada persistida y auditable. Los controles financieros existentes permanecen intactos.
 
-## Integración de guardas — fase siguiente
+## Integración de guardas
 
-La política se aplica en backend a los endpoints clasificados mediante `@RequireKycOperation`: publicación de servicios, solicitudes formales, pedidos, corridas, entregas, publicación y postulación a empleos, compra de créditos, cuentas de cobro, confirmación con IA y retiros. Las rutas que aún no tienen clasificación conservan la guarda KYC anterior.
-
-`provider.contact` permanece configurado como requisito PHONE_VERIFIED, pero no se ha asociado a una ruta mientras no exista OTP de teléfono real. No se debe habilitar esa operación basándose solo en el campo `User.phone`.
+La política se aplica en backend mediante `@RequireKycOperation` a publicación de servicios, solicitudes formales, pedidos, corridas, entregas, publicación y postulación a empleos, compra de créditos, cuentas de cobro, confirmación con IA y retiros. La consulta preliminar para contactar proveedores (`POST /services/requests/inquiries`) exige `PHONE_VERIFIED`. Las rutas que aún no tienen clasificación conservan la guarda KYC anterior.
