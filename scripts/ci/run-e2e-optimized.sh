@@ -64,6 +64,10 @@ main() {
     else
         local test_exit_code=$?
         log_error "❌ E2E tests failed with exit code: $test_exit_code"
+        # Antes de que cleanup borre los contenedores: sin esto el fallo
+        # quedaba sin contexto (solo "exit code 1").
+        docker compose -f docker-compose.test.yml logs test-backend --tail 120 || true
+        docker compose -f docker-compose.test.yml logs test-frontend --tail 60 || true
         return "$test_exit_code"
     fi
 }

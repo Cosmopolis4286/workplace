@@ -68,8 +68,10 @@
                   <button type="button" class="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors font-bold text-gray-700 text-lg disabled:opacity-40"
                     :disabled="form.quantity >= 99" @click="form.quantity++">+</button>
                   <div class="ml-auto">
-                    <span class="text-2xl font-black text-red-600">${{ formatPrice(totalEstimate) }}</span>
-                    <p class="text-[11px] text-gray-400 text-right">estimado</p>
+                    <span class="text-2xl font-black text-red-600">{{ primaryPrice(totalEstimate, currency) }}</span>
+                    <p class="text-[11px] text-gray-400 text-right">
+                      <template v-if="secondaryPrice(totalEstimate, currency)">{{ secondaryPrice(totalEstimate, currency) }} · </template>estimado
+                    </p>
                   </div>
                 </div>
               </div>
@@ -199,6 +201,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useDualPrice } from '~/composables/catalog/useDualPrice'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { useApi } from '~/composables/core/useApi'
 import { useAuth } from '~/composables/auth/useAuth'
@@ -208,7 +211,11 @@ import { useCheckoutResume } from '~/composables/catalog/useCheckoutResume'
 const props = defineProps<{
   modelValue: boolean
   product: CatalogProduct | null
+  // Moneda de los precios del comercio (USD o VES); por defecto USD.
+  currency?: string | null
 }>()
+const { loadRate, primary: primaryPrice, secondary: secondaryPrice } = useDualPrice()
+loadRate()
 
 const emit = defineEmits<{
   'update:modelValue': [val: boolean]
@@ -268,9 +275,6 @@ const totalEstimate = computed(() => {
   return props.product.price * form.value.quantity
 })
 
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 0 }).format(price)
-}
 
 // Guarda la selección actual y redirige a login — se retoma automáticamente
 // al volver (ver checkoutResume.ts), sin perder lo que el visitante ya llenó.
