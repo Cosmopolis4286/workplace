@@ -1041,7 +1041,7 @@ export class ServicesService {
     await this.planLimits.assertServiceRequestLimit(inquirySnapshot.providerId);
 
     try {
-      const request = await this.prisma.$transaction(async (tx) => {
+      const outcome = await this.prisma.$transaction(async (tx) => {
         const inquiry = await tx.serviceInquiry.findUnique({
           where: { id: inquiryId },
           include: {
@@ -1066,7 +1066,7 @@ export class ServicesService {
         const alreadyCreated = await tx.serviceRequest.findUnique({
           where: { inquiryId },
         });
-        if (alreadyCreated) return alreadyCreated;
+        if (alreadyCreated) return { request: alreadyCreated, created: false };
         if (!['OPEN', 'RESPONDED'].includes(inquiry.status)) {
           throw new ConflictException('Esta consulta ya no puede convertirse en contratación');
         }
@@ -1124,7 +1124,7 @@ export class ServicesService {
 
         const providerName = [service.user.firstName, service.user.lastName].join(' ').trim();
         const clientName = [requester.firstName, requester.lastName].join(' ').trim();
-        return tx.serviceRequest.create({
+        const createdRequest = await tx.serviceRequest.create({
           data: {
             inquiryId,
             serviceId: service.id,
@@ -1145,16 +1145,19 @@ export class ServicesService {
           },
           include: { items: true },
         });
+        return { request: createdRequest, created: true };
       });
 
-      this.notifications
-        .notifyNewServiceRequest(
-          request.providerId,
-          request.clientName,
-          request.serviceName
-        )
-        .catch(() => {});
-      return { ...request, alreadyApplied: false };
+      if (outcome.created) {
+        this.notifications
+          .notifyNewServiceRequest(
+            outcome.request.providerId,
+            outcome.request.clientName,
+            outcome.request.serviceName
+          )
+          .catch(() => {});
+      }
+      return { ...outcome.request, alreadyApplied: !outcome.created };
     } catch (error) {
       // Una conversión concurrente puede ganar el índice único. Devolver su
       // resultado hace que los reintentos del cliente sean seguros.
