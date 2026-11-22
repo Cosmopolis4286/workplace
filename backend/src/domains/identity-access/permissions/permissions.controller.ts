@@ -19,6 +19,7 @@ import { PermissionsService } from './permissions.service';
 import { UpdateRolePermissionDto } from './dto/update-role-permission.dto';
 import { BulkUpdateRolePermissionsDto } from './dto/bulk-update-role-permissions.dto';
 import { UpdateProfilePermissionDto } from './dto/update-profile-permission.dto';
+import { ProfileImpactQueryDto } from './dto/profile-impact-query.dto';
 import { BulkUpdateProfilePermissionsDto } from './dto/bulk-update-profile-permissions.dto';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdateUserPermissionDto } from './dto/update-user-permission.dto';
@@ -138,6 +139,21 @@ export class PermissionsController {
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   getProfileMatrix(@CurrentUser() user: { role: Role }) {
     return this.permissionsService.getMatrixForAllProfiles(user.role);
+  }
+
+  /** Cuántos usuarios afecta un cambio en la matriz de un perfil. */
+  @Get('profile-impact')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  getProfileImpact(
+    @Query() query: ProfileImpactQueryDto,
+    @CurrentUser() user: { id: string }
+  ) {
+    return this.permissionsService.getProfileImpact(
+      query.profileType,
+      query.subtype ?? null,
+      user.id
+    );
   }
 
   /** Togglea un permiso para un tipo de perfil (+ subtipo si aplica) */

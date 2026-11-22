@@ -177,7 +177,14 @@
     <!-- ════════════════════════════════════════════════════════════════════
          SEGURIDAD — 2FA, disponible para todos los roles
          ════════════════════════════════════════════════════════════════════ -->
-    <div class="mt-6">
+    <div id="two-factor" class="mt-6 space-y-3">
+      <p
+        v-if="route.query.activar === '2fa' && !user?.twoFactorEnabled"
+        class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
+      >
+        Para usar el panel de administración la plataforma exige la verificación en dos pasos. Actívala aquí y vuelve a
+        entrar.
+      </p>
       <TwoFactorSettings />
     </div>
 
@@ -191,7 +198,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import {
   CogIcon,
   ExclamationTriangleIcon,
@@ -230,6 +237,13 @@ const { features: platformFeatures } = useFeatures()
 const bnplEnabled = computed(() => platformFeatures.value.bnpl)
 
 const { user } = useAuth()
+const route = useRoute()
+// Llega aquí desde useApi cuando el panel exige 2FA: baja hasta la tarjeta.
+onMounted(() => {
+  if (route.query.activar === '2fa') {
+    nextTick(() => document.getElementById('two-factor')?.scrollIntoView({ behavior: 'smooth' }))
+  }
+})
 const { userCategory } = usePermissions()
 const role = computed(() => user.value?.role ?? 'NORMAL')
 const { hasCapability } = useProfileContext()

@@ -63,6 +63,35 @@
 
     <section class="card-premium space-y-4 p-6">
       <div>
+        <h2 class="font-semibold text-gray-900">Seguridad del equipo</h2>
+        <p class="mt-1 text-sm text-gray-500">
+          Exige la verificación en dos pasos (2FA) a administradores y superadministradores para usar el panel. Quien no
+          la tenga activa no entra a la administración hasta activarla en Configuración.
+        </p>
+      </div>
+      <div class="flex items-center justify-between gap-4">
+        <span class="text-sm text-gray-700">{{ staffTwoFactor ? 'Obligatoria para el equipo' : 'Opcional' }}</span>
+        <button
+          type="button"
+          role="switch"
+          aria-label="Exigir 2FA al equipo"
+          :aria-checked="staffTwoFactor"
+          :disabled="!isSuperAdmin || saving || (!staffTwoFactor && !user?.twoFactorEnabled)"
+          class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50"
+          :class="staffTwoFactor ? 'bg-blue-600' : 'bg-gray-300'"
+          @click="toggleStaffTwoFactor"
+        >
+          <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform" :class="staffTwoFactor ? 'translate-x-6' : 'translate-x-1'" />
+        </button>
+      </div>
+      <p v-if="isSuperAdmin && !staffTwoFactor && !user?.twoFactorEnabled" class="text-xs text-amber-700">
+        Para activarla primero activa tu propia verificación en dos pasos en
+        <NuxtLink to="/settings?activar=2fa" class="underline font-semibold">Configuración</NuxtLink>: así no te quedas fuera.
+      </p>
+    </section>
+
+    <section class="card-premium space-y-4 p-6">
+      <div>
         <h2 class="font-semibold text-gray-900">Contacto público de tiendas</h2>
         <p class="mt-1 text-sm text-gray-500">Control global de teléfono, correo y WhatsApp en páginas públicas.</p>
       </div>
@@ -170,6 +199,7 @@ const policy = reactive<Policy>({
   },
 })
 const publicContact = ref(true)
+const staffTwoFactor = ref(false)
 const reason = ref('')
 const buyerThreshold = ref(50)
 // Si el servidor puede enviar SMS (Messangi activo). Sin eso, nadie llega a
@@ -196,6 +226,7 @@ async function load() {
     const stored = settings['identity.kycPolicy'] as Policy | undefined
     if (stored?.version === 1 && stored.operations) Object.assign(policy.operations, stored.operations)
     publicContact.value = settings['store.publicContact'] !== false
+    staffTwoFactor.value = settings['security.staffTwoFactorRequired'] === true
     if (typeof settings['kyc.buyerThresholdUsd'] === 'number') {
       buyerThreshold.value = settings['kyc.buyerThresholdUsd'] as number
     }
@@ -220,6 +251,26 @@ async function savePolicy() {
     success.value = 'Política KYC guardada y auditada correctamente.'
   } catch (e) {
     error.value = getApiErrorMessage(e, 'No se pudo guardar la política KYC')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function toggleStaffTwoFactor() {
+  if (!isSuperAdmin.value || saving.value) return
+  saving.value = true
+  error.value = null
+  success.value = null
+  try {
+    const settings = await patch<Record<string, unknown>>('/platform-settings/security.staffTwoFactorRequired', {
+      value: !staffTwoFactor.value,
+    })
+    staffTwoFactor.value = settings['security.staffTwoFactorRequired'] === true
+    success.value = staffTwoFactor.value
+      ? 'Desde ahora el equipo necesita 2FA para usar el panel.'
+      : 'La verificación en dos pasos vuelve a ser opcional para el equipo.'
+  } catch (e) {
+    error.value = getApiErrorMessage(e, 'No se pudo guardar el ajuste')
   } finally {
     saving.value = false
   }

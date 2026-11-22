@@ -53,6 +53,7 @@ describe('UsersService', () => {
 
   const mockMailService = {
     sendSecurityAlert: jest.fn().mockResolvedValue(undefined),
+    sendAccountStatusUpdate: jest.fn().mockResolvedValue(undefined),
   };
 
   const I18N_MESSAGES: Record<string, string> = {
@@ -531,29 +532,51 @@ describe('UsersService', () => {
     });
   });
 
-  describe('toggleUserStatus', () => {
+  describe('setAccountStatus', () => {
     beforeEach(() => {
+      mockMailService.sendAccountStatusUpdate.mockClear();
       mockPrismaService.user.findUnique.mockReset();
       mockPrismaService.user.updateMany.mockReset();
       mockPrismaService.user.count.mockReset();
       mockPrismaService.refreshToken.updateMany.mockReset();
     });
 
-    it('revokes tokens and sessions when suspending a user', async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: 'user-1',
-        role: Role.NORMAL,
-        isActive: true,
-      });
+    const activeUser = {
+      id: 'user-1',
+      role: Role.NORMAL,
+      isActive: true,
+      email: 'u@x.com',
+      firstName: 'Ana',
+      suspensionReason: null,
+      suspensionNote: null,
+    };
+
+    it('suspende con motivo, guarda quién/cuándo y revoca tokens y sesiones', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(activeUser);
       mockPrismaService.user.updateMany.mockResolvedValue({ count: 1 });
       mockPrismaService.refreshToken.updateMany.mockResolvedValue({ count: 2 });
 
-      const result = await service.toggleUserStatus('user-1');
+      const result = await service.setAccountStatus('user-1', {
+        active: false,
+        reason: 'FRAUD' as any,
+        note: '  Pagos reportados falsos  ',
+        actorId: 'admin-1',
+      });
 
-      expect(result).toEqual({ id: 'user-1', isActive: false });
+      expect(result).toMatchObject({
+        id: 'user-1',
+        isActive: false,
+        changed: true,
+      });
       expect(mockPrismaService.user.updateMany).toHaveBeenCalledWith({
         where: { id: 'user-1', isActive: true },
-        data: { isActive: false },
+        data: {
+          isActive: false,
+          suspensionReason: 'FRAUD',
+          suspensionNote: 'Pagos reportados falsos',
+          suspendedAt: expect.any(Date),
+          suspendedById: 'admin-1',
+        },
       });
       expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { userId: 'user-1', revokedAt: null },
@@ -562,34 +585,107 @@ describe('UsersService', () => {
       expect(mockRedisService.deleteByPattern).toHaveBeenCalledWith(
         'session:user-1:*'
       );
+      // Al usuario le llega el motivo, nunca la nota interna.
+      expect(mockMailService.sendAccountStatusUpdate).toHaveBeenCalledWith(
+        'u@x.com',
+        'Ana',
+        false,
+        'Sospecha de fraude'
+      );
+    });
+
+    it('exige motivo para suspender', async () => {
+      await expect(
+        service.setAccountStatus('user-1', { active: false, actorId: 'a' })
+      ).rejects.toThrow('Indica el motivo de la suspensión');
+      expect(mockPrismaService.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('pedir dos veces lo mismo no revierte nada (no es un interruptor)', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        ...activeUser,
+        isActive: false,
+        suspensionReason: 'ABUSE',
+      });
+
+      const result = await service.setAccountStatus('user-1', {
+        active: false,
+        reason: 'FRAUD' as any,
+        actorId: 'admin-1',
+      });
+
+      expect(result).toMatchObject({ isActive: false, changed: false });
+      expect(mockPrismaService.user.updateMany).not.toHaveBeenCalled();
+      expect(mockMailService.sendAccountStatusUpdate).not.toHaveBeenCalled();
+      expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('al reactivar limpia el motivo y devuelve el anterior para la auditoría', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        ...activeUser,
+        isActive: false,
+        suspensionReason: 'ABUSE',
+        suspensionNote: 'Insultos',
+      });
+      mockPrismaService.user.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.setAccountStatus('user-1', {
+        active: true,
+        actorId: 'admin-1',
+      });
+
+      expect(result).toMatchObject({
+        isActive: true,
+        changed: true,
+        previous: { suspensionReason: 'ABUSE', suspensionNote: 'Insultos' },
+      });
+      expect(mockPrismaService.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'user-1', isActive: false },
+        data: {
+          isActive: true,
+          suspensionReason: null,
+          suspensionNote: null,
+          suspendedAt: null,
+          suspendedById: null,
+        },
+      });
+      expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
     });
 
     it('protects the last active SUPERADMIN', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
+        ...activeUser,
         id: 'root-1',
         role: Role.SUPERADMIN,
-        isActive: true,
       });
       mockPrismaService.user.count.mockResolvedValue(1);
 
-      await expect(service.toggleUserStatus('root-1')).rejects.toThrow(
-        'No se puede suspender al último SUPERADMIN activo'
-      );
+      await expect(
+        service.setAccountStatus('root-1', {
+          active: false,
+          reason: 'SECURITY' as any,
+          actorId: 'root-2',
+        })
+      ).rejects.toThrow('No se puede suspender al último SUPERADMIN activo');
       expect(mockPrismaService.user.updateMany).not.toHaveBeenCalled();
       expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
     });
 
     it('rejects stale status updates', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
+        ...activeUser,
         id: 'user-2',
-        role: Role.NORMAL,
-        isActive: true,
       });
       mockPrismaService.user.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.toggleUserStatus('user-2')).rejects.toThrow(
-        'La cuenta cambió mientras se procesaba la operación'
-      );
+      await expect(
+        service.setAccountStatus('user-2', {
+          active: false,
+          reason: 'OTHER' as any,
+          note: 'Revisión',
+          actorId: 'admin-1',
+        })
+      ).rejects.toThrow('La cuenta cambió mientras se procesaba la operación');
     });
   });
 

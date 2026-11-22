@@ -201,6 +201,41 @@ export class MailService {
     }
   }
 
+  /** Aviso al usuario de que su cuenta fue suspendida o reactivada. */
+  async sendAccountStatusUpdate(
+    email: string,
+    firstName: string,
+    active: boolean,
+    reasonLabel?: string | null
+  ) {
+    const subject = active
+      ? 'Tu cuenta fue reactivada — WorkPlace Manager'
+      : 'Tu cuenta fue suspendida — WorkPlace Manager';
+    try {
+      await this.transporter.sendMail({
+        from: this.fromAddress,
+        to: email,
+        subject,
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+            <h2>Hola, ${escapeHtml(firstName)}</h2>
+            ${
+              active
+                ? `<p>Tu cuenta fue <strong>reactivada</strong>. Ya puedes volver a iniciar sesión.</p>`
+                : `<p>Tu cuenta fue <strong>suspendida</strong> por el equipo de la plataforma y por ahora no puedes iniciar sesión.</p>
+                   ${reasonLabel ? `<p><strong>Motivo:</strong> ${escapeHtml(reasonLabel)}</p>` : ''}
+                   <p>Si crees que es un error, responde a este correo y lo revisamos.</p>`
+            }
+          </div>
+        `,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Could not send account status email to ${email}: ${err.message}`
+      );
+    }
+  }
+
   async sendDriverInvitation(
     email: string,
     commerceName: string,

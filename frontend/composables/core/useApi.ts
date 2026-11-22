@@ -15,7 +15,12 @@ import { useOfflineStatus } from './useOfflineStatus'
 // Error con el status HTTP adjunto, para que el llamador pueda distinguir
 // "sin sesión válida" (401) de otros fallos sin parsear el mensaje.
 export class ApiError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(
+    message: string,
+    public readonly status: number,
+    // Código de negocio del backend (`errorCode`), p. ej. STAFF_2FA_REQUIRED.
+    public readonly code?: string,
+  ) {
     super(message)
     this.name = 'ApiError'
   }
@@ -102,7 +107,15 @@ export function useApi() {
         router.push('/login')
       }
 
-      throw new ApiError(message, res.status)
+      // La plataforma exige 2FA al equipo y esta cuenta no lo tiene: se le
+      // lleva a Configuración a activarlo (no se cierra la sesión).
+      if (res.status === 403 && body?.errorCode === 'STAFF_2FA_REQUIRED') {
+        if (router.currentRoute.value.path !== '/settings') {
+          router.push({ path: '/settings', query: { activar: '2fa' } })
+        }
+      }
+
+      throw new ApiError(message, res.status, body?.errorCode)
     }
 
     return (parseAs === 'blob' ? res.blob() : parseJsonBody(res)) as Promise<T>
