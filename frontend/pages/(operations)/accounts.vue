@@ -9,7 +9,7 @@
     >
       <template #actions>
         <HeaderActionButton
-          v-if="activeTab === 'receivables'"
+          v-if="activeTab !== 'payables'"
           variant="primary"
           :icon="PlusIcon"
           @click="showReceivableModal = true"
@@ -37,6 +37,13 @@
     <div class="flex gap-2 mb-4 border-b border-gray-200">
       <button
         class="px-4 py-2 text-sm font-medium border-b-2 -mb-px"
+        :class="activeTab === 'ledger' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        @click="activeTab = 'ledger'"
+      >
+        Libreta
+      </button>
+      <button
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px"
         :class="activeTab === 'receivables' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
         @click="activeTab = 'receivables'"
       >
@@ -51,13 +58,22 @@
       </button>
     </div>
 
+    <CustomerLedgerList
+      v-if="activeTab === 'ledger'"
+      :rows="ledger"
+      :loading="loading"
+      @create="showReceivableModal = true"
+      @open="openCustomer"
+    />
+
     <ReceivablesList
-      v-if="activeTab === 'receivables'"
+      v-else-if="activeTab === 'receivables'"
       :receivables="receivables"
       :loading="loading"
       @create="showReceivableModal = true"
       @delete="confirmDeleteReceivable"
       @mark-paid="doMarkReceivablePaid"
+      @pay="openPayment"
     />
 
     <PayablesList
@@ -72,7 +88,23 @@
     <ReceivableModal
       :is-open="showReceivableModal"
       @close="showReceivableModal = false"
-      @saved="loadReceivables()"
+      @saved="refreshReceivables"
+    />
+
+    <ReceivablePaymentModal
+      :is-open="paymentTarget !== null"
+      :receivable="paymentTarget"
+      @close="paymentTarget = null"
+      @saved="onPaymentSaved"
+    />
+
+    <CustomerLedgerModal
+      ref="ledgerModal"
+      :is-open="ledgerCustomerId !== null"
+      :customer-id="ledgerCustomerId"
+      @close="ledgerCustomerId = null"
+      @pay="openPayment"
+      @changed="loadLedger()"
     />
 
     <PayableModal
@@ -91,19 +123,45 @@ import { BanknotesIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import ReceivablesList from '~/components/accounts/ReceivablesList.vue'
+import CustomerLedgerList from '~/components/accounts/CustomerLedgerList.vue'
+import ReceivablePaymentModal from '~/components/modals/ReceivablePaymentModal.vue'
+import CustomerLedgerModal from '~/components/modals/CustomerLedgerModal.vue'
+import { useToast } from '~/composables/ui/useToast'
 import PayablesList from '~/components/accounts/PayablesList.vue'
 import ReceivableModal from '~/components/modals/ReceivableModal.vue'
 import PayableModal from '~/components/modals/PayableModal.vue'
 import { useAccounts, type Receivable, type Payable } from '~/composables/commerce/useAccounts'
 
 const {
-  receivables, payables, loading, error,
-  loadReceivables, loadPayables,
+  receivables, payables, loading, error, ledger, ledgerTotalUsd,
+  loadReceivables, loadPayables, loadLedger,
   markReceivableAsPaid, markPayableAsPaid,
   deleteReceivable, deletePayable,
 } = useAccounts()
 
-const activeTab = ref<'receivables' | 'payables'>('receivables')
+const activeTab = ref<'ledger' | 'receivables' | 'payables'>('ledger')
+const paymentTarget = ref<Receivable | null>(null)
+const ledgerCustomerId = ref<string | null>(null)
+const ledgerModal = ref<InstanceType<typeof CustomerLedgerModal> | null>(null)
+const toast = useToast()
+
+function openCustomer(customerId: string) {
+  ledgerCustomerId.value = customerId
+}
+
+function openPayment(receivable: Receivable) {
+  paymentTarget.value = receivable
+}
+
+async function refreshReceivables() {
+  await Promise.all([loadReceivables(), loadLedger()])
+}
+
+async function onPaymentSaved(updated: Receivable) {
+  toast.success(updated.status === 'PAID' ? 'Cuenta saldada' : 'Abono registrado')
+  await refreshReceivables()
+  ledgerModal.value?.refresh()
+}
 const showReceivableModal = ref(false)
 const showPayableModal = ref(false)
 
@@ -113,9 +171,10 @@ const breadcrumbItems = [
 ]
 
 const headerStats = computed(() => {
-  const pendingReceivables = receivables.value.filter(r => r.status === 'PENDING')
+  const pendingReceivables = receivables.value.filter(r => r.status === 'PENDING' || r.status === 'OVERDUE')
   const pendingPayables = payables.value.filter(p => p.status === 'PENDING')
-  const totalReceivableUsd = pendingReceivables.reduce((sum, r) => sum + r.amountUsd, 0)
+  // Saldo real (descontando abonos), a la tasa de cada venta.
+  const totalReceivableUsd = ledgerTotalUsd.value
   const totalPayableUsd = pendingPayables.reduce((sum, p) => sum + p.amountUsd, 0)
 
   return [
@@ -125,7 +184,8 @@ const headerStats = computed(() => {
 })
 
 async function doMarkReceivablePaid(receivable: Receivable) {
-  await markReceivableAsPaid(receivable.id)
+  if (!confirm(`¿Marcar como cobrado todo el saldo de "${receivable.description}"?`)) return
+  if (await markReceivableAsPaid(receivable.id)) await loadLedger()
 }
 
 async function doMarkPayablePaid(payable: Payable) {
@@ -134,7 +194,7 @@ async function doMarkPayablePaid(payable: Payable) {
 
 async function confirmDeleteReceivable(receivable: Receivable) {
   if (!confirm(`¿Eliminar "${receivable.description}"?`)) return
-  await deleteReceivable(receivable.id)
+  if (await deleteReceivable(receivable.id)) await loadLedger()
 }
 
 async function confirmDeletePayable(payable: Payable) {
@@ -143,6 +203,6 @@ async function confirmDeletePayable(payable: Payable) {
 }
 
 onMounted(async () => {
-  await Promise.all([loadReceivables(), loadPayables()])
+  await Promise.all([loadReceivables(), loadPayables(), loadLedger()])
 })
 </script>

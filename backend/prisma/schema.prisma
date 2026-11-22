@@ -555,6 +555,9 @@ model Customer {
   totalSpent         Decimal             @default(0) @db.Decimal(20, 2)
   isActive           Boolean             @default(true)
   telegramChatId     String?
+  // Tope de fiado en USD que el comercio le da a este cliente (null = sin
+  // tope). Solo avisa al registrar un fiado que lo pasa; no bloquea.
+  creditLimitUsd     Decimal?            @db.Decimal(20, 2)
   commerceId         String
   commerce           Commerce            @relation(fields: [commerceId], references: [id], onDelete: Cascade)
   appointments       Appointment[]
@@ -1886,9 +1889,13 @@ model AccountReceivable {
   exchangeRateValue Decimal @db.Decimal(20, 8)
   amountUsd         Decimal @db.Decimal(20, 2)
 
-  dueDate DateTime?
-  status  AccountStatus @default(PENDING)
-  paidAt  DateTime?
+  dueDate    DateTime?
+  status     AccountStatus       @default(PENDING)
+  paidAt     DateTime?
+  // Suma de los abonos, en la moneda de la cuenta (currencyCode). Saldo =
+  // amount - paidAmount; con saldo 0 la cuenta pasa a PAID.
+  paidAmount Decimal             @default(0) @db.Decimal(20, 2)
+  payments   ReceivablePayment[]
 
   createdBy String?
   createdAt DateTime @default(now())
@@ -1897,6 +1904,30 @@ model AccountReceivable {
   @@index([commerceId, status, dueDate])
   @@index([customerId])
   @@map("account_receivables")
+}
+
+// Abono a un fiado. El cliente paga en la moneda que tenga (efectivo $, Bs por
+// Pago Móvil...): se guarda lo que entregó y cuánto descuenta de la cuenta
+// (appliedAmount, en la moneda de la cuenta, convertido con la tasa del día).
+model ReceivablePayment {
+  id           String            @id @default(uuid())
+  receivableId String
+  receivable   AccountReceivable @relation(fields: [receivableId], references: [id], onDelete: Cascade)
+
+  amount            Decimal @db.Decimal(20, 2)
+  currencyCode      String
+  exchangeRateValue Decimal @db.Decimal(20, 8)
+  amountUsd         Decimal @db.Decimal(20, 2)
+  appliedAmount     Decimal @db.Decimal(20, 2)
+  // CASH | PAGO_MOVIL | TRANSFER | OTHER
+  method            String?
+  note              String?
+
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([receivableId, createdAt])
+  @@map("receivable_payments")
 }
 
 // Dinero que el comercio TIENE que pagar (compra a crédito a un

@@ -31,10 +31,21 @@
               <p class="font-semibold text-gray-900">
                 {{ receivable.amount.toLocaleString('es-VE', { maximumFractionDigits: 2 }) }} {{ receivable.currencyCode }}
               </p>
-              <p class="text-xs text-gray-400">≈ ${{ receivable.amountUsd.toFixed(2) }} USD</p>
+              <p v-if="receivable.paidAmount > 0 && receivable.status !== 'PAID'" class="text-xs text-indigo-600">
+                Resta {{ receivableBalance(receivable).toLocaleString('es-VE', { maximumFractionDigits: 2 }) }} {{ receivable.currencyCode }}
+              </p>
+              <p v-else class="text-xs text-gray-400">≈ ${{ receivable.amountUsd.toFixed(2) }} USD</p>
             </div>
 
-            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              v-if="receivable.status === 'PENDING' || receivable.status === 'OVERDUE'"
+              class="rounded-lg border border-indigo-200 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+              @click="$emit('pay', receivable)"
+            >
+              Abonar
+            </button>
+
+            <div class="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               <button
                 v-if="receivable.currencyCode !== 'USD' && receivable.status === 'PENDING'"
                 class="p-1.5 rounded hover:bg-amber-50 text-amber-600"
@@ -86,11 +97,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { BanknotesIcon, CheckIcon, TrashIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
-import { useAccounts, type Receivable, type AccountStatus, type ReplacementRisk } from '~/composables/commerce/useAccounts'
+import { useAccounts, receivableBalance, type Receivable, type AccountStatus, type ReplacementRisk } from '~/composables/commerce/useAccounts'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 
 defineProps<{ receivables: Receivable[]; loading: boolean }>()
-defineEmits<{ create: []; delete: [receivable: Receivable]; 'mark-paid': [receivable: Receivable] }>()
+defineEmits<{ create: []; delete: [receivable: Receivable]; 'mark-paid': [receivable: Receivable]; pay: [receivable: Receivable] }>()
 
 const { formatDate } = useDateFormat()
 const { getReplacementRisk } = useAccounts()

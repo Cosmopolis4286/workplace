@@ -12,6 +12,11 @@ import {
 import { AccountReceivablesService } from './account-receivables.service';
 import { CreateReceivableDto } from './dto/create-receivable.dto';
 import { QueryAccountsDto } from './dto/query-accounts.dto';
+import {
+  CreateReceivablePaymentDto,
+  MarkReceivablePaidDto,
+  UpdateCreditLimitDto,
+} from './dto/receivable-payment.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { CapabilityGuard } from '../../../common/guards/capability.guard';
@@ -40,6 +45,39 @@ export class AccountReceivablesController {
     return this.receivablesService.findAll(commerceId, query);
   }
 
+  // Rutas fijas antes de ':id'.
+  @Get('by-customer')
+  @RequirePermission('accounts:view')
+  async ledgerByCustomer(@CurrentUser() user: any) {
+    const commerceId = await this.commerceResolver.resolve(user.id);
+    return this.receivablesService.ledgerByCustomer(commerceId);
+  }
+
+  @Get('customers/:customerId')
+  @RequirePermission('accounts:view')
+  async customerLedger(
+    @Param('customerId') customerId: string,
+    @CurrentUser() user: any
+  ) {
+    const commerceId = await this.commerceResolver.resolve(user.id);
+    return this.receivablesService.customerLedger(commerceId, customerId);
+  }
+
+  @Patch('customers/:customerId/credit-limit')
+  @RequirePermission('accounts:edit')
+  async updateCreditLimit(
+    @Param('customerId') customerId: string,
+    @CurrentUser() user: any,
+    @Body() dto: UpdateCreditLimitDto
+  ) {
+    const commerceId = await this.commerceResolver.resolve(user.id);
+    return this.receivablesService.updateCreditLimit(
+      commerceId,
+      customerId,
+      dto.creditLimitUsd ?? null
+    );
+  }
+
   @Get(':id')
   @RequirePermission('accounts:view')
   async findOne(@Param('id') id: string, @CurrentUser() user: any) {
@@ -61,11 +99,26 @@ export class AccountReceivablesController {
     return this.receivablesService.create(commerceId, user.id, dto);
   }
 
+  @Post(':id/payments')
+  @RequirePermission('accounts:edit')
+  async addPayment(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: CreateReceivablePaymentDto
+  ) {
+    const commerceId = await this.commerceResolver.resolve(user.id);
+    return this.receivablesService.addPayment(id, commerceId, user.id, dto);
+  }
+
   @Patch(':id/paid')
   @RequirePermission('accounts:edit')
-  async markAsPaid(@Param('id') id: string, @CurrentUser() user: any) {
+  async markAsPaid(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: MarkReceivablePaidDto
+  ) {
     const commerceId = await this.commerceResolver.resolve(user.id);
-    return this.receivablesService.markAsPaid(id, commerceId);
+    return this.receivablesService.markAsPaid(id, commerceId, user.id, dto);
   }
 
   @Delete(':id')
