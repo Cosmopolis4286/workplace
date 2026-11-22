@@ -201,6 +201,7 @@
       v-model="showOrderModal"
       :product="orderTarget"
       :currency="storeCurrency"
+      :delivery="storeDelivery"
       @success="onOrderSuccess"
     />
 
@@ -218,6 +219,7 @@
       v-model="showShareModal"
       :url="shareUrl"
       :title="store?.name"
+      :highlights="statusHighlights"
     />
   </NuxtLayout>
 </template>
@@ -249,7 +251,7 @@ interface PublicStore {
   description: string | null
   socialLinks: { instagram?: string; facebook?: string; whatsapp?: string; tiktok?: string } | null
   user: { username: string | null; avatar: string | null; coverImage: string | null }
-  settings: { avgPrepTime: number | null; avgDeliveryTime: number | null; deliveryFee: number | null; freeDeliveryMinimum: number | null; currency?: string | null } | null
+  settings: { avgPrepTime: number | null; avgDeliveryTime: number | null; deliveryFee: number | null; freeDeliveryMinimum: number | null; currency?: string | null; deliveryZones?: { name: string; fee: number }[]; pickupEnabled?: boolean } | null
   // Solo presente si el dueño tiene FreelancerSettings con slug propio —
   // un Commerce puede pertenecer a un PROFESIONAL que también cotiza
   // trabajos a medida ("opción 2"), ver ProfilesService.getStoreBySlug.
@@ -270,6 +272,16 @@ const store = ref<PublicStore | null>(null)
 // Precio en la moneda del comercio y su equivalente ($ ↔ Bs) a la tasa vigente.
 const { loadRate, primary: primaryPrice, secondary: secondaryPrice } = useDualPrice()
 const storeCurrency = computed(() => store.value?.settings?.currency ?? 'USD')
+// Zonas de entrega con costo, retiro y mínimo para envío gratis.
+const storeDelivery = computed(() => {
+  const st = store.value?.settings
+  if (!st) return null
+  return {
+    zones: (st.deliveryZones ?? []) as { name: string; fee: number }[],
+    pickupEnabled: st.pickupEnabled !== false,
+    freeDeliveryMinimum: Number(st.freeDeliveryMinimum ?? 0),
+  }
+})
 const loading = ref(true)
 const error = ref(false)
 
@@ -280,6 +292,13 @@ const initials = computed(() => (store.value?.name ?? '?').trim().charAt(0).toUp
 const showShareModal = ref(false)
 const reportTarget = ref<{ type: 'COMMERCE' | 'PRODUCT'; id: string } | null>(null)
 const shareUrl = computed(() => `${config.public.siteUrl}/loja/${slug.value}`)
+// Primeros 3 productos con precio, para la imagen del estado de WhatsApp.
+const statusHighlights = computed(() =>
+  products.value.slice(0, 3).map((p: any) => ({
+    name: String(p.name),
+    price: primaryPrice(Number(p.price), storeCurrency.value),
+  })),
+)
 
 // SEO/compartir: solo se completa una vez que el fetch resuelve (SPA sin
 // SSR — no indexa a crawlers que no ejecutan JS, pero sí mejora el title

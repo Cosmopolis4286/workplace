@@ -47,6 +47,11 @@ model User {
 
   emailVerified Boolean @default(false)
 
+  // Chat de Telegram vinculado por el propio usuario para recibir avisos que
+  // piden acción (pedido nuevo, pago reportado) cuando el push no llega:
+  // respaldo gratis con mala señal. Null = no vinculado.
+  telegramChatId String? @unique
+
   // Denormalizado para checks rápidos en guards (sin join); la fuente de
   // verdad detallada vive en IdentityVerification.
   kycStatus             KycStatus              @default(NONE)
@@ -450,7 +455,13 @@ model CommerceSettings {
   avgPrepTime         Int     @default(20)
   avgDeliveryTime     Int     @default(30)
   deliveryFee         Decimal @default(35) @db.Decimal(20, 2)
-  freeDeliveryMinimum Decimal @default(200) @db.Decimal(20, 2)
+  freeDeliveryMinimum Decimal @default(0) @db.Decimal(20, 2)
+  // Zonas de entrega del catálogo público: [{ name, fee }] en la moneda del
+  // comercio (ej. El Triunfo, Sierra Imataca, San Félix). El combustible cambia
+  // de precio y de disponibilidad: el comercio ajusta cada zona.
+  deliveryZones       Json    @default("[]")
+  // Ofrece retiro en el local (sin costo de envío).
+  pickupEnabled       Boolean @default(true)
 
   // Notifications
   notifyNewOrders       Boolean @default(true)
@@ -2268,6 +2279,11 @@ model CatalogOrder {
   // Último cambio de estado: cuenta los plazos de la garantía (auto-reembolso
   // si el comercio no responde, auto-liberación si el comprador no confirma).
   statusUpdatedAt DateTime?
+  // Entrega elegida por el comprador: null = retiro en el local. deliveryFee
+  // va aparte de totalEstimate (la comisión se calcula solo sobre productos);
+  // el pago directo cobra totalEstimate + deliveryFee.
+  deliveryZone    String?
+  deliveryFee     Decimal?            @db.Decimal(20, 2)
 
   // El comercio marcó el pedido como entregado: el comprador tiene 72 h para
   // confirmar o reportar un problema; si no, se cierra solo (y se registra

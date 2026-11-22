@@ -69,13 +69,22 @@
                   Compartir
                 </button>
               </div>
+              <button
+                v-if="highlights?.length"
+                type="button"
+                class="w-full py-2.5 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors text-sm"
+                :disabled="generatingImage"
+                @click="downloadStatusImage"
+              >
+                {{ generatingImage ? 'Preparando imagen…' : 'Descargar imagen para el estado' }}
+              </button>
               <a
                 v-if="qrDataUrl"
                 :href="qrDataUrl"
                 :download="qrFileName"
                 class="text-xs font-semibold text-gray-500 hover:text-gray-800 underline"
               >
-                Descargar QR (para imprimir o subir al estado)
+                Descargar solo el QR (para imprimir)
               </a>
             </div>
           </div>
@@ -89,12 +98,37 @@
 import { computed, ref, watch } from 'vue'
 import { XMarkIcon, LinkIcon, ShareIcon, CheckIcon, ChatBubbleLeftRightIcon } from '@heroicons/vue/24/outline'
 import { useQrCode } from '~/composables/core/useQrCode'
+import { useStoreStatusImage, type StatusHighlight } from '~/composables/catalog/useStoreStatusImage'
 
 const props = defineProps<{
   modelValue: boolean
   url: string
   title?: string
+  // Hasta 3 productos con precio ya formateado: con ellos se arma la imagen
+  // para el estado de WhatsApp / historia de Instagram.
+  highlights?: StatusHighlight[]
 }>()
+
+const { generate: generateStatusImage } = useStoreStatusImage()
+const generatingImage = ref(false)
+
+async function downloadStatusImage() {
+  if (!props.highlights?.length) return
+  generatingImage.value = true
+  try {
+    const dataUrl = await generateStatusImage({
+      title: props.title ?? 'Mi tienda',
+      url: props.url,
+      highlights: props.highlights,
+    })
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = qrFileName.value.replace(/^qr-/, 'estado-')
+    a.click()
+  } finally {
+    generatingImage.value = false
+  }
+}
 
 defineEmits<{
   'update:modelValue': [val: boolean]

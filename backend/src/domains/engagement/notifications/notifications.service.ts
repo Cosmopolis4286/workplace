@@ -6,6 +6,7 @@ import { RegisterDeviceTokenDto } from './dto/register-device-token.dto';
 import { NotificationsGateway } from './notifications.gateway';
 import { MailService } from '../mail/mail.service';
 import { PushService } from './push.service';
+import { TelegramService } from '../telegram/telegram.service';
 
 // Notificaciones que además se mandan por email: las que exigen una acción
 // de la otra parte (sin push real, la app cerrada no se entera).
@@ -17,7 +18,8 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly gateway: NotificationsGateway,
     private readonly mail: MailService,
-    private readonly push: PushService
+    private readonly push: PushService,
+    private readonly telegram: TelegramService
   ) {}
 
   // ── Create & broadcast ────────────────────────────────────────────────────
@@ -45,6 +47,11 @@ export class NotificationsService {
     });
     if (commerce) {
       await this.sendPush(commerce.userId, notification);
+      // Pedidos nuevos también por Telegram, si el dueño lo vinculó: con mala
+      // señal o la app cerrada, el push puede no llegar.
+      if (dto.type === NotificationType.ORDER) {
+        this.sendTelegramCopy(commerce.userId, dto);
+      }
     }
 
     return notification;
@@ -72,8 +79,18 @@ export class NotificationsService {
     if (options.email) {
       // Sin await: el SMTP no debe frenar la operación que notifica.
       this.sendEmailCopy(userId, dto).catch(() => {});
+      // Mismos avisos (los que piden acción) por Telegram, si está vinculado.
+      this.sendTelegramCopy(userId, dto);
     }
     return notification;
+  }
+
+  private sendTelegramCopy(userId: string, dto: CreateNotificationDto) {
+    const escape = (v: string) =>
+      v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const text = `<b>${escape(dto.title)}</b>\n${escape(dto.message)}`;
+    // Sin await: Telegram no debe frenar la operación que notifica.
+    this.telegram.notifyUser(userId, text).catch(() => {});
   }
 
   private async sendEmailCopy(userId: string, dto: CreateNotificationDto) {

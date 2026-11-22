@@ -25,6 +25,7 @@
       :class="sidebarOpen || sidebarExpanded ? 'lg:pl-[272px]' : 'lg:pl-16'"
     >
       <AppHeader @toggle-sidebar="toggleSidebar" :sidebar-open="sidebarOpen" />
+      <OfflineBanner />
       <main class="py-8">
         <div class="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <slot />
@@ -37,6 +38,7 @@
 
 <script setup lang="ts">
 import { isPublicRoute } from '~/utils/publicRoutes'
+import OfflineBanner from '~/components/layout/OfflineBanner.vue'
 
 const { isDark } = useColorMode()
 const { isAuthenticated, ensureSessionVerified } = useAuth()

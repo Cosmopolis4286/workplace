@@ -67,4 +67,11 @@ export class CreateCatalogOrderDto {
   @MaxLength(500)
   @NoContactInfo()
   notes?: string;
+
+  // Con HOME_DELIVERY: una de CommerceSettings.deliveryZones (obligatoria si el
+  // comercio definió zonas). Define el costo de envío.
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  deliveryZone?: string;
 }
