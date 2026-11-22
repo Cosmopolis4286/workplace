@@ -9,5 +9,9 @@
   "payable_deleted": "Cuenta por pagar eliminada correctamente",
   "invalid_exchange_rate": "No hay una tasa de cambio válida para la moneda {code}",
   "no_fx_exposure_usd": "Esta cuenta está en USD, no tiene exposición cambiaria",
-  "no_current_rate": "No se pudo obtener la tasa de cambio actual para comparar"
+  "no_current_rate": "No se pudo obtener la tasa de cambio actual para comparar",
+  "receivable_closed": "Esta cuenta ya está cobrada o cancelada",
+  "payment_exceeds_balance": "El abono ({applied}) supera el saldo pendiente ({balance} {code})",
+  "customer_name_required": "Indica el nombre del cliente",
+  "payment_conflict": "El saldo cambió mientras registrabas el abono: revisa la cuenta y vuelve a intentar"
 }

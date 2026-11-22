@@ -129,17 +129,39 @@ describe('AccountReceivablesService', () => {
       );
     });
 
-    it('marks it as PAID with a paidAt timestamp', async () => {
+    it('marks it as PAID recording the remaining balance as the last payment', async () => {
       mockPrismaService.accountReceivable.findFirst.mockResolvedValue({
         id: 'rec-1',
         commerceId,
+        status: AccountStatus.PENDING,
+        currencyCode: 'USD',
+        amount: 100,
+        paidAmount: 0,
+        amountUsd: 100,
+        exchangeRateValue: 1,
       });
+      const tx = {
+        accountReceivable: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findUnique: jest.fn().mockResolvedValue({ id: 'rec-1' }),
+        },
+        receivablePayment: { create: jest.fn() },
+      };
+      (mockPrismaService as any).$transaction = jest.fn((fn: any) => fn(tx));
 
       await service.markAsPaid('rec-1', commerceId);
 
-      expect(mockPrismaService.accountReceivable.update).toHaveBeenCalledWith({
-        where: { id: 'rec-1' },
-        data: { status: AccountStatus.PAID, paidAt: expect.any(Date) },
+      expect(tx.accountReceivable.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'rec-1' }),
+          data: expect.objectContaining({
+            status: AccountStatus.PAID,
+            paidAt: expect.any(Date),
+          }),
+        })
+      );
+      expect(tx.receivablePayment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ appliedAmount: money(100) }),
       });
     });
   });
