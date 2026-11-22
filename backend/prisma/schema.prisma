@@ -56,6 +56,7 @@ model User {
   // verdad detallada vive en IdentityVerification.
   kycStatus             KycStatus              @default(NONE)
   identityVerifications IdentityVerification[]
+  enhancedReviewRequest  EnhancedReviewRequest?
 
   proposedCategories         ProposedCategory[] @relation("ProposedCategoryProposer")
   reviewedProposedCategories ProposedCategory[] @relation("ProposedCategoryReviewer")
@@ -1250,6 +1251,13 @@ enum KycDocumentType {
   DRIVERS_LICENSE
 }
 
+enum EnhancedReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
 model IdentityVerification {
   id     String @id @default(uuid())
   userId String
@@ -1278,6 +1286,30 @@ model IdentityVerification {
   @@index([status, createdAt])
   @@index([createdAt(sort: Desc)])
   @@map("identity_verifications")
+}
+
+// Solicitud de revisión reforzada. Una fila vigente por usuario; el historial
+// de cada transición (solicitud, aprobación, rechazo y revocación) queda en
+// AuditLog para preservar trazabilidad sin duplicar datos sensibles.
+model EnhancedReviewRequest {
+  id              String               @id @default(uuid())
+  userId          String               @unique
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          EnhancedReviewStatus @default(PENDING)
+  requestReason   String
+  decisionReason  String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  expiresAt       DateTime?
+  revokedBy       String?
+  revokedAt       DateTime?
+  revocationReason String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([status, createdAt])
+  @@index([expiresAt])
+  @@map("enhanced_review_requests")
 }
 
 enum ProposedCategoryTarget {
