@@ -66,6 +66,11 @@ describe('ProfileActivationsService', () => {
           .mockImplementation(({ data }: any) =>
             Promise.resolve({ ...pendingProfile(), ...data })
           ),
+        // review() reclama la solicitud solo si sigue PENDING.
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest
+          .fn()
+          .mockImplementation(() => Promise.resolve(pendingProfile())),
       },
       commerce: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -309,6 +314,36 @@ describe('ProfileActivationsService', () => {
   });
 
   describe('review', () => {
+    it('un admin no puede revisar su propia solicitud de perfil', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({ userId: ADMIN_ID })
+      );
+
+      await expect(
+        service.review(PROFILE_ID, ADMIN_ID, {
+          status: ProfileStatus.ACTIVE,
+        } as any)
+      ).rejects.toThrow('No puedes revisar tu propia solicitud');
+      expect(mockPrismaService.userProfile.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('si otro admin la revisó en paralelo, no aprueba dos veces', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile()
+      );
+      mockPrismaService.userProfile.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.review(PROFILE_ID, ADMIN_ID, {
+          status: ProfileStatus.ACTIVE,
+        } as any)
+      ).rejects.toThrow('revisada por otro administrador');
+      expect(mockCommerceResolver.ensureForUser).not.toHaveBeenCalled();
+      expect(
+        mockPlansService.activateSubscriptionForPlan
+      ).not.toHaveBeenCalled();
+    });
+
     it('bloquea la activación si el KYC del solicitante no está APPROVED', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
         pendingProfile({ user: { kycStatus: 'PENDING' } })

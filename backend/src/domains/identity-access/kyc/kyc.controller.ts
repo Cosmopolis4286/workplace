@@ -150,7 +150,7 @@ export class KycController {
   @Get('admin/:id')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
   findOne(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.kycService.findOne(id, user.role);
+    return this.kycService.findOne(id, user.role, user.id);
   }
 
   @Patch('admin/:id/review')

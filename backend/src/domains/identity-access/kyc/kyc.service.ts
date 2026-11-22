@@ -149,6 +149,21 @@ export class KycService {
     const url = verification[field as ImageField];
     if (!url) throw new NotFoundException('Imagen no encontrada');
 
+    // Las fotos del documento y la selfie son el dato más sensible de la
+    // plataforma: cada vez que alguien distinto del dueño las abre queda
+    // registrado quién, cuándo y cuál.
+    if (!isOwner) {
+      await this.audit.log({
+        userId: requesterId,
+        userRole: requesterRole,
+        action: 'VIEW',
+        module: 'kyc',
+        entityId: verificationId,
+        summary: 'Imagen de verificación de identidad consultada',
+        details: { field, targetUserId: verification.userId },
+      });
+    }
+
     // Las URLs guardadas tienen forma "/uploads/kyc/{filename}"; nos quedamos
     // solo con el nombre de archivo para evitar cualquier path traversal.
     return url.split('/').pop()!;
@@ -183,7 +198,7 @@ export class KycService {
     return { data, total, page, limit };
   }
 
-  async findOne(id: string, requesterRole: Role) {
+  async findOne(id: string, requesterRole: Role, requesterId?: string) {
     if (requesterRole !== Role.SUPERADMIN && requesterRole !== Role.ADMIN) {
       throw new ForbiddenException('No tienes permiso para ver esta solicitud');
     }
@@ -203,6 +218,17 @@ export class KycService {
     });
     if (!verification)
       throw new NotFoundException('Solicitud de verificación no encontrada');
+    if (requesterId) {
+      await this.audit.log({
+        userId: requesterId,
+        userRole: requesterRole,
+        action: 'VIEW',
+        module: 'kyc',
+        entityId: id,
+        summary: 'Solicitud de verificación de identidad consultada',
+        details: { targetUserId: verification.userId },
+      });
+    }
     return verification;
   }
 
@@ -214,6 +240,13 @@ export class KycService {
       throw new NotFoundException('Solicitud de verificación no encontrada');
     if (verification.status !== KycStatus.PENDING) {
       throw new BadRequestException('Esta solicitud ya fue revisada');
+    }
+    // Nadie revisa su propia identidad: un ADMIN que envía su KYC necesita
+    // que lo apruebe otra persona.
+    if (verification.userId === reviewerId) {
+      throw new ForbiddenException(
+        'No puedes revisar tu propia verificación de identidad'
+      );
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
