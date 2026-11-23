@@ -903,31 +903,69 @@ export class AuthService {
       where: { token: hashToken(token) },
     });
 
-    if (!record || record.usedAt || record.expiresAt < new Date()) {
+    if (!record || record.usedAt || record.expiresAt <= new Date()) {
       throw new BadRequestException(
         this.i18n.t('auth.password_reset.invalid_token')
       );
     }
 
-    const hashed = await bcrypt.hash(newPassword, 10);
+    const hashed = await bcrypt.hash(newPassword, 12);
+    const now = new Date();
 
-    const [updatedUser] = await this.prisma.$transaction([
-      this.prisma.user.update({
+    // Consume the one-time token conditionally in the same transaction as
+    // the password update. Two concurrent reset requests cannot both win.
+    const result = await this.prisma.$transaction(async (tx) => {
+      const consumed = await tx.passwordResetToken.updateMany({
+        where: {
+          id: record.id,
+          userId: record.userId,
+          usedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { usedAt: now },
+      });
+
+      if (consumed.count !== 1) {
+        throw new BadRequestException(
+          this.i18n.t('auth.password_reset.invalid_token')
+        );
+      }
+
+      const activeTokens = await tx.refreshToken.findMany({
+        where: { userId: record.userId, revokedAt: null },
+        select: { jti: true },
+      });
+
+      const user = await tx.user.update({
         where: { id: record.userId },
         data: { password: hashed },
-      }),
-      this.prisma.passwordResetToken.update({
-        where: { id: record.id },
-        data: { usedAt: new Date() },
-      }),
-      // Invalidate all refresh tokens so they must log in again
-      this.prisma.refreshToken.deleteMany({ where: { userId: record.userId } }),
-    ]);
+        select: { id: true, email: true, firstName: true },
+      });
+
+      await tx.refreshToken.updateMany({
+        where: { userId: record.userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+
+      return { user, activeTokens };
+    });
+
+    // Revoke the corresponding access JWTs as well as refresh tokens. The
+    // access-token lifetime is 15 minutes; blacklist TTL matches that window.
+    for (const activeToken of result.activeTokens) {
+      if (!activeToken.jti) continue;
+      await this.redis.blacklistToken(activeToken.jti, 900).catch((error) => {
+        this.logger.error(
+          'Could not blacklist an access token after password reset',
+          error
+        );
+      });
+    }
 
     this.mail
       .sendSecurityAlert(
-        updatedUser.email,
-        updatedUser.firstName,
+        result.user.email,
+        result.user.firstName,
         'password_reset'
       )
       .catch((err) => {
