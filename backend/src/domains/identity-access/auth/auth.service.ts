@@ -937,6 +937,12 @@ export class AuthService {
         );
       }
 
+      // Invalidate every other outstanding reset link for this account.
+      await tx.passwordResetToken.updateMany({
+        where: { userId: record.userId, usedAt: null },
+        data: { usedAt: now },
+      });
+
       const activeTokens = await tx.refreshToken.findMany({
         where: { userId: record.userId, revokedAt: null },
         select: { jti: true },
