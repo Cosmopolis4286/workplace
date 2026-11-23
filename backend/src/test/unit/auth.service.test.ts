@@ -25,6 +25,11 @@ describe('AuthService', () => {
     refreshToken: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    passwordResetToken: {
+      findUnique: jest.fn(),
       updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -293,6 +298,90 @@ describe('AuthService', () => {
       ).rejects.toThrow();
 
       expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword one-time token security', () => {
+    const resetRecord = {
+      id: 'reset-1',
+      userId: 'user-1',
+      token: 'hashed-reset-token',
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockPrismaService.passwordResetToken.findUnique.mockResolvedValue(
+        resetRecord
+      );
+      mockPrismaService.passwordResetToken.updateMany.mockResolvedValue({
+        count: 1,
+      });
+      mockPrismaService.refreshToken.findMany.mockResolvedValue([
+        { jti: 'active-access-jti-123456' },
+      ]);
+      mockPrismaService.refreshToken.updateMany.mockResolvedValue({
+        count: 1,
+      });
+      mockPrismaService.user.update.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        firstName: 'User',
+      });
+      mockRedisService.blacklistToken = jest.fn().mockResolvedValue(undefined);
+      mockMailService.sendSecurityAlert = jest
+        .fn()
+        .mockResolvedValue(undefined);
+      mockPrismaService.$transaction.mockImplementation((callback) =>
+        callback({
+          passwordResetToken: {
+            updateMany: mockPrismaService.passwordResetToken.updateMany,
+          },
+          refreshToken: {
+            findMany: mockPrismaService.refreshToken.findMany,
+            updateMany: mockPrismaService.refreshToken.updateMany,
+          },
+          user: { update: mockPrismaService.user.update },
+        })
+      );
+    });
+
+    it('consumes the reset token conditionally and revokes refresh and access tokens', async () => {
+      await expect(
+        service.resetPassword('raw-reset-token', 'NewStrongPassword!123')
+      ).resolves.toEqual({ message: 'auth.password_reset.success' });
+
+      expect(
+        mockPrismaService.passwordResetToken.updateMany
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'reset-1',
+            userId: 'user-1',
+            usedAt: null,
+            expiresAt: expect.objectContaining({ gt: expect.any(Date) }),
+          }),
+        })
+      );
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalled();
+      expect(mockRedisService.blacklistToken).toHaveBeenCalledWith(
+        'active-access-jti-123456',
+        900
+      );
+    });
+
+    it('rejects a concurrent reset after another request consumed the token', async () => {
+      mockPrismaService.passwordResetToken.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(
+        service.resetPassword('raw-reset-token', 'NewStrongPassword!123')
+      ).rejects.toThrow();
+
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled();
+      expect(mockPrismaService.refreshToken.updateMany).not.toHaveBeenCalled();
     });
   });
 
