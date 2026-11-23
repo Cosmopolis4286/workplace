@@ -1,3 +1,4 @@
+import { clearOfflineData } from '../../utils/offlineCache'
 import { ref, computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { resetWallets } from '../wallets/useWallets'
@@ -222,6 +223,8 @@ export const useAuth = () => {
       localStorage.removeItem('auth_user')
       localStorage.removeItem('auth_access_token')
       localStorage.removeItem('auth_refresh_token')
+      // Copias y acciones sin conexión del usuario que se va.
+      clearOfflineData()
     }
   }
 
@@ -402,7 +405,13 @@ export const useAuth = () => {
           localStorage.setItem('auth_refresh_token', data.refreshToken)
         }
         return true
-      } catch {
+      } catch (err: unknown) {
+        // Sin respuesta del servidor (se cayó la señal a mitad del refresh):
+        // no es un rechazo de la sesión. Cerrarla dejaría al usuario fuera a
+        // cada corte de red; se reintenta en la próxima llamada.
+        const status = (err as { status?: number; statusCode?: number })?.status
+          ?? (err as { status?: number; statusCode?: number })?.statusCode
+        if (!status) return false
         // Una respuesta tardía de la sesión anterior nunca debe cerrar la
         // sesión nueva que el usuario pudo haber iniciado mientras tanto.
         if (generation === sessionGeneration) clearSession()

@@ -28,13 +28,29 @@
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Cliente (opcional)</label>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
                   <select v-model="form.customerId" class="input-field">
                     <option value="">Sin especificar</option>
+                    <option :value="NEW_CUSTOMER">+ Cliente nuevo</option>
                     <option v-for="customer in customers" :key="customer.id" :value="customer.id">
                       {{ customer.name }}
                     </option>
                   </select>
+                  <p v-if="selectedLedger" class="mt-1 text-xs" :class="wouldPassLimit ? 'text-red-600' : 'text-gray-500'">
+                    Debe {{ usd(selectedLedger.balanceUsd) }}<template v-if="selectedLedger.customer?.creditLimitUsd != null"> · tope {{ usd(selectedLedger.customer.creditLimitUsd) }}</template>
+                    <template v-if="wouldPassLimit"> · con este fiado pasa su tope</template>
+                  </p>
+                </div>
+
+                <div v-if="form.customerId === NEW_CUSTOMER" class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                    <input v-model="form.customerName" type="text" required maxlength="120" class="input-field" placeholder="Ej. Pedro">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                    <input v-model="form.customerPhone" type="tel" maxlength="30" class="input-field" placeholder="0414-1234567">
+                  </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
@@ -76,11 +92,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { useDefaultRate } from '~/composables/wallets/useDefaultRate'
 import { useAccounts } from '~/composables/commerce/useAccounts'
 import { useCustomers } from '~/composables/customers/useCustomers'
+import { useToast } from '~/composables/ui/useToast'
+
+const NEW_CUSTOMER = '__new__'
 
 const props = defineProps<{ isOpen: boolean }>()
 const emit = defineEmits<{ close: []; saved: [] }>()
@@ -92,20 +111,41 @@ onMounted(() => {
   loadClientes()
 })
 
-const { createReceivable, error } = useAccounts()
+const { createReceivable, error, ledger } = useAccounts()
+const toast = useToast()
+
+const usd = (n: number) =>
+  '$' + new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+
+// Saldo y tope del cliente elegido (de la libreta ya cargada en la página).
+const selectedLedger = computed(() =>
+  ledger.value.find(r => r.customer?.id === form.value.customerId) ?? null,
+)
+const amountUsd = computed(() => {
+  const a = Number(form.value.amount) || 0
+  if (form.value.currencyCode === 'USD') return a
+  const rate = defaultRate.value?.rateToUsd
+  return rate ? a / Number(rate) : 0
+})
+const wouldPassLimit = computed(() => {
+  const limit = selectedLedger.value?.customer?.creditLimitUsd
+  return limit != null && selectedLedger.value!.balanceUsd + amountUsd.value > limit
+})
 
 const saving = ref(false)
 
 const form = ref({
   description: '',
   customerId: '',
+  customerName: '',
+  customerPhone: '',
   amount: 0,
   currencyCode: 'USD',
   dueDate: '',
 })
 
 function resetForm() {
-  form.value = { description: '', customerId: '', amount: 0, currencyCode: 'USD', dueDate: '' }
+  form.value = { description: '', customerId: '', customerName: '', customerPhone: '', amount: 0, currencyCode: 'USD', dueDate: '' }
 }
 
 watch(() => props.isOpen, (open) => { if (open) resetForm() })
@@ -118,14 +158,22 @@ async function handleSubmit() {
   if (saving.value) return
   saving.value = true
   try {
+    const isNew = form.value.customerId === NEW_CUSTOMER
     const receivable = await createReceivable({
       description: form.value.description,
-      customerId: form.value.customerId || undefined,
+      customerId: !isNew && form.value.customerId ? form.value.customerId : undefined,
+      customerName: isNew ? form.value.customerName.trim() : undefined,
+      customerPhone: isNew && form.value.customerPhone.trim() ? form.value.customerPhone.trim() : undefined,
       amount: form.value.amount,
       currencyCode: form.value.currencyCode,
       dueDate: form.value.dueDate || undefined,
     })
     if (receivable) {
+      const w = receivable.creditWarning
+      if (w) {
+        toast.error('Fiado registrado: pasó su tope', `Ahora debe ${usd(w.newBalanceUsd)} y su tope es ${usd(w.limitUsd)}.`)
+      }
+      if (isNew) loadClientes()
       emit('saved')
       closeModal()
     }

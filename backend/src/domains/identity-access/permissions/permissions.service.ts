@@ -133,6 +133,30 @@ export class PermissionsService implements PermissionsFacade {
    * No incluye SUPERADMIN/ADMIN/NORMAL: esos no son perfiles de negocio y
    * siguen resolviéndose por RolePermission (ver hasEffectivePermission).
    */
+  /**
+   * Cuántas cuentas tienen hoy activo un perfil (y si incluye a quien
+   * consulta): el panel lo muestra antes de guardar cambios en la matriz
+   * por perfil, que se aplican a todas esas cuentas a la vez.
+   */
+  async getProfileImpact(
+    profileType: ProfileType,
+    subtype: ProfessionalSubtype | null,
+    requesterId: string
+  ) {
+    const where = {
+      type: profileType,
+      ...(subtype ? { subtype } : {}),
+      status: ProfileStatus.ACTIVE,
+    };
+    const [activeUsers, mine] = await Promise.all([
+      this.prisma.userProfile.count({ where }),
+      this.prisma.userProfile.count({
+        where: { ...where, userId: requesterId },
+      }),
+    ]);
+    return { profileType, subtype, activeUsers, includesYou: mine > 0 };
+  }
+
   async getActiveProfilePermissions(userId: string): Promise<string[]> {
     const profiles = await this.prisma.userProfile.findMany({
       where: { userId, status: ProfileStatus.ACTIVE },
@@ -933,7 +957,19 @@ export class PermissionsService implements PermissionsFacade {
     await this.bumpUserVersion(userId);
   }
 
-  async validateUserAccess(admin: { id: string; role: Role }, userId: string) {
+  async validateUserAccess(
+    admin: { id: string; role: Role },
+    userId: string,
+    options: { write?: boolean } = {}
+  ) {
+    // Nadie se concede ni se quita permisos a sí mismo: los overrides
+    // individuales los cambia otra persona y queda en la auditoría.
+    if (options.write && admin.id === userId) {
+      throw new ForbiddenException(
+        'No puedes modificar tus propios permisos individuales'
+      );
+    }
+
     const targetUser = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, role: true },
@@ -1045,7 +1081,7 @@ export class PermissionsService implements PermissionsFacade {
     dto: UpdateUserPermissionDto,
     admin: { id: string; role: Role }
   ) {
-    await this.validateUserAccess(admin, userId);
+    await this.validateUserAccess(admin, userId, { write: true });
 
     const perm = await this.prisma.permission.findUnique({
       where: { id: dto.permissionId },
@@ -1110,7 +1146,7 @@ export class PermissionsService implements PermissionsFacade {
     permissionId: string,
     admin: { id: string; role: Role }
   ) {
-    await this.validateUserAccess(admin, userId);
+    await this.validateUserAccess(admin, userId, { write: true });
 
     const existing = await this.prisma.userPermission.findUnique({
       where: { userId_permissionId: { userId, permissionId } },
@@ -1138,7 +1174,7 @@ export class PermissionsService implements PermissionsFacade {
     userId: string,
     admin: { id: string; role: Role }
   ) {
-    await this.validateUserAccess(admin, userId);
+    await this.validateUserAccess(admin, userId, { write: true });
 
     const existing = await this.prisma.userPermission.findMany({
       where: { userId },

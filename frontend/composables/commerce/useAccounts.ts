@@ -18,7 +18,70 @@ export interface Receivable {
   customerId?: string | null
   customer?: { id: string; name: string } | null
   orderId?: string | null
+  // Suma de abonos en la moneda de la cuenta; saldo = amount - paidAmount.
+  paidAmount: number
+  payments?: ReceivablePayment[]
   createdAt: string
+}
+
+export type PaymentMethod = 'CASH' | 'PAGO_MOVIL' | 'TRANSFER' | 'OTHER'
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: 'Efectivo',
+  PAGO_MOVIL: 'Pago Móvil',
+  TRANSFER: 'Transferencia',
+  OTHER: 'Otro',
+}
+
+export interface ReceivablePayment {
+  id: string
+  amount: number
+  currencyCode: string
+  amountUsd: number
+  appliedAmount: number
+  method?: PaymentMethod | null
+  note?: string | null
+  createdAt: string
+}
+
+export interface CreditWarning {
+  limitUsd: number
+  balanceUsd: number
+  newBalanceUsd: number
+}
+
+export interface LedgerCustomer {
+  id: string
+  name: string
+  phone?: string | null
+  creditLimitUsd: number | null
+}
+
+export interface LedgerRow {
+  customer: LedgerCustomer | null
+  openCount: number
+  balanceUsd: number
+  oldestOpenAt: string
+  lastPaymentAt: string | null
+  overLimit: boolean
+}
+
+export interface CustomerLedger {
+  customer: LedgerCustomer
+  balanceUsd: number
+  receivables: (Receivable & { balance: number; balanceUsd: number })[]
+}
+
+export interface CreatePaymentPayload {
+  amount: number
+  currencyCode: string
+  method?: PaymentMethod
+  note?: string
+}
+
+/** Saldo pendiente de una cuenta, en su moneda. */
+export function receivableBalance(r: Pick<Receivable, 'amount' | 'paidAmount'>) {
+  return Math.max(0, +(Number(r.amount) - Number(r.paidAmount ?? 0)).toFixed(2))
 }
 
 export interface Payable {
@@ -55,6 +118,9 @@ export interface CreateReceivablePayload {
   amount: number
   currencyCode: string
   customerId?: string
+  // Cliente nuevo de la libreta (sin customerId).
+  customerName?: string
+  customerPhone?: string
   orderId?: string
   dueDate?: string
 }
@@ -71,6 +137,8 @@ export interface CreatePayablePayload {
 // ─── Global reactive state ────────────────────────────────────────────────────
 
 const receivables = ref<Receivable[]>([])
+const ledger = ref<LedgerRow[]>([])
+const ledgerTotalUsd = ref(0)
 const payables = ref<Payable[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -106,10 +174,58 @@ export function useAccounts() {
     }
   }
 
-  async function createReceivable(payload: CreateReceivablePayload): Promise<Receivable | null> {
+  async function loadLedger() {
+    loading.value = true
     error.value = null
     try {
-      const receivable = await post<Receivable>('/accounts/receivables', payload)
+      const res = await get<{ totalUsd: number; customers: LedgerRow[] }>('/accounts/receivables/by-customer')
+      ledger.value = res.customers
+      ledgerTotalUsd.value = res.totalUsd
+    } catch (e: any) {
+      error.value = e?.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function loadCustomerLedger(customerId: string): Promise<CustomerLedger | null> {
+    try {
+      return await get<CustomerLedger>(`/accounts/receivables/customers/${customerId}`)
+    } catch (e: any) {
+      error.value = e?.message
+      return null
+    }
+  }
+
+  async function updateCreditLimit(customerId: string, creditLimitUsd: number | null): Promise<boolean> {
+    try {
+      await patch(`/accounts/receivables/customers/${customerId}/credit-limit`, { creditLimitUsd })
+      return true
+    } catch (e: any) {
+      error.value = e?.message
+      return false
+    }
+  }
+
+  async function addPayment(id: string, payload: CreatePaymentPayload): Promise<Receivable | null> {
+    error.value = null
+    try {
+      const updated = await post<Receivable>(`/accounts/receivables/${id}/payments`, payload)
+      const idx = receivables.value.findIndex(r => r.id === id)
+      if (idx !== -1) receivables.value[idx] = updated
+      return updated
+    } catch (e: any) {
+      error.value = e?.message
+      return null
+    }
+  }
+
+  async function createReceivable(
+    payload: CreateReceivablePayload,
+  ): Promise<(Receivable & { creditWarning?: CreditWarning | null }) | null> {
+    error.value = null
+    try {
+      const receivable = await post<Receivable & { creditWarning?: CreditWarning | null }>('/accounts/receivables', payload)
       receivables.value.unshift(receivable)
       return receivable
     } catch (e: any) {
@@ -130,9 +246,9 @@ export function useAccounts() {
     }
   }
 
-  async function markReceivableAsPaid(id: string): Promise<boolean> {
+  async function markReceivableAsPaid(id: string, method?: PaymentMethod): Promise<boolean> {
     try {
-      const updated = await patch<Receivable>(`/accounts/receivables/${id}/paid`, {})
+      const updated = await patch<Receivable>(`/accounts/receivables/${id}/paid`, method ? { method } : {})
       const idx = receivables.value.findIndex(r => r.id === id)
       if (idx !== -1) receivables.value[idx] = updated
       return true
@@ -187,11 +303,17 @@ export function useAccounts() {
   return {
     // state
     receivables,
+    ledger,
+    ledgerTotalUsd,
     payables,
     loading,
     error,
     // actions
     loadReceivables,
+    loadLedger,
+    loadCustomerLedger,
+    updateCreditLimit,
+    addPayment,
     loadPayables,
     createReceivable,
     createPayable,

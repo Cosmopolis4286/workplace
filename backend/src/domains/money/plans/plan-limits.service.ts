@@ -51,6 +51,8 @@ const FREE_MODULES = [
   'services',
   'service_requests',
   'wallets',
+  // Fiado (cuentas por cobrar): en las bodegas es el día a día; va en Gratis.
+  'accounts',
 ];
 // "Techo" mínimo de un FREELANCER/SERVICE_PROVIDER, sin importar qué
 // UserCategory eligió — la categoría describe QUÉ vende (comida, diseño,

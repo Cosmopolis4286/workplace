@@ -27,6 +27,12 @@ import {
   canAssignRole,
   assignableRolesFor,
 } from '../../../common/utils/role-hierarchy.util';
+import {
+  ACCOUNT_SUSPENSION_REASONS,
+  ReactivateAccountDto,
+  SuspendAccountDto,
+  suspensionReasonLabel,
+} from './dto/account-status.dto';
 
 function parseUserStatus(status?: 'ACTIVE' | 'INACTIVE'): boolean | undefined {
   if (status === 'ACTIVE') return true;
@@ -73,6 +79,13 @@ export class UsersController {
       page: parseInt(page),
       limit: parseInt(limit),
     });
+  }
+
+  /** Motivos de suspensión para el selector del panel. */
+  @Get('suspension-reasons')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  getSuspensionReasons() {
+    return ACCOUNT_SUSPENSION_REASONS;
   }
 
   @Get('stats')
@@ -284,11 +297,83 @@ export class UsersController {
     return this.usersService.updateOwnProfile(id, dto);
   }
 
-  @Patch(':id/toggle-status')
+  @Patch(':id/suspend')
   @Roles(Role.SUPERADMIN, Role.ADMIN)
-  async toggleStatus(
+  async suspend(
     @Param('id') id: string,
+    @Body() dto: SuspendAccountDto,
     @CurrentUser() caller: { id: string; role: Role }
+  ) {
+    await this.assertCanChangeStatus(id, caller);
+    const result = await this.usersService.setAccountStatus(id, {
+      active: false,
+      reason: dto.reason,
+      note: dto.note,
+      actorId: caller.id,
+    });
+    if (result.changed) {
+      await this.audit.log({
+        userId: caller.id,
+        userRole: caller.role,
+        action: 'UPDATE',
+        module: 'users',
+        entityId: id,
+        summary: `Cuenta suspendida desde administración: ${suspensionReasonLabel(dto.reason)}`,
+        details: {
+          targetUserId: id,
+          isActive: false,
+          reason: dto.reason,
+          note: dto.note ?? null,
+        },
+      });
+    }
+    return {
+      id: result.id,
+      isActive: result.isActive,
+      changed: result.changed,
+    };
+  }
+
+  @Patch(':id/reactivate')
+  @Roles(Role.SUPERADMIN, Role.ADMIN)
+  async reactivate(
+    @Param('id') id: string,
+    @Body() dto: ReactivateAccountDto,
+    @CurrentUser() caller: { id: string; role: Role }
+  ) {
+    await this.assertCanChangeStatus(id, caller);
+    const result = await this.usersService.setAccountStatus(id, {
+      active: true,
+      actorId: caller.id,
+    });
+    if (result.changed) {
+      await this.audit.log({
+        userId: caller.id,
+        userRole: caller.role,
+        action: 'UPDATE',
+        module: 'users',
+        entityId: id,
+        summary: 'Cuenta reactivada desde administración',
+        details: {
+          targetUserId: id,
+          isActive: true,
+          previousReason: result.previous.suspensionReason,
+          previousNote: result.previous.suspensionNote,
+          note: dto.note ?? null,
+        },
+      });
+    }
+    return {
+      id: result.id,
+      isActive: result.isActive,
+      changed: result.changed,
+    };
+  }
+
+  /** Nadie cambia el estado de su propia cuenta ni el de un rol igual o mayor. */
+  private async assertCanChangeStatus(
+    id: string,
+    caller: { id: string; role: Role }
   ) {
     if (caller.id === id) {
       throw new ForbiddenException(
@@ -301,22 +386,6 @@ export class UsersController {
         this.i18n.t('users.permissions.modify_user')
       );
     }
-    const updated = await this.usersService.toggleUserStatus(id);
-    await this.audit.log({
-      userId: caller.id,
-      userRole: caller.role,
-      action: 'UPDATE',
-      module: 'users',
-      entityId: id,
-      summary: updated.isActive
-        ? 'Cuenta activada desde administración'
-        : 'Cuenta suspendida desde administración',
-      details: {
-        previousIsActive: target.isActive,
-        isActive: updated.isActive,
-      },
-    });
-    return updated;
   }
 
   @Delete(':id')

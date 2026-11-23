@@ -1118,6 +1118,23 @@ export class ServicesService {
           throw new NotFoundException('No se encontró el usuario solicitante');
         }
 
+        // Misma regla que createServiceRequest: una sola solicitud en curso
+        // por cliente, servicio y prestador.
+        const openRequest = await tx.serviceRequest.findFirst({
+          where: {
+            serviceId: service.id,
+            providerId: service.userId,
+            requesterId,
+            status: { in: ServicesService.OPEN_REQUEST_STATUSES as any },
+          },
+          select: { id: true },
+        });
+        if (openRequest) {
+          throw new BadRequestException(
+            'Ya tienes una solicitud en curso para este servicio con este proveedor.'
+          );
+        }
+
         const phone = dto.clientPhone?.trim() || inquiry.clientPhone?.trim();
         if (!phone || !/^[+]?[\d\s()-]{7,20}$/.test(phone)) {
           throw new BadRequestException(

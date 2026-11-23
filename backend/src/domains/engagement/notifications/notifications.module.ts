@@ -1,3 +1,4 @@
+import { TelegramModule } from '../telegram/telegram.module';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -13,6 +14,7 @@ import { PushService } from './push.service';
   imports: [
     PrismaModule,
     MailModule,
+    TelegramModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({

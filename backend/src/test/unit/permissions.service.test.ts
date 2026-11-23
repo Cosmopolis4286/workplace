@@ -31,7 +31,7 @@ describe('PermissionsService', () => {
       delete: jest.fn(),
     },
     user: { findUnique: jest.fn() },
-    userProfile: { findMany: jest.fn() },
+    userProfile: { findMany: jest.fn(), count: jest.fn() },
     profilePermission: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
@@ -119,6 +119,94 @@ describe('PermissionsService', () => {
           }),
         })
       );
+    });
+  });
+
+  describe('permisos individuales: nadie se los cambia a sí mismo', () => {
+    const admin = { id: 'admin-1', role: Role.ADMIN };
+
+    beforeEach(() => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        role: Role.ADMIN,
+      });
+    });
+
+    it('rechaza que un ADMIN se conceda un permiso a su propia cuenta', async () => {
+      await expect(
+        service.updateUserPermission(
+          'admin-1',
+          { permissionId: 'permission-1', granted: true } as any,
+          admin
+        )
+      ).rejects.toThrow('No puedes modificar tus propios permisos');
+      expect(mockPrisma.userPermission.upsert).not.toHaveBeenCalled();
+    });
+
+    it('rechaza también quitar o resetear los propios', async () => {
+      await expect(
+        service.removeUserPermission('admin-1', 'permission-1', admin)
+      ).rejects.toThrow('No puedes modificar tus propios permisos');
+      await expect(
+        service.resetUserPermissions('admin-1', admin)
+      ).rejects.toThrow('No puedes modificar tus propios permisos');
+      expect(mockPrisma.userPermission.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('sí permite ver los propios permisos', async () => {
+      await expect(
+        service.validateUserAccess(admin, 'admin-1')
+      ).resolves.toBeUndefined();
+    });
+
+    it('aplica también a SUPERADMIN', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'root-1',
+        role: Role.SUPERADMIN,
+      });
+      await expect(
+        service.updateUserPermission(
+          'root-1',
+          { permissionId: 'permission-1', granted: true } as any,
+          { id: 'root-1', role: Role.SUPERADMIN }
+        )
+      ).rejects.toThrow('No puedes modificar tus propios permisos');
+    });
+  });
+
+  describe('getProfileImpact', () => {
+    it('cuenta los perfiles activos y si incluye a quien consulta', async () => {
+      mockPrisma.userProfile.count
+        .mockResolvedValueOnce(42)
+        .mockResolvedValueOnce(1);
+
+      await expect(
+        service.getProfileImpact(
+          'PROFESSIONAL' as any,
+          'FREELANCER' as any,
+          'admin-1'
+        )
+      ).resolves.toEqual({
+        profileType: 'PROFESSIONAL',
+        subtype: 'FREELANCER',
+        activeUsers: 42,
+        includesYou: true,
+      });
+      expect(mockPrisma.userProfile.count).toHaveBeenNthCalledWith(1, {
+        where: {
+          type: 'PROFESSIONAL',
+          subtype: 'FREELANCER',
+          status: 'ACTIVE',
+        },
+      });
+      expect(mockPrisma.userProfile.count).toHaveBeenNthCalledWith(2, {
+        where: {
+          type: 'PROFESSIONAL',
+          subtype: 'FREELANCER',
+          status: 'ACTIVE',
+          userId: 'admin-1',
+        },
+      });
     });
   });
 

@@ -68,9 +68,10 @@
                   <button type="button" class="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors font-bold text-gray-700 text-lg disabled:opacity-40"
                     :disabled="form.quantity >= 99" @click="form.quantity++">+</button>
                   <div class="ml-auto">
-                    <span class="text-2xl font-black text-red-600">{{ primaryPrice(totalEstimate, currency) }}</span>
+                    <span class="text-2xl font-black text-red-600">{{ primaryPrice(grandTotal, currency) }}</span>
                     <p class="text-[11px] text-gray-400 text-right">
-                      <template v-if="secondaryPrice(totalEstimate, currency)">{{ secondaryPrice(totalEstimate, currency) }} · </template>estimado
+                      <template v-if="deliveryFee !== null">{{ deliveryFee > 0 ? `incluye envío ${primaryPrice(deliveryFee, currency)}` : 'envío gratis' }} · </template>
+                      <template v-if="secondaryPrice(grandTotal, currency)">{{ secondaryPrice(grandTotal, currency) }} · </template>estimado
                     </p>
                   </div>
                 </div>
@@ -79,9 +80,9 @@
               <!-- Tipo de entrega -->
               <div>
                 <label class="block text-xs font-bold text-gray-700 mb-2">Tipo de entrega</label>
-                <div class="grid grid-cols-3 gap-2">
+                <div class="grid gap-2" :class="visibleDeliveryOptions.length === 3 ? 'grid-cols-3' : 'grid-cols-2'">
                   <button
-                    v-for="opt in deliveryOptions" :key="opt.value"
+                    v-for="opt in visibleDeliveryOptions" :key="opt.value"
                     type="button"
                     class="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 text-xs font-semibold transition-all duration-200"
                     :class="form.deliveryType === opt.value
@@ -105,12 +106,28 @@
                 leave-to-class="opacity-0 -translate-y-2"
               >
                 <div v-if="form.deliveryType === 'HOME_DELIVERY'" class="space-y-3">
+                  <!-- Zonas del comercio: fijan el costo de envío. -->
+                  <div v-if="zones.length">
+                    <label class="block text-xs font-bold text-gray-700 mb-1.5">Zona de entrega <span class="text-red-500">*</span></label>
+                    <select
+                      v-model="form.deliveryZone"
+                      class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-red-400"
+                    >
+                      <option value="" disabled>Elige tu zona</option>
+                      <option v-for="z in zones" :key="z.name" :value="z.name">
+                        {{ z.name }} · {{ freeDelivery ? 'gratis' : primaryPrice(z.fee, currency) }}
+                      </option>
+                    </select>
+                    <p v-if="freeDeliveryMinimum > 0" class="text-[11px] text-gray-500 mt-1">
+                      Envío gratis desde {{ primaryPrice(freeDeliveryMinimum, currency) }}.
+                    </p>
+                  </div>
                   <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1.5">Dirección de entrega <span class="text-red-500">*</span></label>
+                    <label class="block text-xs font-bold text-gray-700 mb-1.5">Dirección o punto de referencia <span class="text-red-500">*</span></label>
                     <input
                       v-model="form.address"
                       type="text"
-                      placeholder="Calle, número, barrio..."
+                      placeholder="Sector, calle o referencia (ej. frente a la plaza)"
                       required
                       class="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all"
                     />
@@ -213,6 +230,12 @@ const props = defineProps<{
   product: CatalogProduct | null
   // Moneda de los precios del comercio (USD o VES); por defecto USD.
   currency?: string | null
+  // Entrega del comercio: zonas con costo, retiro y mínimo para envío gratis.
+  delivery?: {
+    zones: { name: string; fee: number }[]
+    pickupEnabled: boolean
+    freeDeliveryMinimum: number
+  } | null
 }>()
 const { loadRate, primary: primaryPrice, secondary: secondaryPrice } = useDualPrice()
 loadRate()
@@ -243,6 +266,7 @@ const deliveryOptions: { value: 'HOME_DELIVERY' | 'PICKUP' | 'DIGITAL'; label: s
 const defaultForm = () => ({
   quantity: 1,
   deliveryType: 'HOME_DELIVERY' as 'HOME_DELIVERY' | 'PICKUP' | 'DIGITAL',
+  deliveryZone: '',
   address: '',
   city: '',
   buyerName: user.value ? `${user.value.firstName} ${user.value.lastName}`.trim() : '',
@@ -275,6 +299,21 @@ const totalEstimate = computed(() => {
   return props.product.price * form.value.quantity
 })
 
+// Mismo cálculo que el backend (resolveCatalogDelivery): el servidor manda.
+const zones = computed(() => props.delivery?.zones ?? [])
+const freeDeliveryMinimum = computed(() => Number(props.delivery?.freeDeliveryMinimum ?? 0))
+const freeDelivery = computed(() => freeDeliveryMinimum.value > 0 && totalEstimate.value >= freeDeliveryMinimum.value)
+const visibleDeliveryOptions = computed(() =>
+  deliveryOptions.filter(o => o.value !== 'PICKUP' || props.delivery?.pickupEnabled !== false),
+)
+const deliveryFee = computed<number | null>(() => {
+  if (form.value.deliveryType !== 'HOME_DELIVERY' || !zones.value.length) return null
+  const zone = zones.value.find(z => z.name === form.value.deliveryZone)
+  if (!zone) return null
+  return freeDelivery.value ? 0 : Number(zone.fee)
+})
+const grandTotal = computed(() => totalEstimate.value + (deliveryFee.value ?? 0))
+
 
 // Guarda la selección actual y redirige a login — se retoma automáticamente
 // al volver (ver checkoutResume.ts), sin perder lo que el visitante ya llenó.
@@ -299,8 +338,12 @@ async function submit() {
     return
   }
 
+  if (form.value.deliveryType === 'HOME_DELIVERY' && zones.value.length && !form.value.deliveryZone) {
+    errorMsg.value = 'Elige tu zona de entrega.'
+    return
+  }
   if (form.value.deliveryType === 'HOME_DELIVERY' && !form.value.address.trim()) {
-    errorMsg.value = 'La dirección es requerida para entrega a domicilio.'
+    errorMsg.value = 'Indica una dirección o punto de referencia para la entrega.'
     return
   }
 
@@ -311,6 +354,7 @@ async function submit() {
       commerceId: props.product.commerce.id,
       items: [{ productId: props.product.id, quantity: form.value.quantity }],
       deliveryType: form.value.deliveryType,
+      deliveryZone: form.value.deliveryType === 'HOME_DELIVERY' && form.value.deliveryZone ? form.value.deliveryZone : undefined,
       address: form.value.address || undefined,
       city: form.value.city || undefined,
       buyerName: form.value.buyerName,

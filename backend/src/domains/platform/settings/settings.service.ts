@@ -204,9 +204,27 @@ export class SettingsService {
   ) {
     const commerce = await this.commerceStrategy.getCommerce(userId);
     await this.commerceStrategy.getOrCreateSettings(commerce.id);
+    const { deliveryZones, ...rest } = dto;
     return this.prisma.commerceSettings.update({
       where: { commerceId: commerce.id },
-      data: dto,
+      data: {
+        ...rest,
+        // Zonas: nombre recortado, costo con 2 decimales, sin nombres repetidos.
+        ...(deliveryZones && {
+          deliveryZones: deliveryZones
+            .map((z) => ({
+              name: z.name.trim(),
+              fee: Math.round(z.fee * 100) / 100,
+            }))
+            .filter(
+              (z, i, all) =>
+                z.name &&
+                all.findIndex(
+                  (o) => o.name.toLowerCase() === z.name.toLowerCase()
+                ) === i
+            ),
+        }),
+      },
     });
   }
 

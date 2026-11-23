@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { JwtService } from '@nestjs/jwt';
+import { randomBytes } from 'crypto';
+import { RedisService } from '../../../redis/redis.service';
 
 @Injectable()
 export class TelegramService {
@@ -12,7 +13,7 @@ export class TelegramService {
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
-    private readonly jwt: JwtService
+    private readonly redis: RedisService
   ) {
     this.botToken = this.config.get<string>('TELEGRAM_BOT_TOKEN') ?? '';
     this.apiBase = `https://api.telegram.org/bot${this.botToken}`;
@@ -48,13 +49,54 @@ export class TelegramService {
     await this.sendMessage(customer.telegramChatId, text);
   }
 
-  // ─── Generate a deep-link for customer to link their Telegram ────────────────
+  // ─── Enlaces de vinculación ─────────────────────────────────────────────────
+  //
+  // Telegram solo acepta en ?start= hasta 64 caracteres [A-Za-z0-9_-]. Antes
+  // se mandaba un JWT completo (más largo y con puntos), así que el enlace
+  // nunca llegaba al bot. Ahora el enlace lleva un token corto y aleatorio, y
+  // a qué corresponde se guarda en Redis por 24 h, de un solo uso.
 
-  generateLinkToken(customerId: string, commerceId: string): string {
-    return this.jwt.sign(
-      { customerId, commerceId, purpose: 'telegram_link' },
-      { expiresIn: '24h' }
+  private static readonly LINK_TTL_SECONDS = 24 * 60 * 60;
+
+  private async createLinkToken(prefix: 'c' | 'u', value: object) {
+    const token = `${prefix}_${randomBytes(16).toString('hex')}`;
+    await this.redis.setex(
+      `telegram:link:${token}`,
+      TelegramService.LINK_TTL_SECONDS,
+      JSON.stringify(value)
     );
+    return token;
+  }
+
+  /** Enlace para que un cliente del POS reciba avisos de sus pedidos. */
+  generateLinkToken(customerId: string, commerceId: string): Promise<string> {
+    return this.createLinkToken('c', { customerId, commerceId });
+  }
+
+  /** Enlace para que un usuario reciba sus avisos importantes por Telegram. */
+  generateUserLinkToken(userId: string): Promise<string> {
+    return this.createLinkToken('u', { userId });
+  }
+
+  async unlinkUser(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { telegramChatId: null },
+    });
+  }
+
+  /** Avisa a un usuario por Telegram si lo vinculó. Nunca lanza. */
+  async notifyUser(userId: string, text: string): Promise<void> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { telegramChatId: true, isActive: true },
+      });
+      if (!user?.telegramChatId || !user.isActive) return;
+      await this.sendMessage(user.telegramChatId, text);
+    } catch (e) {
+      this.logger.warn(`Telegram notifyUser error: ${(e as Error).message}`);
+    }
   }
 
   getBotUsername(): string {
@@ -75,34 +117,48 @@ export class TelegramService {
   // ─── Process /start payload from webhook ─────────────────────────────────────
 
   async processStart(chatId: string, startPayload: string): Promise<string> {
-    try {
-      const payload = this.jwt.verify(startPayload) as {
-        customerId: string;
-        commerceId: string;
-        purpose: string;
-      };
+    if (!/^[cu]_[0-9a-f]{32}$/.test(startPayload)) {
+      return '❌ El enlace es inválido. Genera uno nuevo desde WorkPlace.';
+    }
+    const key = `telegram:link:${startPayload}`;
+    const raw = await this.redis.get(key);
+    if (!raw) {
+      return '❌ El enlace venció o ya se usó. Genera uno nuevo desde WorkPlace.';
+    }
+    await this.redis.del(key);
+    const payload = JSON.parse(raw) as {
+      customerId?: string;
+      commerceId?: string;
+      userId?: string;
+    };
 
-      if (payload.purpose !== 'telegram_link') {
-        return '❌ Token inválido.';
-      }
-
-      const customer = await this.prisma.customer.findFirst({
-        where: { id: payload.customerId, commerceId: payload.commerceId },
-        include: { commerce: { select: { name: true } } },
+    if (payload.userId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { firstName: true },
       });
-
-      if (!customer) {
-        return '❌ No se encontró el cliente.';
-      }
-
-      await this.prisma.customer.update({
-        where: { id: payload.customerId },
+      if (!user) return '❌ No se encontró tu cuenta.';
+      // Un chat solo puede estar vinculado a una cuenta (telegramChatId @unique).
+      await this.prisma.user.updateMany({
+        where: { telegramChatId: String(chatId), NOT: { id: payload.userId } },
+        data: { telegramChatId: null },
+      });
+      await this.prisma.user.update({
+        where: { id: payload.userId },
         data: { telegramChatId: String(chatId) },
       });
-
-      return `✅ ¡Hola ${customer.name}! Tu cuenta ha sido vinculada a <b>${customer.commerce.name}</b>. Recibirás notificaciones de tus pedidos aquí.`;
-    } catch {
-      return '❌ El enlace ha expirado o es inválido. Pide uno nuevo al negocio.';
+      return `✅ ¡Hola ${user.firstName}! Recibirás aquí los avisos importantes de WorkPlace (pedidos nuevos, pagos reportados) aunque no tengas la app abierta.`;
     }
+
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: payload.customerId, commerceId: payload.commerceId },
+      include: { commerce: { select: { name: true } } },
+    });
+    if (!customer) return '❌ No se encontró el cliente.';
+    await this.prisma.customer.update({
+      where: { id: customer.id },
+      data: { telegramChatId: String(chatId) },
+    });
+    return `✅ ¡Hola ${customer.name}! Tu cuenta ha sido vinculada a <b>${customer.commerce.name}</b>. Recibirás notificaciones de tus pedidos aquí.`;
   }
 }

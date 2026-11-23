@@ -104,6 +104,7 @@ describe('PlatformSettingsService', () => {
       'store.publicContact': true,
       'identity.kycPolicy': DEFAULT_KYC_PROGRESSIVE_POLICY,
       'kyc.buyerThresholdUsd': 50,
+      'security.staffTwoFactorRequired': false,
     });
   });
 

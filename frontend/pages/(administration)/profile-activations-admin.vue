@@ -68,7 +68,10 @@
         </p>
 
         <div class="px-6 py-4 bg-gray-50 flex items-center justify-end gap-3">
-          <template v-if="rejectingId === item.id">
+          <p v-if="isOwnRequest(item)" class="text-xs text-gray-500">
+            Es tu propia solicitud: la revisa otro administrador.
+          </p>
+          <template v-else-if="rejectingId === item.id">
             <button class="btn-secondary text-sm" @click="rejectingId = null">Cancelar</button>
             <button
               class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60"
@@ -113,6 +116,11 @@ import { useDateFormat } from '~/composables/core/useDateFormat'
 // El guard de rol (SUPERADMIN/ADMIN) vive en middleware/auth.ts (ADMIN_ONLY_ROUTES)
 const { fetchPending, review } = useProfileActivations()
 const { formatDate } = useDateFormat()
+// Nadie revisa su propia solicitud (el backend también lo rechaza).
+const { user: currentUser } = useAuth()
+function isOwnRequest(item: { userId?: string }) {
+  return Boolean(item.userId && item.userId === currentUser.value?.id)
+}
 
 const items = ref<ProfileActivation[]>([])
 const loading = ref(true)

@@ -8,7 +8,7 @@ describe('KycApprovedGuard — política progresiva', () => {
   const handler = () => undefined;
   const controller = class TestController {};
   let reflector: Reflector;
-  let policy: { evaluate: jest.Mock };
+  let policy: { evaluateForUser: jest.Mock };
   let guard: KycApprovedGuard;
 
   function context(user: Record<string, unknown>): ExecutionContext {
@@ -23,14 +23,14 @@ describe('KycApprovedGuard — política progresiva', () => {
 
   beforeEach(() => {
     reflector = new Reflector();
-    policy = { evaluate: jest.fn() };
+    policy = { evaluateForUser: jest.fn() };
     guard = new KycApprovedGuard(reflector, policy as any);
     Reflect.deleteMetadata(KYC_POLICY_OPERATION, handler);
   });
 
   it('evalúa la operación declarada y permite un nivel suficiente', async () => {
     Reflect.defineMetadata(KYC_POLICY_OPERATION, 'catalog.order', handler);
-    policy.evaluate.mockResolvedValue({ allowed: true });
+    policy.evaluateForUser.mockResolvedValue({ allowed: true });
 
     await expect(
       guard.canActivate(
@@ -42,16 +42,20 @@ describe('KycApprovedGuard — política progresiva', () => {
       )
     ).resolves.toBe(true);
 
-    expect(policy.evaluate).toHaveBeenCalledWith('catalog.order', {
-      authenticated: true,
-      phoneVerified: false,
-      kycStatus: KycStatus.APPROVED,
-    });
+    expect(policy.evaluateForUser).toHaveBeenCalledWith(
+      'catalog.order',
+      {
+        authenticated: true,
+        phoneVerified: false,
+        kycStatus: KycStatus.APPROVED,
+      },
+      'user-1'
+    );
   });
 
   it('rechaza cuando la política exige un nivel no acreditado', async () => {
     Reflect.defineMetadata(KYC_POLICY_OPERATION, 'catalog.order', handler);
-    policy.evaluate.mockResolvedValue({
+    policy.evaluateForUser.mockResolvedValue({
       allowed: false,
       reason: 'Requiere revisión reforzada.',
     });
@@ -69,7 +73,7 @@ describe('KycApprovedGuard — política progresiva', () => {
 
   it('no confía en flags de teléfono o revisión reforzada enviados en request.user', async () => {
     Reflect.defineMetadata(KYC_POLICY_OPERATION, 'catalog.order', handler);
-    policy.evaluate.mockResolvedValue({
+    policy.evaluateForUser.mockResolvedValue({
       allowed: false,
       reason: 'No autorizado',
     });
@@ -86,16 +90,20 @@ describe('KycApprovedGuard — política progresiva', () => {
       )
     ).rejects.toBeInstanceOf(ForbiddenException);
 
-    expect(policy.evaluate).toHaveBeenCalledWith('catalog.order', {
-      authenticated: true,
-      phoneVerified: false,
-      kycStatus: KycStatus.APPROVED,
-    });
+    expect(policy.evaluateForUser).toHaveBeenCalledWith(
+      'catalog.order',
+      {
+        authenticated: true,
+        phoneVerified: false,
+        kycStatus: KycStatus.APPROVED,
+      },
+      'user-1'
+    );
   });
 
   it('reconoce solo la marca phoneVerifiedAt persistida', async () => {
     Reflect.defineMetadata(KYC_POLICY_OPERATION, 'provider.contact', handler);
-    policy.evaluate.mockResolvedValue({ allowed: true });
+    policy.evaluateForUser.mockResolvedValue({ allowed: true });
 
     await expect(
       guard.canActivate(
@@ -110,11 +118,15 @@ describe('KycApprovedGuard — política progresiva', () => {
       )
     ).resolves.toBe(true);
 
-    expect(policy.evaluate).toHaveBeenCalledWith('provider.contact', {
-      authenticated: true,
-      phoneVerified: true,
-      kycStatus: KycStatus.PENDING,
-    });
+    expect(policy.evaluateForUser).toHaveBeenCalledWith(
+      'provider.contact',
+      {
+        authenticated: true,
+        phoneVerified: true,
+        kycStatus: KycStatus.PENDING,
+      },
+      'user-1'
+    );
   });
 
   it('mantiene el comportamiento KYC anterior para rutas aún no clasificadas', async () => {
@@ -137,13 +149,13 @@ describe('KycApprovedGuard — política progresiva', () => {
         })
       )
     ).resolves.toBe(true);
-    expect(policy.evaluate).not.toHaveBeenCalled();
+    expect(policy.evaluateForUser).not.toHaveBeenCalled();
   });
 
   it('conserva la excepción de personal administrativo', async () => {
     await expect(
       guard.canActivate(context({ id: 'admin', role: Role.ADMIN }))
     ).resolves.toBe(true);
-    expect(policy.evaluate).not.toHaveBeenCalled();
+    expect(policy.evaluateForUser).not.toHaveBeenCalled();
   });
 });

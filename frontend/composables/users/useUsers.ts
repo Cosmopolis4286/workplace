@@ -11,6 +11,8 @@ export interface UserProfileSummary { type: 'BUSINESS' | 'PROFESSIONAL'; subtype
 export interface UserItem {
   id: string; firstName: string; lastName: string; email: string; phone?: string
   role: Role; isActive: boolean; createdAt: string
+  suspensionReason?: AccountSuspensionReason | null
+  suspensionNote?: string | null
   commerce?: { id: string; name: string }
   category?: { id: string; name: string; icon?: string } | null
   subcategory?: { id: string; name: string } | null
@@ -31,11 +33,20 @@ export interface UserItem {
 // Nuxt); quien lo necesite lo importa de ahí directo.
 export type BusinessProfileType = 'BUSINESS' | 'PROFESSIONAL'
 
+export type AccountSuspensionReason =
+  | 'FRAUD' | 'ABUSE' | 'POLICY_VIOLATION' | 'IDENTITY_ISSUE'
+  | 'PAYMENT_ISSUE' | 'SECURITY' | 'USER_REQUEST' | 'OTHER'
+export interface SuspensionReasonOption { value: AccountSuspensionReason; label: string }
+export interface AccountStatusResult { id: string; isActive: boolean; changed: boolean }
+
 export interface UserAdminOverview {
   user: {
     id: string; email: string; username?: string | null
     firstName: string; lastName: string; phone?: string | null
     role: Role; userType: string; isActive: boolean; emailVerified: boolean
+    suspensionReason?: AccountSuspensionReason | null
+    suspensionNote?: string | null
+    suspendedAt?: string | null
     kycStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED'
     createdAt: string; updatedAt: string
     country?: string | null; state?: string | null; city?: string | null
@@ -167,13 +178,23 @@ export const useUsers = () => {
     return get<UserAdminOverview>(`/users/${encodeURIComponent(id)}/admin-overview`)
   }
 
-  async function toggleUserStatus(id: string) {
-    return patch(`/users/${id}/toggle-status`, {})
+  // Suspender exige motivo (y nota si es "Otro"); reactivar no. Son acciones
+  // explícitas: repetirlas no revierte el estado.
+  async function fetchSuspensionReasons() {
+    return get<SuspensionReasonOption[]>('/users/suspension-reasons')
+  }
+
+  async function suspendUser(id: string, body: { reason: AccountSuspensionReason; note?: string }) {
+    return patch<AccountStatusResult>(`/users/${encodeURIComponent(id)}/suspend`, body)
+  }
+
+  async function reactivateUser(id: string, note?: string) {
+    return patch<AccountStatusResult>(`/users/${encodeURIComponent(id)}/reactivate`, note ? { note } : {})
   }
 
   async function deleteUser(id: string) {
     return del(`/users/${id}`)
   }
 
-  return { loadCategories, listUsers, getStats, getAdminOverview, createUser, updateUser, toggleUserStatus, deleteUser }
+  return { loadCategories, listUsers, getStats, getAdminOverview, createUser, updateUser, fetchSuspensionReasons, suspendUser, reactivateUser, deleteUser }
 }

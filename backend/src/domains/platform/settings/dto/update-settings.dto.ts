@@ -8,6 +8,7 @@ import {
   MaxLength,
   Min,
   Max,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -169,6 +170,27 @@ export class UpdateOperationSettingsDto {
   @IsNumber()
   @Min(0)
   freeDeliveryMinimum?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(15)
+  @ValidateNested({ each: true })
+  @Type(() => DeliveryZoneDto)
+  deliveryZones?: DeliveryZoneDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  pickupEnabled?: boolean;
+}
+
+export class DeliveryZoneDto {
+  @IsString()
+  @MaxLength(60)
+  name: string;
+
+  @IsNumber()
+  @Min(0)
+  fee: number;
 }
 
 // Price Guard (Business Shield, ver WORKPLACE_VISION.md sección 6) — margen

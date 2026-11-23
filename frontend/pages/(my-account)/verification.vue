@@ -111,6 +111,74 @@
           <div class="flex justify-between"><dt class="text-gray-500">Enviado</dt><dd class="font-medium text-gray-900">{{ formatDate(myStatus.latestSubmission.createdAt) }}</dd></div>
         </dl>
       </div>
+
+      <section v-if="status === 'APPROVED'" class="card-premium p-6 space-y-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Revisión reforzada</h3>
+          <p class="mt-1 text-sm text-gray-500">
+            Es una evaluación adicional para habilitar operaciones de riesgo elevado. No sustituye tu verificación de identidad.
+          </p>
+        </div>
+
+        <div
+          v-if="enhancedReview"
+          class="rounded-xl border p-4"
+          :class="{
+            'border-amber-200 bg-amber-50': enhancedReview.status === 'PENDING',
+            'border-green-200 bg-green-50': enhancedReview.status === 'APPROVED' && !enhancedReviewExpired,
+            'border-red-200 bg-red-50': enhancedReview.status === 'REJECTED' || enhancedReview.status === 'REVOKED' || enhancedReviewExpired,
+          }"
+        >
+          <p class="font-semibold text-sm text-gray-900">
+            {{
+              enhancedReviewExpired ? 'Aprobación vencida' : ({
+                PENDING: 'Solicitud en revisión',
+                APPROVED: 'Revisión reforzada aprobada',
+                REJECTED: 'Solicitud rechazada',
+                REVOKED: 'Aprobación revocada',
+              }[enhancedReview.status])
+            }}
+          </p>
+          <p class="mt-1 text-sm text-gray-600">
+            {{ enhancedReview.requestReason }}
+          </p>
+          <p v-if="enhancedReview.decisionReason" class="mt-2 text-sm text-gray-700">
+            <strong>Decisión:</strong> {{ enhancedReview.decisionReason }}
+          </p>
+          <p v-if="enhancedReview.revocationReason" class="mt-2 text-sm text-red-700">
+            <strong>Revocación:</strong> {{ enhancedReview.revocationReason }}
+          </p>
+          <p v-if="enhancedReview.expiresAt" class="mt-2 text-xs text-gray-500">
+            Vigencia hasta {{ formatDate(enhancedReview.expiresAt) }}
+          </p>
+        </div>
+
+        <form v-if="canRequestEnhancedReview" class="space-y-3" @submit.prevent="handleEnhancedReviewRequest">
+          <label class="block">
+            <span class="text-xs font-medium text-gray-700">¿Por qué necesitas esta habilitación? (20–500 caracteres)</span>
+            <textarea
+              v-model="enhancedReason"
+              rows="3"
+              minlength="20"
+              maxlength="500"
+              required
+              class="input-field mt-1 w-full resize-y"
+              placeholder="Describe las operaciones que necesitas realizar y la justificación…"
+            />
+          </label>
+          <p v-if="enhancedError" class="text-sm text-red-600">{{ enhancedError }}</p>
+          <button
+            type="submit"
+            :disabled="submittingEnhanced || enhancedReason.trim().length < 20"
+            class="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {{ submittingEnhanced ? 'Enviando…' : 'Solicitar revisión reforzada' }}
+          </button>
+        </form>
+        <p v-else-if="!enhancedReview" class="text-sm text-gray-500">
+          No tienes una solicitud de revisión reforzada.
+        </p>
+      </section>
     </div>
   </div>
 </template>
@@ -133,10 +201,26 @@ import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 useHead({ title: 'Verificación de Identidad — WorkPlace Manager' })
 
-const { myStatus, loading, fetchMyStatus, submitVerification } = useKyc()
+const { myStatus, loading, fetchMyStatus, submitVerification, requestEnhancedReview } = useKyc()
 const { formatDate: fmtDate } = useDateFormat()
 
 const status = computed(() => myStatus.value?.kycStatus ?? 'NONE')
+const enhancedReview = computed(() => myStatus.value?.enhancedReview ?? null)
+const enhancedReviewExpired = computed(() =>
+  enhancedReview.value?.status === 'APPROVED' &&
+  !!enhancedReview.value.expiresAt &&
+  new Date(enhancedReview.value.expiresAt).getTime() <= Date.now(),
+)
+const canRequestEnhancedReview = computed(() => {
+  const review = enhancedReview.value
+  return !review ||
+    review.status === 'REJECTED' ||
+    review.status === 'REVOKED' ||
+    enhancedReviewExpired.value
+})
+const enhancedReason = ref('')
+const submittingEnhanced = ref(false)
+const enhancedError = ref('')
 
 const statusIcon = computed(() => ({
   NONE: ShieldCheckIcon,
@@ -170,6 +254,19 @@ function docTypeLabel(type: KycDocumentType) {
 
 function formatDate(iso: string) {
   return fmtDate(iso)
+}
+
+async function handleEnhancedReviewRequest() {
+  enhancedError.value = ''
+  submittingEnhanced.value = true
+  try {
+    await requestEnhancedReview(enhancedReason.value.trim())
+    enhancedReason.value = ''
+  } catch (e: any) {
+    enhancedError.value = getApiErrorMessage(e, 'No se pudo enviar la solicitud de revisión reforzada.')
+  } finally {
+    submittingEnhanced.value = false
+  }
 }
 
 // ─── Formulario ───────────────────────────────────────────────────────────────
