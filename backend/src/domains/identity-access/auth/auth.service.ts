@@ -481,11 +481,13 @@ export class AuthService {
     // Validar contexto de seguridad
     if (securityContext && stored.ipAddress && stored.deviceInfo) {
       if (stored.ipAddress !== securityContext.ipAddress) {
+        // Una IP distinta puede deberse a roaming, CGNAT o VPN. Se registra
+        // como señal de riesgo, pero no se usa como factor de autenticación
+        // ni se bloquea por sí sola una rotación válida del refresh token.
         await this.logSecurityEvent(userId, 'REFRESH_IP_MISMATCH', {
           expectedIp: stored.ipAddress,
           actualIp: securityContext.ipAddress,
         });
-        throw new ForbiddenException(this.i18n.t('auth.refresh.ip_mismatch'));
       }
 
       if (stored.deviceInfo !== securityContext.userAgent) {
