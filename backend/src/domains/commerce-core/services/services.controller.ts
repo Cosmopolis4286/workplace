@@ -33,6 +33,7 @@ import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { CreateServiceInquiryDto } from './dto/create-service-inquiry.dto';
 import { RespondServiceInquiryDto } from './dto/respond-service-inquiry.dto';
 import { UpdateServiceInquiryStatusDto } from './dto/update-service-inquiry-status.dto';
+import { ConvertServiceInquiryDto } from './dto/convert-service-inquiry.dto';
 import { UpdateServiceRequestDto } from './dto/update-service-request.dto';
 import { AcceptLeadFeeDto } from './dto/accept-lead-fee.dto';
 import { CreatePriceChangeProposalDto } from './dto/create-price-change-proposal.dto';
@@ -375,6 +376,28 @@ export class ServicesController {
     @CurrentUser() user: any
   ) {
     return this.servicesService.createServiceInquiry(dto, user.id);
+  }
+
+  // La contratación formal exige KYC y una acción explícita del cliente.
+  // No se ejecuta automáticamente al responder una consulta.
+  @Post('requests/inquiries/:id/convert')
+  @RequireKycOperation('service.request')
+  @UseGuards(JwtAuthGuard, KycApprovedGuard)
+  @RateLimit({
+    windowMs: 60_000,
+    maxRequests: 10,
+    keyGenerator: (req) => `service-inquiries:convert:${req.ip}`,
+  })
+  convertServiceInquiry(
+    @Param('id') id: string,
+    @Body() dto: ConvertServiceInquiryDto,
+    @CurrentUser() user: any
+  ) {
+    return this.servicesService.convertServiceInquiryToRequest(
+      id,
+      user.id,
+      dto
+    );
   }
 
   @Patch('requests/inquiries/:id/respond')

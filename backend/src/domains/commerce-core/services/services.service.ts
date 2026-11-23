@@ -1009,6 +1009,236 @@ export class ServicesService {
     };
   }
 
+  /**
+   * Convierte una consulta en una contratación formal por acción explícita del
+   * cliente. La consulta y la solicitud quedan vinculadas de forma 1:1.
+   * La transición y la creación ocurren en una transacción; no inicia pagos
+   * ni escrow. Repetir la petición devuelve la solicitud ya creada.
+   */
+  async convertServiceInquiryToRequest(
+    inquiryId: string,
+    requesterId: string,
+    dto: {
+      preferredDate?: string;
+      clientPhone?: string;
+      description?: string;
+    }
+  ) {
+    const existing = await this.prisma.serviceRequest.findUnique({
+      where: { inquiryId },
+    });
+    if (existing) {
+      if (existing.requesterId !== requesterId) {
+        throw new ForbiddenException('No puedes acceder a esta contratación');
+      }
+      return { ...existing, alreadyApplied: true };
+    }
+
+    const inquirySnapshot = await this.prisma.serviceInquiry.findUnique({
+      where: { id: inquiryId },
+      select: { providerId: true, requesterId: true },
+    });
+    if (!inquirySnapshot) {
+      throw new NotFoundException('Consulta no encontrada');
+    }
+    if (inquirySnapshot.requesterId !== requesterId) {
+      throw new ForbiddenException(
+        'Solo quien inició la consulta puede contratar'
+      );
+    }
+    await this.planLimits.assertServiceRequestLimit(inquirySnapshot.providerId);
+
+    try {
+      const outcome = await this.prisma.$transaction(async (tx) => {
+        const inquiry = await tx.serviceInquiry.findUnique({
+          where: { id: inquiryId },
+          include: {
+            service: {
+              select: {
+                id: true,
+                userId: true,
+                status: true,
+                name: true,
+                price: true,
+                priceUnit: true,
+                modalities: true,
+                user: { select: { firstName: true, lastName: true } },
+              },
+            },
+          },
+        });
+        if (!inquiry) {
+          throw new NotFoundException('Consulta no encontrada');
+        }
+        if (inquiry.requesterId !== requesterId) {
+          throw new ForbiddenException(
+            'Solo quien inició la consulta puede contratar'
+          );
+        }
+
+        const alreadyCreated = await tx.serviceRequest.findUnique({
+          where: { inquiryId },
+        });
+        if (alreadyCreated) {
+          return { request: alreadyCreated, created: false };
+        }
+        if (!['OPEN', 'RESPONDED'].includes(inquiry.status)) {
+          throw new ConflictException(
+            'Esta consulta ya no puede convertirse en contratación'
+          );
+        }
+
+        const service = inquiry.service;
+        if (!service || service.status !== ServiceStatus.ACTIVE) {
+          throw new ConflictException('El servicio ya no está disponible');
+        }
+        if (
+          service.userId !== inquiry.providerId ||
+          requesterId === service.userId
+        ) {
+          throw new ConflictException(
+            'La consulta ya no coincide con el prestador del servicio'
+          );
+        }
+        if (
+          inquiry.modality &&
+          service.modalities.length > 0 &&
+          !service.modalities.includes(inquiry.modality)
+        ) {
+          throw new ConflictException(
+            'La modalidad de la consulta ya no está disponible'
+          );
+        }
+
+        const requester = await tx.user.findUnique({
+          where: { id: requesterId },
+          select: { firstName: true, lastName: true, email: true },
+        });
+        if (!requester) {
+          throw new NotFoundException('No se encontró el usuario solicitante');
+        }
+
+        // Misma regla que createServiceRequest: una sola solicitud en curso
+        // por cliente, servicio y prestador.
+        const openRequest = await tx.serviceRequest.findFirst({
+          where: {
+            serviceId: service.id,
+            providerId: service.userId,
+            requesterId,
+            status: { in: ServicesService.OPEN_REQUEST_STATUSES as any },
+          },
+          select: { id: true },
+        });
+        if (openRequest) {
+          throw new BadRequestException(
+            'Ya tienes una solicitud en curso para este servicio con este proveedor.'
+          );
+        }
+
+        const phone = dto.clientPhone?.trim() || inquiry.clientPhone?.trim();
+        if (!phone || !/^[+]?[\d\s()-]{7,20}$/.test(phone)) {
+          throw new BadRequestException(
+            'Debes confirmar un teléfono válido para contratar'
+          );
+        }
+        const requestedDate = dto.preferredDate
+          ? new Date(dto.preferredDate)
+          : inquiry.preferredDate;
+        if (!requestedDate || Number.isNaN(requestedDate.getTime())) {
+          throw new BadRequestException(
+            'Debes indicar una fecha preferida para contratar'
+          );
+        }
+        if (
+          requestedDate.getTime() <
+          new Date(new Date().setHours(0, 0, 0, 0)).getTime()
+        ) {
+          throw new BadRequestException(
+            'La fecha preferida no puede estar en el pasado'
+          );
+        }
+        if (inquiry.preferredTime) {
+          const [hours, minutes] = inquiry.preferredTime.split(':').map(Number);
+          requestedDate.setHours(hours, minutes, 0, 0);
+        }
+
+        const claimed = await tx.serviceInquiry.updateMany({
+          where: {
+            id: inquiryId,
+            requesterId,
+            status: { in: ['OPEN', 'RESPONDED'] },
+          },
+          data: { status: 'CONVERTED' },
+        });
+        if (claimed.count !== 1) {
+          throw new ConflictException(
+            'La consulta cambió; actualiza e intenta de nuevo'
+          );
+        }
+
+        const providerName = [service.user.firstName, service.user.lastName]
+          .join(' ')
+          .trim();
+        const clientName = [requester.firstName, requester.lastName]
+          .join(' ')
+          .trim();
+        const createdRequest = await tx.serviceRequest.create({
+          data: {
+            inquiryId,
+            serviceId: service.id,
+            serviceName: service.name,
+            providerId: service.userId,
+            providerName,
+            modality: inquiry.modality ?? 'ANY',
+            preferredDate: requestedDate,
+            address: inquiry.address,
+            city: inquiry.city,
+            clientName,
+            clientPhone: phone,
+            clientEmail: requester.email,
+            description:
+              dto.description?.trim() ||
+              inquiry.message ||
+              inquiry.providerResponse,
+            price: service.price,
+            priceUnit: service.priceUnit,
+            requesterId,
+          },
+          include: { items: true },
+        });
+        return { request: createdRequest, created: true };
+      });
+
+      if (outcome.created) {
+        this.notifications
+          .notifyNewServiceRequest(
+            outcome.request.providerId,
+            outcome.request.clientName,
+            outcome.request.serviceName
+          )
+          .catch(() => {});
+      }
+      return { ...outcome.request, alreadyApplied: !outcome.created };
+    } catch (error) {
+      // Una conversión concurrente puede ganar el índice único. Devolver su
+      // resultado hace que los reintentos del cliente sean seguros.
+      const isUniqueConflict =
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2002';
+      if (isUniqueConflict || error instanceof ConflictException) {
+        const winner = await this.prisma.serviceRequest.findUnique({
+          where: { inquiryId },
+        });
+        if (winner && winner.requesterId === requesterId) {
+          return { ...winner, alreadyApplied: true };
+        }
+      }
+      throw error;
+    }
+  }
+
   async createServiceRequest(
     dto: CreateServiceRequestDto,
     requesterId: string

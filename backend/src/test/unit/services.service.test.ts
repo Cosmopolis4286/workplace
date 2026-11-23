@@ -221,6 +221,173 @@ describe('ServicesService — service request status transitions', () => {
     service = module.get<ServicesService>(ServicesService);
   });
 
+  describe('conversión explícita de consulta a contratación', () => {
+    it('crea una contratación con datos canónicos y marca la consulta como CONVERTED', async () => {
+      const tx = {
+        serviceInquiry: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'inquiry-1',
+            requesterId: 'client-1',
+            providerId: 'provider-1',
+            status: 'RESPONDED',
+            modality: 'REMOTE',
+            preferredDate: new Date('2026-12-10T12:00:00.000Z'),
+            preferredTime: null,
+            address: 'Dirección reservada',
+            city: 'Caracas',
+            clientPhone: '+584121234567',
+            message: 'Necesito el servicio',
+            providerResponse: 'Disponible',
+            service: {
+              id: 'service-1',
+              userId: 'provider-1',
+              status: 'ACTIVE',
+              name: 'Servicio canónico',
+              price: 25,
+              priceUnit: 'hora',
+              modalities: ['REMOTE'],
+              user: { firstName: 'Proveedor', lastName: 'Uno' },
+            },
+          }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        serviceRequest: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest
+            .fn()
+            .mockImplementation(({ data }) => Promise.resolve(data)),
+        },
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            firstName: 'Cliente',
+            lastName: 'Uno',
+            email: 'cliente@example.com',
+          }),
+        },
+      };
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(null);
+      mockPrismaService.serviceInquiry.findUnique.mockResolvedValue({
+        providerId: 'provider-1',
+        requesterId: 'client-1',
+      });
+      mockPrismaService.$transaction.mockImplementation((callback: any) =>
+        callback(tx)
+      );
+
+      const result = await service.convertServiceInquiryToRequest(
+        'inquiry-1',
+        'client-1',
+        {}
+      );
+
+      expect(tx.serviceInquiry.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'inquiry-1',
+          requesterId: 'client-1',
+          status: { in: ['OPEN', 'RESPONDED'] },
+        },
+        data: { status: 'CONVERTED' },
+      });
+      expect(tx.serviceRequest.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          inquiryId: 'inquiry-1',
+          serviceName: 'Servicio canónico',
+          providerId: 'provider-1',
+          clientName: 'Cliente Uno',
+          clientPhone: '+584121234567',
+          price: 25,
+          priceUnit: 'hora',
+          requesterId: 'client-1',
+        }),
+        include: { items: true },
+      });
+      expect(result.alreadyApplied).toBe(false);
+      expect(
+        mockNotificationsService.notifyNewServiceRequest
+      ).toHaveBeenCalledWith('provider-1', 'Cliente Uno', 'Servicio canónico');
+    });
+
+    it('rechaza convertir si ya hay una solicitud en curso para ese servicio', async () => {
+      const tx = {
+        serviceInquiry: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'inquiry-1',
+            requesterId: 'client-1',
+            providerId: 'provider-1',
+            status: 'RESPONDED',
+            modality: null,
+            preferredDate: new Date('2099-12-10T12:00:00.000Z'),
+            preferredTime: null,
+            clientPhone: '+584121234567',
+            service: {
+              id: 'service-1',
+              userId: 'provider-1',
+              status: 'ACTIVE',
+              name: 'Servicio',
+              price: 25,
+              priceUnit: 'hora',
+              modalities: [],
+              user: { firstName: 'P', lastName: 'U' },
+            },
+          }),
+          updateMany: jest.fn(),
+        },
+        serviceRequest: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          findFirst: jest.fn().mockResolvedValue({ id: 'open-1' }),
+          create: jest.fn(),
+        },
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            firstName: 'C',
+            lastName: 'U',
+            email: 'c@example.com',
+          }),
+        },
+      };
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(null);
+      mockPrismaService.serviceInquiry.findUnique.mockResolvedValue({
+        providerId: 'provider-1',
+        requesterId: 'client-1',
+      });
+      mockPrismaService.$transaction.mockImplementation((callback: any) =>
+        callback(tx)
+      );
+
+      await expect(
+        service.convertServiceInquiryToRequest('inquiry-1', 'client-1', {})
+      ).rejects.toThrow(BadRequestException);
+      expect(tx.serviceInquiry.updateMany).not.toHaveBeenCalled();
+      expect(tx.serviceRequest.create).not.toHaveBeenCalled();
+    });
+
+    it('devuelve la contratación existente sin duplicarla', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue({
+        id: 'request-1',
+        inquiryId: 'inquiry-1',
+        requesterId: 'client-1',
+      });
+      await expect(
+        service.convertServiceInquiryToRequest('inquiry-1', 'client-1', {})
+      ).resolves.toEqual(
+        expect.objectContaining({ id: 'request-1', alreadyApplied: true })
+      );
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rechaza convertir una consulta de otro cliente', async () => {
+      mockPrismaService.serviceRequest.findUnique.mockResolvedValue(null);
+      mockPrismaService.serviceInquiry.findUnique.mockResolvedValue({
+        providerId: 'provider-1',
+        requesterId: 'someone-else',
+      });
+      await expect(
+        service.convertServiceInquiryToRequest('inquiry-1', 'client-1', {})
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
   describe('consultas preliminares y datos canónicos', () => {
     it('crea consulta y oculta el teléfono al prestador', async () => {
       mockPrismaService.service.findUnique.mockResolvedValue({

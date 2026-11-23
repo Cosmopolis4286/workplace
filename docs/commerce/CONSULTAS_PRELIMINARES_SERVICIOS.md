@@ -62,3 +62,16 @@ La conversión a contratación formal debe ser una operación explícita e idemp
 ## SMS / OTP
 
 No se activa ni se contrata un proveedor SMS en esta fase. El teléfono se mantiene privado y no verificado. La integración de verificación telefónica se tratará por separado cuando se decida el proveedor y las condiciones comerciales.
+
+## Conversión explícita a contratación formal
+
+La conversión se inicia únicamente por el cliente desde una consulta en estado `OPEN` o `RESPONDED`:
+
+- `POST /services/requests/inquiries/:id/convert`
+- Requiere autenticación y la operación KYC `service.request`.
+- El cliente puede confirmar la fecha y el teléfono; si la consulta ya contiene fecha, puede reutilizarla.
+- El prestador, servicio, nombre, precio y unidad se vuelven a leer del catálogo en el servidor. Nunca se aceptan esos valores desde el cuerpo.
+- La consulta cambia a `CONVERTED` y la nueva `ServiceRequest` guarda `inquiryId` único. La actualización y creación se ejecutan en una misma transacción.
+- Reintentos devuelven la contratación existente; el índice único impide duplicados concurrentes.
+- Se conserva la conversación preliminar como historial de solo lectura.
+- La conversión no inicia cobros, créditos, comisión ni escrow. Esos flujos pertenecen a pasos posteriores y explícitos de la contratación.

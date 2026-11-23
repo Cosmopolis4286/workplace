@@ -70,6 +70,37 @@
         </button>
       </div>
 
+      <div v-if="asRole === 'client' && (inquiry.status === 'OPEN' || inquiry.status === 'RESPONDED')" class="mt-4 flex justify-end">
+        <button
+          class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+          :disabled="convertingId === inquiry.id"
+          @click="openConversion(inquiry)"
+        >
+          Convertir en contratación
+        </button>
+      </div>
+
+      <div v-if="conversionTargetId === inquiry.id" class="mt-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+        <div>
+          <p class="text-sm font-bold text-blue-900">Confirmar contratación</p>
+          <p class="mt-1 text-xs text-blue-800">Se creará una solicitud formal vinculada a esta consulta. Se aplicará la verificación KYC requerida. No se realizará ningún pago ni retención automáticamente.</p>
+        </div>
+        <label class="block text-xs font-semibold text-gray-700">
+          Fecha preferida
+          <input v-model="conversionDate" type="date" :min="today" class="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" />
+        </label>
+        <label class="block text-xs font-semibold text-gray-700">
+          Teléfono de contacto
+          <input v-model="conversionPhone" type="tel" maxlength="20" placeholder="+584121234567" class="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm" />
+        </label>
+        <div class="flex justify-end gap-2">
+          <button class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700" :disabled="convertingId === inquiry.id" @click="closeConversion">Cancelar</button>
+          <button class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50" :disabled="convertingId === inquiry.id || (!conversionDate && !inquiry.preferredDate) || !conversionPhone.trim()" @click="convertInquiry(inquiry)">
+            {{ convertingId === inquiry.id ? 'Creando contratación...' : 'Confirmar y crear solicitud' }}
+          </button>
+        </div>
+      </div>
+
       <div class="mt-4 flex justify-end">
         <button
           class="rounded-xl border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
@@ -86,8 +117,8 @@
         :current-user-id="user?.id ?? ''"
         title="Conversación preliminar"
         hint="Mantén el contacto dentro de WorkPlace. No compartas teléfonos, correos ni enlaces externos."
-        :read-only="inquiry.status === 'CLOSED' || inquiry.status === 'CANCELLED'"
-        read-only-text="Consulta cerrada. Puedes revisar el historial, pero ya no enviar mensajes."
+        :read-only="inquiry.status === 'CLOSED' || inquiry.status === 'CANCELLED' || inquiry.status === 'CONVERTED'"
+        read-only-text="Consulta cerrada o convertida. Puedes revisar el historial, pero ya no enviar mensajes."
       />
 
       <div v-if="asRole === 'provider' && inquiry.status === 'OPEN'" class="mt-4 space-y-2">
@@ -119,9 +150,10 @@ import ConversationChat from '~/components/conversations/ConversationChat.vue'
 
 type Inquiry = {
   id: string
-  status: 'OPEN' | 'RESPONDED' | 'CLOSED' | 'CANCELLED'
+  status: 'OPEN' | 'RESPONDED' | 'CLOSED' | 'CANCELLED' | 'CONVERTED'
   modality: string
   preferredDate?: string | null
+  clientPhone?: string | null
   city?: string | null
   message?: string | null
   providerResponse?: string | null
@@ -137,19 +169,24 @@ const openConversationId = ref('')
 function toggleConversation(inquiryId: string) {
   openConversationId.value = openConversationId.value === inquiryId ? '' : inquiryId
 }
-const { get, patch } = useApi()
+const { get, post, patch } = useApi()
 const inquiries = ref<Inquiry[]>([])
 const loading = ref(false)
 const error = ref('')
 const sendingId = ref('')
 const statusChangingId = ref('')
+const convertingId = ref('')
+const conversionTargetId = ref('')
+const conversionDate = ref('')
+const conversionPhone = ref('')
+const today = new Date().toISOString().slice(0, 10)
 const responses = reactive<Record<string, string>>({})
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString('es-VE', { dateStyle: 'medium', timeStyle: 'short' })
 }
 function statusLabel(status: Inquiry['status']) {
-  return ({ OPEN: 'Pendiente', RESPONDED: 'Respondida', CLOSED: 'Cerrada', CANCELLED: 'Cancelada' })[status]
+  return ({ OPEN: 'Pendiente', RESPONDED: 'Respondida', CLOSED: 'Cerrada', CANCELLED: 'Cancelada', CONVERTED: 'Convertida en contratación' })[status]
 }
 function modalityLabel(value: string) {
   const labels: Record<string, string> = {
@@ -186,6 +223,33 @@ async function respond(inquiry: Inquiry) {
     error.value = e?.message ?? 'No se pudo enviar la respuesta.'
   } finally {
     sendingId.value = ''
+  }
+}
+
+function openConversion(inquiry: Inquiry) {
+  conversionTargetId.value = inquiry.id
+  conversionDate.value = inquiry.preferredDate ? new Date(inquiry.preferredDate).toISOString().slice(0, 10) : ''
+  conversionPhone.value = inquiry.clientPhone ?? ''
+}
+function closeConversion() {
+  conversionTargetId.value = ''
+  conversionDate.value = ''
+  conversionPhone.value = ''
+}
+async function convertInquiry(inquiry: Inquiry) {
+  convertingId.value = inquiry.id
+  error.value = ''
+  try {
+    await post(`/services/requests/inquiries/${inquiry.id}/convert`, {
+      ...(conversionDate.value ? { preferredDate: new Date(`${conversionDate.value}T12:00:00`).toISOString() } : {}),
+      clientPhone: conversionPhone.value.trim(),
+    })
+    closeConversion()
+    await load()
+  } catch (e: any) {
+    error.value = e?.message ?? 'No se pudo crear la contratación. Verifica tu KYC y los datos de contacto.'
+  } finally {
+    convertingId.value = ''
   }
 }
 
