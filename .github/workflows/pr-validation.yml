@@ -100,7 +100,6 @@ jobs:
     - name: Tests unitarios
       run: cd backend && pnpm test:ci
       timeout-minutes: 10
-      continue-on-error: ${{ github.event.inputs.force_approval == 'true' }}
 
     - name: Build
       run: cd backend && pnpm build
