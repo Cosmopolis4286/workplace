@@ -461,9 +461,8 @@ export class ProfileActivationsService {
       }
     }
 
-    let updated;
-    try {
-      updated = await this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma
+      .$transaction(async (tx) => {
         const result = await tx.userProfile.update({
           where: { id: profileId },
           data: {
@@ -487,20 +486,20 @@ export class ProfileActivationsService {
         }
 
         return result;
+      })
+      .catch((error: unknown) => {
+        // Reactivation competes with new applications too; the same partial
+        // unique indexes protect this transition at the database boundary.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw new ConflictException(
+            'No se puede reactivar este perfil porque ya existe otro perfil o solicitud incompatible.'
+          );
+        }
+        throw error;
       });
-    } catch (error) {
-      // Reactivation competes with new applications too; the same partial
-      // unique indexes protect this transition at the database boundary.
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException(
-          'No se puede reactivar este perfil porque ya existe otro perfil o solicitud incompatible.'
-        );
-      }
-      throw error;
-    }
 
     await this.redis.del(userFindByIdCacheKey(userId));
     return updated;
