@@ -461,31 +461,46 @@ export class ProfileActivationsService {
       }
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const result = await tx.userProfile.update({
-        where: { id: profileId },
-        data: {
-          status: ProfileStatus.ACTIVE,
-          suspendedBySelf: false,
-          deactivationReason: null,
-          deactivationNote: null,
-          deactivatedAt: null,
-        },
+    let updated;
+    try {
+      updated = await this.prisma.$transaction(async (tx) => {
+        const result = await tx.userProfile.update({
+          where: { id: profileId },
+          data: {
+            status: ProfileStatus.ACTIVE,
+            suspendedBySelf: false,
+            deactivationReason: null,
+            deactivationNote: null,
+            deactivatedAt: null,
+          },
+        });
+
+        if (
+          profile.type === ProfileType.BUSINESS ||
+          profile.type === ProfileType.PROFESSIONAL
+        ) {
+          await this.roleResolver.syncRoleForUser(userId, tx);
+          // Un perfil aprobado antes de que existiera la provisión de Commerce
+          // para PROFESSIONAL (o cuya categoría cambió mientras estaba
+          // suspendido) lo recibe al reactivarse.
+          await this.commerceResolver.ensureForUser(tx, userId);
+        }
+
+        return result;
       });
-
+    } catch (error) {
+      // Reactivation competes with new applications too; the same partial
+      // unique indexes protect this transition at the database boundary.
       if (
-        profile.type === ProfileType.BUSINESS ||
-        profile.type === ProfileType.PROFESSIONAL
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
       ) {
-        await this.roleResolver.syncRoleForUser(userId, tx);
-        // Un perfil aprobado antes de que existiera la provisión de Commerce
-        // para PROFESSIONAL (o cuya categoría cambió mientras estaba
-        // suspendido) lo recibe al reactivarse.
-        await this.commerceResolver.ensureForUser(tx, userId);
+        throw new ConflictException(
+          'No se puede reactivar este perfil porque ya existe otro perfil o solicitud incompatible.'
+        );
       }
-
-      return result;
-    });
+      throw error;
+    }
 
     await this.redis.del(userFindByIdCacheKey(userId));
     return updated;
