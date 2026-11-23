@@ -31,7 +31,7 @@ describe('PermissionsService', () => {
       delete: jest.fn(),
     },
     user: { findUnique: jest.fn() },
-    userProfile: { findMany: jest.fn() },
+    userProfile: { findMany: jest.fn(), count: jest.fn() },
     profilePermission: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
@@ -171,6 +171,42 @@ describe('PermissionsService', () => {
           { id: 'root-1', role: Role.SUPERADMIN }
         )
       ).rejects.toThrow('No puedes modificar tus propios permisos');
+    });
+  });
+
+  describe('getProfileImpact', () => {
+    it('cuenta los perfiles activos y si incluye a quien consulta', async () => {
+      mockPrisma.userProfile.count
+        .mockResolvedValueOnce(42)
+        .mockResolvedValueOnce(1);
+
+      await expect(
+        service.getProfileImpact(
+          'PROFESSIONAL' as any,
+          'FREELANCER' as any,
+          'admin-1'
+        )
+      ).resolves.toEqual({
+        profileType: 'PROFESSIONAL',
+        subtype: 'FREELANCER',
+        activeUsers: 42,
+        includesYou: true,
+      });
+      expect(mockPrisma.userProfile.count).toHaveBeenNthCalledWith(1, {
+        where: {
+          type: 'PROFESSIONAL',
+          subtype: 'FREELANCER',
+          status: 'ACTIVE',
+        },
+      });
+      expect(mockPrisma.userProfile.count).toHaveBeenNthCalledWith(2, {
+        where: {
+          type: 'PROFESSIONAL',
+          subtype: 'FREELANCER',
+          status: 'ACTIVE',
+          userId: 'admin-1',
+        },
+      });
     });
   });
 

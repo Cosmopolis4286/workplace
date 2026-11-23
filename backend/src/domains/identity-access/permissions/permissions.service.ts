@@ -133,6 +133,30 @@ export class PermissionsService implements PermissionsFacade {
    * No incluye SUPERADMIN/ADMIN/NORMAL: esos no son perfiles de negocio y
    * siguen resolviéndose por RolePermission (ver hasEffectivePermission).
    */
+  /**
+   * Cuántas cuentas tienen hoy activo un perfil (y si incluye a quien
+   * consulta): el panel lo muestra antes de guardar cambios en la matriz
+   * por perfil, que se aplican a todas esas cuentas a la vez.
+   */
+  async getProfileImpact(
+    profileType: ProfileType,
+    subtype: ProfessionalSubtype | null,
+    requesterId: string
+  ) {
+    const where = {
+      type: profileType,
+      ...(subtype ? { subtype } : {}),
+      status: ProfileStatus.ACTIVE,
+    };
+    const [activeUsers, mine] = await Promise.all([
+      this.prisma.userProfile.count({ where }),
+      this.prisma.userProfile.count({
+        where: { ...where, userId: requesterId },
+      }),
+    ]);
+    return { profileType, subtype, activeUsers, includesYou: mine > 0 };
+  }
+
   async getActiveProfilePermissions(userId: string): Promise<string[]> {
     const profiles = await this.prisma.userProfile.findMany({
       where: { userId, status: ProfileStatus.ACTIVE },

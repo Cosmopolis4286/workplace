@@ -1,7 +1,17 @@
 <template>
   <div class="space-y-6">
     <PageHeader title="Ficha del usuario" description="Identidad, perfiles, verificación y actividad administrativa" :icon="UserCircleIcon" :breadcrumb="[{ label: 'Usuarios', to: '/users' }, { label: 'Ficha' }]">
-      <template #actions><NuxtLink to="/users" class="btn-secondary">Volver al directorio</NuxtLink></template>
+      <template #actions>
+        <button
+          v-if="overview?.user && canManage(overview.user)"
+          type="button"
+          :class="overview.user.isActive ? 'px-4 py-2 rounded-xl text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50' : 'px-4 py-2 rounded-xl text-sm font-medium bg-green-600 text-white hover:bg-green-700'"
+          @click="showStatusModal = true"
+        >
+          {{ overview.user.isActive ? 'Suspender cuenta' : 'Reactivar cuenta' }}
+        </button>
+        <NuxtLink to="/users" class="btn-secondary">Volver al directorio</NuxtLink>
+      </template>
     </PageHeader>
     <div v-if="loading" class="card p-8 text-sm text-gray-500">Cargando ficha del usuario…</div>
     <div v-else-if="error" class="card p-6 border border-red-200 text-red-700">{{ error }} <button class="ml-3 underline" @click="load">Reintentar</button></div>
@@ -14,6 +24,11 @@
             <span class="badge" :class="kycClass(overview.user.kycStatus)">KYC: {{ kycLabel(overview.user.kycStatus) }}</span>
             <span class="badge" :class="overview.user.emailVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'">{{ overview.user.emailVerified ? 'Correo verificado' : 'Correo sin verificar' }}</span>
           </div>
+        </div>
+        <div v-if="!overview.user.isActive" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <p class="font-semibold">Cuenta suspendida<span v-if="overview.user.suspendedAt"> el {{ formatDate(overview.user.suspendedAt) }}</span></p>
+          <p v-if="overview.user.suspensionReason" class="mt-1">Motivo: {{ suspensionLabel(overview.user.suspensionReason) }}</p>
+          <p v-if="overview.user.suspensionNote" class="mt-1 text-xs text-red-700">Nota interna: {{ overview.user.suspensionNote }}</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
           <div><p class="text-gray-400">Rol de acceso</p><p class="font-semibold">{{ overview.user.role }}</p></div>
@@ -57,13 +72,16 @@
       </section>
     </template>
     <div v-else class="card p-6 text-sm text-amber-700">La API no devolvió una ficha válida. Comprueba el identificador del usuario e inténtalo de nuevo.</div>
+    <AccountStatusModal v-model="showStatusModal" :user="overview?.user ?? null" @done="load" />
   </div>
 </template>
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { UserCircleIcon } from '@heroicons/vue/24/outline'
 import PageHeader from '~/components/ui/PageHeader.vue'
-import { useUsers, type UserAdminOverview } from '~/composables/users/useUsers'
+import { useUsers, type AccountSuspensionReason, type UserAdminOverview } from '~/composables/users/useUsers'
+import { useRoleHierarchy } from '~/composables/users/useRoleHierarchy'
+import AccountStatusModal from '~/components/admin/users/AccountStatusModal.vue'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 definePageMeta({ middleware: 'auth' })
 const route = useRoute()
@@ -72,6 +90,19 @@ const overview = ref<UserAdminOverview | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 let loadSequence = 0
+const { canManage } = useRoleHierarchy()
+const showStatusModal = ref(false)
+const SUSPENSION_LABELS: Record<AccountSuspensionReason, string> = {
+  FRAUD: 'Sospecha de fraude',
+  ABUSE: 'Abuso o trato inadecuado a otros usuarios',
+  POLICY_VIOLATION: 'Incumplimiento de las normas de la plataforma',
+  IDENTITY_ISSUE: 'Problema con la verificación de identidad',
+  PAYMENT_ISSUE: 'Problema con pagos o cobros',
+  SECURITY: 'Seguridad de la cuenta (posible acceso no autorizado)',
+  USER_REQUEST: 'A pedido del propio usuario',
+  OTHER: 'Otro motivo',
+}
+function suspensionLabel(value: AccountSuspensionReason) { return SUSPENSION_LABELS[value] ?? value }
 function formatDate(value: string) { return new Intl.DateTimeFormat('es-VE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
 function kycLabel(value: string) { return ({ NONE: 'Sin verificar', PENDING: 'Pendiente', APPROVED: 'Aprobado', REJECTED: 'Rechazado' } as Record<string, string>)[value] || value }
 function kycClass(value: string) { return value === 'APPROVED' ? 'bg-green-100 text-green-700' : value === 'PENDING' ? 'bg-amber-100 text-amber-700' : value === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600' }

@@ -8,9 +8,9 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(uuid())
-  email             String    @unique
-  username          String?   @unique
+  id                String                   @id @default(uuid())
+  email             String                   @unique
+  username          String?                  @unique
   usernameUpdatedAt DateTime?
   password          String
   firstName         String
@@ -21,11 +21,17 @@ model User {
   sex               Sex?
   avatar            String?
   coverImage        String?
-  role              Role      @default(NORMAL)
-  userType          UserType  @default(REGULAR)
-  isActive          Boolean   @default(true)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  role              Role                     @default(NORMAL)
+  userType          UserType                 @default(REGULAR)
+  isActive          Boolean                  @default(true)
+  // Suspensión administrativa: por qué, cuándo y quién. Se limpian al
+  // reactivar (el historial queda en la auditoría).
+  suspensionReason  AccountSuspensionReason?
+  suspensionNote    String?
+  suspendedAt       DateTime?
+  suspendedById     String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
 
   country      String?
   state        String?
@@ -56,7 +62,7 @@ model User {
   // verdad detallada vive en IdentityVerification.
   kycStatus             KycStatus              @default(NONE)
   identityVerifications IdentityVerification[]
-  enhancedReviewRequest  EnhancedReviewRequest?
+  enhancedReviewRequest EnhancedReviewRequest?
 
   proposedCategories         ProposedCategory[] @relation("ProposedCategoryProposer")
   reviewedProposedCategories ProposedCategory[] @relation("ProposedCategoryReviewer")
@@ -1292,20 +1298,20 @@ model IdentityVerification {
 // de cada transición (solicitud, aprobación, rechazo y revocación) queda en
 // AuditLog para preservar trazabilidad sin duplicar datos sensibles.
 model EnhancedReviewRequest {
-  id              String               @id @default(uuid())
-  userId          String               @unique
-  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status          EnhancedReviewStatus @default(PENDING)
-  requestReason   String
-  decisionReason  String?
-  reviewedBy      String?
-  reviewedAt      DateTime?
-  expiresAt       DateTime?
-  revokedBy       String?
-  revokedAt       DateTime?
+  id               String               @id @default(uuid())
+  userId           String               @unique
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           EnhancedReviewStatus @default(PENDING)
+  requestReason    String
+  decisionReason   String?
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  expiresAt        DateTime?
+  revokedBy        String?
+  revokedAt        DateTime?
   revocationReason String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
   @@index([status, createdAt])
   @@index([expiresAt])
@@ -2253,6 +2259,18 @@ model SystemModule {
 
 // ─── Audit & Logs ─────────────────────────────────────────────────────────────
 
+// Motivo de una suspensión de cuenta hecha desde administración.
+enum AccountSuspensionReason {
+  FRAUD
+  ABUSE
+  POLICY_VIOLATION
+  IDENTITY_ISSUE
+  PAYMENT_ISSUE
+  SECURITY
+  USER_REQUEST
+  OTHER
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -2346,7 +2364,7 @@ model CatalogOrder {
   // va aparte de totalEstimate (la comisión se calcula solo sobre productos);
   // el pago directo cobra totalEstimate + deliveryFee.
   deliveryZone    String?
-  deliveryFee     Decimal?            @db.Decimal(20, 2)
+  deliveryFee     Decimal?  @db.Decimal(20, 2)
 
   // El comercio marcó el pedido como entregado: el comprador tiene 72 h para
   // confirmar o reportar un problema; si no, se cierra solo (y se registra
@@ -2423,31 +2441,31 @@ model ServiceModality {
 }
 
 model Service {
-  id              String           @id @default(uuid())
-  name            String
-  description     String?
-  price           Decimal          @db.Decimal(20, 2)
-  priceUnit       String?
-  duration        Int? // minutos estimados
-  images          String[]         @default([]) // [0] = principal, [1..2] = secundarias
-  status          ServiceStatus    @default(ACTIVE)
+  id               String           @id @default(uuid())
+  name             String
+  description      String?
+  price            Decimal          @db.Decimal(20, 2)
+  priceUnit        String?
+  duration         Int? // minutos estimados
+  images           String[]         @default([]) // [0] = principal, [1..2] = secundarias
+  status           ServiceStatus    @default(ACTIVE)
   // El proveedor decide, por servicio, si la plataforma retiene el pago en
   // garantía (escrow) hasta completar el trabajo. Cambiarlo solo afecta
   // solicitudes NUEVAS — las que ya están en curso guardan su propio modo
   // en ServiceRequest.escrowStatus/escrowAmount al momento de crearse.
-  hasEscrow       Boolean          @default(false)
-  tags            String[]
-  modalities      String[]
-  itemFields      String[]         @default([]) // plantilla de campos por ítem, ej. ["Marca", "Modelo"]
-  categoryId      String?
-  category        ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  userId          String
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  serviceRequests ServiceRequest[]
+  hasEscrow        Boolean          @default(false)
+  tags             String[]
+  modalities       String[]
+  itemFields       String[]         @default([]) // plantilla de campos por ítem, ej. ["Marca", "Modelo"]
+  categoryId       String?
+  category         ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  userId           String
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  serviceRequests  ServiceRequest[]
   serviceInquiries ServiceInquiry[]
-  serviceEvents   ServiceEvent[]
+  serviceEvents    ServiceEvent[]
 
   @@index([userId])
   @@index([categoryId])
@@ -2455,7 +2473,6 @@ model Service {
   @@index([createdAt(sort: Desc)])
   @@map("services")
 }
-
 
 enum ServiceInquiryStatus {
   OPEN
@@ -2468,12 +2485,12 @@ enum ServiceInquiryStatus {
 // una contratación, consumir cupos de ServiceRequest ni iniciar pagos/escrow.
 // El teléfono del cliente se conserva privado y nunca se entrega al proveedor.
 model ServiceInquiry {
-  id          String               @id @default(uuid())
-  serviceId   String
-  service     Service              @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  providerId  String
-  requesterId String
-  requester   User                 @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  id               String                 @id @default(uuid())
+  serviceId        String
+  service          Service                @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  providerId       String
+  requesterId      String
+  requester        User                   @relation(fields: [requesterId], references: [id], onDelete: Cascade)
   modality         ServiceRequestModality @default(ANY)
   preferredDate    DateTime?
   preferredTime    String?
@@ -2535,53 +2552,53 @@ enum EscrowStatus {
 }
 
 model ServiceRequest {
-  id                   String                              @id @default(uuid())
-  serviceId            String
-  service              Service                             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  serviceName          String
-  providerId           String
-  providerName         String
-  modality             ServiceRequestModality              @default(ANY)
-  preferredDate        DateTime
-  address              String?
-  city                 String?
-  clientName           String
-  clientPhone          String
-  clientEmail          String?
-  description          String?
-  price                Decimal?                            @db.Decimal(20, 2)
-  priceUnit            String?
-  platformFeeRate      Decimal?                            @db.Decimal(20, 8)
-  platformFeeAmount    Decimal?                            @db.Decimal(20, 2)
-  platformFeePayer     FeePayer?
+  id                    String                              @id @default(uuid())
+  serviceId             String
+  service               Service                             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceName           String
+  providerId            String
+  providerName          String
+  modality              ServiceRequestModality              @default(ANY)
+  preferredDate         DateTime
+  address               String?
+  city                  String?
+  clientName            String
+  clientPhone           String
+  clientEmail           String?
+  description           String?
+  price                 Decimal?                            @db.Decimal(20, 2)
+  priceUnit             String?
+  platformFeeRate       Decimal?                            @db.Decimal(20, 8)
+  platformFeeAmount     Decimal?                            @db.Decimal(20, 2)
+  platformFeePayer      FeePayer?
   // Escrow opcional (Service.hasEscrow) — retención del monto total en la
   // wallet de plataforma entre la fijación de precio y la finalización.
-  escrowStatus         EscrowStatus                        @default(NONE)
-  escrowAmount         Decimal?                            @db.Decimal(20, 2)
-  escrowHeldAt         DateTime?
-  status               ServiceRequestStatus                @default(PENDING)
-  providerNotes        String?
-  statusUpdatedAt      DateTime?
+  escrowStatus          EscrowStatus                        @default(NONE)
+  escrowAmount          Decimal?                            @db.Decimal(20, 2)
+  escrowHeldAt          DateTime?
+  status                ServiceRequestStatus                @default(PENDING)
+  providerNotes         String?
+  statusUpdatedAt       DateTime?
   // Marca cuándo se envió el recordatorio automático por falta de respuesta del
   // proveedor (cron); evita reenviarlo en cada corrida del scheduler.
-  reminderSentAt       DateTime?
+  reminderSentAt        DateTime?
   // El proveedor marcó el trabajo como terminado: el cliente tiene 72 h para
   // confirmar o reportar un problema; si no responde, se cierra solo (cron).
-  providerCompletedAt  DateTime?
-  requesterCompletedAt DateTime?
-  completionDeadlineAt DateTime?
-  estimatedStartAt     DateTime?
+  providerCompletedAt   DateTime?
+  requesterCompletedAt  DateTime?
+  completionDeadlineAt  DateTime?
+  estimatedStartAt      DateTime?
   estimatedCompletionAt DateTime?
-  requesterId          String?
-  requester            User?                               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
-  items                ServiceRequestItem[]
-  statusHistory        ServiceRequestStatusHistory[]
+  requesterId           String?
+  requester             User?                               @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  items                 ServiceRequestItem[]
+  statusHistory         ServiceRequestStatusHistory[]
   etaHistory            ServiceRequestEtaHistory[]
-  messages             ServiceRequestMessage[]
-  priceChangeProposals ServiceRequestPriceChangeProposal[]
-  leadAcceptance       ServiceLeadAcceptance?
-  createdAt            DateTime                            @default(now())
-  updatedAt            DateTime                            @updatedAt
+  messages              ServiceRequestMessage[]
+  priceChangeProposals  ServiceRequestPriceChangeProposal[]
+  leadAcceptance        ServiceLeadAcceptance?
+  createdAt             DateTime                            @default(now())
+  updatedAt             DateTime                            @updatedAt
 
   @@index([serviceId])
   @@index([providerId])
@@ -2640,16 +2657,16 @@ model ServiceRequestStatusHistory {
 }
 
 model ServiceRequestEtaHistory {
-  id                          String         @id @default(uuid())
-  serviceRequestId            String
-  serviceRequest              ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
-  previousEstimatedStartAt    DateTime?
-  newEstimatedStartAt         DateTime?
+  id                            String         @id @default(uuid())
+  serviceRequestId              String
+  serviceRequest                ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  previousEstimatedStartAt      DateTime?
+  newEstimatedStartAt           DateTime?
   previousEstimatedCompletionAt DateTime?
-  newEstimatedCompletionAt   DateTime?
-  reason                      String?
-  changedBy                   String?
-  createdAt                   DateTime       @default(now())
+  newEstimatedCompletionAt      DateTime?
+  reason                        String?
+  changedBy                     String?
+  createdAt                     DateTime       @default(now())
 
   @@index([serviceRequestId, createdAt(sort: Desc)])
   @@map("service_request_eta_history")
@@ -3977,31 +3994,31 @@ enum SellerStatementStatus {
 }
 
 model SellerStatement {
-  id               String                   @id @default(uuid())
-  sellerUserId     String
-  seller           User                     @relation(fields: [sellerUserId], references: [id], onDelete: Cascade)
-  periodStart      DateTime
-  periodEnd        DateTime
-  currency         String                   @default("USD")
+  id                String                   @id @default(uuid())
+  sellerUserId      String
+  seller            User                     @relation(fields: [sellerUserId], references: [id], onDelete: Cascade)
+  periodStart       DateTime
+  periodEnd         DateTime
+  currency          String                   @default("USD")
   // Comisiones de la semana (base imponible) + IVA sobre ellas = totalAmount,
   // lo que el vendedor paga. La comisión es un servicio de la plataforma.
-  commissionsAmount Decimal                 @default(0) @db.Decimal(20, 2)
-  vatRate          Decimal                  @default(0) @db.Decimal(5, 2)
-  vatAmount        Decimal                  @default(0) @db.Decimal(20, 2)
-  totalAmount      Decimal                  @db.Decimal(20, 2)
-  status           SellerStatementStatus    @default(ISSUED)
-  issuedAt         DateTime                 @default(now())
-  dueAt            DateTime
-  overdueAt        DateTime?
-  suspendedAt      DateTime?
-  paidAt           DateTime?
+  commissionsAmount Decimal                  @default(0) @db.Decimal(20, 2)
+  vatRate           Decimal                  @default(0) @db.Decimal(5, 2)
+  vatAmount         Decimal                  @default(0) @db.Decimal(20, 2)
+  totalAmount       Decimal                  @db.Decimal(20, 2)
+  status            SellerStatementStatus    @default(ISSUED)
+  issuedAt          DateTime                 @default(now())
+  dueAt             DateTime
+  overdueAt         DateTime?
+  suspendedAt       DateTime?
+  paidAt            DateTime?
   // Lo que se pausó al suspender, para reactivar exactamente eso al pagar.
-  pausedServiceIds String[]                 @default([])
-  pausedProductIds String[]                 @default([])
-  charges          SellerCommissionCharge[]
-  payments         SellerStatementPayment[]
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
+  pausedServiceIds  String[]                 @default([])
+  pausedProductIds  String[]                 @default([])
+  charges           SellerCommissionCharge[]
+  payments          SellerStatementPayment[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
 
   @@unique([sellerUserId, periodStart])
   @@index([status, dueAt])

@@ -437,8 +437,55 @@ function toggleProfileLocal(permissionId: string, profileKey: string, granted: b
   }
 }
 
+const PROFILE_IMPACT_LABELS: Record<string, string> = {
+  BUSINESS: 'Negocio',
+  PROFESSIONAL_FREELANCER: 'Freelancer',
+  PROFESSIONAL_SERVICE_PROVIDER: 'Prestador de servicios',
+}
+
+interface ProfileImpact { profileType: string; subtype: string | null; activeUsers: number; includesYou: boolean }
+
+// Los cambios por perfil se aplican a todas las cuentas con ese perfil
+// activo: antes de guardar se muestra a cuántas (y si incluye la tuya).
+async function confirmProfileImpact(): Promise<boolean> {
+  const targets = new Map<string, { profileType: string; subtype?: string }>()
+  for (const c of pendingProfileChanges.value) {
+    targets.set(c.subtype ? `${c.profileType}_${c.subtype}` : c.profileType, { profileType: c.profileType, subtype: c.subtype })
+  }
+  let impacts: Array<ProfileImpact & { key: string }>
+  try {
+    impacts = await Promise.all(
+      [...targets.entries()].map(async ([key, t]) => {
+        const qs = new URLSearchParams({ profileType: t.profileType, ...(t.subtype ? { subtype: t.subtype } : {}) })
+        return { key, ...(await get<ProfileImpact>(`/permissions/profile-impact?${qs}`)) }
+      }),
+    )
+  } catch {
+    // Si no se puede calcular, se pide confirmación igual, sin cifras.
+    return confirm({
+      title: 'Guardar permisos por perfil',
+      message: 'Estos cambios se aplican a todas las cuentas que tengan ese perfil activo. ¿Guardar?',
+      confirmText: 'Guardar',
+    })
+  }
+  const total = impacts.reduce((sum, i) => sum + i.activeUsers, 0)
+  const lines = impacts
+    .map(i => `• ${PROFILE_IMPACT_LABELS[i.key] ?? i.key}: ${i.activeUsers} cuenta(s)${i.includesYou ? ' — incluida la tuya' : ''}`)
+    .join('\n')
+  const includesYou = impacts.some(i => i.includesYou)
+  return confirm({
+    title: `Este cambio afecta a ${total} cuenta(s)`,
+    message: `${pendingProfileChanges.value.length} cambio(s) en permisos por perfil:\n${lines}${
+      includesYou ? '\n\nTambién cambia lo que puede hacer tu propia cuenta.' : ''
+    }`,
+    confirmText: 'Guardar cambios',
+    variant: includesYou ? 'danger' : undefined,
+  })
+}
+
 async function saveAllProfile() {
   if (pendingProfileChanges.value.length === 0) return
+  if (!(await confirmProfileImpact())) return
   savingProfile.value = true
   error.value = null
   successMsg.value = null

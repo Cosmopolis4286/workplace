@@ -177,10 +177,11 @@
               ? 'bg-green-100 text-green-700 hover:bg-green-200'
               : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
             :disabled="!canManage(u)"
-            @click="toggleStatus(u)"
+            :title="u.isActive ? 'Suspender cuenta' : 'Reactivar cuenta'"
+            @click="openStatusModal(u)"
           >
             <span class="w-1.5 h-1.5 rounded-full mr-1" :class="u.isActive ? 'bg-green-500' : 'bg-gray-400'" />
-            {{ u.isActive ? 'Activo' : 'Inactivo' }}
+            {{ u.isActive ? 'Activo' : 'Suspendido' }}
           </button>
         </td>
       </template>
@@ -203,6 +204,8 @@
       :creatable-roles="creatableRoles"
       @submit="save"
     />
+
+    <AccountStatusModal v-model="showStatusModal" :user="statusTarget" @done="onStatusChanged" />
 
     <!-- Modal categorías -->
     <Teleport to="body">
@@ -230,14 +233,15 @@ import HeaderActionButton from '~/components/ui/HeaderActionButton.vue'
 import AppTable from '~/components/ui/AppTable.vue'
 import UserFormModal from '~/components/modals/UserFormModal.vue'
 import { ROLE_LABELS, ROLE_BADGE_CLASSES, ROLE_AVATAR_COLORS, profileKindOf, type Role } from '~/config/roles.config'
-import { useUsers, emptyUserForm, type UserItem, type UserCategory, type UsersStats } from '~/composables/users/useUsers'
+import { useUsers, emptyUserForm, type AccountStatusResult, type UserItem, type UserCategory, type UsersStats } from '~/composables/users/useUsers'
+import AccountStatusModal from '~/components/admin/users/AccountStatusModal.vue'
 import { useConfirm } from '~/composables/ui/useConfirm'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 
 definePageMeta({ middleware: 'auth' })
 
 const { invalidate: invalidateModules } = useModules()
-const { listUsers, getStats, loadCategories: fetchCategories, createUser, updateUser, toggleUserStatus, deleteUser } = useUsers()
+const { listUsers, getStats, loadCategories: fetchCategories, createUser, updateUser, deleteUser } = useUsers()
 const { confirm } = useConfirm()
 
 const { user } = useAuth()
@@ -372,9 +376,17 @@ async function save() {
   finally { saving.value = false }
 }
 
-async function toggleStatus(u: UserItem) {
-  try { await toggleUserStatus(u.id); u.isActive = !u.isActive }
-  catch (e: any) { error.value = getApiErrorMessage(e, 'No se pudo cambiar el estado del usuario') }
+// Suspender pide motivo; reactivar, confirmación. El estado se toma de la
+// respuesta del backend, no se invierte a ciegas.
+const showStatusModal = ref(false)
+const statusTarget = ref<UserItem | null>(null)
+function openStatusModal(u: UserItem) {
+  statusTarget.value = u
+  showStatusModal.value = true
+}
+async function onStatusChanged(result: AccountStatusResult) {
+  if (statusTarget.value) statusTarget.value.isActive = result.isActive
+  await load()
 }
 
 async function confirmDelete(target: UserItem | UserItem[]) {

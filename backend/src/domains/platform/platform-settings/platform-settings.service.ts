@@ -60,6 +60,13 @@ export const PLATFORM_SETTINGS = {
   // Monto (USD) por encima del cual un comprador debe tener su identidad
   // verificada (KYC) para pagar. 0 = siempre. Vender y retirar siempre la exigen.
   'kyc.buyerThresholdUsd': { type: 'number', default: 50, public: true },
+  // Exigir verificación en dos pasos (2FA) a ADMIN y SUPERADMIN para usar el
+  // panel. Solo lo activa quien ya tiene 2FA, así nadie se queda fuera.
+  'security.staffTwoFactorRequired': {
+    type: 'boolean',
+    default: false,
+    public: false,
+  },
 } as const;
 
 export type PlatformSettingKey = keyof typeof PLATFORM_SETTINGS;
@@ -106,6 +113,25 @@ export class PlatformSettingsService {
     private readonly prisma: PrismaService,
     @Inject('AUDIT_SERVICE') private readonly audit: AuditLogger
   ) {}
+
+  // RolesGuard lo consulta en cada request de administración: se guarda unos
+  // segundos para no ir a la base cada vez. set() lo limpia al cambiarlo.
+  private staffTwoFactorCache: { value: boolean; expiresAt: number } | null =
+    null;
+
+  async isStaffTwoFactorRequired(): Promise<boolean> {
+    const now = Date.now();
+    if (this.staffTwoFactorCache && this.staffTwoFactorCache.expiresAt > now) {
+      return this.staffTwoFactorCache.value;
+    }
+    const row = await this.prisma.platformSetting.findUnique({
+      where: { key: 'security.staffTwoFactorRequired' },
+      select: { value: true },
+    });
+    const value = row?.value === true;
+    this.staffTwoFactorCache = { value, expiresAt: now + 30_000 };
+    return value;
+  }
 
   /** Qué niveles de la política se pueden exigir hoy en este servidor. */
   capabilities() {
@@ -159,6 +185,18 @@ export class PlatformSettingsService {
       throw new BadRequestException(`"${key}" debe ser ${def.type}`);
     }
 
+    if (key === 'security.staffTwoFactorRequired' && value === true) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: adminId },
+        select: { twoFactorEnabled: true },
+      });
+      if (!actor?.twoFactorEnabled) {
+        throw new BadRequestException(
+          'Activa primero tu propia verificación en dos pasos: si no, al guardar perderías el acceso al panel'
+        );
+      }
+    }
+
     const previous = await this.prisma.platformSetting.findUnique({
       where: { key },
       select: { value: true },
@@ -172,6 +210,9 @@ export class PlatformSettingsService {
       },
       update: { value: value as Prisma.InputJsonValue, updatedById: adminId },
     });
+    if (key === 'security.staffTwoFactorRequired') {
+      this.staffTwoFactorCache = null;
+    }
 
     await this.audit.log({
       userId: adminId,
