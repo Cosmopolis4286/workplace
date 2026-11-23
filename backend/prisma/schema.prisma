@@ -391,10 +391,12 @@ model UserProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // No hay @@unique([userId, type]): un usuario puede tener un REJECTED
-  // histórico y luego una fila PENDING/ACTIVE nueva del mismo tipo. La regla
-  // "no más de un PENDING/ACTIVE simultáneo por tipo" se aplica en el
-  // service (mismo patrón que FreelancerApplication.create), no en el schema.
+  // No se declara @@unique([userId, type]) porque deben conservarse filas
+  // históricas REJECTED/SUSPENDED. La unicidad de filas PENDING/ACTIVE y la
+  // exclusión BUSINESS/PROFESSIONAL se garantizan con índices únicos
+  // parciales PostgreSQL en la migración
+  // 20261123190000_enforce_user_profile_open_uniqueness (Prisma schema DSL
+  // no representa predicados WHERE para índices parciales).
   @@index([userId])
   @@index([status])
   @@index([type, status])
