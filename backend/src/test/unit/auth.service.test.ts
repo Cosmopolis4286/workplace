@@ -56,6 +56,7 @@ describe('AuthService', () => {
   const mockMailService = {
     sendPasswordResetEmail: jest.fn(),
     sendVerificationEmail: jest.fn(),
+    sendSecurityAlert: jest.fn(),
   };
 
   const mockAuditService = {
@@ -329,10 +330,8 @@ describe('AuthService', () => {
         email: 'user@example.com',
         firstName: 'User',
       });
-      mockRedisService.blacklistToken = jest.fn().mockResolvedValue(undefined);
-      mockMailService.sendSecurityAlert = jest
-        .fn()
-        .mockResolvedValue(undefined);
+      mockRedisService.blacklistToken.mockResolvedValue(undefined);
+      mockMailService.sendSecurityAlert.mockResolvedValue(undefined);
       mockPrismaService.$transaction.mockImplementation((callback) =>
         callback({
           passwordResetToken: {
