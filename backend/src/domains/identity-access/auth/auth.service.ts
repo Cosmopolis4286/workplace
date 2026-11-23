@@ -78,11 +78,14 @@ export class AuthService {
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
-      undefined,
+      securityContext,
       undefined,
       undefined,
       tokens.jti
     );
+    if (securityContext) {
+      await this.createUserSession(user.id, securityContext);
+    }
 
     // Send verification email automatically
     await this.sendVerificationEmail(user.id).catch((err) => {
@@ -583,7 +586,7 @@ export class AuthService {
     firstName: string;
     lastName: string;
     avatar?: string;
-  }) {
+  }, securityContext?: any) {
     let user: any = await this.usersService.findByEmail(googleUser.email);
     let isNewUser = false;
 
@@ -610,11 +613,14 @@ export class AuthService {
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
-      undefined,
+      securityContext,
       undefined,
       undefined,
       tokens.jti
     );
+    if (securityContext) {
+      await this.createUserSession(user.id, securityContext);
+    }
 
     const { password, ...safeUser } = user as typeof user & {
       password?: string;
