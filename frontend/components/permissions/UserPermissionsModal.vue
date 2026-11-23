@@ -25,7 +25,12 @@
         </div>
 
         <div v-if="!canManageThisUser" class="px-6 py-3 bg-amber-50 border-b border-amber-100 text-sm text-amber-800">
-          No tienes permiso para modificar los permisos de este usuario (rol {{ ROLE_LABELS[user.role] }}). Puedes revisar su configuración, pero las acciones de conceder/denegar están deshabilitadas.
+          <template v-if="isOwnAccount">
+            Estos son tus propios permisos: puedes revisarlos, pero no cambiarlos. Pídeselo a otro administrador; así queda en la auditoría quién los concedió.
+          </template>
+          <template v-else>
+            No tienes permiso para modificar los permisos de este usuario (rol {{ ROLE_LABELS[user.role] }}). Puedes revisar su configuración, pero las acciones de conceder/denegar están deshabilitadas.
+          </template>
         </div>
 
         <!-- Content -->
@@ -148,6 +153,8 @@ const { canManage } = useRoleHierarchy()
 // 403 — replicado aquí solo para no ofrecer una acción que sabemos que
 // será rechazada (ver FRONTEND_AUDIT.md).
 const canManageThisUser = computed(() => canManage(props.user))
+const { user: currentUser } = useAuth()
+const isOwnAccount = computed(() => props.user.id === currentUser.value?.id)
 
 const loading = ref(false)
 const saving = ref<string | null>(null)

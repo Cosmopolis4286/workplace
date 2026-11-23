@@ -9,5 +9,9 @@
   "payable_deleted": "Payable deleted successfully",
   "invalid_exchange_rate": "No valid exchange rate found for currency {code}",
   "no_fx_exposure_usd": "This account is in USD, it has no FX exposure",
-  "no_current_rate": "Could not fetch the current exchange rate for comparison"
+  "no_current_rate": "Could not fetch the current exchange rate for comparison",
+  "receivable_closed": "This receivable is already paid or cancelled",
+  "payment_exceeds_balance": "The payment ({applied}) exceeds the pending balance ({balance} {code})",
+  "customer_name_required": "Customer name is required",
+  "payment_conflict": "The balance changed while recording the payment: check the account and try again"
 }

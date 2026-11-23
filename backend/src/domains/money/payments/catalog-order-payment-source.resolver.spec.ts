@@ -42,6 +42,16 @@ describe('CatalogOrderPaymentSourceResolver', () => {
     });
   });
 
+  it('suma el envío por zona al monto a pagar', async () => {
+    (prisma.catalogOrder.findUnique as jest.Mock).mockResolvedValue({
+      ...order,
+      deliveryFee: new Prisma.Decimal('4.00'),
+    });
+    await expect(resolver.resolve('order-1', 'buyer-1')).resolves.toEqual(
+      expect.objectContaining({ baseAmount: '29.90' })
+    );
+  });
+
   it('rejects an order already paid through the internal escrow', async () => {
     (prisma.catalogOrder.findUnique as jest.Mock).mockResolvedValue({
       ...order,

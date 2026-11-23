@@ -33,13 +33,16 @@ export class KycApprovedGuard implements CanActivate {
     );
 
     if (operation) {
-      const result = await this.kycPolicy.evaluate(operation, {
-        authenticated: Boolean(user?.id),
-        // No inferir verificación telefónica desde User.phone.
-        // No aceptar señales de revisión reforzada enviadas por el cliente.
-        phoneVerified: Boolean(user?.phoneVerifiedAt),
-        kycStatus: user?.kycStatus,
-      });
+      const result = await this.kycPolicy.evaluateForUser(
+        operation,
+        {
+          authenticated: Boolean(user?.id),
+          // No inferir verificación telefónica desde User.phone.
+          phoneVerified: Boolean(user?.phoneVerifiedAt),
+          kycStatus: user?.kycStatus,
+        },
+        user?.id
+      );
 
       if (!result.allowed) {
         throw new ForbiddenException(

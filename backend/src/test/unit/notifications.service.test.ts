@@ -1,3 +1,4 @@
+import { TelegramService } from '../../domains/engagement/telegram/telegram.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationsService } from '../../domains/engagement/notifications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -5,6 +6,9 @@ import { NotificationsGateway } from '../../domains/engagement/notifications/not
 import { NotificationType } from '@prisma/client';
 import { MailService } from '../../domains/engagement/mail/mail.service';
 import { PushService } from '../../domains/engagement/notifications/push.service';
+
+// Copia por Telegram (respaldo del push): sin vincular, notifyUser no hace nada.
+const mockTelegram = { notifyUser: jest.fn().mockResolvedValue(undefined) };
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -54,6 +58,7 @@ describe('NotificationsService', () => {
         },
         { provide: MailService, useValue: mockMailService },
         { provide: PushService, useValue: mockPushService },
+        { provide: TelegramService, useValue: mockTelegram },
       ],
     }).compile();
 
@@ -98,6 +103,36 @@ describe('NotificationsService', () => {
           message: dto.message,
         }),
       });
+    });
+  });
+
+  describe('copia por Telegram', () => {
+    it('manda por Telegram los avisos que piden acción (los que van por correo)', async () => {
+      mockPrismaService.notification.create.mockResolvedValue({ id: 'n1' });
+      await service.createForUser(
+        'u1',
+        {
+          type: 'ORDER',
+          title: 'Pago <reportado>',
+          message: 'Confírmalo',
+        } as any,
+        { email: true }
+      );
+      expect(mockTelegram.notifyUser).toHaveBeenCalledWith(
+        'u1',
+        '<b>Pago &lt;reportado&gt;</b>\nConfírmalo'
+      );
+    });
+
+    it('no manda por Telegram los avisos informativos', async () => {
+      mockTelegram.notifyUser.mockClear();
+      mockPrismaService.notification.create.mockResolvedValue({ id: 'n2' });
+      await service.createForUser('u1', {
+        type: 'SYSTEM',
+        title: 'Info',
+        message: 'x',
+      } as any);
+      expect(mockTelegram.notifyUser).not.toHaveBeenCalled();
     });
   });
 

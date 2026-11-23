@@ -16,6 +16,7 @@ import {
   ProfileType,
   ProfessionalSubtype,
   ProfileStatus,
+  AccountSuspensionReason,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
@@ -24,6 +25,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
 import { MailService } from '../../engagement/mail/mail.service';
+import { suspensionReasonLabel } from './dto/account-status.dto';
 import { CommerceProfileCompletionStrategy } from './strategies/commerce-profile-completion.strategy';
 import { FreelancerProfileCompletionStrategy } from './strategies/freelancer-profile-completion.strategy';
 import { userFindByIdCacheKey } from '../../../common/utils/cache-keys.util';
@@ -45,6 +47,20 @@ export const USERNAME_COOLDOWN_DAYS = 30;
 // (UserCategory.update/delete) donde el TTL es el único límite de staleness
 // aceptado a propósito en vez de invalidar N usuarios.
 export const FIND_BY_ID_CACHE_TTL = 120;
+
+/** Resultado de suspender/reactivar una cuenta (UsersService.setAccountStatus). */
+export interface AccountStatusChange {
+  id: string;
+  isActive: boolean;
+  /** false si la cuenta ya estaba en el estado pedido: no se tocó nada. */
+  changed: boolean;
+  previous: {
+    suspensionReason: AccountSuspensionReason | null;
+    suspensionNote: string | null;
+  };
+  email: string;
+  firstName: string;
+}
 
 @Injectable()
 export class UsersService {
@@ -313,6 +329,8 @@ export class UsersService {
           avatar: true,
           role: true,
           isActive: true,
+          suspensionReason: true,
+          suspensionNote: true,
           createdAt: true,
           commerce: { select: { id: true, name: true } },
           category: { select: { id: true, name: true, icon: true } },
@@ -592,23 +610,78 @@ export class UsersService {
     return result;
   }
 
-  async toggleUserStatus(id: string) {
-    let updated: { id: string; isActive: boolean };
+  /**
+   * Suspende o reactiva una cuenta. Es explícito (no un interruptor): pedir
+   * dos veces lo mismo no revierte nada. Al suspender se guarda el motivo,
+   * la nota, la fecha y quién lo hizo, y se revocan las sesiones; al
+   * reactivar se limpian (el historial queda en la auditoría).
+   */
+  async setAccountStatus(
+    id: string,
+    params: {
+      active: boolean;
+      actorId: string;
+      /** Obligatorio al suspender. */
+      reason?: AccountSuspensionReason;
+      note?: string;
+    }
+  ): Promise<AccountStatusChange> {
+    if (!params.active && !params.reason) {
+      throw new BadRequestException('Indica el motivo de la suspensión');
+    }
+    const statusData: Prisma.UserUpdateManyMutationInput = params.active
+      ? {
+          isActive: true,
+          suspensionReason: null,
+          suspensionNote: null,
+          suspendedAt: null,
+          suspendedById: null,
+        }
+      : {
+          isActive: false,
+          suspensionReason: params.reason,
+          suspensionNote: params.note?.trim() || null,
+          suspendedAt: new Date(),
+          suspendedById: params.actorId,
+        };
+    let updated: AccountStatusChange;
     try {
       updated = await this.prisma.$transaction(
         async (tx) => {
           const user = await tx.user.findUnique({
             where: { id },
-            select: { id: true, role: true, isActive: true },
+            select: {
+              id: true,
+              role: true,
+              isActive: true,
+              email: true,
+              firstName: true,
+              suspensionReason: true,
+              suspensionNote: true,
+            },
           });
           if (!user) {
             throw new NotFoundException(this.i18n.t('users.not_found'));
+          }
+          const previous = {
+            suspensionReason: user.suspensionReason,
+            suspensionNote: user.suspensionNote,
+          };
+          const base = { id, email: user.email, firstName: user.firstName };
+
+          if (user.isActive === params.active) {
+            return {
+              ...base,
+              isActive: user.isActive,
+              changed: false,
+              previous,
+            };
           }
 
           // Nunca dejar el sistema sin un SUPERADMIN activo. La transacción
           // serializable evita que dos suspensiones concurrentes pasen ambas
           // el conteo usando el mismo snapshot.
-          if (user.role === Role.SUPERADMIN && user.isActive) {
+          if (!params.active && user.role === Role.SUPERADMIN) {
             const activeSuperadmins = await tx.user.count({
               where: { role: Role.SUPERADMIN, isActive: true },
             });
@@ -619,10 +692,9 @@ export class UsersService {
             }
           }
 
-          const nextIsActive = !user.isActive;
           const changed = await tx.user.updateMany({
             where: { id, isActive: user.isActive },
-            data: { isActive: nextIsActive },
+            data: statusData,
           });
           if (changed.count !== 1) {
             throw new ConflictException(
@@ -630,7 +702,7 @@ export class UsersService {
             );
           }
 
-          if (!nextIsActive) {
+          if (!params.active) {
             // Desactivar el usuario también revoca refresh tokens; invalidar
             // solo el caché JWT no basta para impedir renovar una sesión.
             await tx.refreshToken.updateMany({
@@ -639,7 +711,7 @@ export class UsersService {
             });
           }
 
-          return { id, isActive: nextIsActive };
+          return { ...base, isActive: params.active, changed: true, previous };
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       );
@@ -654,6 +726,18 @@ export class UsersService {
       }
       throw error;
     }
+
+    if (!updated.changed) return updated;
+
+    // Aviso al usuario. Solo el motivo: la nota es interna.
+    this.mail
+      .sendAccountStatusUpdate(
+        updated.email,
+        updated.firstName,
+        updated.isActive,
+        updated.isActive ? null : suspensionReasonLabel(params.reason)
+      )
+      .catch(() => undefined);
 
     // JwtStrategy consulta findById en cada request. Invalidamos caché y
     // sesiones Redis tras el commit para cortar el acceso cuanto antes.
@@ -899,6 +983,9 @@ export class UsersService {
         role: true,
         userType: true,
         isActive: true,
+        suspensionReason: true,
+        suspensionNote: true,
+        suspendedAt: true,
         emailVerified: true,
         kycStatus: true,
         createdAt: true,

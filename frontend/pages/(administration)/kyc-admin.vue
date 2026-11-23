@@ -72,7 +72,10 @@
         </div>
 
         <div class="px-6 py-4 bg-gray-50 flex items-center justify-end gap-3">
-          <template v-if="rejectingId === item.id">
+          <p v-if="isOwnRequest(item)" class="text-xs text-gray-500">
+            Es tu propia solicitud: la revisa otro administrador.
+          </p>
+          <template v-else-if="rejectingId === item.id">
             <button class="btn-secondary text-sm" @click="rejectingId = null">Cancelar</button>
             <button
               class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium disabled:opacity-60"
@@ -111,6 +114,10 @@
         </div>
       </div>
     </div>
+
+    <div class="border-t border-gray-200 pt-8">
+      <EnhancedReviewAdminPanel />
+    </div>
   </div>
 </template>
 
@@ -121,6 +128,7 @@ import { ref, computed, onMounted } from 'vue'
 import { CheckCircleIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useKyc, type IdentityVerification, type KycDocumentType } from '~/composables/kyc/useKyc'
 import KycImagePreview from '~/components/kyc/KycImagePreview.vue'
+import EnhancedReviewAdminPanel from '~/components/kyc/EnhancedReviewAdminPanel.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import { useDateFormat } from '~/composables/core/useDateFormat'
 import { getApiErrorMessage } from '~/composables/core/useApiErrors'
@@ -130,6 +138,11 @@ import { getApiErrorMessage } from '~/composables/core/useApiErrors'
 // antes de decidir — este chequeo inline corría antes de esa verificación.
 const { fetchPending, review } = useKyc()
 const { formatDate } = useDateFormat()
+// Nadie revisa su propia solicitud (el backend también lo rechaza).
+const { user: currentUser } = useAuth()
+function isOwnRequest(item: { userId?: string }) {
+  return Boolean(item.userId && item.userId === currentUser.value?.id)
+}
 
 const items = ref<IdentityVerification[]>([])
 const loading = ref(true)

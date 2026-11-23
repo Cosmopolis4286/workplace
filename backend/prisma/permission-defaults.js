@@ -204,6 +204,8 @@ const PRODUCT_SELLER_KEYS = [
   'expenses:view', 'expenses:create', 'expenses:edit', 'expenses:delete',
   'sales:view',
   'catalog:manage_orders',
+  // Fiado: el autónomo que vende (comida, mercancía) también fía a sus clientes.
+  'accounts:view', 'accounts:create', 'accounts:edit', 'accounts:delete',
 ]
 
 const uniq = (keys) => Array.from(new Set(keys))
@@ -213,7 +215,7 @@ const PROFESSIONAL_PROFILE_KEYS = uniq([...SERVICE_PROVIDER_KEYS, ...PRODUCT_SEL
 
 // Lo que cada papel de negocio concede (ProfilePermission). Es la ÚNICA
 // fuente de la distinción comercio vs. profesional: un permiso que solo
-// BUSINESS tiene (employees, branches, cash, purchases, suppliers, accounts,
+// BUSINESS tiene (employees, branches, cash, purchases, suppliers,
 // appointments) nunca llega a un PROFESSIONAL, y `can(permiso)` en el
 // frontend ya dice la verdad sin listas de accountType.
 const PROFILE_PERMISSION_DEFAULTS = [

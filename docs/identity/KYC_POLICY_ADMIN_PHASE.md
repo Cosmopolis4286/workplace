@@ -40,3 +40,15 @@ La guarda aplica la política en los endpoints clasificados. Los endpoints aún 
 ## Integración de guardas
 
 La política se aplica en backend mediante `@RequireKycOperation` a publicación de servicios, solicitudes formales, pedidos, corridas, entregas, publicación y postulación a empleos, compra de créditos, cuentas de cobro, confirmación con IA y retiros. La consulta preliminar para contactar proveedores (`POST /services/requests/inquiries`) usa `provider.contact`: por defecto basta la sesión y el SUPERADMIN puede exigir `PHONE_VERIFIED` desde Ajustes de la plataforma. Ese nivel solo se puede guardar si el envío de SMS está listo en el servidor (`MESSANGI_SMS_ENABLED=true`, `MESSANGI_API_KEY`, `MESSANGI_SMS_FROM` y `PHONE_OTP_SECRET`; ver `GET /platform-settings/capabilities`); así una configuración incompleta no bloquea a todos los usuarios. Los usuarios verifican su teléfono en Mi perfil (`GET /auth/phone/status`, `POST /auth/phone/send-verification`, `POST /auth/phone/verify`). Las rutas que aún no tienen clasificación conservan la guarda KYC anterior.
+
+
+## Revisión reforzada — flujo operativo
+
+- Un usuario solo puede solicitarla después de tener `KycStatus.APPROVED`; debe explicar el motivo (20–500 caracteres).
+- Existe una solicitud vigente por usuario. No se permiten duplicados pendientes ni nuevas solicitudes mientras haya una aprobación activa.
+- La bandeja, aprobación, rechazo y revocación están restringidas a `SUPERADMIN`; `ADMIN` puede seguir gestionando el KYC ordinario, pero no elevar ni revocar este nivel.
+- Toda decisión exige un motivo (10–500 caracteres). La aprobación vence por defecto a los 90 días; se puede fijar otra fecha futura hasta un máximo de 365 días.
+- Una aprobación se puede revocar con motivo. Rechazos, revocaciones y vencimientos permiten una nueva solicitud.
+- Las escrituras de estado y su evento `AuditLog` se realizan en la misma transacción. Si el registro de auditoría falla, la transacción completa se revierte y la decisión no queda aplicada. El registro identifica actor, usuario objetivo, estado anterior/nuevo, motivo y vigencia.
+- `KycPolicyService` consulta la fila persistida en cada evaluación protegida. Solo concede `ENHANCED_REVIEW` cuando el estado es `APPROVED`, no ha vencido y el KYC base continúa aprobado. No consume claims JWT ni flags del cliente.
+- El usuario gestiona la solicitud desde Mi perfil → Verificación de identidad; SUPERADMIN revisa y revoca desde Administración → Verificaciones de identidad.

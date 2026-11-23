@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Body,
   Headers,
@@ -52,7 +53,7 @@ export class TelegramController {
       return { linked: false, url: null };
     }
 
-    const token = this.telegram.generateLinkToken(customerId, commerceId);
+    const token = await this.telegram.generateLinkToken(customerId, commerceId);
     const botUsername = this.telegram.getBotUsername();
     const url = botUsername
       ? `https://t.me/${botUsername}?start=${token}`
@@ -70,6 +71,37 @@ export class TelegramController {
   // real es el secret token que Telegram reenvía en el header configurado
   // vía setWebhook({secret_token}). Sin él, cualquiera en internet podía
   // llamar este endpoint sin restricción alguna.
+
+  // ─── Avisos del propio usuario ──────────────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  async myStatus(@CurrentUser() user: { id: string }) {
+    const row = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { telegramChatId: true },
+    });
+    return {
+      linked: !!row?.telegramChatId,
+      available: !!this.telegram.getBotUsername(),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/link')
+  async myLink(@CurrentUser() user: { id: string }) {
+    const botUsername = this.telegram.getBotUsername();
+    if (!botUsername) return { url: null };
+    const token = await this.telegram.generateUserLinkToken(user.id);
+    return { url: `https://t.me/${botUsername}?start=${token}` };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me')
+  async unlink(@CurrentUser() user: { id: string }) {
+    await this.telegram.unlinkUser(user.id);
+    return { linked: false };
+  }
 
   @Post('webhook')
   @UseGuards(RateLimitGuard)
@@ -96,7 +128,7 @@ export class TelegramController {
     } else if (text === '/start') {
       await this.telegram.sendMessage(
         chatId,
-        '👋 Hola. Para vincular tu cuenta, usa el enlace que te proporcionó el negocio.'
+        '👋 Hola. Para recibir avisos, abre el enlace "Recibir avisos por Telegram" desde tu perfil en WorkPlace.'
       );
     }
 

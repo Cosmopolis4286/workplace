@@ -6,7 +6,7 @@
         <div class="absolute inset-0 bg-black/40" @click="!state.loading && settle(false)" />
         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
           <h3 class="text-base font-semibold text-gray-900 mb-2">{{ state.title }}</h3>
-          <p v-if="state.message" class="text-sm text-gray-500 mb-6">{{ state.message }}</p>
+          <p v-if="state.message" class="text-sm text-gray-500 mb-6 whitespace-pre-line">{{ state.message }}</p>
           <div v-if="state.error" class="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs">
             {{ state.error }}
           </div>

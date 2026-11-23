@@ -1,3 +1,12 @@
+import {
+  enqueue,
+  isNetworkError,
+  isOfflineReadable,
+  loadRead,
+  saveRead,
+} from '../../utils/offlineCache'
+import { useOfflineStatus } from './useOfflineStatus'
+
 /**
  * Composable dedicado para manejo de llamadas API
  * Centraliza la lógica de autenticación, retry y errores
@@ -6,16 +15,30 @@
 // Error con el status HTTP adjunto, para que el llamador pueda distinguir
 // "sin sesión válida" (401) de otros fallos sin parsear el mensaje.
 export class ApiError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(
+    message: string,
+    public readonly status: number,
+    // Código de negocio del backend (`errorCode`), p. ej. STAFF_2FA_REQUIRED.
+    public readonly code?: string,
+  ) {
     super(message)
     this.name = 'ApiError'
+  }
+}
+
+/** La acción no llegó al servidor por falta de señal y quedó en cola. */
+export class OfflineQueuedError extends Error {
+  constructor(public readonly label: string) {
+    super(`Sin conexión: "${label}" se enviará cuando vuelva la señal.`)
+    this.name = 'OfflineQueuedError'
   }
 }
 
 export function useApi() {
   const config = useRuntimeConfig()
   const base = config.public.apiUrl as string
-  const { getHeaders, refreshAccessToken, clearSession } = useAuth()
+  const { getHeaders, refreshAccessToken, clearSession, user } = useAuth()
+  const offline = useOfflineStatus()
   const router = useRouter()
 
   // FormData fija su propio Content-Type con boundary; forzar 'application/json'
@@ -84,7 +107,15 @@ export function useApi() {
         router.push('/login')
       }
 
-      throw new ApiError(message, res.status)
+      // La plataforma exige 2FA al equipo y esta cuenta no lo tiene: se le
+      // lleva a Configuración a activarlo (no se cierra la sesión).
+      if (res.status === 403 && body?.errorCode === 'STAFF_2FA_REQUIRED') {
+        if (router.currentRoute.value.path !== '/settings') {
+          router.push({ path: '/settings', query: { activar: '2fa' } })
+        }
+      }
+
+      throw new ApiError(message, res.status, body?.errorCode)
     }
 
     return (parseAs === 'blob' ? res.blob() : parseJsonBody(res)) as Promise<T>
@@ -94,7 +125,29 @@ export function useApi() {
    * GET request simplificado
    */
   async function get<T>(url: string, options: RequestInit & { parseAs?: 'json' | 'blob' } = {}): Promise<T> {
-    return apiFetch<T>(url, { ...options, method: 'GET' })
+    // Sin conexión: las pantallas clave muestran la última copia guardada
+    // (ver utils/offlineCache.ts). Solo JSON de rutas marcadas, por usuario.
+    const userId = user.value?.id
+    const cacheable = !!userId && options.parseAs !== 'blob' && isOfflineReadable(url)
+    try {
+      const data = await apiFetch<T>(url, { ...options, method: 'GET' })
+      if (cacheable) {
+        saveRead(userId!, url, data)
+        offline.markOnline(true)
+      }
+      return data
+    } catch (err) {
+      if (cacheable && isNetworkError(err)) {
+        const cached = loadRead<T>(userId!, url)
+        if (cached) {
+          offline.markOnline(false)
+          offline.markServedFromCache(cached.at)
+          return cached.data
+        }
+      }
+      if (isNetworkError(err)) offline.markOnline(false)
+      throw err
+    }
   }
 
   /**
@@ -121,11 +174,23 @@ export function useApi() {
   /**
    * PATCH request simplificado
    */
-  async function patch<T>(url: string, body: any): Promise<T> {
-    return apiFetch<T>(url, {
-      method: 'PATCH',
-      body: body instanceof FormData ? body : JSON.stringify(body),
-    })
+  async function patch<T>(url: string, body: any, opts: { queueIfOffline?: string } = {}): Promise<T> {
+    try {
+      return await apiFetch<T>(url, {
+        method: 'PATCH',
+        body: body instanceof FormData ? body : JSON.stringify(body),
+      })
+    } catch (err) {
+      // Acciones idempotentes marcadas por el llamador: sin señal se guardan
+      // y se envían al volver la conexión (plugins/offline-outbox.client.ts).
+      if (opts.queueIfOffline && isNetworkError(err) && user.value?.id && !(body instanceof FormData)) {
+        enqueue({ userId: user.value.id, method: 'PATCH', url, body, label: opts.queueIfOffline })
+        offline.markOnline(false)
+        offline.refreshPending()
+        throw new OfflineQueuedError(opts.queueIfOffline)
+      }
+      throw err
+    }
   }
 
   /**

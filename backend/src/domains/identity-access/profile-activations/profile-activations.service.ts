@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -503,6 +504,11 @@ export class ProfileActivationsService {
     if (profile.status !== ProfileStatus.PENDING) {
       throw new BadRequestException('Esta solicitud ya fue revisada');
     }
+    if (profile.userId === reviewerId) {
+      throw new ForbiddenException(
+        'No puedes revisar tu propia solicitud de perfil'
+      );
+    }
     if (
       dto.status === ProfileStatus.ACTIVE &&
       profile.user.kycStatus !== KycStatus.APPROVED
@@ -513,8 +519,10 @@ export class ProfileActivationsService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const result = await tx.userProfile.update({
-        where: { id },
+      // Solo si sigue PENDING: si otro admin la revisó en paralelo, no se
+      // aprueba dos veces (ni se activan plan/comercio dos veces).
+      const claimed = await tx.userProfile.updateMany({
+        where: { id, status: ProfileStatus.PENDING },
         data: {
           status: dto.status,
           rejectionReason:
@@ -523,6 +531,12 @@ export class ProfileActivationsService {
           reviewedAt: new Date(),
         },
       });
+      if (claimed.count !== 1) {
+        throw new ConflictException(
+          'La solicitud fue revisada por otro administrador. Actualiza la bandeja.'
+        );
+      }
+      const result = await tx.userProfile.findUniqueOrThrow({ where: { id } });
 
       // Mantiene User.categoryId/subcategoryId sincronizados, igual que
       // FreelancerApplication.review() — varios módulos existentes todavía

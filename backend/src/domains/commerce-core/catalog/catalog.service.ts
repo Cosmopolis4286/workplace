@@ -43,6 +43,57 @@ import { appConfig } from '../../../config/app-config';
 export const MAX_OPEN_ORDERS_PER_COMMERCE = 3;
 export const MAX_OPEN_ORDERS_TOTAL = 10;
 
+type DeliveryZone = { name: string; fee: number };
+
+/**
+ * Entrega del pedido de catálogo según las zonas del comercio.
+ * - PICKUP: sin costo; el comercio debe ofrecer retiro (pickupEnabled).
+ * - HOME_DELIVERY con zonas definidas: la zona es obligatoria y fija el costo,
+ *   gratis si el subtotal llega a freeDeliveryMinimum (> 0).
+ * - HOME_DELIVERY sin zonas: como antes, el costo se acuerda por el chat.
+ */
+export function resolveCatalogDelivery(
+  dto: { deliveryType: string; deliveryZone?: string },
+  settings: {
+    deliveryZones: Prisma.JsonValue;
+    pickupEnabled: boolean;
+    freeDeliveryMinimum: Prisma.Decimal | number | null;
+  } | null,
+  subtotal: Prisma.Decimal | number
+): { deliveryZone: string | null; deliveryFee: Prisma.Decimal | null } {
+  const zones: DeliveryZone[] = Array.isArray(settings?.deliveryZones)
+    ? (settings!.deliveryZones as unknown as DeliveryZone[]).filter(
+        (z) => z && typeof z.name === 'string' && typeof z.fee === 'number'
+      )
+    : [];
+
+  if (dto.deliveryType === 'PICKUP') {
+    if (settings && settings.pickupEnabled === false) {
+      throw new BadRequestException(
+        'Este comercio no ofrece retiro en el local: elige una zona de entrega'
+      );
+    }
+    return { deliveryZone: null, deliveryFee: null };
+  }
+  if (dto.deliveryType !== 'HOME_DELIVERY' || zones.length === 0) {
+    return { deliveryZone: null, deliveryFee: null };
+  }
+
+  const wanted = dto.deliveryZone?.trim().toLowerCase();
+  const zone = zones.find((z) => z.name.trim().toLowerCase() === wanted);
+  if (!zone) {
+    throw new BadRequestException(
+      `Elige una zona de entrega: ${zones.map((z) => z.name).join(', ')}`
+    );
+  }
+  const minimum = new Prisma.Decimal(settings?.freeDeliveryMinimum ?? 0);
+  const free = minimum.gt(0) && new Prisma.Decimal(subtotal).gte(minimum);
+  return {
+    deliveryZone: zone.name,
+    deliveryFee: new Prisma.Decimal(free ? 0 : zone.fee).toDecimalPlaces(2),
+  };
+}
+
 function withoutWhatsapp(links: Prisma.JsonValue | null) {
   if (!links || typeof links !== 'object' || Array.isArray(links)) return links;
   const { whatsapp: _hidden, ...others } = links as Record<string, unknown>;
@@ -208,6 +259,9 @@ export class CatalogService {
             // Moneda de los precios (USD o VES): la tienda muestra también el
             // equivalente en la otra moneda con la tasa vigente.
             currency: true,
+            // Zonas de entrega con costo y si hay retiro en el local.
+            deliveryZones: true,
+            pickupEnabled: true,
           },
         },
         // username/freelancerSettings.slug: para el link "Ver perfil
@@ -718,9 +772,21 @@ export class CatalogService {
       where: { id: dto.commerceId },
       select: {
         userId: true,
-        settings: { select: { requiresEscrowForCatalogOrders: true } },
+        settings: {
+          select: {
+            requiresEscrowForCatalogOrders: true,
+            deliveryZones: true,
+            pickupEnabled: true,
+            freeDeliveryMinimum: true,
+          },
+        },
       },
     });
+    const { deliveryZone, deliveryFee } = resolveCatalogDelivery(
+      dto,
+      commerce?.settings ?? null,
+      totalEstimate
+    );
     // Con el Pago Protegido apagado el pedido sigue sin garantía (pago directo
     // al comercio), aunque el comercio la tenga configurada.
     const requiresEscrow =
@@ -833,6 +899,8 @@ export class CatalogService {
             buyerEmail: dto.buyerEmail,
             notes: dto.notes,
             totalEstimate,
+            deliveryZone,
+            deliveryFee,
             requesterId,
             ...(requiresEscrow
               ? {
