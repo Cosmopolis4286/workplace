@@ -21,8 +21,11 @@ penetración ni confirma la configuración real del servidor de producción.
 - El restablecimiento de contraseña consume el token de forma condicional
   dentro de la misma transacción que cambia la contraseña y revoca refresh
   tokens. También invalida los access JWT activos mediante sus JTI.
-- Se agregan pruebas unitarias para el consumo único del reset token y para
-  la construcción del contexto de red.
+- Se crean sesiones explícitas al registrar y al iniciar sesión con Google;
+  el middleware ya no intenta reparar sesiones a partir de JWT sin verificar.
+- El endpoint de reset usa DTO validado (UUID, política de contraseña y límite
+  compatible con bcrypt).
+- Se agregan pruebas unitarias para reset concurrente, DTO y contexto de red.
 - La validación de PR ya no permite continuar manualmente ignorando fallos de
   auditoría de dependencias o de tests unitarios.
 
