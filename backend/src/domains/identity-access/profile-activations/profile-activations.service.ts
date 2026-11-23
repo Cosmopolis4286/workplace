@@ -93,13 +93,33 @@ export class ProfileActivationsService {
       },
     });
     if (existing) return existing;
-    return db.userProfile.create({
-      data: {
-        userId,
-        type: ProfileType.CUSTOMER,
-        status: ProfileStatus.ACTIVE,
-      },
-    });
+    try {
+      return await db.userProfile.create({
+        data: {
+          userId,
+          type: ProfileType.CUSTOMER,
+          status: ProfileStatus.ACTIVE,
+        },
+      });
+    } catch (error) {
+      // A concurrent request may have inserted the CUSTOMER profile after
+      // our read. The partial unique index is authoritative; make this
+      // ensure operation idempotent for the losing request.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const created = await db.userProfile.findFirst({
+          where: {
+            userId,
+            type: ProfileType.CUSTOMER,
+            status: ProfileStatus.ACTIVE,
+          },
+        });
+        if (created) return created;
+      }
+      throw error;
+    }
   }
 
   getDeactivationReasons() {
@@ -275,22 +295,38 @@ export class ProfileActivationsService {
 
     const needsApproval = REQUIRES_APPROVAL.includes(dto.type);
 
-    return this.prisma.userProfile.create({
-      data: {
-        userId,
-        type: dto.type,
-        subtype: dto.subtype,
-        categoryId: dto.categoryId,
-        subcategoryId: dto.subcategoryId,
-        pendingCommerceName:
-          dto.type === ProfileType.BUSINESS ? dto.commerceName : undefined,
-        pendingPlanId: dto.planId,
-        pendingPlanInterval: dto.planId
-          ? (dto.planInterval ?? BillingInterval.MONTHLY)
-          : undefined,
-        status: needsApproval ? ProfileStatus.PENDING : ProfileStatus.ACTIVE,
-      },
-    });
+    try {
+      return await this.prisma.userProfile.create({
+        data: {
+          userId,
+          type: dto.type,
+          subtype: dto.subtype,
+          categoryId: dto.categoryId,
+          subcategoryId: dto.subcategoryId,
+          pendingCommerceName:
+            dto.type === ProfileType.BUSINESS ? dto.commerceName : undefined,
+          pendingPlanId: dto.planId,
+          pendingPlanInterval: dto.planId
+            ? (dto.planInterval ?? BillingInterval.MONTHLY)
+            : undefined,
+          status: needsApproval ? ProfileStatus.PENDING : ProfileStatus.ACTIVE,
+        },
+      });
+    } catch (error) {
+      // The pre-checks above improve the error message in the normal path,
+      // but only PostgreSQL can close the race between two concurrent
+      // requests (including BUSINESS vs PROFESSIONAL). Translate that
+      // database conflict into the API's established 409 contract.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Ya existe un perfil o una solicitud incompatible. Actualiza tus perfiles e inténtalo de nuevo.'
+        );
+      }
+      throw error;
+    }
   }
 
   // Fija User.activeProfileId — contexto de UX ("estoy usando WorkPlace
