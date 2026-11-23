@@ -75,7 +75,7 @@ export class AuthController {
 
     try {
       const { accessToken, refreshToken } =
-        await this.authService.loginWithGoogle(req.user);
+        await this.authService.loginWithGoogle(req.user, req.securityContext);
 
       setAuthCookies(res, accessToken, refreshToken, this.config);
       return res.redirect(`${frontendUrl}/auth/google/callback?success=1`);
