@@ -51,6 +51,7 @@ describe('AuthService', () => {
     setLoginAttempts: jest.fn(),
     resetLoginAttempts: jest.fn(),
     saveRefreshToken: jest.fn(),
+    blacklistToken: jest.fn(),
   };
 
   const mockMailService = {
