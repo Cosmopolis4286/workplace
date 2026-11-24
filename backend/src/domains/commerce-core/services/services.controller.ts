@@ -22,7 +22,7 @@ import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join, basename } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import { Role, ServiceEventType } from '@prisma/client';
+import { ProfileType, Role, ServiceEventType } from '@prisma/client';
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
@@ -46,9 +46,11 @@ import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { ResolveDisputeDto } from '../../money/escrow/dto/resolve-dispute.dto';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { ProfileContextGuard } from '../../../common/guards/profile-context.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { RequireModule } from '../../../common/decorators/require-module.decorator';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { RequireProfileContext } from '../../../common/decorators/require-profile-context.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard';
 import { CategoryScopeGuard } from '../../../common/guards/category-scope.guard';
@@ -135,10 +137,12 @@ export class ServicesController {
     PermissionsGuard,
     KycApprovedGuard,
     CategoryScopeGuard,
-    ModuleAccessGuard
+    ModuleAccessGuard,
+    ProfileContextGuard
   )
   @RequireModule('services')
   @RequirePermission('services:create')
+  @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   @RequireCategoryScope({ model: 'serviceCategory', bodyField: 'categoryId' })
   create(@CurrentUser() user: any, @Body() dto: CreateServiceDto) {
     return this.servicesService.createService(user.id, dto);
@@ -149,10 +153,12 @@ export class ServicesController {
     JwtAuthGuard,
     PermissionsGuard,
     CategoryScopeGuard,
-    ModuleAccessGuard
+    ModuleAccessGuard,
+    ProfileContextGuard
   )
   @RequireModule('services')
   @RequirePermission('services:edit')
+  @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   @RequireCategoryScope({ model: 'serviceCategory', bodyField: 'categoryId' })
   update(
     @Param('id') id: string,
@@ -163,9 +169,10 @@ export class ServicesController {
   }
 
   @Patch(':id/toggle')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard, ProfileContextGuard)
   @RequireModule('services')
   @RequirePermission('services:edit')
+  @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   toggle(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.toggleStatus(id, user.id);
   }
@@ -173,9 +180,10 @@ export class ServicesController {
   // slot: 0 = principal, 1-2 = secundarias. Un archivo a la vez porque cada
   // slot se sube/reemplaza de forma independiente desde el formulario.
   @Post(':id/images')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard, ProfileContextGuard)
   @RequireModule('services')
   @RequirePermission('services:edit')
+  @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   @UseInterceptors(
     FileInterceptor('image', {
       storage: diskStorage({
@@ -228,9 +236,10 @@ export class ServicesController {
   // archivo propio — así el resultado nunca depende del hotlinking del sitio
   // de origen ni expone el navegador del usuario a una URL arbitraria.
   @Post(':id/images/from-url')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard, ProfileContextGuard)
   @RequireModule('services')
   @RequirePermission('services:edit')
+  @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   importServiceImageFromUrl(
     @Param('id') id: string,
     @CurrentUser() user: any,
@@ -245,9 +254,10 @@ export class ServicesController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard, ProfileContextGuard)
   @RequireModule('services')
   @RequirePermission('services:delete')
+  @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.deleteService(id, user.id);
   }
