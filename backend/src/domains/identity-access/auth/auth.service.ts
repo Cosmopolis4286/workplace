@@ -90,7 +90,10 @@ export class AuthService {
       tokens.jti
     );
     if (securityContext) {
-      await this.createUserSession(user.id, { ...securityContext, sessionId: tokens.jti });
+      await this.createUserSession(user.id, {
+        ...securityContext,
+        sessionId: tokens.jti,
+      });
     }
 
     // Send verification email automatically
@@ -302,7 +305,7 @@ export class AuthService {
     );
 
     if (securityContext) {
-      await this.createUserSession(user.id, securityContext);
+      await this.createUserSession(user.id, { ...securityContext, sessionId: tokens.jti });
     }
 
     this.audit.log({
@@ -633,7 +636,13 @@ export class AuthService {
       await this.usersService.updateAvatar(user.id, googleUser.avatar);
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role, undefined, user.authVersion ?? 0);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      undefined,
+      user.authVersion ?? 0
+    );
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
@@ -643,7 +652,7 @@ export class AuthService {
       tokens.jti
     );
     if (securityContext) {
-      await this.createUserSession(user.id, securityContext);
+      await this.createUserSession(user.id, { ...securityContext, sessionId: tokens.jti });
     }
 
     const { password, ...safeUser } = user as typeof user & {
