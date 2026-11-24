@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from '@prisma/client';
+import { ProfileType, Role } from '@prisma/client';
 import { PERMISSION_KEY } from '../decorators/require-permission.decorator';
 import { PROFILE_CONTEXT_KEY } from '../decorators/require-profile-context.decorator';
 import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service';
@@ -27,7 +27,7 @@ export class PermissionsGuard implements CanActivate {
     if (!required) return true;
 
     const { user } = context.switchToHttp().getRequest();
-    const profileTypes = this.reflector.getAllAndOverride<import('@prisma/client').ProfileType[]>(PROFILE_CONTEXT_KEY, [
+    const profileTypes = this.reflector.getAllAndOverride<ProfileType[]>(PROFILE_CONTEXT_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
