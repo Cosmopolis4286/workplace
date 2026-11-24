@@ -609,7 +609,7 @@ export class ProfileActivationsService {
           );
         }
         const result = await tx.userProfile.findUniqueOrThrow({ where: { id } });
-  
+
         // Mantiene User.categoryId/subcategoryId sincronizados, igual que
         // FreelancerApplication.review() — varios módulos existentes todavía
         // leen la categoría desde User, no desde UserProfile.
@@ -622,7 +622,7 @@ export class ProfileActivationsService {
             },
           });
         }
-  
+
         // RoleResolverService recalcula User.role a partir de TODOS los
         // UserProfile ACTIVE (no solo este) — reemplaza el chequeo ad-hoc que
         // solo cubría PROFESSIONAL/FREELANCER; ahora también cubre BUSINESS y
@@ -636,7 +636,7 @@ export class ProfileActivationsService {
         ) {
           await this.roleResolver.syncRoleForUser(profile.userId, tx);
         }
-  
+
         // Activa el plan elegido al solicitar el perfil (si lo hubo) — mismo
         // helper que usa PlansService.approveSubscription() para un upgrade de
         // plan de un PROFESIONAL ya existente. Este es el único punto donde
@@ -652,14 +652,14 @@ export class ProfileActivationsService {
             reviewerId
           );
         }
-  
+
         // Crea el Commerce al aprobar si el perfil lo exige (BUSINESS siempre;
         // PROFESSIONAL si su categoría vende producto — shouldProvisionCommerce).
         // Ya no existe otro camino: ni /menu ni Configuración lo auto-crean.
         if (dto.status === ProfileStatus.ACTIVE) {
           await this.commerceResolver.ensureForUser(tx, profile.userId);
         }
-  
+
         return result;
       })
       .catch(async (error: unknown) => {
