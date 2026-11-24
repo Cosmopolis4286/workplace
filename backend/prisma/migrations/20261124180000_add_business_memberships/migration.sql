@@ -21,10 +21,6 @@ CREATE INDEX "business_memberships_userId_status_idx"
     ON "business_memberships"("userId", "status");
 CREATE INDEX "business_memberships_commerceId_status_idx"
     ON "business_memberships"("commerceId", "status");
-CREATE UNIQUE INDEX "business_membership_branches_membershipId_branchId_key"
-    ON "business_membership_branches"("membershipId", "branchId");
-CREATE INDEX "business_membership_branches_commerceId_branchId_idx"
-    ON "business_membership_branches"("commerceId", "branchId");
 
 ALTER TABLE "business_memberships"
     ADD CONSTRAINT "business_memberships_commerceId_fkey"
