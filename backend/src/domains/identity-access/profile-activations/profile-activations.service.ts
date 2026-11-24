@@ -385,6 +385,28 @@ export class ProfileActivationsService {
       });
     }
 
+    const conflictingProfileWhere = {
+      userId: profile.userId,
+      id: { not: id },
+      type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+      status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] },
+    };
+
+    if (
+      dto.status === ProfileStatus.ACTIVE &&
+      REQUIRES_APPROVAL.includes(profile.type)
+    ) {
+      const conflicting =
+        await this.prisma.userProfile.findFirst({
+          where: conflictingProfileWhere,
+        });
+      if (conflicting) {
+        throw new ConflictException(
+          `Ya existe un perfil de ${TYPE_LABEL[conflicting.type]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Resuelve esa solicitud antes de activar este perfil.`
+        );
+      }
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.userProfile.update({
         where: { id: profileId },
@@ -639,6 +661,25 @@ export class ProfileActivationsService {
       }
 
       return result;
+    }).catch(async (error: unknown) => {
+      // La prevalidación mejora el mensaje habitual; el índice parcial de
+      // PostgreSQL resuelve la carrera entre dos aprobaciones concurrentes.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        REQUIRES_APPROVAL.includes(profile.type)
+      ) {
+        const conflicting =
+          await this.prisma.userProfile.findFirst({
+            where: conflictingProfileWhere,
+          });
+        if (conflicting) {
+          throw new ConflictException(
+            `Ya existe un perfil de ${TYPE_LABEL[conflicting.type]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Resuelve esa solicitud antes de activar este perfil.`
+          );
+        }
+      }
+      throw error;
     });
 
     if (dto.status === ProfileStatus.ACTIVE) {
