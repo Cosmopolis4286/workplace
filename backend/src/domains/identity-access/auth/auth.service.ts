@@ -668,7 +668,7 @@ export class AuthService {
       });
     }
 
-    const { password, ...safeUser } = user as typeof user & {
+    const { password, authVersion, ...safeUser } = user as typeof user & {
       password?: string;
     };
 
