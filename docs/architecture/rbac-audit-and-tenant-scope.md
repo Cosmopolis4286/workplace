@@ -81,6 +81,18 @@ Por estas razones, **no se habilitan permisos por sucursal en esta fase**. Un fi
 6. Añadir pruebas negativas de aislamiento: usuario de comercio A no puede leer, modificar, exportar ni inferir recursos de comercio B; sucursal A1 no puede acceder a datos de A2 cuando su membresía sea limitada.
 7. Auditar invitaciones, cambios de rol, asignaciones de sucursal, suspensiones y revocaciones.
 
+## Implementación incremental de BusinessMembership
+
+La rama de fundación añade el modelo de datos y un resolver aislado, pero **todavía no habilita acceso de miembros a endpoints operativos**:
+
+- `Commerce.userId` sigue siendo el propietario canónico e implícito (`OWNER`); no se crea una membresía duplicada para el propietario.
+- `BusinessMembership` representa usuarios adicionales y evita duplicados por comercio/usuario. Los estados `SUSPENDED` y `REVOKED` conservan la relación sin conceder acceso.
+- Roles iniciales: `ADMIN`, `MANAGER`, `STAFF` y `VIEWER`. Esta fase solo almacena el rol; el siguiente paso debe mapear cada rol a permisos concretos, separados del RBAC global.
+- `BusinessMembershipScope.COMMERCE` representa acceso a todas las sucursales. `SELECTED_BRANCHES` limita el acceso a las asignaciones explícitas; una lista vacía se deniega (fail closed).
+- `BusinessMembershipBranch` usa claves foráneas compuestas (`membershipId`, `commerceId`) y (`branchId`, `commerceId`). PostgreSQL impide asignar una sucursal de otro comercio a una membresía.
+- `BusinessMembershipService.resolve(userId, commerceId)` comprueba propiedad o membresía ACTIVE. No confía en `commerceId` como prueba de autorización. `assertBranchAccess` limita sucursales cuando el alcance es `SELECTED_BRANCHES`.
+
+Hasta completar la integración de guard y migración de los controladores/servicios, los módulos actuales siguen resolviendo el comercio mediante `CommerceResolverService` y el propietario. No se debe invitar miembros ni mostrar estos roles como operativos todavía. La siguiente etapa debe integrar el resolver, aplicar el scope a cada lectura/escritura, y añadir invitaciones de un solo uso con token hasheado, expiración, revocación y auditoría.
 ## Criterio de aceptación de esta fase
 
 - Cada cambio RBAC exitoso identifica al actor, alcance, objetivo, estado anterior y estado posterior.
