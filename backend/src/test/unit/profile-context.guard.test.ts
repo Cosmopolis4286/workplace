@@ -8,7 +8,6 @@ import {
 import { ProfileStatus, ProfileType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProfileContextGuard } from '../../common/guards/profile-context.guard';
-import { PROFILE_CONTEXT_KEY } from '../../common/decorators/require-profile-context.decorator';
 
 describe('ProfileContextGuard', () => {
   let guard: ProfileContextGuard;
