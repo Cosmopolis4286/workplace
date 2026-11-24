@@ -783,15 +783,25 @@ export class AuthService {
       where: { userId, revokedAt: null },
       select: { id: true, jti: true },
     });
+    const now = new Date();
 
-    for (const t of tokens) {
-      if (t.jti) await this.redis.blacklistToken(t.jti, 900);
-    }
-
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { authVersion: { increment: 1 } },
+      });
     });
+
+    for (const token of tokens) {
+      if (!token.jti) continue;
+      await this.redis.blacklistToken(token.jti, 900).catch((error) => {
+        this.logger.warn('Could not blacklist token after global revocation', error);
+      });
+    }
 
     await this.clearAllUserSessions(userId);
     return { message: 'Todas las sesiones han sido cerradas' };
