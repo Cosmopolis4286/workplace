@@ -289,9 +289,10 @@ export class AuthService {
     await this.redis.del(`2fa-pending:${dto.sessionId}`);
 
     const fullUser = await this.usersService.findByEmail(user.email);
-    const { password, authVersion, ...safeUser } = fullUser as typeof fullUser & {
-      password: string;
-    };
+    const { password, authVersion, ...safeUser } =
+      fullUser as typeof fullUser & {
+        password: string;
+      };
     const tokens = await this.generateTokens(
       user.id,
       user.email,
