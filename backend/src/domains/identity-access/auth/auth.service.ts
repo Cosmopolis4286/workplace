@@ -74,22 +74,35 @@ export class AuthService {
       ...dto,
       acceptTerms: dto.acceptTerms,
     });
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      undefined,
+      user.authVersion ?? 0
+    );
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
-      undefined,
+      securityContext,
       undefined,
       undefined,
       tokens.jti
     );
+    if (securityContext) {
+      await this.createUserSession(user.id, {
+        ...securityContext,
+        sessionId: tokens.jti,
+      });
+    }
 
     // Send verification email automatically
     await this.sendVerificationEmail(user.id).catch((err) => {
       this.logger.warn(`Failed to send verification email: ${err.message}`);
     });
 
-    return { user, ...tokens };
+    const { password, authVersion, ...safeUser } = user;
+    return { user: safeUser, ...tokens };
   }
 
   async login(dto: LoginDto, securityContext?: any) {
@@ -186,7 +199,7 @@ export class AuthService {
       return { requiresTwoFactor: true as const, sessionId };
     }
 
-    const { password, ...safeUser } = user;
+    const { password, authVersion, ...safeUser } = user;
     const refreshExpiresIn = dto.rememberMe
       ? this.config.get('JWT_REFRESH_EXPIRES_IN', '7d')
       : SHORT_REFRESH_EXPIRES_IN;
@@ -194,7 +207,8 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
-      refreshExpiresIn
+      refreshExpiresIn,
+      user.authVersion ?? 0
     );
     await this.saveRefreshToken(
       user.id,
@@ -207,7 +221,10 @@ export class AuthService {
 
     // Crear sesión activa
     if (securityContext) {
-      await this.createUserSession(user.id, securityContext);
+      await this.createUserSession(user.id, {
+        ...securityContext,
+        sessionId: tokens.jti,
+      });
     }
 
     this.audit.log({
@@ -272,10 +289,17 @@ export class AuthService {
     await this.redis.del(`2fa-pending:${dto.sessionId}`);
 
     const fullUser = await this.usersService.findByEmail(user.email);
-    const { password, ...safeUser } = fullUser as typeof fullUser & {
-      password: string;
-    };
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const { password, authVersion, ...safeUser } =
+      fullUser as typeof fullUser & {
+        password: string;
+      };
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      undefined,
+      (fullUser as any)?.authVersion ?? 0
+    );
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
@@ -286,7 +310,10 @@ export class AuthService {
     );
 
     if (securityContext) {
-      await this.createUserSession(user.id, securityContext);
+      await this.createUserSession(user.id, {
+        ...securityContext,
+        sessionId: tokens.jti,
+      });
     }
 
     this.audit.log({
@@ -481,11 +508,13 @@ export class AuthService {
     // Validar contexto de seguridad
     if (securityContext && stored.ipAddress && stored.deviceInfo) {
       if (stored.ipAddress !== securityContext.ipAddress) {
+        // Una IP distinta puede deberse a roaming, CGNAT o VPN. Se registra
+        // como señal de riesgo, pero no se usa como factor de autenticación
+        // ni se bloquea por sí sola una rotación válida del refresh token.
         await this.logSecurityEvent(userId, 'REFRESH_IP_MISMATCH', {
           expectedIp: stored.ipAddress,
           actualIp: securityContext.ipAddress,
         });
-        throw new ForbiddenException(this.i18n.t('auth.refresh.ip_mismatch'));
       }
 
       if (stored.deviceInfo !== securityContext.userAgent) {
@@ -502,7 +531,13 @@ export class AuthService {
     // disabling an account must take effect immediately for refresh requests.
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, isActive: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        authVersion: true,
+      },
     });
     if (!user || !user.isActive) {
       throw new ForbiddenException(this.i18n.t('auth.refresh.invalid_token'));
@@ -525,7 +560,8 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
-      refreshLifetimeSeconds
+      refreshLifetimeSeconds,
+      user.authVersion ?? 0
     );
     const replacementId = uuidv4();
     const expiresAt = new Date(Date.now() + refreshLifetimeSeconds * 1000);
@@ -569,19 +605,26 @@ export class AuthService {
 
     // Actualizar sesión solo después de que la rotación se haya confirmado.
     if (securityContext) {
-      await this.updateUserSession(userId, securityContext);
+      await this.redis.del(`session:${userId}:${stored.jti}`);
+      await this.createUserSession(userId, {
+        ...securityContext,
+        sessionId: tokens.jti,
+      });
     }
 
     return tokens;
   }
 
-  async loginWithGoogle(googleUser: {
-    googleId: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    avatar?: string;
-  }) {
+  async loginWithGoogle(
+    googleUser: {
+      googleId: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      avatar?: string;
+    },
+    securityContext?: any
+  ) {
     let user: any = await this.usersService.findByEmail(googleUser.email);
     let isNewUser = false;
 
@@ -604,17 +647,29 @@ export class AuthService {
       await this.usersService.updateAvatar(user.id, googleUser.avatar);
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      undefined,
+      user.authVersion ?? 0
+    );
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
-      undefined,
+      securityContext,
       undefined,
       undefined,
       tokens.jti
     );
+    if (securityContext) {
+      await this.createUserSession(user.id, {
+        ...securityContext,
+        sessionId: tokens.jti,
+      });
+    }
 
-    const { password, ...safeUser } = user as typeof user & {
+    const { password, authVersion, ...safeUser } = user as typeof user & {
       password?: string;
     };
 
@@ -629,40 +684,41 @@ export class AuthService {
   }
 
   async logout(userId: string, refreshToken?: string, securityContext?: any) {
-    // 1. Obtener JTI de los tokens activos para blacklist (columna jti
-    // dedicada — el campo `token` es un hash desde el que ya no se puede
-    // decodificar el JWT, ver RefreshToken en schema.prisma).
     const activeTokens = await this.prisma.refreshToken.findMany({
       where: { userId, revokedAt: null },
       select: { jti: true },
     });
+    const now = new Date();
 
-    // 2. Blacklist los JTI de los tokens JWT activos
-    for (const token of activeTokens) {
-      if (token.jti) {
-        // Blacklist por 15 minutos (tiempo de vida del access token)
-        await this.redis.blacklistToken(token.jti, 900);
+    // Persist revocation first. authVersion also invalidates in-flight access
+    // JWTs even if Redis is unavailable while the logout request is running.
+    await this.prisma.$transaction(async (tx) => {
+      if (refreshToken) {
+        await tx.refreshToken.updateMany({
+          where: { token: hashToken(refreshToken), userId, revokedAt: null },
+          data: { revokedAt: now },
+        });
       }
-    }
+      await tx.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { authVersion: { increment: 1 } },
+      });
+    });
 
-    // 3. Revocar el refresh token específico si se proporciona
-    if (refreshToken) {
-      await this.prisma.refreshToken.updateMany({
-        where: { token: hashToken(refreshToken), userId },
-        data: { revokedAt: new Date() },
+    // Redis blacklist remains defense in depth for legacy tokens during rollout.
+    for (const token of activeTokens) {
+      if (!token.jti) continue;
+      await this.redis.blacklistToken(token.jti, 900).catch((error) => {
+        this.logger.warn('Could not blacklist token after logout', error);
       });
     }
 
-    // 4. También revocar todos los refresh tokens del usuario (logout global)
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-
-    // 5. Eliminar todas las sesiones activas
     await this.clearAllUserSessions(userId);
 
-    // 6. Registrar evento de logout
     if (securityContext) {
       await this.logSecurityEvent(userId, 'LOGOUT', {
         ipAddress: securityContext.ipAddress,
@@ -708,14 +764,19 @@ export class AuthService {
       throw new NotFoundException(this.i18n.t('auth.session.not_found'));
     }
 
-    if (session.jti) {
-      await this.redis.blacklistToken(session.jti, 900);
-    }
-
     await this.prisma.refreshToken.update({
       where: { id: sessionId },
       data: { revokedAt: new Date() },
     });
+
+    if (session.jti) {
+      await this.redis.blacklistToken(session.jti, 900).catch((error) => {
+        this.logger.warn(
+          'Could not blacklist token after session revocation',
+          error
+        );
+      });
+    }
 
     return { message: this.i18n.t('auth.session.revoked') };
   }
@@ -725,15 +786,28 @@ export class AuthService {
       where: { userId, revokedAt: null },
       select: { id: true, jti: true },
     });
+    const now = new Date();
 
-    for (const t of tokens) {
-      if (t.jti) await this.redis.blacklistToken(t.jti, 900);
-    }
-
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { authVersion: { increment: 1 } },
+      });
     });
+
+    for (const token of tokens) {
+      if (!token.jti) continue;
+      await this.redis.blacklistToken(token.jti, 900).catch((error) => {
+        this.logger.warn(
+          'Could not blacklist token after global revocation',
+          error
+        );
+      });
+    }
 
     await this.clearAllUserSessions(userId);
     return { message: 'Todas las sesiones han sido cerradas' };
@@ -901,31 +975,68 @@ export class AuthService {
       where: { token: hashToken(token) },
     });
 
-    if (!record || record.usedAt || record.expiresAt < new Date()) {
+    if (!record || record.usedAt || record.expiresAt <= new Date()) {
       throw new BadRequestException(
         this.i18n.t('auth.password_reset.invalid_token')
       );
     }
 
-    const hashed = await bcrypt.hash(newPassword, 10);
+    const hashed = await bcrypt.hash(newPassword, 12);
+    const now = new Date();
 
-    const [updatedUser] = await this.prisma.$transaction([
-      this.prisma.user.update({
+    // Consume the one-time token conditionally in the same transaction as
+    // the password update. Two concurrent reset requests cannot both win.
+    const result = await this.prisma.$transaction(async (tx) => {
+      const consumed = await tx.passwordResetToken.updateMany({
+        where: {
+          id: record.id,
+          userId: record.userId,
+          usedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { usedAt: now },
+      });
+
+      if (consumed.count !== 1) {
+        throw new BadRequestException(
+          this.i18n.t('auth.password_reset.invalid_token')
+        );
+      }
+
+      // Invalidate every other outstanding reset link for this account.
+      await tx.passwordResetToken.updateMany({
+        where: { userId: record.userId, usedAt: null },
+        data: { usedAt: now },
+      });
+
+      const user = await tx.user.update({
         where: { id: record.userId },
-        data: { password: hashed },
-      }),
-      this.prisma.passwordResetToken.update({
-        where: { id: record.id },
-        data: { usedAt: new Date() },
-      }),
-      // Invalidate all refresh tokens so they must log in again
-      this.prisma.refreshToken.deleteMany({ where: { userId: record.userId } }),
-    ]);
+        data: { password: hashed, authVersion: { increment: 1 } },
+        select: { id: true, email: true, firstName: true },
+      });
+
+      await tx.refreshToken.updateMany({
+        where: { userId: record.userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+
+      return { user };
+    });
+
+    // authVersion was incremented in the same transaction: all previously
+    // issued access and refresh JWTs now fail validation, even if Redis is down.
+
+    await this.redis.del(userFindByIdCacheKey(record.userId)).catch((error) => {
+      this.logger.warn(
+        'Could not clear cached user data after password reset',
+        error
+      );
+    });
 
     this.mail
       .sendSecurityAlert(
-        updatedUser.email,
-        updatedUser.firstName,
+        result.user.email,
+        result.user.firstName,
         'password_reset'
       )
       .catch((err) => {
@@ -1009,12 +1120,13 @@ export class AuthService {
     userId: string,
     email: string,
     role: Role,
-    refreshExpiresIn?: JwtSignOptions['expiresIn']
+    refreshExpiresIn?: JwtSignOptions['expiresIn'],
+    authVersion = 0
   ) {
     const jti = uuidv4();
 
     const accessToken = this.jwtService.sign(
-      { sub: userId, email, jti, role },
+      { sub: userId, email, jti, role, ver: authVersion },
       {
         secret: this.config.get('JWT_SECRET'),
         expiresIn: this.config.get('JWT_EXPIRES_IN', '15m'),
@@ -1022,7 +1134,7 @@ export class AuthService {
     );
 
     const refreshToken = this.jwtService.sign(
-      { sub: userId, jti }, // Incluir JTI también en refresh token
+      { sub: userId, jti, ver: authVersion }, // JTI y versión para revocación
       {
         secret: this.config.get('JWT_REFRESH_SECRET'),
         expiresIn:
@@ -1072,7 +1184,7 @@ export class AuthService {
     userId: string,
     securityContext: any
   ): Promise<void> {
-    const sessionKey = `session:${userId}:${securityContext.deviceFingerprint}`;
+    const sessionKey = `session:${userId}:${securityContext.sessionId}`;
     const sessionData = {
       userId,
       deviceFingerprint: securityContext.deviceFingerprint,
@@ -1096,25 +1208,6 @@ export class AuthService {
         userAgent: securityContext.userAgent,
       })
     );
-  }
-
-  private async updateUserSession(
-    userId: string,
-    securityContext: any
-  ): Promise<void> {
-    const sessionKey = `session:${userId}:${securityContext.deviceFingerprint}`;
-    const sessionData = await this.redis.get(sessionKey);
-
-    if (sessionData) {
-      const session = JSON.parse(sessionData);
-      session.lastActivity = new Date();
-
-      // Extender TTL 30 minutos más
-      await this.redis.setex(sessionKey, 1800, JSON.stringify(session));
-    } else {
-      // Recrear sesión si no existe
-      await this.createUserSession(userId, securityContext);
-    }
   }
 
   private async clearAllUserSessions(userId: string): Promise<void> {

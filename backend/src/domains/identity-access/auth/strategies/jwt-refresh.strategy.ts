@@ -4,13 +4,17 @@ import { Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { refreshTokenExtractor } from '../../../../common/utils/jwt-extractor.util';
+import { PrismaService } from '../../../../prisma/prisma.service';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(
   Strategy,
   'jwt-refresh'
 ) {
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private prisma: PrismaService
+  ) {
     super({
       jwtFromRequest: refreshTokenExtractor,
       ignoreExpiration: false,
@@ -19,7 +23,10 @@ export class JwtRefreshStrategy extends PassportStrategy(
     });
   }
 
-  async validate(req: Request, payload: { sub?: unknown; jti?: unknown }) {
+  async validate(
+    req: Request,
+    payload: { sub?: unknown; jti?: unknown; ver?: unknown }
+  ) {
     const refreshToken =
       req.body?.refreshToken ?? req.cookies?.['refresh_token'];
     if (!refreshToken)
@@ -33,6 +40,22 @@ export class JwtRefreshStrategy extends PassportStrategy(
       payload.jti.length > 128
     ) {
       throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    if (payload.ver !== undefined && !Number.isInteger(payload.ver)) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const account = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { isActive: true, authVersion: true },
+    });
+    if (
+      !account?.isActive ||
+      (typeof payload.ver === 'number' ? payload.ver : 0) !==
+        account.authVersion
+    ) {
+      throw new UnauthorizedException('Refresh token revocado');
     }
 
     return { userId: payload.sub, refreshToken, jti: payload.jti };

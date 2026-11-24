@@ -8,8 +8,8 @@ Este documento describe el flujo implementado en el monorepo. La autenticación 
 |---|---|
 | `AuthController` | Endpoints de registro, login, Google OAuth, 2FA, refresh, logout y perfil |
 | `AuthService` | Verificación de credenciales, emisión/rotación de tokens, sesiones y revocación |
-| `JwtStrategy` | Valida access tokens, blacklist, estado de usuario y contexto de sesión |
-| `JwtRefreshStrategy` | Extrae y valida la estructura del refresh JWT antes de consultar su registro |
+| `JwtStrategy` | Valida firma, `authVersion`, JTI asociado a refresh activo en BD, blacklist y contexto de sesión |
+| `JwtRefreshStrategy` | Valida firma, estructura y `authVersion`; `AuthService` consume el registro de refresh de forma atómica |
 | `JwtAuthGuard` / `JwtRefreshGuard` | Conectan Passport con los endpoints protegidos |
 | `useAuth` | Estado de sesión Nuxt, envío de credenciales, renovación y carga de `/auth/me` |
 | `PermissionsGuard` | Evalúa el permiso requerido por un endpoint |

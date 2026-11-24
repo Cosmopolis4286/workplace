@@ -38,6 +38,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { VerifyLoginTwoFactorDto } from './dto/verify-login-two-factor.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { JwtRefreshGuard } from '../../../common/guards/jwt-refresh.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -75,7 +76,7 @@ export class AuthController {
 
     try {
       const { accessToken, refreshToken } =
-        await this.authService.loginWithGoogle(req.user);
+        await this.authService.loginWithGoogle(req.user, req.securityContext);
 
       setAuthCookies(res, accessToken, refreshToken, this.config);
       return res.redirect(`${frontendUrl}/auth/google/callback?success=1`);
@@ -334,11 +335,8 @@ export class AuthController {
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async resetPassword(
-    @Body('token') token: string,
-    @Body('password') password: string
-  ) {
-    return this.authService.resetPassword(token, password);
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.password);
   }
 
   // ─── Email Verification ──────────────────────────────────────────────────────

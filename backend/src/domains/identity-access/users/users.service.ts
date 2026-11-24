@@ -40,9 +40,10 @@ export const CURRENT_TERMS_VERSION = '2.0';
 // apliquen siempre la misma política sin poder divergir.
 export const USERNAME_COOLDOWN_DAYS = 30;
 
-// findById se llama en JwtStrategy.validate() en CADA request autenticado —
-// cachear evita una query a Postgres por request. TTL corto porque además de
-// la invalidación explícita en cada write (ver userFindByIdCacheKey en
+// findById se llama desde JwtStrategy.validate() en cada request autenticado.
+// El cache evita cargar relaciones de perfil en cada petición; el estado de
+// seguridad (isActive/authVersion/JTI) se consulta siempre directamente en BD.
+// TTL corto porque además de la invalidación explícita en cada write (ver userFindByIdCacheKey en
 // common/utils/cache-keys.util.ts), hay un caso de fan-out
 // (UserCategory.update/delete) donde el TTL es el único límite de staleness
 // aceptado a propósito en vez de invalidar N usuarios.
@@ -212,7 +213,7 @@ export class UsersService {
       throw e;
     }
 
-    const { password, twoFactorSecret, ...result } = user;
+    const { password, twoFactorSecret, authVersion, ...result } = user;
     return result;
   }
 
@@ -515,7 +516,7 @@ export class UsersService {
       throw e;
     }
 
-    const { password, twoFactorSecret, ...result } = user;
+    const { password, twoFactorSecret, authVersion, ...result } = user;
     await this.invalidateFindByIdCache(id);
     return result;
   }
@@ -605,7 +606,7 @@ export class UsersService {
       return updated;
     });
 
-    const { password, twoFactorSecret, ...result } = user;
+    const { password, twoFactorSecret, authVersion, ...result } = user;
     await this.invalidateFindByIdCache(id);
     return result;
   }
@@ -954,7 +955,7 @@ export class UsersService {
       include: { commerce: true, category: true, profileSettings: true },
     });
     if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
-    const { password, twoFactorSecret, ...result } = user;
+    const { password, twoFactorSecret, authVersion, ...result } = user;
 
     await this.redis.setex(
       userFindByIdCacheKey(id),
@@ -1287,17 +1288,28 @@ export class UsersService {
     }
 
     const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
-    await this.prisma.user.update({
-      where: { id },
-      data: { password: hashedPassword },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: {
+          password: hashedPassword,
+          authVersion: { increment: 1 },
+        },
+      });
+
+      // Revocar refresh tokens en la misma transacción que incrementa
+      // authVersion, para que el cambio de contraseña sea atómico.
+      await tx.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
     });
 
-    // Revocar todas las sesiones existentes: si un atacante tenía un refresh
-    // token robado, cambiar la contraseña debe cerrarle el acceso (igual que
-    // ya hace resetPassword() vía email en AuthService).
-    await this.prisma.refreshToken.updateMany({
-      where: { userId: id, revokedAt: null },
-      data: { revokedAt: new Date() },
+    await this.redis.del(userFindByIdCacheKey(id)).catch((error) => {
+      this.logger.warn(
+        'Could not clear cached user data after password change',
+        error
+      );
     });
 
     this.mail
