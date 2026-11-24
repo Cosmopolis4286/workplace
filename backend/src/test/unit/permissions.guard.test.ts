@@ -47,7 +47,9 @@ describe('PermissionsGuard', () => {
   });
 
   it('bypasses SUPERADMIN without calling the service', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) => key === PERMISSION_KEY ? 'orders:view' : undefined);
+    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) =>
+      key === PERMISSION_KEY ? 'orders:view' : undefined
+    );
 
     const result = await guard.canActivate(
       makeContext({ id: 'u1', role: Role.SUPERADMIN })
@@ -58,7 +60,7 @@ describe('PermissionsGuard', () => {
   });
 
   it('calls hasEffectivePermission with (userId, role, permission) for non-SUPERADMIN', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('orders:view');
+    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) => key === PERMISSION_KEY ? 'orders:view' : undefined);
     permissionsService.hasEffectivePermission.mockResolvedValue(true);
 
     const result = await guard.canActivate(
