@@ -320,9 +320,6 @@ describe('AuthService', () => {
       mockPrismaService.passwordResetToken.updateMany.mockResolvedValue({
         count: 1,
       });
-      mockPrismaService.refreshToken.findMany.mockResolvedValue([
-        { jti: 'active-access-jti-123456' },
-      ]);
       mockPrismaService.refreshToken.updateMany.mockResolvedValue({
         count: 1,
       });
@@ -339,7 +336,6 @@ describe('AuthService', () => {
             updateMany: mockPrismaService.passwordResetToken.updateMany,
           },
           refreshToken: {
-            findMany: mockPrismaService.refreshToken.findMany,
             updateMany: mockPrismaService.refreshToken.updateMany,
           },
           user: { update: mockPrismaService.user.update },
@@ -347,7 +343,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('consumes the reset token conditionally and revokes refresh and access tokens', async () => {
+    it('consumes the reset token and increments authVersion atomically', async () => {
       await expect(
         service.resetPassword('raw-reset-token', 'NewStrongPassword!123')
       ).resolves.toEqual({ message: 'auth.password_reset.success' });
@@ -365,9 +361,12 @@ describe('AuthService', () => {
         })
       );
       expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalled();
-      expect(mockRedisService.blacklistToken).toHaveBeenCalledWith(
-        'active-access-jti-123456',
-        900
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            authVersion: { increment: 1 },
+          }),
+        })
       );
     });
 
