@@ -20,12 +20,19 @@ penetración ni confirma la configuración real del servidor de producción.
   pero no bloquea por sí solo una sesión válida.
 - El restablecimiento de contraseña consume el token de forma condicional
   dentro de la misma transacción que cambia la contraseña y revoca refresh
-  tokens. También invalida los access JWT activos mediante sus JTI.
+  tokens. Incrementa `User.authVersion` en esa misma transacción; las
+  estrategias de access y refresh JWT comparan la versión firmada con la BD,
+  por lo que la revocación no depende de que Redis acepte una blacklist.
+- Las sesiones nuevas se identifican por el JTI firmado del par de tokens,
+  evitando colisiones entre dispositivos que comparten User-Agent. Los JWT
+  anteriores a `authVersion` conservan temporalmente la clave legacy de
+  sesión mientras la cuenta siga en versión 0.
 - Se crean sesiones explícitas al registrar y al iniciar sesión con Google;
   el middleware ya no intenta reparar sesiones a partir de JWT sin verificar.
 - El endpoint de reset usa DTO validado (UUID, política de contraseña y límite
   compatible con bcrypt).
-- Se agregan pruebas unitarias para reset concurrente, DTO y contexto de red.
+- Se agregan pruebas unitarias para reset concurrente, DTO, contexto de red
+  y rechazo de JWT con una versión de autenticación obsoleta.
 - La validación de PR ya no permite continuar manualmente ignorando fallos de
   auditoría de dependencias o de tests unitarios.
 
@@ -122,7 +129,8 @@ misma política a todos los endpoints de upload.
 - [ ] Un usuario suspendido no puede renovar sesión ni usar endpoints.
 - [ ] Un reset token solo puede consumirse una vez incluso en solicitudes
       concurrentes.
-- [ ] Reset y cambio de contraseña invalidan refresh y access tokens.
+- [ ] Reset y cambio de contraseña invalidan refresh y access tokens mediante
+      versión de autenticación; comprobar también refresh concurrente.
 - [ ] Un refresh token revocado/reutilizado no crea una nueva sesión.
 - [ ] Un cambio de IP legítimo no bloquea al usuario móvil.
 - [ ] Redis caído no hace que un JWT revocado sea aceptado.
