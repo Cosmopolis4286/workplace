@@ -2,10 +2,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { ProfileType, Role } from '@prisma/client';
-import { PERMISSION_KEY } from '../../common/decorators/require-permission.decorator';
-import { PROFILE_CONTEXT_KEY } from '../../common/decorators/require-profile-context.decorator';
+import {
+  PERMISSION_KEY,
+} from '../../common/decorators/require-permission.decorator';
+import {
+  PROFILE_CONTEXT_KEY,
+} from '../../common/decorators/require-profile-context.decorator';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service';
+import {
+  PermissionsService,
+} from '../../domains/identity-access/permissions/permissions.service';
 
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;
@@ -35,7 +41,9 @@ describe('PermissionsGuard', () => {
     reflector = module.get<Reflector>(Reflector);
   });
 
-  it('allows the request when no @RequirePermission metadata is set', async () => {
+  it(
+    'allows the request when no @RequirePermission metadata is set',
+    async () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
       .mockImplementation(() => undefined);
@@ -63,7 +71,9 @@ describe('PermissionsGuard', () => {
     expect(permissionsService.hasEffectivePermission).not.toHaveBeenCalled();
   });
 
-  it('calls hasEffectivePermission with (userId, role, permission) for non-SUPERADMIN', async () => {
+  it(
+    'calls hasEffectivePermission with (userId, role, permission) for non-SUPERADMIN',
+    async () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
       .mockImplementation((key: string) =>
@@ -84,7 +94,9 @@ describe('PermissionsGuard', () => {
     );
   });
 
-  it('throws ForbiddenException when the effective permission is denied', async () => {
+  it(
+    'throws ForbiddenException when the effective permission is denied',
+    async () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
       .mockImplementation((key: string) =>
@@ -97,7 +109,9 @@ describe('PermissionsGuard', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it('limits inherited profile permissions to the declared context', async () => {
+  it(
+    'limits inherited profile permissions to the declared context',
+    async () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
       .mockImplementation((key: string) => {
