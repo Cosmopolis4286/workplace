@@ -15,8 +15,6 @@ CREATE TABLE "business_memberships" (
 
 CREATE UNIQUE INDEX "business_memberships_commerceId_userId_key"
     ON "business_memberships"("commerceId", "userId");
-CREATE UNIQUE INDEX "business_memberships_id_commerce_id_key"
-    ON "business_memberships"("id", "commerceId");
 CREATE INDEX "business_memberships_userId_status_idx"
     ON "business_memberships"("userId", "status");
 CREATE INDEX "business_memberships_commerceId_status_idx"
