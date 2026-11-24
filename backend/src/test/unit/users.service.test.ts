@@ -125,17 +125,17 @@ describe('UsersService', () => {
 
   describe('changePassword session revocation', () => {
     it('increments authVersion and revokes refresh tokens in one transaction', async () => {
+      const currentPassword = 'CurrentPassword123';
+      const currentPasswordHash = await bcrypt.hash(currentPassword, 4);
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-1',
         email: 'user@example.com',
         firstName: 'User',
-        password: 'current-hash',
+        password: currentPasswordHash,
       });
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      jest.spyOn(bcrypt, 'hash').mockResolvedValue('new-hash' as never);
 
       await service.changePassword('user-1', {
-        currentPassword: 'CurrentPassword123',
+        currentPassword,
         newPassword: 'NewPassword123!',
       } as any);
 
@@ -144,7 +144,7 @@ describe('UsersService', () => {
         expect.objectContaining({
           where: { id: 'user-1' },
           data: expect.objectContaining({
-            password: 'new-hash',
+            password: expect.any(String),
             authVersion: { increment: 1 },
           }),
         })
@@ -155,7 +155,6 @@ describe('UsersService', () => {
         })
       );
       expect(mockRedisService.del).toHaveBeenCalled();
-      jest.restoreAllMocks();
     });
   });
 
