@@ -50,6 +50,7 @@ describe('AuthService', () => {
     getLoginAttempts: jest.fn(),
     setLoginAttempts: jest.fn(),
     resetLoginAttempts: jest.fn(),
+    del: jest.fn().mockResolvedValue(undefined),
     saveRefreshToken: jest.fn(),
   };
 
