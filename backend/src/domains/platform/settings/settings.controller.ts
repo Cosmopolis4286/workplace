@@ -3,6 +3,9 @@ import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { CapabilityGuard } from '../../../common/guards/capability.guard';
+import { ProfileContextGuard } from '../../../common/guards/profile-context.guard';
+import { RequireProfileContext } from '../../../common/decorators/require-profile-context.decorator';
+import { ProfileType } from '@prisma/client';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { RequireCapability } from '../../../common/decorators/require-capability.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -23,7 +26,7 @@ import {
 } from './dto/update-commerce-slug.dto';
 
 @Controller('settings')
-@UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard)
+@UseGuards(JwtAuthGuard, ProfileContextGuard, PermissionsGuard, CapabilityGuard)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
@@ -107,6 +110,7 @@ export class SettingsController {
   @Get('freelancer/check-slug')
   @RequirePermission('settings:view')
   @RequireCapability('HAS_PROFESSIONAL_PROFILE')
+  @RequireProfileContext(ProfileType.PROFESSIONAL)
   checkFreelancerSlug(
     @CurrentUser() user: { id: string },
     @Query('slug') slug: string
@@ -125,6 +129,7 @@ export class SettingsController {
   @Patch('freelancer/slug')
   @RequirePermission('settings:edit')
   @RequireCapability('HAS_PROFESSIONAL_PROFILE')
+  @RequireProfileContext(ProfileType.PROFESSIONAL)
   updateFreelancerSlug(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateFreelancerSlugDto
@@ -137,6 +142,7 @@ export class SettingsController {
   @Patch('freelancer/profile')
   @RequirePermission('settings:edit')
   @RequireCapability('HAS_PROFESSIONAL_PROFILE')
+  @RequireProfileContext(ProfileType.PROFESSIONAL)
   updateFreelancerProfile(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateFreelancerProfileDto

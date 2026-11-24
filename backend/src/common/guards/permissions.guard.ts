@@ -5,8 +5,9 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from '@prisma/client';
+import { ProfileType, Role } from '@prisma/client';
 import { PERMISSION_KEY } from '../decorators/require-permission.decorator';
+import { PROFILE_CONTEXT_KEY } from '../decorators/require-profile-context.decorator';
 import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service';
 
 @Injectable()
@@ -25,8 +26,16 @@ export class PermissionsGuard implements CanActivate {
     // No @RequirePermission() → skip this guard
     if (!required) return true;
 
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest();
+    const { user, profileContext } = request;
+    const profileTypes = this.reflector.getAllAndOverride<ProfileType[]>(
+      PROFILE_CONTEXT_KEY,
+      [context.getHandler(), context.getClass()]
+    );
     if (!user) return false;
+    if (profileTypes?.length && !profileContext?.id) {
+      throw new ForbiddenException('No se resolvió un perfil compatible');
+    }
 
     // SUPERADMIN siempre tiene acceso
     if (user.role === Role.SUPERADMIN) return true;
@@ -37,7 +46,8 @@ export class PermissionsGuard implements CanActivate {
     const has = await this.permissionsService.hasEffectivePermission(
       user.id,
       user.role,
-      required
+      required,
+      profileContext?.id
     );
     if (!has) {
       throw new ForbiddenException(`No tienes permiso para: ${required}`);

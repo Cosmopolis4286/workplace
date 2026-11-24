@@ -341,6 +341,72 @@ describe('PermissionsService', () => {
       expect(hasMenu).toBe(true);
     });
 
+    it('uses only the selected profile for contextual endpoints', async () => {
+      mockPrisma.rolePermission.findMany.mockResolvedValue([]);
+      mockPrisma.userPermission.findMany.mockResolvedValue([]);
+      mockPrisma.userProfile.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.id === 'profile-1'
+            ? [
+                {
+                  type: ProfileType.PROFESSIONAL,
+                  subtype: ProfessionalSubtype.FREELANCER,
+                },
+              ]
+            : []
+        )
+      );
+      mockPrisma.profilePermission.findMany.mockResolvedValue([
+        { permission: { key: 'services:edit' } },
+      ]);
+
+      const result = await service.hasEffectivePermission(
+        'user-1',
+        Role.NORMAL,
+        'services:edit',
+        'profile-1'
+      );
+
+      expect(result).toBe(true);
+      expect(mockPrisma.userProfile.findMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'user-1',
+          status: 'ACTIVE',
+          id: 'profile-1',
+        },
+        select: { type: true, subtype: true },
+      });
+    });
+
+    it('does not inherit a permission granted only by another profile context', async () => {
+      mockPrisma.rolePermission.findMany.mockResolvedValue([]);
+      mockPrisma.userPermission.findMany.mockResolvedValue([]);
+      mockPrisma.userProfile.findMany.mockResolvedValue([
+        {
+          type: ProfileType.PROFESSIONAL,
+          subtype: ProfessionalSubtype.FREELANCER,
+        },
+      ]);
+      mockPrisma.profilePermission.findMany.mockResolvedValue([]);
+
+      const result = await service.hasEffectivePermission(
+        'user-1',
+        Role.NORMAL,
+        'menu:edit',
+        'profile-1'
+      );
+
+      expect(result).toBe(false);
+      expect(mockPrisma.userProfile.findMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'user-1',
+          status: 'ACTIVE',
+          id: 'profile-1',
+        },
+        select: { type: true, subtype: true },
+      });
+    });
+
     it('a user-level deny override still wins over a profile-granted permission', async () => {
       mockPrisma.rolePermission.findMany.mockResolvedValue([]);
       mockPrisma.userPermission.findMany.mockResolvedValue([

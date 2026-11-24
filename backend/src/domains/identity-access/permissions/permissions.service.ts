@@ -157,9 +157,16 @@ export class PermissionsService implements PermissionsFacade {
     return { profileType, subtype, activeUsers, includesYou: mine > 0 };
   }
 
-  async getActiveProfilePermissions(userId: string): Promise<string[]> {
+  async getActiveProfilePermissions(
+    userId: string,
+    profileId?: string
+  ): Promise<string[]> {
     const profiles = await this.prisma.userProfile.findMany({
-      where: { userId, status: ProfileStatus.ACTIVE },
+      where: {
+        userId,
+        status: ProfileStatus.ACTIVE,
+        ...(profileId ? { id: profileId } : {}),
+      },
       select: { type: true, subtype: true },
     });
     if (profiles.length === 0) return [];
@@ -208,21 +215,26 @@ export class PermissionsService implements PermissionsFacade {
   /**
    * Fuente de verdad para CUALQUIER chequeo de autorización real (usado por
    * PermissionsGuard en cada request). Orden: override individual del
-   * usuario (si existe, manda) → si no, UNIÓN de permisos de ROL +
-   * permisos de todos sus UserProfile ACTIVE (perfiles múltiples — un
-   * usuario con 2 perfiles activos obtiene la unión de ambos).
+   * usuario (si existe, manda) → si no, permiso de ROL → permiso heredado
+   * por perfiles ACTIVE. Sin contexto explícito se conserva la unión para
+   * vistas generales; con @RequireProfileContext se filtra por el ID exacto
+   * de perfil que ProfileContextGuard validó para esta petición.
    */
   async hasEffectivePermission(
     userId: string,
     role: Role,
-    permissionKey: string
+    permissionKey: string,
+    profileId?: string
   ): Promise<boolean> {
     const overrides = await this.getUserOverrides(userId);
     if (permissionKey in overrides) return overrides[permissionKey];
 
     if (await this.hasPermission(role, permissionKey)) return true;
 
-    const profileKeys = await this.getActiveProfilePermissions(userId);
+    const profileKeys = await this.getActiveProfilePermissions(
+      userId,
+      profileId
+    );
     return profileKeys.includes(permissionKey);
   }
 

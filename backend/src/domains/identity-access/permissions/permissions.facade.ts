@@ -18,7 +18,8 @@ export interface PermissionsFacade {
   hasEffectivePermission(
     userId: string,
     role: Role,
-    permissionKey: string
+    permissionKey: string,
+    profileId?: string
   ): Promise<boolean>;
 }
 

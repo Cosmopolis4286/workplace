@@ -329,12 +329,12 @@ export class ProfileActivationsService {
     }
   }
 
-  // Fija User.activeProfileId — contexto de UX ("estoy usando WorkPlace
-  // como..."), puramente presentacional. NO toca permisos ni capacidades:
-  // esas siguen siendo la unión de TODOS los UserProfile ACTIVE del
-  // usuario, no solo el activo (ver IDENTITY_ARCHITECTURE_PLAN.md, sección
-  // "activeProfile"). El perfil debe pertenecer al usuario y estar ACTIVE
-  // — no tiene sentido "activar" un perfil PENDING/REJECTED/SUSPENDED.
+  // Fija User.activeProfileId como contexto elegido por el usuario. No
+  // sustituye la identidad ni el rol global: las rutas sin @RequireProfileContext
+  // conservan la autorización RBAC habitual; las rutas que declaran ese
+  // metadata validan este contexto con ProfileContextGuard y limitan los
+  // ProfilePermission al tipo requerido. El perfil debe pertenecer al usuario
+  // y estar ACTIVE — no se puede seleccionar uno PENDING/REJECTED/SUSPENDED.
   async setActive(userId: string, profileId: string) {
     const profile = await this.prisma.userProfile.findUnique({
       where: { id: profileId },

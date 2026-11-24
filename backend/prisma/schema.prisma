@@ -135,8 +135,8 @@ model User {
   // siendo la unión de TODOS los UserProfile ACTIVE, no solo este. Null =
   // sin preferencia explícita; el frontend infiere el default con la misma
   // prioridad que AccountTypeResolver (BUSINESS > PROFESSIONAL > JOB_SEEKER
-  // > CUSTOMER). SetNull: si el perfil activo se borra/rechaza, no debe
-  // arrastrar al User con un FK colgante.
+  // > CUSTOMER). UX por defecto; solo las rutas con @RequireProfileContext
+  // lo validan como contexto de autorización. SetNull evita FK colgantes.
   activeProfileId String?
   activeProfile   UserProfile? @relation("ActiveProfile", fields: [activeProfileId], references: [id], onDelete: SetNull)
 
