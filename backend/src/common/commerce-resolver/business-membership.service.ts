@@ -63,7 +63,9 @@ export class BusinessMembershipService {
       assignedBranchIds.length === 0
     ) {
       // Fail closed: una membresía limitada sin sucursales no obtiene acceso.
-      throw new ForbiddenException('La membresía no tiene sucursales asignadas');
+      throw new ForbiddenException(
+        'La membresía no tiene sucursales asignadas'
+      );
     }
 
     if (
@@ -71,7 +73,9 @@ export class BusinessMembershipService {
       assignedBranchIds.length > 0
     ) {
       // Inconsistencia de datos: no ampliar permisos por una asignación inesperada.
-      throw new ForbiddenException('El alcance de la membresía es inconsistente');
+      throw new ForbiddenException(
+        'El alcance de la membresía es inconsistente'
+      );
     }
 
     return {
