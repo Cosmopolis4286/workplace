@@ -93,13 +93,33 @@ export class ProfileActivationsService {
       },
     });
     if (existing) return existing;
-    return db.userProfile.create({
-      data: {
-        userId,
-        type: ProfileType.CUSTOMER,
-        status: ProfileStatus.ACTIVE,
-      },
-    });
+    try {
+      return await db.userProfile.create({
+        data: {
+          userId,
+          type: ProfileType.CUSTOMER,
+          status: ProfileStatus.ACTIVE,
+        },
+      });
+    } catch (error) {
+      // A concurrent request may have inserted the CUSTOMER profile after
+      // our read. The partial unique index is authoritative; make this
+      // ensure operation idempotent for the losing request.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const created = await db.userProfile.findFirst({
+          where: {
+            userId,
+            type: ProfileType.CUSTOMER,
+            status: ProfileStatus.ACTIVE,
+          },
+        });
+        if (created) return created;
+      }
+      throw error;
+    }
   }
 
   getDeactivationReasons() {
@@ -275,22 +295,38 @@ export class ProfileActivationsService {
 
     const needsApproval = REQUIRES_APPROVAL.includes(dto.type);
 
-    return this.prisma.userProfile.create({
-      data: {
-        userId,
-        type: dto.type,
-        subtype: dto.subtype,
-        categoryId: dto.categoryId,
-        subcategoryId: dto.subcategoryId,
-        pendingCommerceName:
-          dto.type === ProfileType.BUSINESS ? dto.commerceName : undefined,
-        pendingPlanId: dto.planId,
-        pendingPlanInterval: dto.planId
-          ? (dto.planInterval ?? BillingInterval.MONTHLY)
-          : undefined,
-        status: needsApproval ? ProfileStatus.PENDING : ProfileStatus.ACTIVE,
-      },
-    });
+    try {
+      return await this.prisma.userProfile.create({
+        data: {
+          userId,
+          type: dto.type,
+          subtype: dto.subtype,
+          categoryId: dto.categoryId,
+          subcategoryId: dto.subcategoryId,
+          pendingCommerceName:
+            dto.type === ProfileType.BUSINESS ? dto.commerceName : undefined,
+          pendingPlanId: dto.planId,
+          pendingPlanInterval: dto.planId
+            ? (dto.planInterval ?? BillingInterval.MONTHLY)
+            : undefined,
+          status: needsApproval ? ProfileStatus.PENDING : ProfileStatus.ACTIVE,
+        },
+      });
+    } catch (error) {
+      // The pre-checks above improve the error message in the normal path,
+      // but only PostgreSQL can close the race between two concurrent
+      // requests (including BUSINESS vs PROFESSIONAL). Translate that
+      // database conflict into the API's established 409 contract.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Ya existe un perfil o una solicitud incompatible. Actualiza tus perfiles e inténtalo de nuevo.'
+        );
+      }
+      throw error;
+    }
   }
 
   // Fija User.activeProfileId — contexto de UX ("estoy usando WorkPlace
@@ -425,31 +461,45 @@ export class ProfileActivationsService {
       }
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const result = await tx.userProfile.update({
-        where: { id: profileId },
-        data: {
-          status: ProfileStatus.ACTIVE,
-          suspendedBySelf: false,
-          deactivationReason: null,
-          deactivationNote: null,
-          deactivatedAt: null,
-        },
+    const updated = await this.prisma
+      .$transaction(async (tx) => {
+        const result = await tx.userProfile.update({
+          where: { id: profileId },
+          data: {
+            status: ProfileStatus.ACTIVE,
+            suspendedBySelf: false,
+            deactivationReason: null,
+            deactivationNote: null,
+            deactivatedAt: null,
+          },
+        });
+
+        if (
+          profile.type === ProfileType.BUSINESS ||
+          profile.type === ProfileType.PROFESSIONAL
+        ) {
+          await this.roleResolver.syncRoleForUser(userId, tx);
+          // Un perfil aprobado antes de que existiera la provisión de Commerce
+          // para PROFESSIONAL (o cuya categoría cambió mientras estaba
+          // suspendido) lo recibe al reactivarse.
+          await this.commerceResolver.ensureForUser(tx, userId);
+        }
+
+        return result;
+      })
+      .catch((error: unknown) => {
+        // Reactivation competes with new applications too; the same partial
+        // unique indexes protect this transition at the database boundary.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw new ConflictException(
+            'No se puede reactivar este perfil porque ya existe otro perfil o solicitud incompatible.'
+          );
+        }
+        throw error;
       });
-
-      if (
-        profile.type === ProfileType.BUSINESS ||
-        profile.type === ProfileType.PROFESSIONAL
-      ) {
-        await this.roleResolver.syncRoleForUser(userId, tx);
-        // Un perfil aprobado antes de que existiera la provisión de Commerce
-        // para PROFESSIONAL (o cuya categoría cambió mientras estaba
-        // suspendido) lo recibe al reactivarse.
-        await this.commerceResolver.ensureForUser(tx, userId);
-      }
-
-      return result;
-    });
 
     await this.redis.del(userFindByIdCacheKey(userId));
     return updated;
@@ -518,78 +568,123 @@ export class ProfileActivationsService {
       );
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      // Solo si sigue PENDING: si otro admin la revisó en paralelo, no se
-      // aprueba dos veces (ni se activan plan/comercio dos veces).
-      const claimed = await tx.userProfile.updateMany({
-        where: { id, status: ProfileStatus.PENDING },
-        data: {
-          status: dto.status,
-          rejectionReason:
-            dto.status === ProfileStatus.REJECTED ? dto.rejectionReason : null,
-          reviewedBy: reviewerId,
-          reviewedAt: new Date(),
-        },
+    const conflictingProfileWhere = {
+      userId: profile.userId,
+      id: { not: id },
+      type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+      status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] },
+    };
+
+    if (
+      dto.status === ProfileStatus.ACTIVE &&
+      REQUIRES_APPROVAL.includes(profile.type)
+    ) {
+      const conflicting = await this.prisma.userProfile.findFirst({
+        where: conflictingProfileWhere,
       });
-      if (claimed.count !== 1) {
+      if (conflicting) {
         throw new ConflictException(
-          'La solicitud fue revisada por otro administrador. Actualiza la bandeja.'
+          `Ya existe un perfil de ${TYPE_LABEL[conflicting.type]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Resuelve esa solicitud antes de activar este perfil.`
         );
       }
-      const result = await tx.userProfile.findUniqueOrThrow({ where: { id } });
+    }
 
-      // Mantiene User.categoryId/subcategoryId sincronizados, igual que
-      // FreelancerApplication.review() — varios módulos existentes todavía
-      // leen la categoría desde User, no desde UserProfile.
-      if (dto.status === ProfileStatus.ACTIVE && profile.categoryId) {
-        await tx.user.update({
-          where: { id: profile.userId },
+    const updated = await this.prisma
+      .$transaction(async (tx) => {
+        // Solo si sigue PENDING: si otro admin la revisó en paralelo, no se
+        // aprueba dos veces (ni se activan plan/comercio dos veces).
+        const claimed = await tx.userProfile.updateMany({
+          where: { id, status: ProfileStatus.PENDING },
           data: {
-            categoryId: profile.categoryId,
-            subcategoryId: profile.subcategoryId,
+            status: dto.status,
+            rejectionReason:
+              dto.status === ProfileStatus.REJECTED
+                ? dto.rejectionReason
+                : null,
+            reviewedBy: reviewerId,
+            reviewedAt: new Date(),
           },
         });
-      }
+        if (claimed.count !== 1) {
+          throw new ConflictException(
+            'La solicitud fue revisada por otro administrador. Actualiza la bandeja.'
+          );
+        }
+        const result = await tx.userProfile.findUniqueOrThrow({
+          where: { id },
+        });
 
-      // RoleResolverService recalcula User.role a partir de TODOS los
-      // UserProfile ACTIVE (no solo este) — reemplaza el chequeo ad-hoc que
-      // solo cubría PROFESSIONAL/FREELANCER; ahora también cubre BUSINESS y
-      // PROFESSIONAL/SERVICE_PROVIDER. Sin esto, aprobar un perfil de
-      // negocio deja al usuario con UserProfile ACTIVE pero sin el rol
-      // real, y el resto de la app (guards, middleware del frontend) sigue
-      // leyendo User.role — sería un callejón sin salida silencioso.
-      if (
-        profile.type === ProfileType.BUSINESS ||
-        profile.type === ProfileType.PROFESSIONAL
-      ) {
-        await this.roleResolver.syncRoleForUser(profile.userId, tx);
-      }
+        // Mantiene User.categoryId/subcategoryId sincronizados, igual que
+        // FreelancerApplication.review() — varios módulos existentes todavía
+        // leen la categoría desde User, no desde UserProfile.
+        if (dto.status === ProfileStatus.ACTIVE && profile.categoryId) {
+          await tx.user.update({
+            where: { id: profile.userId },
+            data: {
+              categoryId: profile.categoryId,
+              subcategoryId: profile.subcategoryId,
+            },
+          });
+        }
 
-      // Activa el plan elegido al solicitar el perfil (si lo hubo) — mismo
-      // helper que usa PlansService.approveSubscription() para un upgrade de
-      // plan de un PROFESIONAL ya existente. Este es el único punto donde
-      // un plan pago queda ACTIVE tras un alta de identidad: antes vivía en
-      // PlansService.upgradePlan() (eliminado), como una segunda solicitud
-      // paralela que un admin revisaba por separado.
-      if (dto.status === ProfileStatus.ACTIVE && profile.pendingPlanId) {
-        await this.plansService.activateSubscriptionForPlan(
-          tx,
-          profile.userId,
-          profile.pendingPlanId,
-          profile.pendingPlanInterval ?? BillingInterval.MONTHLY,
-          reviewerId
-        );
-      }
+        // RoleResolverService recalcula User.role a partir de TODOS los
+        // UserProfile ACTIVE (no solo este) — reemplaza el chequeo ad-hoc que
+        // solo cubría PROFESSIONAL/FREELANCER; ahora también cubre BUSINESS y
+        // PROFESSIONAL/SERVICE_PROVIDER. Sin esto, aprobar un perfil de
+        // negocio deja al usuario con UserProfile ACTIVE pero sin el rol
+        // real, y el resto de la app (guards, middleware del frontend) sigue
+        // leyendo User.role — sería un callejón sin salida silencioso.
+        if (
+          profile.type === ProfileType.BUSINESS ||
+          profile.type === ProfileType.PROFESSIONAL
+        ) {
+          await this.roleResolver.syncRoleForUser(profile.userId, tx);
+        }
 
-      // Crea el Commerce al aprobar si el perfil lo exige (BUSINESS siempre;
-      // PROFESSIONAL si su categoría vende producto — shouldProvisionCommerce).
-      // Ya no existe otro camino: ni /menu ni Configuración lo auto-crean.
-      if (dto.status === ProfileStatus.ACTIVE) {
-        await this.commerceResolver.ensureForUser(tx, profile.userId);
-      }
+        // Activa el plan elegido al solicitar el perfil (si lo hubo) — mismo
+        // helper que usa PlansService.approveSubscription() para un upgrade de
+        // plan de un PROFESIONAL ya existente. Este es el único punto donde
+        // un plan pago queda ACTIVE tras un alta de identidad: antes vivía en
+        // PlansService.upgradePlan() (eliminado), como una segunda solicitud
+        // paralela que un admin revisaba por separado.
+        if (dto.status === ProfileStatus.ACTIVE && profile.pendingPlanId) {
+          await this.plansService.activateSubscriptionForPlan(
+            tx,
+            profile.userId,
+            profile.pendingPlanId,
+            profile.pendingPlanInterval ?? BillingInterval.MONTHLY,
+            reviewerId
+          );
+        }
 
-      return result;
-    });
+        // Crea el Commerce al aprobar si el perfil lo exige (BUSINESS siempre;
+        // PROFESSIONAL si su categoría vende producto — shouldProvisionCommerce).
+        // Ya no existe otro camino: ni /menu ni Configuración lo auto-crean.
+        if (dto.status === ProfileStatus.ACTIVE) {
+          await this.commerceResolver.ensureForUser(tx, profile.userId);
+        }
+
+        return result;
+      })
+      .catch(async (error: unknown) => {
+        // El índice parcial de PostgreSQL es la última barrera ante dos
+        // aprobaciones incompatibles que ocurren simultáneamente.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          REQUIRES_APPROVAL.includes(profile.type)
+        ) {
+          const conflicting = await this.prisma.userProfile.findFirst({
+            where: conflictingProfileWhere,
+          });
+          if (conflicting) {
+            throw new ConflictException(
+              `Ya existe un perfil de ${TYPE_LABEL[conflicting.type]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Resuelve esa solicitud antes de activar este perfil.`
+            );
+          }
+        }
+        throw error;
+      });
 
     if (dto.status === ProfileStatus.ACTIVE) {
       await this.redis.del(userFindByIdCacheKey(profile.userId));
