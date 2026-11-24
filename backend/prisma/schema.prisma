@@ -24,7 +24,7 @@ model User {
   role              Role                     @default(NORMAL)
   userType          UserType                 @default(REGULAR)
   isActive          Boolean                  @default(true)
-  // Incremented on password reset to invalidate every previously issued JWT.
+  // Incremented on credential changes and global logout to invalidate every previously issued JWT.
   authVersion       Int                      @default(0)
   // Suspensión administrativa: por qué, cuándo y quién. Se limpian al
   // reactivar (el historial queda en la auditoría).
