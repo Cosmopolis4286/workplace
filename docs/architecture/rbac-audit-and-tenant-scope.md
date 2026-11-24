@@ -74,7 +74,7 @@ Por estas razones, **no se habilitan permisos por sucursal en esta fase**. Un fi
 ## Diseño requerido antes de habilitar RBAC multi-tenant
 
 1. [x parcial] Identidad `BusinessMembership` vinculada a `User` y `Commerce`, con estado y revocación lógica. Falta el ciclo de invitaciones.
-2. [x] Modelo de alcance de comercio completo o sucursales seleccionadas, con FKs compuestas que impiden asignar sucursales de otro comercio.
+2. Pendiente: no se implementa scope por sucursal hasta que los recursos operativos soporten branchId de punta a punta.
 3. [x parcial] `BusinessMembershipService.resolve` valida propietario o membresía ACTIVE. Falta conectarlo a guards y controladores.
 4. Pendiente: aplicar el scope en cada consulta y mutación de recursos, verificando que la sucursal pertenece al comercio activo.
 5. Pendiente: mapear roles de membresía a permisos de comercio, separados del RBAC global de plataforma.
