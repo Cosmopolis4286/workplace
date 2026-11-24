@@ -390,34 +390,37 @@ describe('ProfileActivationsService', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it('traduce a 409 la colisión concurrente entre aprobaciones incompatibles', async () => {
-      mockPrismaService.userProfile.findUnique.mockResolvedValue(
-        pendingProfile({
-          type: ProfileType.BUSINESS,
-          subtype: null,
-        })
-      );
-      mockPrismaService.userProfile.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          id: 'other-profile',
-          type: ProfileType.PROFESSIONAL,
-          status: ProfileStatus.ACTIVE,
-        });
-      mockPrismaService.userProfile.updateMany.mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError(
-          'Unique constraint failed',
-          { code: 'P2002', clientVersion: 'test' }
-        )
-      );
+    it(
+      'traduce a 409 la colisión concurrente entre aprobaciones incompatibles',
+      async () => {
+        mockPrismaService.userProfile.findUnique.mockResolvedValue(
+          pendingProfile({
+            type: ProfileType.BUSINESS,
+            subtype: null,
+          })
+        );
+        mockPrismaService.userProfile.findFirst
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({
+            id: 'other-profile',
+            type: ProfileType.PROFESSIONAL,
+            status: ProfileStatus.ACTIVE,
+          });
+        mockPrismaService.userProfile.updateMany.mockRejectedValue(
+          new Prisma.PrismaClientKnownRequestError(
+            'Unique constraint failed',
+            { code: 'P2002', clientVersion: 'test' }
+          )
+        );
 
-      await expect(
-        service.review(PROFILE_ID, ADMIN_ID, {
-          status: ProfileStatus.ACTIVE,
-        } as any)
-      ).rejects.toBeInstanceOf(ConflictException);
-      expect(mockCommerceResolver.ensureForUser).not.toHaveBeenCalled();
-    });
+        await expect(
+          service.review(PROFILE_ID, ADMIN_ID, {
+            status: ProfileStatus.ACTIVE,
+          } as any)
+        ).rejects.toBeInstanceOf(ConflictException);
+        expect(mockCommerceResolver.ensureForUser).not.toHaveBeenCalled();
+      }
+    );;
 
     it('bloquea la activación si el KYC del solicitante no está APPROVED', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
