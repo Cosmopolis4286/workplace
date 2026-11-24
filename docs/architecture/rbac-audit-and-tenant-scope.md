@@ -83,6 +83,6 @@ Por estas razones, **no se habilitan permisos por sucursal en esta fase**. Un fi
 - Cada cambio RBAC exitoso identifica al actor, alcance, objetivo, estado anterior y estado posterior.
 - Las operaciones masivas generan un evento con el conjunto completo de cambios.
 - La expiración y el motivo de overrides individuales quedan en el historial.
-- Se mantiene la precedencia existente de RolePermission → ProfilePermission → UserPermission, con el filtro contextual aplicado solo a ProfilePermission cuando el endpoint lo declara.
+- Se mantiene la precedencia efectiva existente: UserPermission (override) → RolePermission → ProfilePermission; el filtro contextual limita únicamente ProfilePermission cuando el endpoint lo declara.
 - Los endpoints contextuales validan el perfil activo desde PostgreSQL y rechazan perfiles incompatibles.
 - No se presenta el RBAC global actual como si ya ofreciera aislamiento por comercio o sucursal.
