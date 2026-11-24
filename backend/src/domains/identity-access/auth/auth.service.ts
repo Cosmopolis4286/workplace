@@ -1002,6 +1002,10 @@ export class AuthService {
     // authVersion was incremented in the same transaction: all previously
     // issued access and refresh JWTs now fail validation, even if Redis is down.
 
+    await this.redis.del(userFindByIdCacheKey(record.userId)).catch((error) => {
+      this.logger.warn('Could not clear cached user data after password reset', error);
+    });
+
     this.mail
       .sendSecurityAlert(
         result.user.email,
