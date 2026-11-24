@@ -1806,7 +1806,6 @@ model BusinessMembership {
   updatedAt  DateTime                @updatedAt
 
   @@unique([commerceId, userId])
-  @@unique([id, commerceId], map: "business_memberships_id_commerce_id_key")
   @@index([userId, status])
   @@index([commerceId, status])
   @@map("business_memberships")
