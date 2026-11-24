@@ -27,10 +27,10 @@ export class PermissionsGuard implements CanActivate {
     if (!required) return true;
 
     const { user } = context.switchToHttp().getRequest();
-    const profileTypes = this.reflector.getAllAndOverride<ProfileType[]>(PROFILE_CONTEXT_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const profileTypes = this.reflector.getAllAndOverride<ProfileType[]>(
+      PROFILE_CONTEXT_KEY,
+      [context.getHandler(), context.getClass()]
+    );
     if (!user) return false;
 
     // SUPERADMIN siempre tiene acceso
