@@ -60,7 +60,9 @@ describe('PermissionsGuard', () => {
   });
 
   it('calls hasEffectivePermission with (userId, role, permission) for non-SUPERADMIN', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) => key === PERMISSION_KEY ? 'orders:view' : undefined);
+    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) =>
+      key === PERMISSION_KEY ? 'orders:view' : undefined
+    );
     permissionsService.hasEffectivePermission.mockResolvedValue(true);
 
     const result = await guard.canActivate(
@@ -77,7 +79,9 @@ describe('PermissionsGuard', () => {
   });
 
   it('throws ForbiddenException when the effective permission is denied', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('orders:view');
+    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) =>
+      key === PERMISSION_KEY ? 'orders:view' : undefined
+    );
     permissionsService.hasEffectivePermission.mockResolvedValue(false);
 
     await expect(
