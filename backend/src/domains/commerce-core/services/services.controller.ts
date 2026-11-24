@@ -119,13 +119,15 @@ export class ServicesController {
   // ─── My Services ──────────────────────────────────────────────────────────
 
   @Get('mine')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ProfileContextGuard)
+  @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   getMine(@CurrentUser() user: any, @Query() dto: QueryServicesDto) {
     return this.servicesService.getMyServices(user.id, dto);
   }
 
   @Get('mine/stats')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuth, ProfileContextGuard)
+  @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   getMineStats(@CurrentUser() user: any) {
     return this.servicesService.getMyServicesStats(user.id);
   }
@@ -297,7 +299,8 @@ export class ServicesController {
   }
 
   @Get(':id/metrics')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuth, ProfileContextGuard)
+  @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   getMetrics(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.getServiceMetrics(id, user.id);
   }
