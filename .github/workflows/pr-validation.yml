@@ -48,7 +48,7 @@ jobs:
     - name: Diagnóstico temporal de formato
       run: |
         cd backend
-        pnpm exec prettier --config .prettierrc --write src/domains/identity-access/profile-activations/profile-activations.service.ts src/test/unit/profile-activations.service.test.ts
+        pnpm exec prettier --config .prettierrc --write src/domains/identity-access/profile-activations/profile-activations.service.ts src/test/unit/profile-activations.service.test.ts src/test/unit/profile-context.guard.test.ts
         cd ..
         git diff -- backend/src/domains/identity-access/profile-activations/profile-activations.service.ts backend/src/test/unit/profile-activations.service.test.ts
 
