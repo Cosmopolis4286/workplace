@@ -45,6 +45,13 @@ jobs:
       with:
         node-version: '22'
 
+    - name: Diagnóstico temporal de formato
+      run: |
+        cd backend
+        pnpm exec prettier --config .prettierrc --write src/test/unit/profile-activations.service.test.ts
+        cd ..
+        git diff -- backend/src/test/unit/profile-activations.service.test.ts
+
     - name: Validar schema Prisma
       run: cd backend && pnpm prisma validate && pnpm prisma generate
 
