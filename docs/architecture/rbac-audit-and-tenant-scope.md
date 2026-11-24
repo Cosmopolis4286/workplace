@@ -73,13 +73,13 @@ Por estas razones, **no se habilitan permisos por sucursal en esta fase**. Un fi
 
 ## Diseño requerido antes de habilitar RBAC multi-tenant
 
-1. Definir una identidad de miembro de comercio vinculada a `User`, con estado, invitación, revocación y relación explícita con `Commerce`.
-2. Definir asignación a una o varias sucursales; distinguir alcance de comercio completo de alcance limitado a sucursales.
-3. Resolver el contexto de comercio desde una membresía validada en backend, nunca desde un `commerceId` libre enviado por el cliente.
-4. Aplicar el scope en cada consulta y mutación de recursos, verificando que la sucursal pertenece al comercio activo.
-5. Mantener los permisos globales de plataforma separados de las capacidades del miembro del comercio.
-6. Añadir pruebas negativas de aislamiento: usuario de comercio A no puede leer, modificar, exportar ni inferir recursos de comercio B; sucursal A1 no puede acceder a datos de A2 cuando su membresía sea limitada.
-7. Auditar invitaciones, cambios de rol, asignaciones de sucursal, suspensiones y revocaciones.
+1. [x parcial] Identidad `BusinessMembership` vinculada a `User` y `Commerce`, con estado y revocación lógica. Falta el ciclo de invitaciones.
+2. [x] Modelo de alcance de comercio completo o sucursales seleccionadas, con FKs compuestas que impiden asignar sucursales de otro comercio.
+3. [x parcial] `BusinessMembershipService.resolve` valida propietario o membresía ACTIVE. Falta conectarlo a guards y controladores.
+4. Pendiente: aplicar el scope en cada consulta y mutación de recursos, verificando que la sucursal pertenece al comercio activo.
+5. Pendiente: mapear roles de membresía a permisos de comercio, separados del RBAC global de plataforma.
+6. Pendiente: pruebas negativas de aislamiento entre comercios y sucursales para lecturas, escrituras y exportaciones.
+7. Pendiente: invitaciones, cambios de rol, asignaciones de sucursal, suspensiones y revocaciones auditables.
 
 ## Implementación incremental de BusinessMembership
 
