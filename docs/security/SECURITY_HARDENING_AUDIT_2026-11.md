@@ -18,9 +18,9 @@ penetración ni confirma la configuración real del servidor de producción.
   móvil, CGNAT o VPN no deben crear una identidad de dispositivo nueva.
 - Un cambio de IP al renovar refresh token se registra como señal de riesgo,
   pero no bloquea por sí solo una sesión válida.
-- El restablecimiento de contraseña consume el token de forma condicional
-  dentro de la misma transacción que cambia la contraseña y revoca refresh
-  tokens. Incrementa `User.authVersion` en esa misma transacción; las
+- El restablecimiento y el cambio autenticado de contraseña incrementan
+  `User.authVersion` y revocan refresh tokens dentro de una transacción. El reset
+  consume además el token de recuperación de forma condicional. Las
   estrategias de access y refresh JWT comparan la versión firmada con la BD,
   por lo que la revocación no depende de que Redis acepte una blacklist.
 - Las sesiones nuevas se identifican por el JTI firmado del par de tokens,
