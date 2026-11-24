@@ -73,7 +73,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('Usuario inactivo');
     }
     if ((payload.ver ?? 0) !== account.authVersion) {
-      throw new UnauthorizedException('Token revocado. Inicia sesión nuevamente.');
+      throw new UnauthorizedException(
+        'Token revocado. Inicia sesión nuevamente.'
+      );
     }
 
     const user = await this.usersService.findById(userId);
@@ -82,7 +84,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     // 3. A session is identified by the signed JTI, never by User-Agent.
     // This prevents two devices with the same browser signature colliding.
     if (req.securityContext) {
-      req.securityContext.sessionId = jti;
+      req.securityContext.sessionId =
+        payload.ver === undefined
+          ? req.securityContext.legacyDeviceFingerprint
+          : jti;
       await this.validateActiveSession(userId, req.securityContext);
 
       // 4. Validar User-Agent contra fingerprint almacenado
