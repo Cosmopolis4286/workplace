@@ -341,12 +341,12 @@ describe('PermissionsService', () => {
       expect(hasMenu).toBe(true);
     });
 
-    it('uses only the declared profile types for contextual endpoints', async () => {
+    it('uses only the selected profile for contextual endpoints', async () => {
       mockPrisma.rolePermission.findMany.mockResolvedValue([]);
       mockPrisma.userPermission.findMany.mockResolvedValue([]);
       mockPrisma.userProfile.findMany.mockImplementation(({ where }: any) =>
         Promise.resolve(
-          where.type?.in?.includes(ProfileType.PROFESSIONAL)
+          where.id === 'profile-1'
             ? [
                 {
                   type: ProfileType.PROFESSIONAL,
@@ -364,7 +364,7 @@ describe('PermissionsService', () => {
         'user-1',
         Role.NORMAL,
         'services:edit',
-        [ProfileType.PROFESSIONAL]
+        'profile-1'
       );
 
       expect(result).toBe(true);
@@ -372,7 +372,7 @@ describe('PermissionsService', () => {
         where: {
           userId: 'user-1',
           status: 'ACTIVE',
-          type: { in: [ProfileType.PROFESSIONAL] },
+          id: 'profile-1',
         },
         select: { type: true, subtype: true },
       });
@@ -393,7 +393,7 @@ describe('PermissionsService', () => {
         'user-1',
         Role.NORMAL,
         'menu:edit',
-        [ProfileType.PROFESSIONAL]
+        'profile-1'
       );
 
       expect(result).toBe(false);
@@ -401,7 +401,7 @@ describe('PermissionsService', () => {
         where: {
           userId: 'user-1',
           status: 'ACTIVE',
-          type: { in: [ProfileType.PROFESSIONAL] },
+          id: 'profile-1',
         },
         select: { type: true, subtype: true },
       });
