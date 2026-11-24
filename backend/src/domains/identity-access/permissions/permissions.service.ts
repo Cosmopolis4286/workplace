@@ -231,7 +231,10 @@ export class PermissionsService implements PermissionsFacade {
 
     if (await this.hasPermission(role, permissionKey)) return true;
 
-    const profileKeys = await this.getActiveProfilePermissions(userId, profileTypes);
+    const profileKeys = await this.getActiveProfilePermissions(
+      userId,
+      profileTypes
+    );
     return profileKeys.includes(permissionKey);
   }
 
