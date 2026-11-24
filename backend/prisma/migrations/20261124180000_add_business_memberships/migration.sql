@@ -1,7 +1,6 @@
 -- Membresías adicionales; Commerce.userId sigue siendo el propietario canónico.
 CREATE TYPE "BusinessMembershipRole" AS ENUM ('ADMIN', 'MANAGER', 'STAFF', 'VIEWER');
 CREATE TYPE "BusinessMembershipStatus" AS ENUM ('ACTIVE', 'SUSPENDED', 'REVOKED');
-CREATE TYPE "BusinessMembershipScope" AS ENUM ('COMMERCE', 'SELECTED_BRANCHES');
 
 CREATE TABLE "business_memberships" (
     "id" TEXT NOT NULL,
@@ -9,23 +8,11 @@ CREATE TABLE "business_memberships" (
     "userId" TEXT NOT NULL,
     "role" "BusinessMembershipRole" NOT NULL DEFAULT 'STAFF',
     "status" "BusinessMembershipStatus" NOT NULL DEFAULT 'ACTIVE',
-    "scope" "BusinessMembershipScope" NOT NULL DEFAULT 'COMMERCE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "business_memberships_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "business_membership_branches" (
-    "id" TEXT NOT NULL,
-    "membershipId" TEXT NOT NULL,
-    "commerceId" TEXT NOT NULL,
-    "branchId" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "business_membership_branches_pkey" PRIMARY KEY ("id")
-);
-
-CREATE UNIQUE INDEX "branches_id_commerce_id_key"
-    ON "branches"("id", "commerceId");
 CREATE UNIQUE INDEX "business_memberships_commerceId_userId_key"
     ON "business_memberships"("commerceId", "userId");
 CREATE UNIQUE INDEX "business_memberships_id_commerce_id_key"
@@ -48,13 +35,3 @@ ALTER TABLE "business_memberships"
     FOREIGN KEY ("userId") REFERENCES "users"("id")
     ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "business_membership_branches"
-    ADD CONSTRAINT "business_membership_branches_membership_commerce_fkey"
-    FOREIGN KEY ("membershipId", "commerceId")
-    REFERENCES "business_memberships"("id", "commerceId")
-    ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "business_membership_branches"
-    ADD CONSTRAINT "business_membership_branches_branch_commerce_fkey"
-    FOREIGN KEY ("branchId", "commerceId")
-    REFERENCES "branches"("id", "commerceId")
-    ON DELETE CASCADE ON UPDATE CASCADE;
