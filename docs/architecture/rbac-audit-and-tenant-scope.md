@@ -72,7 +72,7 @@ Commerce.userId sigue siendo el propietario canónico. El propietario no necesit
 
 BusinessMembershipService.resolve(userId, commerceId) es una primitiva aislada que reconoce al propietario o valida una membresía ACTIVE para el par exacto de IDs. **Todavía no está conectado a CommerceResolverService, PermissionsGuard, ModuleAccessGuard ni a los controladores operativos.** Por tanto, crear una fila de membresía no concede acceso a datos del comercio en esta fase.
 
-Esta entrega tampoco incluye invitaciones ni endpoints de administración. Antes de activar el acceso se implementarán aceptación autenticada con token de un solo uso, contexto de comercio explícito, permisos scoped por membresía, plan del propietario y filtros IDOR/cross-tenant.
+Esta entrega tampoco incluye invitaciones ni endpoints de administración. Antes de activar el acceso se implementarán aceptación autenticada con token de un solo uso, contexto de comercio explícito, permisos scoped por membresía, plan del propietario y filtros IDOR/cross-tenant. Tampoco existe todavía una preferencia activeCommerceId ni un selector de comercio: no se debe inferir ni cachear un comercio accesible para un usuario con varias membresías.
 
 No se modela todavía asignación de sucursales: la estructura de Branch y los recursos operativos no ofrecen un scope de sucursal de punta a punta. No debe añadirse una tabla de asignación que aparente imponer una frontera que los queries todavía no aplican.
 
