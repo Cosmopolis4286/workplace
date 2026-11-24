@@ -6,7 +6,7 @@ export interface SecurityContext {
   ipAddress: string;
   userAgent: string;
   deviceFingerprint: string;
-  sessionId: string;
+  sessionId?: string;
   lastActivity: Date;
 }
 
@@ -32,7 +32,6 @@ export class SecurityContextMiddleware implements NestMiddleware {
       ipAddress,
       userAgent,
       deviceFingerprint,
-      sessionId: crypto.randomUUID(),
       lastActivity: new Date(),
     };
 
