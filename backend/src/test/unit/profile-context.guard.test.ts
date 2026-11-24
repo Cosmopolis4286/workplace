@@ -74,13 +74,13 @@ describe('ProfileContextGuard', () => {
       },
       select: { id: true, type: true, subtype: true },
     });
-    expect(
-      (context.switchToHttp().getRequest() as any).profileContext
-    ).toEqual({
-      id: 'profile-1',
-      type: ProfileType.PROFESSIONAL,
-      subtype: 'FREELANCER',
-    });
+    expect((context.switchToHttp().getRequest() as any).profileContext).toEqual(
+      {
+        id: 'profile-1',
+        type: ProfileType.PROFESSIONAL,
+        subtype: 'FREELANCER',
+      }
+    );
   });
 
   it('uses the sole eligible profile when no active profile has been selected yet', async () => {
