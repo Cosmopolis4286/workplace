@@ -119,50 +119,44 @@ describe('ProfileActivationsService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
-    it(
-      'convierte una colisión concurrente del índice único en ConflictException',
-      async () => {
-        mockPrismaService.userProfile.findFirst.mockResolvedValue(null);
-        mockPrismaService.userProfile.create.mockRejectedValue(
-          new Prisma.PrismaClientKnownRequestError(
-            'Unique constraint failed',
-            { code: 'P2002', clientVersion: 'test' }
-          )
-        );
+    it('convierte una colisión concurrente del índice único en ConflictException', async () => {
+      mockPrismaService.userProfile.findFirst.mockResolvedValue(null);
+      mockPrismaService.userProfile.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed',
+          { code: 'P2002', clientVersion: 'test' }
+        )
+      );
 
-        await expect(
-          service.create(USER_ID, {
-            type: ProfileType.PROFESSIONAL,
-            subtype: ProfessionalSubtype.FREELANCER,
-          } as any)
-        ).rejects.toBeInstanceOf(ConflictException);
-      }
-    );
+      await expect(
+        service.create(USER_ID, {
+          type: ProfileType.PROFESSIONAL,
+          subtype: ProfessionalSubtype.FREELANCER,
+        } as any)
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
 
-    it(
-      'hace idempotente la creación concurrente del perfil CUSTOMER',
-      async () => {
-        const existingCustomer = {
-          id: 'customer-created-by-concurrent-request',
-          userId: USER_ID,
-          type: ProfileType.CUSTOMER,
-          status: ProfileStatus.ACTIVE,
-        };
-        mockPrismaService.userProfile.findFirst
-          .mockResolvedValueOnce(null)
-          .mockResolvedValueOnce(existingCustomer);
-        mockPrismaService.userProfile.create.mockRejectedValue(
-          new Prisma.PrismaClientKnownRequestError(
-            'Unique constraint failed',
-            { code: 'P2002', clientVersion: 'test' }
-          )
-        );
+    it('hace idempotente la creación concurrente del perfil CUSTOMER', async () => {
+      const existingCustomer = {
+        id: 'customer-created-by-concurrent-request',
+        userId: USER_ID,
+        type: ProfileType.CUSTOMER,
+        status: ProfileStatus.ACTIVE,
+      };
+      mockPrismaService.userProfile.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(existingCustomer);
+      mockPrismaService.userProfile.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed',
+          { code: 'P2002', clientVersion: 'test' }
+        )
+      );
 
-        await expect(service.ensureCustomerProfile(USER_ID)).resolves.toEqual(
-          existingCustomer
-        );
-      }
-    );
+      await expect(service.ensureCustomerProfile(USER_ID)).resolves.toEqual(
+        existingCustomer
+      );
+    });
 
     it('activa CUSTOMER de inmediato, sin quedar PENDING', async () => {
       mockPrismaService.userProfile.findFirst.mockResolvedValue(null);
@@ -390,37 +384,34 @@ describe('ProfileActivationsService', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it(
-      'traduce a 409 la colisión concurrente entre aprobaciones incompatibles',
-      async () => {
-        mockPrismaService.userProfile.findUnique.mockResolvedValue(
-          pendingProfile({
-            type: ProfileType.BUSINESS,
-            subtype: null,
-          })
-        );
-        mockPrismaService.userProfile.findFirst
-          .mockResolvedValueOnce(null)
-          .mockResolvedValueOnce({
-            id: 'other-profile',
-            type: ProfileType.PROFESSIONAL,
-            status: ProfileStatus.ACTIVE,
-          });
-        mockPrismaService.userProfile.updateMany.mockRejectedValue(
-          new Prisma.PrismaClientKnownRequestError(
-            'Unique constraint failed',
-            { code: 'P2002', clientVersion: 'test' }
-          )
-        );
+    it('traduce a 409 la colisión concurrente entre aprobaciones incompatibles', async () => {
+      mockPrismaService.userProfile.findUnique.mockResolvedValue(
+        pendingProfile({
+          type: ProfileType.BUSINESS,
+          subtype: null,
+        })
+      );
+      mockPrismaService.userProfile.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 'other-profile',
+          type: ProfileType.PROFESSIONAL,
+          status: ProfileStatus.ACTIVE,
+        });
+      mockPrismaService.userProfile.updateMany.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed',
+          { code: 'P2002', clientVersion: 'test' }
+        )
+      );
 
-        await expect(
-          service.review(PROFILE_ID, ADMIN_ID, {
-            status: ProfileStatus.ACTIVE,
-          } as any)
-        ).rejects.toBeInstanceOf(ConflictException);
-        expect(mockCommerceResolver.ensureForUser).not.toHaveBeenCalled();
-      }
-    );
+      await expect(
+        service.review(PROFILE_ID, ADMIN_ID, {
+          status: ProfileStatus.ACTIVE,
+        } as any)
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(mockCommerceResolver.ensureForUser).not.toHaveBeenCalled();
+    });
 
     it('bloquea la activación si el KYC del solicitante no está APPROVED', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
