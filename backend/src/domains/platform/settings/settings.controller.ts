@@ -1,20 +1,21 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Body,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Body, Query, UseGuards } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { CapabilityGuard } from '../../../common/guards/capability.guard';
-import { ProfileContextGuard } from '../../../common/guards/profile-context.guard';
-import { RequireProfileContext } from '../../../common/decorators/require-profile-context.decorator';
+import {
+  ProfileContextGuard,
+} from '../../../common/guards/profile-context.guard';
+import {
+  RequireProfileContext,
+} from '../../../common/decorators/require-profile-context.decorator';
 import { ProfileType } from '@prisma/client';
-import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
-import { RequireCapability } from '../../../common/decorators/require-capability.decorator';
+import {
+  RequirePermission,
+} from '../../../common/decorators/require-permission.decorator';
+import {
+  RequireCapability,
+} from '../../../common/decorators/require-capability.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import {
   UpdateCommerceInfoDto,
