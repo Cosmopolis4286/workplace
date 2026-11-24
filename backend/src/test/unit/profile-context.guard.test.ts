@@ -49,7 +49,9 @@ describe('ProfileContextGuard', () => {
     ]);
   });
 
-  it('uses the persisted activeProfileId when it belongs to an allowed ACTIVE profile', async () => {
+  it(
+    'uses the persisted activeProfileId when it belongs to an allowed ACTIVE profile',
+    async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: 'profile-1' });
     prisma.userProfile.findMany.mockResolvedValue([
       { id: 'profile-1', type: ProfileType.PROFESSIONAL, subtype: 'FREELANCER' },
