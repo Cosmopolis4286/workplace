@@ -97,6 +97,7 @@ model User {
   trialUsedAt DateTime?
 
   commerce                Commerce?
+  businessMemberships    BusinessMembership[]
   profileSettings         ProfileSettings?
   freelancerSettings      FreelancerSettings?
   refreshTokens           RefreshToken[]
@@ -301,6 +302,7 @@ model Commerce {
   bnplSettings       BnplSettings[]
   bnplTransactions   BnplTransaction[]
   driverInvitations  DriverInvitation[]
+  memberships        BusinessMembership[]
 
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
@@ -1753,6 +1755,19 @@ enum BranchStatus {
   CLOSED
 }
 
+enum BusinessMembershipRole {
+  ADMIN
+  MANAGER
+  STAFF
+  VIEWER
+}
+
+enum BusinessMembershipStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
 model Branch {
   id           String       @id @default(uuid())
   name         String
@@ -1773,6 +1788,27 @@ model Branch {
   @@unique([name, commerceId])
   @@index([commerceId])
   @@map("branches")
+}
+
+// Miembros adicionales del comercio. Commerce.userId sigue siendo el único
+// propietario canónico; esta tabla no transfiere titularidad ni facturación.
+// Su existencia por sí sola no concede acceso operativo: cada dominio deberá
+// validar la membresía y aplicar el scope commerceId antes de habilitarla.
+model BusinessMembership {
+  id         String                   @id @default(uuid())
+  commerceId String
+  commerce   Commerce                 @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       BusinessMembershipRole   @default(STAFF)
+  status     BusinessMembershipStatus @default(ACTIVE)
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+
+  @@unique([commerceId, userId])
+  @@index([userId, status])
+  @@index([commerceId, status])
+  @@map("business_memberships")
 }
 
 // ─── Suppliers (proveedores B2B del comercio) ──────────────────────────────────
