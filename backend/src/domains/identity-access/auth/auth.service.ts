@@ -684,40 +684,41 @@ export class AuthService {
   }
 
   async logout(userId: string, refreshToken?: string, securityContext?: any) {
-    // 1. Obtener JTI de los tokens activos para blacklist (columna jti
-    // dedicada — el campo `token` es un hash desde el que ya no se puede
-    // decodificar el JWT, ver RefreshToken en schema.prisma).
     const activeTokens = await this.prisma.refreshToken.findMany({
       where: { userId, revokedAt: null },
       select: { jti: true },
     });
+    const now = new Date();
 
-    // 2. Blacklist los JTI de los tokens JWT activos
-    for (const token of activeTokens) {
-      if (token.jti) {
-        // Blacklist por 15 minutos (tiempo de vida del access token)
-        await this.redis.blacklistToken(token.jti, 900);
+    // Persist revocation first. authVersion also invalidates in-flight access
+    // JWTs even if Redis is unavailable while the logout request is running.
+    await this.prisma.$transaction(async (tx) => {
+      if (refreshToken) {
+        await tx.refreshToken.updateMany({
+          where: { token: hashToken(refreshToken), userId, revokedAt: null },
+          data: { revokedAt: now },
+        });
       }
-    }
+      await tx.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { authVersion: { increment: 1 } },
+      });
+    });
 
-    // 3. Revocar el refresh token específico si se proporciona
-    if (refreshToken) {
-      await this.prisma.refreshToken.updateMany({
-        where: { token: hashToken(refreshToken), userId },
-        data: { revokedAt: new Date() },
+    // Redis blacklist remains defense in depth for legacy tokens during rollout.
+    for (const token of activeTokens) {
+      if (!token.jti) continue;
+      await this.redis.blacklistToken(token.jti, 900).catch((error) => {
+        this.logger.warn('Could not blacklist token after logout', error);
       });
     }
 
-    // 4. También revocar todos los refresh tokens del usuario (logout global)
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-
-    // 5. Eliminar todas las sesiones activas
     await this.clearAllUserSessions(userId);
 
-    // 6. Registrar evento de logout
     if (securityContext) {
       await this.logSecurityEvent(userId, 'LOGOUT', {
         ipAddress: securityContext.ipAddress,
