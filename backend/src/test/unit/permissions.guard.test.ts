@@ -2,25 +2,23 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { ProfileType, Role } from '@prisma/client';
-import {
-  PERMISSION_KEY,
-} from '../../common/decorators/require-permission.decorator';
-import {
-  PROFILE_CONTEXT_KEY,
-} from '../../common/decorators/require-profile-context.decorator';
+import { PERMISSION_KEY } from '../../common/decorators/require-permission.decorator';
+import { PROFILE_CONTEXT_KEY } from '../../common/decorators/require-profile-context.decorator';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import {
-  PermissionsService,
-} from '../../domains/identity-access/permissions/permissions.service';
+import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service';
 
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;
   let reflector: Reflector;
   let permissionsService: { hasEffectivePermission: jest.Mock };
 
-  function makeContext(user: any): ExecutionContext {
+  function makeContext(
+    user: any,
+    profileContext?: { id: string }
+  ): ExecutionContext {
+    const request = { user, profileContext };
     return {
-      switchToHttp: () => ({ getRequest: () => ({ user }) }),
+      switchToHttp: () => ({ getRequest: () => request }),
       getHandler: () => ({}),
       getClass: () => ({}),
     } as unknown as ExecutionContext;
@@ -41,9 +39,7 @@ describe('PermissionsGuard', () => {
     reflector = module.get<Reflector>(Reflector);
   });
 
-  it(
-    'allows the request when no @RequirePermission metadata is set',
-    async () => {
+  it('allows the request when no @RequirePermission metadata is set', async () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
       .mockImplementation(() => undefined);
@@ -56,7 +52,7 @@ describe('PermissionsGuard', () => {
     expect(permissionsService.hasEffectivePermission).not.toHaveBeenCalled();
   });
 
-  it('bypasses SUPERADMIN without calling the service', async () => {
+  it('bypasses SUPERADMIN without calling the service after context resolution', async () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
       .mockImplementation((key: string) =>
@@ -71,32 +67,50 @@ describe('PermissionsGuard', () => {
     expect(permissionsService.hasEffectivePermission).not.toHaveBeenCalled();
   });
 
-  it(
-    'calls hasEffectivePermission with (userId, role, permission) for non-SUPERADMIN',
-    async () => {
+  it('calls hasEffectivePermission with the exact resolved profile ID', async () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
-      .mockImplementation((key: string) =>
-        key === PERMISSION_KEY ? 'orders:view' : undefined
-      );
+      .mockImplementation((key: string) => {
+        if (key === PERMISSION_KEY) return 'settings:edit';
+        if (key === PROFILE_CONTEXT_KEY) return [ProfileType.PROFESSIONAL];
+        return undefined;
+      });
     permissionsService.hasEffectivePermission.mockResolvedValue(true);
 
     const result = await guard.canActivate(
-      makeContext({ id: 'u1', role: Role.PROFESIONAL })
+      makeContext(
+        { id: 'u1', role: Role.PROFESIONAL },
+        { id: 'profile-1' }
+      )
     );
 
     expect(result).toBe(true);
     expect(permissionsService.hasEffectivePermission).toHaveBeenCalledWith(
       'u1',
       Role.PROFESIONAL,
-      'orders:view',
-      undefined
+      'settings:edit',
+      'profile-1'
     );
   });
 
-  it(
-    'throws ForbiddenException when the effective permission is denied',
-    async () => {
+  it('fails closed when a contextual permission has no resolved profile', async () => {
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: string) => {
+        if (key === PERMISSION_KEY) return 'settings:edit';
+        if (key === PROFILE_CONTEXT_KEY) return [ProfileType.PROFESSIONAL];
+        return undefined;
+      });
+
+    await expect(
+      guard.canActivate(
+        makeContext({ id: 'u1', role: Role.PROFESIONAL })
+      )
+    ).rejects.toThrow(ForbiddenException);
+    expect(permissionsService.hasEffectivePermission).not.toHaveBeenCalled();
+  });
+
+  it('throws ForbiddenException when the effective permission is denied', async () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
       .mockImplementation((key: string) =>
@@ -107,30 +121,6 @@ describe('PermissionsGuard', () => {
     await expect(
       guard.canActivate(makeContext({ id: 'u1', role: Role.PROFESIONAL }))
     ).rejects.toThrow(ForbiddenException);
-  });
-
-  it(
-    'limits inherited profile permissions to the declared context',
-    async () => {
-    jest
-      .spyOn(reflector, 'getAllAndOverride')
-      .mockImplementation((key: string) => {
-        if (key === PERMISSION_KEY) return 'settings:edit';
-        if (key === PROFILE_CONTEXT_KEY) return [ProfileType.PROFESSIONAL];
-        return undefined;
-      });
-    permissionsService.hasEffectivePermission.mockResolvedValue(true);
-
-    await guard.canActivate(
-      makeContext({ id: 'u1', role: Role.PROFESIONAL })
-    );
-
-    expect(permissionsService.hasEffectivePermission).toHaveBeenCalledWith(
-      'u1',
-      Role.PROFESIONAL,
-      'settings:edit',
-      [ProfileType.PROFESSIONAL]
-    );
   });
 
   it('returns false when there is no user on the request', async () => {
