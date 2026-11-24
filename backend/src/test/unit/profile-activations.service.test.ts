@@ -119,7 +119,9 @@ describe('ProfileActivationsService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
-    it('convierte una colisión concurrente del índice único en ConflictException', async () => {
+    it(
+      'convierte una colisión concurrente del índice único en ConflictException',
+      async () => {
       mockPrismaService.userProfile.findFirst.mockResolvedValue(null);
       mockPrismaService.userProfile.create.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError(
@@ -136,7 +138,9 @@ describe('ProfileActivationsService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
-    it('hace idempotente la creación concurrente del perfil CUSTOMER', async () => {
+    it(
+      'hace idempotente la creación concurrente del perfil CUSTOMER',
+      async () => {
       const existingCustomer = {
         id: 'customer-created-by-concurrent-request',
         userId: USER_ID,
