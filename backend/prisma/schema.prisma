@@ -1793,6 +1793,7 @@ model Branch {
   updatedAt    DateTime     @updatedAt
 
   @@unique([name, commerceId])
+  @@unique([id, commerceId], map: "branches_id_commerce_id_key")
   @@index([commerceId])
   @@map("branches")
 }
