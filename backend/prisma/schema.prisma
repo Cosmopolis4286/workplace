@@ -1786,7 +1786,6 @@ model Branch {
   updatedAt    DateTime     @updatedAt
 
   @@unique([name, commerceId])
-  @@unique([id, commerceId], map: "branches_id_commerce_id_key")
   @@index([commerceId])
   @@map("branches")
 }
@@ -1794,7 +1793,7 @@ model Branch {
 // Membresías adicionales del comercio. El propietario canónico sigue siendo
 // Commerce.userId y no necesita una fila aquí. Esta tabla habilita a otros
 // usuarios; no concede acceso hasta que los módulos consulten el resolver
-// de membresías y apliquen los scopes de comercio/sucursal.
+// de membresías y apliquen el scope de comercio.
 model BusinessMembership {
   id         String                  @id @default(uuid())
   commerceId String
