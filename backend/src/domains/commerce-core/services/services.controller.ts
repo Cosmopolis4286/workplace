@@ -250,9 +250,9 @@ export class ServicesController {
   @Post(':id/images/from-url')
   @UseGuards(
     JwtAuthGuard,
+    ProfileContextGuard,
     PermissionsGuard,
-    ModuleAccessGuard,
-    ProfileContextGuard
+    ModuleAccessGuard
   )
   @RequireModule('services')
   @RequirePermission('services:edit')
@@ -273,9 +273,9 @@ export class ServicesController {
   @Delete(':id')
   @UseGuards(
     JwtAuthGuard,
+    ProfileContextGuard,
     PermissionsGuard,
-    ModuleAccessGuard,
-    ProfileContextGuard
+    ModuleAccessGuard
   )
   @RequireModule('services')
   @RequirePermission('services:delete')
