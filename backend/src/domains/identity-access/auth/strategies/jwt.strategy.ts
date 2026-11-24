@@ -12,7 +12,9 @@ import { isIP } from 'net';
 import { UsersService } from '../../users/users.service';
 import { RedisService } from '../../../../redis/redis.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { accessTokenExtractor } from '../../../../common/utils/jwt-extractor.util';
+import {
+  accessTokenExtractor,
+} from '../../../../common/utils/jwt-extractor.util';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
