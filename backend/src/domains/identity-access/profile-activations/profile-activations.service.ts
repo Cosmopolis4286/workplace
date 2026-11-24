@@ -385,28 +385,6 @@ export class ProfileActivationsService {
       });
     }
 
-    const conflictingProfileWhere = {
-      userId: profile.userId,
-      id: { not: id },
-      type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
-      status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] },
-    };
-
-    if (
-      dto.status === ProfileStatus.ACTIVE &&
-      REQUIRES_APPROVAL.includes(profile.type)
-    ) {
-      const conflicting =
-        await this.prisma.userProfile.findFirst({
-          where: conflictingProfileWhere,
-        });
-      if (conflicting) {
-        throw new ConflictException(
-          `Ya existe un perfil de ${TYPE_LABEL[conflicting.type]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Resuelve esa solicitud antes de activar este perfil.`
-        );
-      }
-    }
-
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.userProfile.update({
         where: { id: profileId },
@@ -588,6 +566,27 @@ export class ProfileActivationsService {
       throw new BadRequestException(
         'El solicitante debe tener su identidad verificada (KYC aprobado) antes de activar este perfil'
       );
+    }
+
+    const conflictingProfileWhere = {
+      userId: profile.userId,
+      id: { not: id },
+      type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+      status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] },
+    };
+
+    if (
+      dto.status === ProfileStatus.ACTIVE &&
+      REQUIRES_APPROVAL.includes(profile.type)
+    ) {
+      const conflicting = await this.prisma.userProfile.findFirst({
+        where: conflictingProfileWhere,
+      });
+      if (conflicting) {
+        throw new ConflictException(
+          `Ya existe un perfil de ${TYPE_LABEL[conflicting.type]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Resuelve esa solicitud antes de activar este perfil.`
+        );
+      }
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
