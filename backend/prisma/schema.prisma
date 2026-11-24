@@ -97,6 +97,7 @@ model User {
   trialUsedAt DateTime?
 
   commerce                Commerce?
+  businessMemberships    BusinessMembership[]
   profileSettings         ProfileSettings?
   freelancerSettings      FreelancerSettings?
   refreshTokens           RefreshToken[]
@@ -301,6 +302,7 @@ model Commerce {
   bnplSettings       BnplSettings[]
   bnplTransactions   BnplTransaction[]
   driverInvitations  DriverInvitation[]
+  memberships        BusinessMembership[]
 
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
@@ -677,6 +679,7 @@ model Category {
   updatedAt     DateTime      @updatedAt
 
   @@unique([name, commerceId])
+  @@unique([id, commerceId], map: "branches_id_commerce_id_key")
   @@unique([name, isGlobal]) // Solo una categoría global con el mismo nombre
   @@index([commerceId])
   @@map("categories")
@@ -1755,6 +1758,24 @@ enum BranchStatus {
   CLOSED
 }
 
+enum BusinessMembershipRole {
+  ADMIN
+  MANAGER
+  STAFF
+  VIEWER
+}
+
+enum BusinessMembershipStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+enum BusinessMembershipScope {
+  COMMERCE
+  SELECTED_BRANCHES
+}
+
 model Branch {
   id           String       @id @default(uuid())
   name         String
@@ -1769,12 +1790,55 @@ model Branch {
   notes        String?
   commerceId   String
   commerce     Commerce     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  membershipAssignments BusinessMembershipBranch[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
   @@unique([name, commerceId])
   @@index([commerceId])
   @@map("branches")
+}
+
+// Membresías adicionales del comercio. El propietario canónico sigue siendo
+// Commerce.userId y no necesita una fila aquí. Esta tabla habilita a otros
+// usuarios; no concede acceso hasta que los módulos consulten el resolver
+// de membresías y apliquen los scopes de comercio/sucursal.
+model BusinessMembership {
+  id         String                  @id @default(uuid())
+  commerceId String
+  commerce   Commerce                @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       BusinessMembershipRole  @default(STAFF)
+  status     BusinessMembershipStatus @default(ACTIVE)
+  // COMMERCE = todas las sucursales actuales y futuras.
+  // SELECTED_BRANCHES = únicamente las sucursales registradas en la tabla puente.
+  scope      BusinessMembershipScope @default(COMMERCE)
+  branchAssignments BusinessMembershipBranch[]
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  @@unique([commerceId, userId])
+  @@unique([id, commerceId], map: "business_memberships_id_commerce_id_key")
+  @@index([userId, status])
+  @@index([commerceId, status])
+  @@map("business_memberships")
+}
+
+// La clave compuesta incluye commerceId en ambas FKs: PostgreSQL impide
+// asignar por error una membresía del comercio A a una sucursal del B.
+model BusinessMembershipBranch {
+  id           String            @id @default(uuid())
+  membershipId String
+  commerceId   String
+  branchId     String
+  membership   BusinessMembership @relation(fields: [membershipId, commerceId], references: [id, commerceId], onDelete: Cascade, map: "business_membership_branches_membership_commerce_fkey")
+  branch       Branch             @relation(fields: [branchId, commerceId], references: [id, commerceId], onDelete: Cascade, map: "business_membership_branches_branch_commerce_fkey")
+  createdAt    DateTime           @default(now())
+
+  @@unique([membershipId, branchId])
+  @@index([commerceId, branchId])
+  @@map("business_membership_branches")
 }
 
 // ─── Suppliers (proveedores B2B del comercio) ──────────────────────────────────
