@@ -771,7 +771,10 @@ export class AuthService {
 
     if (session.jti) {
       await this.redis.blacklistToken(session.jti, 900).catch((error) => {
-        this.logger.warn('Could not blacklist token after session revocation', error);
+        this.logger.warn(
+          'Could not blacklist token after session revocation',
+          error
+        );
       });
     }
 
@@ -799,7 +802,10 @@ export class AuthService {
     for (const token of tokens) {
       if (!token.jti) continue;
       await this.redis.blacklistToken(token.jti, 900).catch((error) => {
-        this.logger.warn('Could not blacklist token after global revocation', error);
+        this.logger.warn(
+          'Could not blacklist token after global revocation',
+          error
+        );
       });
     }
 
