@@ -11,6 +11,7 @@ import { CommerceResolverService } from '../../common/commerce-resolver/commerce
 import { RoleResolverService } from '../../common/account-type/role-resolver.service';
 import { Role } from '@prisma/client';
 import { I18nService } from 'nestjs-i18n';
+import * as bcrypt from 'bcrypt';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -120,6 +121,42 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
+  });
+
+  describe('changePassword session revocation', () => {
+    it('increments authVersion and revokes refresh tokens in one transaction', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'user@example.com',
+        firstName: 'User',
+        password: 'current-hash',
+      });
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true);
+      jest.spyOn(bcrypt, 'hash').mockResolvedValue('new-hash' as never);
+
+      await service.changePassword('user-1', {
+        currentPassword: 'CurrentPassword123',
+        newPassword: 'NewPassword123!',
+      } as any);
+
+      expect(mockPrismaService.$transaction).toHaveBeenCalled();
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: expect.objectContaining({
+            password: 'new-hash',
+            authVersion: { increment: 1 },
+          }),
+        })
+      );
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'user-1', revokedAt: null },
+        })
+      );
+      expect(mockRedisService.del).toHaveBeenCalled();
+      jest.restoreAllMocks();
+    });
   });
 
   it('should be defined', () => {
