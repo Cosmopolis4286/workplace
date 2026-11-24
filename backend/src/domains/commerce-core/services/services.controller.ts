@@ -136,11 +136,11 @@ export class ServicesController {
   @RequireKycOperation('service.publish')
   @UseGuards(
     JwtAuthGuard,
+    ProfileContextGuard,
     PermissionsGuard,
     KycApprovedGuard,
     CategoryScopeGuard,
-    ModuleAccessGuard,
-    ProfileContextGuard
+    ModuleAccessGuard
   )
   @RequireModule('services')
   @RequirePermission('services:create')
@@ -153,10 +153,10 @@ export class ServicesController {
   @Put(':id')
   @UseGuards(
     JwtAuthGuard,
+    ProfileContextGuard,
     PermissionsGuard,
     CategoryScopeGuard,
-    ModuleAccessGuard,
-    ProfileContextGuard
+    ModuleAccessGuard
   )
   @RequireModule('services')
   @RequirePermission('services:edit')
@@ -173,9 +173,9 @@ export class ServicesController {
   @Patch(':id/toggle')
   @UseGuards(
     JwtAuthGuard,
+    ProfileContextGuard,
     PermissionsGuard,
-    ModuleAccessGuard,
-    ProfileContextGuard
+    ModuleAccessGuard
   )
   @RequireModule('services')
   @RequirePermission('services:edit')
