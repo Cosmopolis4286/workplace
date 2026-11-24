@@ -1,4 +1,10 @@
-import { IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class ResetPasswordDto {
   @IsUUID('4', { message: 'Token de recuperación inválido' })
@@ -10,8 +16,7 @@ export class ResetPasswordDto {
     message: 'La contraseña no puede superar 72 caracteres',
   })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message:
-      'La contraseña debe incluir mayúsculas, minúsculas y números',
+    message: 'La contraseña debe incluir mayúsculas, minúsculas y números',
   })
   password: string;
 }
