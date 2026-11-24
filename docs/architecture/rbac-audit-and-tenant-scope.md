@@ -36,10 +36,12 @@ Los endpoints que representan una operación de un perfil concreto pueden declar
 
 - `PermissionsGuard` conserva los permisos base de `RolePermission` y los
   overrides globales de `UserPermission`, pero limita la parte heredada de
-  `ProfilePermission` a los tipos declarados por el endpoint.
+  `ProfilePermission` al perfil exacto resuelto para la petición.
 - `ProfileContextGuard` vuelve a leer `User.activeProfileId` desde PostgreSQL
   y comprueba que apunta a un perfil del propio usuario, de tipo permitido y
-  en estado `ACTIVE`. No acepta IDs de perfil enviados en body, query o headers.
+  en estado `ACTIVE`. El ID resuelto se pasa a `PermissionsGuard`, que vuelve a
+  filtrar por `userId + profileId + ACTIVE`; no une otros perfiles del mismo tipo.
+  No acepta IDs de perfil enviados en body, query o headers.
 - Si no se ha elegido contexto y existe exactamente un perfil compatible, se
   usa ese perfil sin mutar la preferencia persistida. Si hay varios perfiles
   compatibles o el contexto seleccionado apunta a otro tipo, la operación
@@ -84,6 +86,6 @@ Por estas razones, **no se habilitan permisos por sucursal en esta fase**. Un fi
 - Cada cambio RBAC exitoso identifica al actor, alcance, objetivo, estado anterior y estado posterior.
 - Las operaciones masivas generan un evento con el conjunto completo de cambios.
 - La expiración y el motivo de overrides individuales quedan en el historial.
-- Se mantiene la precedencia efectiva existente: UserPermission (override) → RolePermission → ProfilePermission; el filtro contextual limita únicamente ProfilePermission cuando el endpoint lo declara.
+- Se mantiene la precedencia efectiva existente: UserPermission (override) → RolePermission → ProfilePermission; el filtro contextual limita únicamente ProfilePermission al ID exacto del perfil validado cuando el endpoint lo declara.
 - Los endpoints contextuales validan el perfil activo desde PostgreSQL y rechazan perfiles incompatibles.
 - No se presenta el RBAC global actual como si ya ofreciera aislamiento por comercio o sucursal.
