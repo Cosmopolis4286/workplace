@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
-import { ConflictException, ForbiddenException, ExecutionContext } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  ExecutionContext,
+} from '@nestjs/common';
 import { ProfileStatus, ProfileType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProfileContextGuard } from '../../common/guards/profile-context.guard';
@@ -15,7 +19,11 @@ describe('ProfileContextGuard', () => {
   };
 
   function makeContext(user: any, body: any = {}): ExecutionContext {
-    const request = { user, body, headers: { 'x-profile-id': 'attacker-controlled' } };
+    const request = {
+      user,
+      body,
+      headers: { 'x-profile-id': 'attacker-controlled' },
+    };
     return {
       switchToHttp: () => ({ getRequest: () => request }),
       getHandler: () => ({}),
@@ -58,7 +66,9 @@ describe('ProfileContextGuard', () => {
       },
       select: { id: true, type: true, subtype: true },
     });
-    expect((context.switchToHttp().getRequest() as any).profileContext).toEqual({
+    expect(
+      (context.switchToHttp().getRequest() as any).profileContext
+    ).toEqual({
       id: 'profile-1',
       type: ProfileType.PROFESSIONAL,
       subtype: 'FREELANCER',
@@ -68,7 +78,11 @@ describe('ProfileContextGuard', () => {
   it('uses the sole eligible profile when no active profile has been selected yet', async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: null });
     prisma.userProfile.findMany.mockResolvedValue([
-      { id: 'profile-1', type: ProfileType.PROFESSIONAL, subtype: 'SERVICE_PROVIDER' },
+      {
+        id: 'profile-1',
+        type: ProfileType.PROFESSIONAL,
+        subtype: 'SERVICE_PROVIDER',
+      },
     ]);
 
     await expect(guard.canActivate(makeContext({ id: 'user-1' }))).resolves.toBe(true);
@@ -77,8 +91,16 @@ describe('ProfileContextGuard', () => {
   it('requires explicit context when more than one eligible profile exists', async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: null });
     prisma.userProfile.findMany.mockResolvedValue([
-      { id: 'profile-1', type: ProfileType.PROFESSIONAL, subtype: 'FREELANCER' },
-      { id: 'profile-2', type: ProfileType.PROFESSIONAL, subtype: 'SERVICE_PROVIDER' },
+      {
+        id: 'profile-1',
+        type: ProfileType.PROFESSIONAL,
+        subtype: 'FREELANCER',
+      },
+      {
+        id: 'profile-2',
+        type: ProfileType.PROFESSIONAL,
+        subtype: 'SERVICE_PROVIDER',
+      },
     ]);
 
     await expect(
@@ -111,7 +133,9 @@ describe('ProfileContextGuard', () => {
     prisma.userProfile.findMany.mockResolvedValue([]);
 
     await expect(
-      guard.canActivate(makeContext({ id: 'user-1' }, { profileId: 'profile-1' }))
+      guard.canActivate(
+        makeContext({ id: 'user-1' }, { profileId: 'profile-1' })
+      )
     ).rejects.toThrow(ForbiddenException);
   });
 });
