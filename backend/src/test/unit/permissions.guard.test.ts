@@ -36,7 +36,9 @@ describe('PermissionsGuard', () => {
   });
 
   it('allows the request when no @RequirePermission metadata is set', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation(() => undefined);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation(() => undefined);
 
     const result = await guard.canActivate(
       makeContext({ id: 'u1', role: Role.PROFESIONAL })
@@ -47,9 +49,11 @@ describe('PermissionsGuard', () => {
   });
 
   it('bypasses SUPERADMIN without calling the service', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) =>
-      key === PERMISSION_KEY ? 'orders:view' : undefined
-    );
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: string) =>
+        key === PERMISSION_KEY ? 'orders:view' : undefined
+      );
 
     const result = await guard.canActivate(
       makeContext({ id: 'u1', role: Role.SUPERADMIN })
@@ -90,11 +94,13 @@ describe('PermissionsGuard', () => {
   });
 
   it('limits inherited profile permissions to the declared context', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) => {
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: string) => {
       if (key === PERMISSION_KEY) return 'settings:edit';
       if (key === PROFILE_CONTEXT_KEY) return [ProfileType.PROFESSIONAL];
-      return undefined;
-    });
+        return undefined;
+      });
     permissionsService.hasEffectivePermission.mockResolvedValue(true);
 
     await guard.canActivate(
@@ -110,7 +116,11 @@ describe('PermissionsGuard', () => {
   });
 
   it('returns false when there is no user on the request', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('orders:view');
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: string) =>
+        key === PERMISSION_KEY ? 'orders:view' : undefined
+      );
 
     const result = await guard.canActivate(makeContext(undefined));
 
