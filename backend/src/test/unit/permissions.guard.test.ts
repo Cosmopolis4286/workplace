@@ -64,9 +64,11 @@ describe('PermissionsGuard', () => {
   });
 
   it('calls hasEffectivePermission with (userId, role, permission) for non-SUPERADMIN', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) =>
-      key === PERMISSION_KEY ? 'orders:view' : undefined
-    );
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: string) =>
+        key === PERMISSION_KEY ? 'orders:view' : undefined
+      );
     permissionsService.hasEffectivePermission.mockResolvedValue(true);
 
     const result = await guard.canActivate(
@@ -97,8 +99,8 @@ describe('PermissionsGuard', () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
       .mockImplementation((key: string) => {
-      if (key === PERMISSION_KEY) return 'settings:edit';
-      if (key === PROFILE_CONTEXT_KEY) return [ProfileType.PROFESSIONAL];
+        if (key === PERMISSION_KEY) return 'settings:edit';
+        if (key === PROFILE_CONTEXT_KEY) return [ProfileType.PROFESSIONAL];
         return undefined;
       });
     permissionsService.hasEffectivePermission.mockResolvedValue(true);
