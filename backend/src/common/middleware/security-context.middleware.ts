@@ -7,6 +7,7 @@ export interface SecurityContext {
   userAgent: string;
   deviceFingerprint: string;
   sessionId?: string;
+  legacyDeviceFingerprint: string;
   lastActivity: Date;
 }
 
@@ -27,11 +28,16 @@ export class SecurityContextMiddleware implements NestMiddleware {
     const ipAddress = this.extractIpAddress(req);
     const userAgent = req.headers['user-agent'] || '';
     const deviceFingerprint = this.generateDeviceFingerprint(userAgent);
+    const legacyDeviceFingerprint = this.generateLegacyDeviceFingerprint(
+      ipAddress,
+      userAgent
+    );
 
     req.securityContext = {
       ipAddress,
       userAgent,
       deviceFingerprint,
+      legacyDeviceFingerprint,
       lastActivity: new Date(),
     };
 
@@ -56,6 +62,28 @@ export class SecurityContextMiddleware implements NestMiddleware {
     return crypto
       .createHash('sha256')
       .update(userAgent || 'unknown-user-agent')
+      .digest('hex');
+  }
+
+  /** Reproduces the previous key only for already-issued JWTs during rollout. */
+  private generateLegacyDeviceFingerprint(
+    ipAddress: string,
+    userAgent: string
+  ): string {
+    const platforms = ['Windows', 'Mac', 'Linux', 'Android', 'iOS'];
+    const platform =
+      platforms.find((value) => userAgent.includes(value)) || 'Unknown';
+    const fingerprintData = {
+      ip: ipAddress,
+      userAgent,
+      acceptLanguage: 'es',
+      acceptEncoding: 'gzip',
+      platform,
+    };
+
+    return crypto
+      .createHash('sha256')
+      .update(JSON.stringify(fingerprintData))
       .digest('hex');
   }
 }
