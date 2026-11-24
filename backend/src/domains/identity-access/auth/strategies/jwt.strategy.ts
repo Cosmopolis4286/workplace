@@ -67,7 +67,19 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     // Cached user profiles must never keep a revoked token version alive.
     const account = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { isActive: true, authVersion: true },
+      select: {
+        isActive: true,
+        authVersion: true,
+        refreshTokens: {
+          where: {
+            jti,
+            revokedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          select: { id: true },
+          take: 1,
+        },
+      },
     });
     if (!account || !account.isActive) {
       throw new UnauthorizedException('Usuario inactivo');
@@ -75,6 +87,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if ((payload.ver ?? 0) !== account.authVersion) {
       throw new UnauthorizedException(
         'Token revocado. Inicia sesión nuevamente.'
+      );
+    }
+    if (account.refreshTokens.length === 0) {
+      throw new UnauthorizedException(
+        'La sesión asociada a este token ya no está activa.'
       );
     }
 
