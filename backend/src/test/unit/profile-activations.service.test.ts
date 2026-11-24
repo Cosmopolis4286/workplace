@@ -20,6 +20,8 @@ import { RoleResolverService } from '../../common/account-type/role-resolver.ser
 import { PLANS_FACADE } from '../../domains/money/plans/plans.facade';
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service';
 
+// temporal: activar diagnóstico de Prettier
+
 describe('ProfileActivationsService', () => {
   let service: ProfileActivationsService;
   let mockPrismaService: any;
