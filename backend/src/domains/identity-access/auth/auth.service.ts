@@ -764,14 +764,16 @@ export class AuthService {
       throw new NotFoundException(this.i18n.t('auth.session.not_found'));
     }
 
-    if (session.jti) {
-      await this.redis.blacklistToken(session.jti, 900);
-    }
-
     await this.prisma.refreshToken.update({
       where: { id: sessionId },
       data: { revokedAt: new Date() },
     });
+
+    if (session.jti) {
+      await this.redis.blacklistToken(session.jti, 900).catch((error) => {
+        this.logger.warn('Could not blacklist token after session revocation', error);
+      });
+    }
 
     return { message: this.i18n.t('auth.session.revoked') };
   }
