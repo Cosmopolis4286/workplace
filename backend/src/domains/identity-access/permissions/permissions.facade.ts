@@ -1,4 +1,4 @@
-import { ProfileType, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 
 /**
  * Contrato público de PermissionsService para consumidores de otros
@@ -19,7 +19,7 @@ export interface PermissionsFacade {
     userId: string,
     role: Role,
     permissionKey: string,
-    profileTypes?: ProfileType[]
+    profileId?: string
   ): Promise<boolean>;
 }
 
