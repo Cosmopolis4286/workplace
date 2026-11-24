@@ -24,9 +24,14 @@ penetración ni confirma la configuración real del servidor de producción.
   estrategias de access y refresh JWT comparan la versión firmada con la BD,
   por lo que la revocación no depende de que Redis acepte una blacklist.
 - Las sesiones nuevas se identifican por el JTI firmado del par de tokens,
-  evitando colisiones entre dispositivos que comparten User-Agent. Los JWT
-  anteriores a `authVersion` conservan temporalmente la clave legacy de
-  sesión mientras la cuenta siga en versión 0.
+  evitando colisiones entre dispositivos que comparten User-Agent. JwtStrategy
+  también exige que el JTI tenga un refresh token activo en BD; la rotación y
+  la revocación de una sesión invalidan su access JWT aunque Redis falle.
+  Los JWT anteriores a `authVersion` conservan temporalmente la clave legacy
+  de sesión mientras la cuenta siga en versión 0.
+- Logout global y revocación global de sesiones incrementan `authVersion` y
+  revocan refresh tokens en una transacción; la blacklist Redis queda como
+  defensa adicional, no como única fuente de revocación.
 - Se crean sesiones explícitas al registrar y al iniciar sesión con Google;
   el middleware ya no intenta reparar sesiones a partir de JWT sin verificar.
 - El endpoint de reset usa DTO validado (UUID, política de contraseña y límite
