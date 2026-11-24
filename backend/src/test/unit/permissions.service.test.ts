@@ -341,6 +341,43 @@ describe('PermissionsService', () => {
       expect(hasMenu).toBe(true);
     });
 
+    it('uses only the declared profile types for contextual endpoints', async () => {
+      mockPrisma.rolePermission.findMany.mockResolvedValue([]);
+      mockPrisma.userPermission.findMany.mockResolvedValue([]);
+      mockPrisma.userProfile.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.type?.in?.includes(ProfileType.PROFESSIONAL)
+            ? [
+                {
+                  type: ProfileType.PROFESSIONAL,
+                  subtype: ProfessionalSubtype.FREELANCER,
+                },
+              ]
+            : []
+        )
+      );
+      mockPrisma.profilePermission.findMany.mockResolvedValue([
+        { permission: { key: 'services:edit' } },
+      ]);
+
+      const result = await service.hasEffectivePermission(
+        'user-1',
+        Role.NORMAL,
+        'services:edit',
+        [ProfileType.PROFESSIONAL]
+      );
+
+      expect(result).toBe(true);
+      expect(mockPrisma.userProfile.findMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'user-1',
+          status: 'ACTIVE',
+          type: { in: [ProfileType.PROFESSIONAL] },
+        },
+        select: { type: true, subtype: true },
+      });
+    });
+
     it('a user-level deny override still wins over a profile-granted permission', async () => {
       mockPrisma.rolePermission.findMany.mockResolvedValue([]);
       mockPrisma.userPermission.findMany.mockResolvedValue([
