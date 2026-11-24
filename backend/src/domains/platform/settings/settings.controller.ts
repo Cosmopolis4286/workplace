@@ -36,9 +36,9 @@ import {
 @Controller('settings')
 @UseGuards(
   JwtAuthGuard,
+  ProfileContextGuard,
   PermissionsGuard,
-  CapabilityGuard,
-  ProfileContextGuard
+  CapabilityGuard
 )
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
