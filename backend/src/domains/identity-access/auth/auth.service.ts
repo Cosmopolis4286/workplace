@@ -74,7 +74,13 @@ export class AuthService {
       ...dto,
       acceptTerms: dto.acceptTerms,
     });
-    const tokens = await this.generateTokens(user.id, user.email, user.role, undefined, user.authVersion ?? 0);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      undefined,
+      user.authVersion ?? 0
+    );
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
@@ -211,7 +217,7 @@ export class AuthService {
 
     // Crear sesión activa
     if (securityContext) {
-      await this.createUserSession(user.id, securityContext);
+      await this.createUserSession(user.id, { ...securityContext, sessionId: tokens.jti });
     }
 
     this.audit.log({
@@ -279,7 +285,13 @@ export class AuthService {
     const { password, ...safeUser } = fullUser as typeof fullUser & {
       password: string;
     };
-    const tokens = await this.generateTokens(user.id, user.email, user.role, undefined, user.authVersion ?? 0);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      undefined,
+      (fullUser as any)?.authVersion ?? 0
+    );
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
@@ -508,7 +520,13 @@ export class AuthService {
     // disabling an account must take effect immediately for refresh requests.
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, isActive: true, authVersion: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        authVersion: true,
+      },
     });
     if (!user || !user.isActive) {
       throw new ForbiddenException(this.i18n.t('auth.refresh.invalid_token'));
