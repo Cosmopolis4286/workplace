@@ -463,134 +463,134 @@ export class ProfileActivationsService {
 
     const updated = await this.prisma
       .$transaction(async (tx) => {
-          const result = await tx.userProfile.update({
-            where: { id: profileId },
-            data: {
-              status: ProfileStatus.ACTIVE,
-              suspendedBySelf: false,
-              deactivationReason: null,
-              deactivationNote: null,
-              deactivatedAt: null,
-            },
-          });
-  
-          if (
-            profile.type === ProfileType.BUSINESS ||
-            profile.type === ProfileType.PROFESSIONAL
-          ) {
-            await this.roleResolver.syncRoleForUser(userId, tx);
-            // Un perfil aprobado antes de que existiera la provisión de Commerce
-            // para PROFESSIONAL (o cuya categoría cambió mientras estaba
-            // suspendido) lo recibe al reactivarse.
-            await this.commerceResolver.ensureForUser(tx, userId);
-          }
-  
-          return result;
-        })
-        .catch((error: unknown) => {
-          // Reactivation competes with new applications too; the same partial
-          // unique indexes protect this transition at the database boundary.
-          if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2002'
-          ) {
-            throw new ConflictException(
-              'No se puede reactivar este perfil porque ya existe otro perfil o solicitud incompatible.'
-            );
-          }
-          throw error;
-        });
-  
-      await this.redis.del(userFindByIdCacheKey(userId));
-      return updated;
-    }
-  
-    // ─── Admin ────────────────────────────────────────────────────────────────────
-  
-    async findAllPending(page = 1, limit = 20) {
-      const skip = (page - 1) * limit;
-      const [data, total] = await Promise.all([
-        this.prisma.userProfile.findMany({
-          where: { status: ProfileStatus.PENDING },
-          orderBy: { createdAt: 'asc' },
-          skip,
-          take: limit,
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                role: true,
-                kycStatus: true,
-              },
-            },
-            category: { select: { id: true, name: true, icon: true } },
-            subcategory: { select: { id: true, name: true } },
-            pendingPlan: {
-              select: { id: true, name: true, price: true, color: true },
-            },
+        const result = await tx.userProfile.update({
+          where: { id: profileId },
+          data: {
+            status: ProfileStatus.ACTIVE,
+            suspendedBySelf: false,
+            deactivationReason: null,
+            deactivationNote: null,
+            deactivatedAt: null,
           },
-        }),
-        this.prisma.userProfile.count({
-          where: { status: ProfileStatus.PENDING },
-        }),
-      ]);
-      return { data, total, page, limit };
-    }
-  
-    async review(
-      id: string,
-      reviewerId: string,
-      dto: ReviewProfileActivationDto
-    ) {
-      const profile = await this.prisma.userProfile.findUnique({
-        where: { id },
-        include: { user: { select: { kycStatus: true } } },
-      });
-      if (!profile)
-        throw new NotFoundException('Solicitud de perfil no encontrada');
-      if (profile.status !== ProfileStatus.PENDING) {
-        throw new BadRequestException('Esta solicitud ya fue revisada');
-      }
-      if (profile.userId === reviewerId) {
-        throw new ForbiddenException(
-          'No puedes revisar tu propia solicitud de perfil'
-        );
-      }
-      if (
-        dto.status === ProfileStatus.ACTIVE &&
-        profile.user.kycStatus !== KycStatus.APPROVED
-      ) {
-        throw new BadRequestException(
-          'El solicitante debe tener su identidad verificada (KYC aprobado) antes de activar este perfil'
-        );
-      }
-  
-      const conflictingProfileWhere = {
-        userId: profile.userId,
-        id: { not: id },
-        type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
-        status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] },
-      };
-  
-      if (
-        dto.status === ProfileStatus.ACTIVE &&
-        REQUIRES_APPROVAL.includes(profile.type)
-      ) {
-        const conflicting = await this.prisma.userProfile.findFirst({
-          where: conflictingProfileWhere,
         });
-        if (conflicting) {
+
+        if (
+          profile.type === ProfileType.BUSINESS ||
+          profile.type === ProfileType.PROFESSIONAL
+        ) {
+          await this.roleResolver.syncRoleForUser(userId, tx);
+          // Un perfil aprobado antes de que existiera la provisión de Commerce
+          // para PROFESSIONAL (o cuya categoría cambió mientras estaba
+          // suspendido) lo recibe al reactivarse.
+          await this.commerceResolver.ensureForUser(tx, userId);
+        }
+
+        return result;
+      })
+      .catch((error: unknown) => {
+        // Reactivation competes with new applications too; the same partial
+        // unique indexes protect this transition at the database boundary.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
           throw new ConflictException(
-            `Ya existe un perfil de ${TYPE_LABEL[conflicting.type]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Resuelve esa solicitud antes de activar este perfil.`
+            'No se puede reactivar este perfil porque ya existe otro perfil o solicitud incompatible.'
           );
         }
+        throw error;
+      });
+
+    await this.redis.del(userFindByIdCacheKey(userId));
+    return updated;
+  }
+
+  // ─── Admin ────────────────────────────────────────────────────────────────────
+
+  async findAllPending(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.prisma.userProfile.findMany({
+        where: { status: ProfileStatus.PENDING },
+        orderBy: { createdAt: 'asc' },
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+              kycStatus: true,
+            },
+          },
+          category: { select: { id: true, name: true, icon: true } },
+          subcategory: { select: { id: true, name: true } },
+          pendingPlan: {
+            select: { id: true, name: true, price: true, color: true },
+          },
+        },
+      }),
+      this.prisma.userProfile.count({
+        where: { status: ProfileStatus.PENDING },
+      }),
+    ]);
+    return { data, total, page, limit };
+  }
+
+  async review(
+    id: string,
+    reviewerId: string,
+    dto: ReviewProfileActivationDto
+  ) {
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { id },
+      include: { user: { select: { kycStatus: true } } },
+    });
+    if (!profile)
+      throw new NotFoundException('Solicitud de perfil no encontrada');
+    if (profile.status !== ProfileStatus.PENDING) {
+      throw new BadRequestException('Esta solicitud ya fue revisada');
+    }
+    if (profile.userId === reviewerId) {
+      throw new ForbiddenException(
+        'No puedes revisar tu propia solicitud de perfil'
+      );
+    }
+    if (
+      dto.status === ProfileStatus.ACTIVE &&
+      profile.user.kycStatus !== KycStatus.APPROVED
+    ) {
+      throw new BadRequestException(
+        'El solicitante debe tener su identidad verificada (KYC aprobado) antes de activar este perfil'
+      );
+    }
+
+    const conflictingProfileWhere = {
+      userId: profile.userId,
+      id: { not: id },
+      type: { in: [ProfileType.BUSINESS, ProfileType.PROFESSIONAL] },
+      status: { in: [ProfileStatus.PENDING, ProfileStatus.ACTIVE] },
+    };
+
+    if (
+      dto.status === ProfileStatus.ACTIVE &&
+      REQUIRES_APPROVAL.includes(profile.type)
+    ) {
+      const conflicting = await this.prisma.userProfile.findFirst({
+        where: conflictingProfileWhere,
+      });
+      if (conflicting) {
+        throw new ConflictException(
+          `Ya existe un perfil de ${TYPE_LABEL[conflicting.type]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Resuelve esa solicitud antes de activar este perfil.`
+        );
       }
-  
-      const updated = await this.prisma
-        .$transaction(async (tx) => {
+    }
+
+    const updated = await this.prisma
+      .$transaction(async (tx) => {
         // Solo si sigue PENDING: si otro admin la revisó en paralelo, no se
         // aprueba dos veces (ni se activan plan/comercio dos veces).
         const claimed = await tx.userProfile.updateMany({
@@ -663,8 +663,8 @@ export class ProfileActivationsService {
         return result;
       })
       .catch(async (error: unknown) => {
-        // La prevalidación mejora el mensaje habitual; el índice parcial de
-        // PostgreSQL resuelve la carrera entre dos aprobaciones concurrentes.
+        // El índice parcial de PostgreSQL es la última barrera ante dos
+        // aprobaciones incompatibles que ocurren simultáneamente.
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === 'P2002' &&
@@ -681,6 +681,7 @@ export class ProfileActivationsService {
         }
         throw error;
       });
+
 
     if (dto.status === ProfileStatus.ACTIVE) {
       await this.redis.del(userFindByIdCacheKey(profile.userId));
