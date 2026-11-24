@@ -126,7 +126,7 @@ export class ServicesController {
   }
 
   @Get('mine/stats')
-  @UseGuards(JwtAuth, ProfileContextGuard)
+  @UseGuards(JwtAuthGuard, ProfileContextGuard)
   @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   getMineStats(@CurrentUser() user: any) {
     return this.servicesService.getMyServicesStats(user.id);
@@ -171,7 +171,12 @@ export class ServicesController {
   }
 
   @Patch(':id/toggle')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard, ProfileContextGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    PermissionsGuard,
+    ModuleAccessGuard,
+    ProfileContextGuard
+  )
   @RequireModule('services')
   @RequirePermission('services:edit')
   @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
@@ -299,7 +304,7 @@ export class ServicesController {
   }
 
   @Get(':id/metrics')
-  @UseGuards(JwtAuth, ProfileContextGuard)
+  @UseGuards(JwtAuthGuard, ProfileContextGuard)
   @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
   getMetrics(@Param('id') id: string, @CurrentUser() user: any) {
     return this.servicesService.getServiceMetrics(id, user.id);
