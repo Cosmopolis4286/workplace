@@ -1,18 +1,16 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import {
   BusinessMembershipRole,
-  BusinessMembershipScope,
   BusinessMembershipStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export type BusinessAccessContext = {
   commerceId: string;
+  ownerUserId: string;
   userId: string;
   role: 'OWNER' | BusinessMembershipRole;
   membershipId: string | null;
-  // null = acceso a todas las sucursales; [] nunca se emite como acceso válido.
-  branchIds: string[] | null;
   isOwner: boolean;
 };
 
@@ -29,74 +27,42 @@ export class BusinessMembershipService {
     userId: string,
     commerceId: string
   ): Promise<BusinessAccessContext> {
-    const ownedCommerce = await this.prisma.commerce.findFirst({
-      where: { id: commerceId, userId },
-      select: { id: true },
+    const commerce = await this.prisma.commerce.findUnique({
+      where: { id: commerceId },
+      select: { id: true, userId: true },
     });
 
-    if (ownedCommerce) {
+    if (!commerce) {
+      throw new ForbiddenException('No tienes acceso a este comercio');
+    }
+
+    if (commerce.userId === userId) {
       return {
         commerceId,
+        ownerUserId: commerce.userId,
         userId,
         role: 'OWNER',
         membershipId: null,
-        branchIds: null,
         isOwner: true,
       };
     }
 
     const membership = await this.prisma.businessMembership.findUnique({
       where: { commerceId_userId: { commerceId, userId } },
-      include: { branchAssignments: { select: { branchId: true } } },
+      select: { id: true, role: true, status: true },
     });
 
     if (!membership || membership.status !== BusinessMembershipStatus.ACTIVE) {
       throw new ForbiddenException('No tienes acceso a este comercio');
     }
 
-    const assignedBranchIds = membership.branchAssignments.map(
-      (assignment) => assignment.branchId
-    );
-
-    if (
-      membership.scope === BusinessMembershipScope.SELECTED_BRANCHES &&
-      assignedBranchIds.length === 0
-    ) {
-      // Fail closed: una membresía limitada sin sucursales no obtiene acceso.
-      throw new ForbiddenException(
-        'La membresía no tiene sucursales asignadas'
-      );
-    }
-
-    if (
-      membership.scope === BusinessMembershipScope.COMMERCE &&
-      assignedBranchIds.length > 0
-    ) {
-      // Inconsistencia de datos: no ampliar permisos por una asignación inesperada.
-      throw new ForbiddenException(
-        'El alcance de la membresía es inconsistente'
-      );
-    }
-
     return {
       commerceId,
+      ownerUserId: commerce.userId,
       userId,
       role: membership.role,
       membershipId: membership.id,
-      branchIds:
-        membership.scope === BusinessMembershipScope.COMMERCE
-          ? null
-          : assignedBranchIds,
       isOwner: false,
     };
-  }
-
-  assertBranchAccess(
-    context: BusinessAccessContext,
-    branchId: string
-  ): void {
-    if (context.branchIds && !context.branchIds.includes(branchId)) {
-      throw new ForbiddenException('No tienes acceso a esta sucursal');
-    }
   }
 }
