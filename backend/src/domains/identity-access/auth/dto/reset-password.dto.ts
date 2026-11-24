@@ -1,10 +1,4 @@
-import {
-  IsString,
-  IsUUID,
-  Matches,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class ResetPasswordDto {
   @IsUUID('4', { message: 'Token de recuperación inválido' })
