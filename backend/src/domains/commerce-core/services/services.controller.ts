@@ -189,9 +189,9 @@ export class ServicesController {
   @Post(':id/images')
   @UseGuards(
     JwtAuthGuard,
+    ProfileContextGuard,
     PermissionsGuard,
-    ModuleAccessGuard,
-    ProfileContextGuard
+    ModuleAccessGuard
   )
   @RequireModule('services')
   @RequirePermission('services:edit')
