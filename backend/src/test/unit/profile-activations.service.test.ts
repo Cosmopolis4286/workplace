@@ -389,7 +389,7 @@ describe('ProfileActivationsService', () => {
         mockPlansService.activateSubscriptionForPlan
       ).not.toHaveBeenCalled();
     });
-    
+
     it('traduce a 409 la colisión concurrente entre aprobaciones incompatibles', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
         pendingProfile({
