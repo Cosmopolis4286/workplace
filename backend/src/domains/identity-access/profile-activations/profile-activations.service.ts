@@ -598,7 +598,9 @@ export class ProfileActivationsService {
           data: {
             status: dto.status,
             rejectionReason:
-              dto.status === ProfileStatus.REJECTED ? dto.rejectionReason : null,
+              dto.status === ProfileStatus.REJECTED
+                ? dto.rejectionReason
+                : null,
             reviewedBy: reviewerId,
             reviewedAt: new Date(),
           },
@@ -608,7 +610,9 @@ export class ProfileActivationsService {
             'La solicitud fue revisada por otro administrador. Actualiza la bandeja.'
           );
         }
-        const result = await tx.userProfile.findUniqueOrThrow({ where: { id } });
+        const result = await tx.userProfile.findUniqueOrThrow({
+          where: { id },
+        });
 
         // Mantiene User.categoryId/subcategoryId sincronizados, igual que
         // FreelancerApplication.review() — varios módulos existentes todavía
@@ -681,7 +685,6 @@ export class ProfileActivationsService {
         }
         throw error;
       });
-
 
     if (dto.status === ProfileStatus.ACTIVE) {
       await this.redis.del(userFindByIdCacheKey(profile.userId));
