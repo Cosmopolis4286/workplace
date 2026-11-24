@@ -49,7 +49,9 @@ describe('ProfileContextGuard', () => {
     ]);
   });
 
-  it('uses the persisted activeProfileId when it belongs to an allowed ACTIVE profile', async () => {
+  it(
+    'uses the persisted activeProfileId when it belongs to an allowed ACTIVE profile',
+    async () => {
     prisma.user.findUnique.mockResolvedValue({
       activeProfileId: 'profile-1',
     });
@@ -78,9 +80,12 @@ describe('ProfileContextGuard', () => {
       type: ProfileType.PROFESSIONAL,
       subtype: 'FREELANCER',
     });
-  });
+    }
+  );;
 
-  it('uses the sole eligible profile when no active profile has been selected yet', async () => {
+  it(
+    'uses the sole eligible profile when no active profile has been selected yet',
+    async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: null });
     prisma.userProfile.findMany.mockResolvedValue([
       {
@@ -93,9 +98,12 @@ describe('ProfileContextGuard', () => {
     await expect(
       guard.canActivate(makeContext({ id: 'user-1' }))
     ).resolves.toBe(true);
-  });
+    }
+  );;
 
-  it('requires explicit context when more than one eligible profile exists', async () => {
+  it(
+    'requires explicit context when more than one eligible profile exists',
+    async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: null });
     prisma.userProfile.findMany.mockResolvedValue([
       {
@@ -113,9 +121,12 @@ describe('ProfileContextGuard', () => {
     await expect(
       guard.canActivate(makeContext({ id: 'user-1' }))
     ).rejects.toThrow(ConflictException);
-  });
+    }
+  );;
 
-  it('rejects when the persisted active profile is not in the required context', async () => {
+  it(
+    'rejects when the persisted active profile is not in the required context',
+    async () => {
     prisma.user.findUnique.mockResolvedValue({
       activeProfileId: 'business-1',
     });
@@ -130,16 +141,20 @@ describe('ProfileContextGuard', () => {
     await expect(
       guard.canActivate(makeContext({ id: 'user-1' }))
     ).rejects.toThrow(ConflictException);
-  });
+    }
+  );;
 
-  it('rejects users without an ACTIVE profile of the required type', async () => {
+  it(
+    'rejects users without an ACTIVE profile of the required type',
+    async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: null });
     prisma.userProfile.findMany.mockResolvedValue([]);
 
     await expect(
       guard.canActivate(makeContext({ id: 'user-1' }))
     ).rejects.toThrow(ForbiddenException);
-  });
+    }
+  );;
 
   it('does not trust profile IDs supplied in body or headers', async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: null });
