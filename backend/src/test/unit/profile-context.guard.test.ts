@@ -57,6 +57,11 @@ describe('ProfileContextGuard', () => {
         type: ProfileType.PROFESSIONAL,
         subtype: 'FREELANCER',
       },
+      {
+        id: 'profile-2',
+        type: ProfileType.PROFESSIONAL,
+        subtype: 'SERVICE_PROVIDER',
+      },
     ]);
     const context = makeContext({ id: 'user-1' });
 
