@@ -328,7 +328,6 @@ describe('AuthService', () => {
         email: 'user@example.com',
         firstName: 'User',
       });
-      mockRedisService.blacklistToken.mockResolvedValue(undefined);
       mockMailService.sendSecurityAlert.mockResolvedValue(undefined);
       mockPrismaService.$transaction.mockImplementation((callback) =>
         callback({
