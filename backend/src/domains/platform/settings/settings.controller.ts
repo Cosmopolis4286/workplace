@@ -26,7 +26,12 @@ import {
 } from './dto/update-commerce-slug.dto';
 
 @Controller('settings')
-@UseGuards(JwtAuthGuard, PermissionsGuard, CapabilityGuard, ProfileContextGuard)
+@UseGuards(
+  JwtAuthGuard,
+  PermissionsGuard,
+  CapabilityGuard,
+  ProfileContextGuard
+)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
