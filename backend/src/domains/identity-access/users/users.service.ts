@@ -954,7 +954,7 @@ export class UsersService {
       include: { commerce: true, category: true, profileSettings: true },
     });
     if (!user) throw new NotFoundException(this.i18n.t('users.not_found'));
-    const { password, twoFactorSecret, ...result } = user;
+    const { password, twoFactorSecret, authVersion, ...result } = user;
 
     await this.redis.setex(
       userFindByIdCacheKey(id),
@@ -1305,7 +1305,10 @@ export class UsersService {
     });
 
     await this.redis.del(userFindByIdCacheKey(id)).catch((error) => {
-      this.logger.warn('Could not clear cached user data after password change', error);
+      this.logger.warn(
+        'Could not clear cached user data after password change',
+        error
+      );
     });
 
     this.mail
