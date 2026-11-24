@@ -88,9 +88,8 @@ La rama de fundación añade el modelo de datos y un resolver aislado, pero **to
 - `Commerce.userId` sigue siendo el propietario canónico e implícito (`OWNER`); no se crea una membresía duplicada para el propietario.
 - `BusinessMembership` representa usuarios adicionales y evita duplicados por comercio/usuario. Los estados `SUSPENDED` y `REVOKED` conservan la relación sin conceder acceso.
 - Roles iniciales: `ADMIN`, `MANAGER`, `STAFF` y `VIEWER`. Esta fase solo almacena el rol; el siguiente paso debe mapear cada rol a permisos concretos, separados del RBAC global.
-- `BusinessMembershipScope.COMMERCE` representa acceso a todas las sucursales. `SELECTED_BRANCHES` limita el acceso a las asignaciones explícitas; una lista vacía se deniega (fail closed).
-- `BusinessMembershipBranch` usa claves foráneas compuestas (`membershipId`, `commerceId`) y (`branchId`, `commerceId`). PostgreSQL impide asignar una sucursal de otro comercio a una membresía.
-- `BusinessMembershipService.resolve(userId, commerceId)` comprueba propiedad o membresía ACTIVE. No confía en `commerceId` como prueba de autorización. `assertBranchAccess` limita sucursales cuando el alcance es `SELECTED_BRANCHES`.
+- La membresía inicial concede alcance al comercio completo. El alcance por sucursal queda fuera de esta fase porque los recursos operativos aún no tienen `branchId` uniforme.
+- `BusinessMembershipService.resolve(userId, commerceId)` comprueba que el comercio exista y valida propiedad o membresía ACTIVE. No confía en `commerceId` como prueba de autorización.
 
 Hasta completar la integración de guard y migración de los controladores/servicios, los módulos actuales siguen resolviendo el comercio mediante `CommerceResolverService` y el propietario. No se debe invitar miembros ni mostrar estos roles como operativos todavía. La siguiente etapa debe integrar el resolver, aplicar el scope a cada lectura/escritura, y añadir invitaciones de un solo uso con token hasheado, expiración, revocación y auditoría.
 ## Criterio de aceptación de esta fase
