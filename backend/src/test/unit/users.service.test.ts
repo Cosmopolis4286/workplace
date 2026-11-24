@@ -131,7 +131,7 @@ describe('UsersService', () => {
         firstName: 'User',
         password: 'current-hash',
       });
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true);
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
       jest.spyOn(bcrypt, 'hash').mockResolvedValue('new-hash' as never);
 
       await service.changePassword('user-1', {
