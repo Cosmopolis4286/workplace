@@ -215,10 +215,10 @@ export class PermissionsService implements PermissionsFacade {
   /**
    * Fuente de verdad para CUALQUIER chequeo de autorización real (usado por
    * PermissionsGuard en cada request). Orden: override individual del
-   * usuario (si existe, manda) → si no, UNIÓN de permisos de ROL +
-   * permisos de sus UserProfile ACTIVE. Cuando el endpoint declara un
-   * contexto con @RequireProfileContext, solo se consideran los tipos
-   * declarados para esa operación.
+   * usuario (si existe, manda) → si no, permiso de ROL → permiso heredado
+   * por perfiles ACTIVE. Sin contexto explícito se conserva la unión para
+   * vistas generales; con @RequireProfileContext se filtra por el ID exacto
+   * de perfil que ProfileContextGuard validó para esta petición.
    */
   async hasEffectivePermission(
     userId: string,
