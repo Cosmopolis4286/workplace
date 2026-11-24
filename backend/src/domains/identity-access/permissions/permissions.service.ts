@@ -159,13 +159,13 @@ export class PermissionsService implements PermissionsFacade {
 
   async getActiveProfilePermissions(
     userId: string,
-    profileTypes?: ProfileType[]
+    profileId?: string
   ): Promise<string[]> {
     const profiles = await this.prisma.userProfile.findMany({
       where: {
         userId,
         status: ProfileStatus.ACTIVE,
-        ...(profileTypes?.length ? { type: { in: profileTypes } } : {}),
+        ...(profileId ? { id: profileId } : {}),
       },
       select: { type: true, subtype: true },
     });
@@ -224,7 +224,7 @@ export class PermissionsService implements PermissionsFacade {
     userId: string,
     role: Role,
     permissionKey: string,
-    profileTypes?: ProfileType[]
+    profileId?: string
   ): Promise<boolean> {
     const overrides = await this.getUserOverrides(userId);
     if (permissionKey in overrides) return overrides[permissionKey];
@@ -233,7 +233,7 @@ export class PermissionsService implements PermissionsFacade {
 
     const profileKeys = await this.getActiveProfilePermissions(
       userId,
-      profileTypes
+      profileId
     );
     return profileKeys.includes(permissionKey);
   }
