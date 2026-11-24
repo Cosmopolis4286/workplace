@@ -46,10 +46,11 @@ Los endpoints que representan una operación de un perfil concreto pueden declar
   responde HTTP 409 y exige elegir el contexto correcto.
 - Si no existe ningún perfil compatible, responde HTTP 403.
 
-La primera aplicación está en `settings/freelancer/*`, que ahora exige
-contexto `PROFESSIONAL`. Los endpoints de comercio y los demás dominios se
-migrarán de forma incremental, después de revisar sus reglas y consumidores;
-no se cambia el comportamiento de rutas no marcadas.
+La primera aplicación está en `settings/freelancer/*`, que exige contexto
+`PROFESSIONAL`, y en la gestión propia de servicios (`services/mine`, métricas,
+CRUD y medios), que exige contexto `PROFESSIONAL` o `BUSINESS`. Los demás
+dominios se migrarán de forma incremental, después de revisar sus reglas y
+consumidores; no se cambia el comportamiento de rutas no marcadas.
 
 Esta protección contextual **no equivale a aislamiento multi-tenant**. No
 autoriza empleados ni varios usuarios sobre un mismo comercio, ni reemplaza
