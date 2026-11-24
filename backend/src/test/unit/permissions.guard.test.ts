@@ -85,9 +85,11 @@ describe('PermissionsGuard', () => {
   });
 
   it('throws ForbiddenException when the effective permission is denied', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) =>
-      key === PERMISSION_KEY ? 'orders:view' : undefined
-    );
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: string) =>
+        key === PERMISSION_KEY ? 'orders:view' : undefined
+      );
     permissionsService.hasEffectivePermission.mockResolvedValue(false);
 
     await expect(
