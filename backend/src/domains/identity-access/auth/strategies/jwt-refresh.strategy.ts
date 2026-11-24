@@ -3,7 +3,9 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
-import { refreshTokenExtractor } from '../../../../common/utils/jwt-extractor.util';
+import {
+  refreshTokenExtractor,
+} from '../../../../common/utils/jwt-extractor.util';
 import { PrismaService } from '../../../../prisma/prisma.service';
 
 @Injectable()
@@ -20,7 +22,10 @@ export class JwtRefreshStrategy extends PassportStrategy(
     });
   }
 
-  async validate(req: Request, payload: { sub?: unknown; jti?: unknown; ver?: unknown }) {
+  async validate(
+    req: Request,
+    payload: { sub?: unknown; jti?: unknown; ver?: unknown }
+  ) {
     const refreshToken =
       req.body?.refreshToken ?? req.cookies?.['refresh_token'];
     if (!refreshToken)
@@ -46,7 +51,8 @@ export class JwtRefreshStrategy extends PassportStrategy(
     });
     if (
       !account?.isActive ||
-      (typeof payload.ver === 'number' ? payload.ver : 0) !== account.authVersion
+      (typeof payload.ver === 'number' ? payload.ver : 0) !==
+        account.authVersion
     ) {
       throw new UnauthorizedException('Refresh token revocado');
     }
