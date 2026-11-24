@@ -85,7 +85,9 @@ describe('ProfileContextGuard', () => {
       },
     ]);
 
-    await expect(guard.canActivate(makeContext({ id: 'user-1' }))).resolves.toBe(true);
+    await expect(
+      guard.canActivate(makeContext({ id: 'user-1' }))
+    ).resolves.toBe(true);
   });
 
   it('requires explicit context when more than one eligible profile exists', async () => {
