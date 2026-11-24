@@ -82,9 +82,9 @@ describe('BusinessMembershipService', () => {
     });
     prisma.businessMembership.findUnique.mockResolvedValue(null);
 
-    await expect(
-      service.resolve('outsider', 'commerce-a')
-    ).rejects.toThrow(ForbiddenException);
+    await expect(service.resolve('outsider', 'commerce-a')).rejects.toThrow(
+      ForbiddenException
+    );
   });
 
   it.each([
@@ -101,8 +101,8 @@ describe('BusinessMembershipService', () => {
       status,
     });
 
-    await expect(
-      service.resolve('member-a', 'commerce-a')
-    ).rejects.toThrow(ForbiddenException);
+    await expect(service.resolve('member-a', 'commerce-a')).rejects.toThrow(
+      ForbiddenException
+    );
   });
 });
