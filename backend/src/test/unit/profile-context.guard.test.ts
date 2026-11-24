@@ -54,7 +54,11 @@ describe('ProfileContextGuard', () => {
     async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: 'profile-1' });
     prisma.userProfile.findMany.mockResolvedValue([
-      { id: 'profile-1', type: ProfileType.PROFESSIONAL, subtype: 'FREELANCER' },
+      {
+        id: 'profile-1',
+        type: ProfileType.PROFESSIONAL,
+        subtype: 'FREELANCER',
+      },
     ]);
     const context = makeContext({ id: 'user-1' });
 
@@ -76,7 +80,9 @@ describe('ProfileContextGuard', () => {
     });
   });
 
-  it('uses the sole eligible profile when no active profile has been selected yet', async () => {
+  it(
+    'uses the sole eligible profile when no active profile has been selected yet',
+    async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: null });
     prisma.userProfile.findMany.mockResolvedValue([
       {
@@ -91,7 +97,9 @@ describe('ProfileContextGuard', () => {
     ).resolves.toBe(true);
   });
 
-  it('requires explicit context when more than one eligible profile exists', async () => {
+  it(
+    'requires explicit context when more than one eligible profile exists',
+    async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: null });
     prisma.userProfile.findMany.mockResolvedValue([
       {
@@ -111,7 +119,9 @@ describe('ProfileContextGuard', () => {
     ).rejects.toThrow(ConflictException);
   });
 
-  it('rejects when the persisted active profile is not in the required context', async () => {
+  it(
+    'rejects when the persisted active profile is not in the required context',
+    async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: 'business-1' });
     prisma.userProfile.findMany.mockResolvedValue([
       { id: 'profile-1', type: ProfileType.PROFESSIONAL, subtype: 'FREELANCER' },
@@ -122,7 +132,9 @@ describe('ProfileContextGuard', () => {
     ).rejects.toThrow(ConflictException);
   });
 
-  it('rejects users without an ACTIVE profile of the required type', async () => {
+  it(
+    'rejects users without an ACTIVE profile of the required type',
+    async () => {
     prisma.user.findUnique.mockResolvedValue({ activeProfileId: null });
     prisma.userProfile.findMany.mockResolvedValue([]);
 
