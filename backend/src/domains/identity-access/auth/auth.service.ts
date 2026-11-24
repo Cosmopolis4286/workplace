@@ -74,7 +74,7 @@ export class AuthService {
       ...dto,
       acceptTerms: dto.acceptTerms,
     });
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role, undefined, user.authVersion ?? 0);
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
@@ -84,7 +84,7 @@ export class AuthService {
       tokens.jti
     );
     if (securityContext) {
-      await this.createUserSession(user.id, securityContext);
+      await this.createUserSession(user.id, { ...securityContext, sessionId: tokens.jti });
     }
 
     // Send verification email automatically
@@ -197,7 +197,8 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
-      refreshExpiresIn
+      refreshExpiresIn,
+      user.authVersion ?? 0
     );
     await this.saveRefreshToken(
       user.id,
@@ -278,7 +279,7 @@ export class AuthService {
     const { password, ...safeUser } = fullUser as typeof fullUser & {
       password: string;
     };
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role, undefined, user.authVersion ?? 0);
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
@@ -507,7 +508,7 @@ export class AuthService {
     // disabling an account must take effect immediately for refresh requests.
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, isActive: true },
+      select: { id: true, email: true, role: true, isActive: true, authVersion: true },
     });
     if (!user || !user.isActive) {
       throw new ForbiddenException(this.i18n.t('auth.refresh.invalid_token'));
@@ -530,7 +531,8 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
-      refreshLifetimeSeconds
+      refreshLifetimeSeconds,
+      user.authVersion ?? 0
     );
     const replacementId = uuidv4();
     const expiresAt = new Date(Date.now() + refreshLifetimeSeconds * 1000);
@@ -574,7 +576,11 @@ export class AuthService {
 
     // Actualizar sesión solo después de que la rotación se haya confirmado.
     if (securityContext) {
-      await this.updateUserSession(userId, securityContext);
+      await this.redis.del(`session:${userId}:${stored.jti}`);
+      await this.createUserSession(userId, {
+        ...securityContext,
+        sessionId: tokens.jti,
+      });
     }
 
     return tokens;
@@ -609,7 +615,7 @@ export class AuthService {
       await this.usersService.updateAvatar(user.id, googleUser.avatar);
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role, undefined, user.authVersion ?? 0);
     await this.saveRefreshToken(
       user.id,
       tokens.refreshToken,
@@ -943,14 +949,9 @@ export class AuthService {
         data: { usedAt: now },
       });
 
-      const activeTokens = await tx.refreshToken.findMany({
-        where: { userId: record.userId, revokedAt: null },
-        select: { jti: true },
-      });
-
       const user = await tx.user.update({
         where: { id: record.userId },
-        data: { password: hashed },
+        data: { password: hashed, authVersion: { increment: 1 } },
         select: { id: true, email: true, firstName: true },
       });
 
@@ -959,20 +960,11 @@ export class AuthService {
         data: { revokedAt: now },
       });
 
-      return { user, activeTokens };
+      return { user };
     });
 
-    // Revoke the corresponding access JWTs as well as refresh tokens. The
-    // access-token lifetime is 15 minutes; blacklist TTL matches that window.
-    for (const activeToken of result.activeTokens) {
-      if (!activeToken.jti) continue;
-      await this.redis.blacklistToken(activeToken.jti, 900).catch((error) => {
-        this.logger.error(
-          'Could not blacklist an access token after password reset',
-          error
-        );
-      });
-    }
+    // authVersion was incremented in the same transaction: all previously
+    // issued access and refresh JWTs now fail validation, even if Redis is down.
 
     this.mail
       .sendSecurityAlert(
@@ -1061,12 +1053,13 @@ export class AuthService {
     userId: string,
     email: string,
     role: Role,
-    refreshExpiresIn?: JwtSignOptions['expiresIn']
+    refreshExpiresIn?: JwtSignOptions['expiresIn'],
+    authVersion = 0
   ) {
     const jti = uuidv4();
 
     const accessToken = this.jwtService.sign(
-      { sub: userId, email, jti, role },
+      { sub: userId, email, jti, role, ver: authVersion },
       {
         secret: this.config.get('JWT_SECRET'),
         expiresIn: this.config.get('JWT_EXPIRES_IN', '15m'),
@@ -1074,7 +1067,7 @@ export class AuthService {
     );
 
     const refreshToken = this.jwtService.sign(
-      { sub: userId, jti }, // Incluir JTI también en refresh token
+      { sub: userId, jti, ver: authVersion }, // JTI y versión para revocación
       {
         secret: this.config.get('JWT_REFRESH_SECRET'),
         expiresIn:
@@ -1124,7 +1117,7 @@ export class AuthService {
     userId: string,
     securityContext: any
   ): Promise<void> {
-    const sessionKey = `session:${userId}:${securityContext.deviceFingerprint}`;
+    const sessionKey = `session:${userId}:${securityContext.sessionId}`;
     const sessionData = {
       userId,
       deviceFingerprint: securityContext.deviceFingerprint,
@@ -1148,25 +1141,6 @@ export class AuthService {
         userAgent: securityContext.userAgent,
       })
     );
-  }
-
-  private async updateUserSession(
-    userId: string,
-    securityContext: any
-  ): Promise<void> {
-    const sessionKey = `session:${userId}:${securityContext.deviceFingerprint}`;
-    const sessionData = await this.redis.get(sessionKey);
-
-    if (sessionData) {
-      const session = JSON.parse(sessionData);
-      session.lastActivity = new Date();
-
-      // Extender TTL 30 minutos más
-      await this.redis.setex(sessionKey, 1800, JSON.stringify(session));
-    } else {
-      // Recrear sesión si no existe
-      await this.createUserSession(userId, securityContext);
-    }
   }
 
   private async clearAllUserSessions(userId: string): Promise<void> {
