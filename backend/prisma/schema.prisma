@@ -677,7 +677,6 @@ model Category {
   updatedAt     DateTime      @updatedAt
 
   @@unique([name, commerceId])
-  @@unique([id, commerceId], map: "branches_id_commerce_id_key")
   @@unique([name, isGlobal]) // Solo una categoría global con el mismo nombre
   @@index([commerceId])
   @@map("categories")
@@ -1769,11 +1768,6 @@ enum BusinessMembershipStatus {
   REVOKED
 }
 
-enum BusinessMembershipScope {
-  COMMERCE
-  SELECTED_BRANCHES
-}
-
 model Branch {
   id           String       @id @default(uuid())
   name         String
@@ -1788,7 +1782,6 @@ model Branch {
   notes        String?
   commerceId   String
   commerce     Commerce     @relation(fields: [commerceId], references: [id], onDelete: Cascade)
-  membershipAssignments BusinessMembershipBranch[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -1810,10 +1803,6 @@ model BusinessMembership {
   user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   role       BusinessMembershipRole  @default(STAFF)
   status     BusinessMembershipStatus @default(ACTIVE)
-  // COMMERCE = todas las sucursales actuales y futuras.
-  // SELECTED_BRANCHES = únicamente las sucursales registradas en la tabla puente.
-  scope      BusinessMembershipScope @default(COMMERCE)
-  branchAssignments BusinessMembershipBranch[]
   createdAt  DateTime                @default(now())
   updatedAt  DateTime                @updatedAt
 
@@ -1822,22 +1811,6 @@ model BusinessMembership {
   @@index([userId, status])
   @@index([commerceId, status])
   @@map("business_memberships")
-}
-
-// La clave compuesta incluye commerceId en ambas FKs: PostgreSQL impide
-// asignar por error una membresía del comercio A a una sucursal del B.
-model BusinessMembershipBranch {
-  id           String            @id @default(uuid())
-  membershipId String
-  commerceId   String
-  branchId     String
-  membership   BusinessMembership @relation(fields: [membershipId, commerceId], references: [id, commerceId], onDelete: Cascade, map: "business_membership_branches_membership_commerce_fkey")
-  branch       Branch             @relation(fields: [branchId, commerceId], references: [id, commerceId], onDelete: Cascade, map: "business_membership_branches_branch_commerce_fkey")
-  createdAt    DateTime           @default(now())
-
-  @@unique([membershipId, branchId])
-  @@index([commerceId, branchId])
-  @@map("business_membership_branches")
 }
 
 // ─── Suppliers (proveedores B2B del comercio) ──────────────────────────────────
