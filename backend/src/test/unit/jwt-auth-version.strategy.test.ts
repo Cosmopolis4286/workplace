@@ -23,7 +23,15 @@ describe('JWT authentication version', () => {
     );
 
     await expect(
-      strategy.validate({}, { sub: 'user-1', email: 'user@example.com', jti: 'jti-1234567890123456', ver: 1 })
+      strategy.validate(
+        {},
+        {
+          sub: 'user-1',
+          email: 'user@example.com',
+          jti: 'jti-1234567890123456',
+          ver: 1,
+        }
+      )
     ).rejects.toThrow('Token revocado');
     expect(usersService.findById).not.toHaveBeenCalled();
   });
@@ -40,10 +48,11 @@ describe('JWT authentication version', () => {
     const strategy = new JwtRefreshStrategy(config as any, prisma as any);
 
     await expect(
-      strategy.validate(
-        { body: { refreshToken: 'refresh-token' } } as any,
-        { sub: 'user-1', jti: 'jti-1234567890123456', ver: 1 }
-      )
+      strategy.validate({ body: { refreshToken: 'refresh-token' } } as any, {
+        sub: 'user-1',
+        jti: 'jti-1234567890123456',
+        ver: 1,
+      })
     ).rejects.toThrow('Refresh token revocado');
   });
 
@@ -68,7 +77,14 @@ describe('JWT authentication version', () => {
     );
 
     await expect(
-      strategy.validate({}, { sub: 'user-1', email: 'user@example.com', jti: 'jti-1234567890123456' })
+      strategy.validate(
+        {},
+        {
+          sub: 'user-1',
+          email: 'user@example.com',
+          jti: 'jti-1234567890123456',
+        }
+      )
     ).resolves.toMatchObject({ id: 'user-1' });
   });
 });
