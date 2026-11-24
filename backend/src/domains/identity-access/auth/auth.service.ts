@@ -220,7 +220,10 @@ export class AuthService {
 
     // Crear sesión activa
     if (securityContext) {
-      await this.createUserSession(user.id, { ...securityContext, sessionId: tokens.jti });
+      await this.createUserSession(user.id, {
+        ...securityContext,
+        sessionId: tokens.jti,
+      });
     }
 
     this.audit.log({
@@ -305,7 +308,10 @@ export class AuthService {
     );
 
     if (securityContext) {
-      await this.createUserSession(user.id, { ...securityContext, sessionId: tokens.jti });
+      await this.createUserSession(user.id, {
+        ...securityContext,
+        sessionId: tokens.jti,
+      });
     }
 
     this.audit.log({
@@ -652,7 +658,10 @@ export class AuthService {
       tokens.jti
     );
     if (securityContext) {
-      await this.createUserSession(user.id, { ...securityContext, sessionId: tokens.jti });
+      await this.createUserSession(user.id, {
+        ...securityContext,
+        sessionId: tokens.jti,
+      });
     }
 
     const { password, ...safeUser } = user as typeof user & {
