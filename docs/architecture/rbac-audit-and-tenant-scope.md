@@ -60,6 +60,22 @@ la futura `BusinessMembership`, ni añade filtros `commerceId/branchId` a
 consultas. Hasta implementar esa capa, el modelo sigue siendo propietario
 1:1 y no debe anunciarse como RBAC multi-comercio.
 
+## Fundación de BusinessMembership (fase inicial)
+
+Se añadió el modelo aditivo BusinessMembership con:
+- clave única commerceId + userId;
+- roles ADMIN, MANAGER, STAFF y VIEWER;
+- estados ACTIVE, SUSPENDED y REVOKED;
+- FK a Commerce y User, sin alterar Commerce.userId.
+
+Commerce.userId sigue siendo el propietario canónico. El propietario no necesita una fila de membresía y conserva la titularidad, la facturación y las responsabilidades legales existentes.
+
+BusinessMembershipService.resolve(userId, commerceId) es una primitiva aislada que reconoce al propietario o valida una membresía ACTIVE para el par exacto de IDs. **Todavía no está conectado a CommerceResolverService, PermissionsGuard, ModuleAccessGuard ni a los controladores operativos.** Por tanto, crear una fila de membresía no concede acceso a datos del comercio en esta fase.
+
+Esta entrega tampoco incluye invitaciones ni endpoints de administración. Antes de activar el acceso se implementarán aceptación autenticada con token de un solo uso, contexto de comercio explícito, permisos scoped por membresía, plan del propietario y filtros IDOR/cross-tenant.
+
+No se modela todavía asignación de sucursales: la estructura de Branch y los recursos operativos no ofrecen un scope de sucursal de punta a punta. No debe añadirse una tabla de asignación que aparente imponer una frontera que los queries todavía no aplican.
+
 ## Alcance por comercio y sucursal: decisión de arquitectura
 
 El esquema actual permite afirmar lo siguiente:
