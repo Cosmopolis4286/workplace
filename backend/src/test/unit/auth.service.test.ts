@@ -51,6 +51,9 @@ describe('AuthService', () => {
     setLoginAttempts: jest.fn(),
     resetLoginAttempts: jest.fn(),
     del: jest.fn().mockResolvedValue(undefined),
+    keys: jest.fn().mockResolvedValue([]),
+    delMultiple: jest.fn().mockResolvedValue(undefined),
+    blacklistToken: jest.fn(),
     saveRefreshToken: jest.fn(),
   };
 
@@ -300,6 +303,43 @@ describe('AuthService', () => {
       ).rejects.toThrow();
 
       expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('logout revocation', () => {
+    it('revokes refresh tokens and increments authVersion even when Redis blacklist fails', async () => {
+      mockPrismaService.refreshToken.findMany.mockResolvedValue([
+        { jti: 'active-jti-1234567890123456' },
+      ]);
+      mockRedisService.blacklistToken.mockRejectedValue(
+        new Error('Redis unavailable')
+      );
+      mockPrismaService.$transaction.mockImplementation((callback) =>
+        callback({
+          refreshToken: {
+            updateMany: mockPrismaService.refreshToken.updateMany,
+          },
+          user: { update: mockPrismaService.user.update },
+        })
+      );
+
+      await expect(service.logout('user-1')).resolves.toBeUndefined();
+
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'user-1', revokedAt: null },
+        })
+      );
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: { authVersion: { increment: 1 } },
+        })
+      );
+      expect(mockRedisService.blacklistToken).toHaveBeenCalledWith(
+        'active-jti-1234567890123456',
+        900
+      );
     });
   });
 
