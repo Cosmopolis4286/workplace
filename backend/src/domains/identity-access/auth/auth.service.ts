@@ -101,7 +101,8 @@ export class AuthService {
       this.logger.warn(`Failed to send verification email: ${err.message}`);
     });
 
-    return { user, ...tokens };
+    const { password, authVersion, ...safeUser } = user;
+    return { user: safeUser, ...tokens };
   }
 
   async login(dto: LoginDto, securityContext?: any) {
@@ -198,7 +199,7 @@ export class AuthService {
       return { requiresTwoFactor: true as const, sessionId };
     }
 
-    const { password, ...safeUser } = user;
+    const { password, authVersion, ...safeUser } = user;
     const refreshExpiresIn = dto.rememberMe
       ? this.config.get('JWT_REFRESH_EXPIRES_IN', '7d')
       : SHORT_REFRESH_EXPIRES_IN;
@@ -288,7 +289,7 @@ export class AuthService {
     await this.redis.del(`2fa-pending:${dto.sessionId}`);
 
     const fullUser = await this.usersService.findByEmail(user.email);
-    const { password, ...safeUser } = fullUser as typeof fullUser & {
+    const { password, authVersion, ...safeUser } = fullUser as typeof fullUser & {
       password: string;
     };
     const tokens = await this.generateTokens(
