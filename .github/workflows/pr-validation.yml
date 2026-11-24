@@ -53,6 +53,17 @@ jobs:
     - name: Sin campos Float nuevos
       run: cd backend && pnpm schema:float-check
 
+    - name: Prettier preview temporal
+      run: |
+        cd backend
+        pnpm exec prettier --config .prettierrc --write \
+          src/domains/identity-access/auth/auth.service.ts \
+          src/test/unit/jwt-auth-version.strategy.test.ts
+        cd ..
+        git --no-pager diff --unified=3 -- \
+          backend/src/domains/identity-access/auth/auth.service.ts \
+          backend/src/test/unit/jwt-auth-version.strategy.test.ts
+
     - name: Format check
       shell: bash
       env:
