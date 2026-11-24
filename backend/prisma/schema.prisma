@@ -97,6 +97,7 @@ model User {
   trialUsedAt DateTime?
 
   commerce                Commerce?
+  businessMemberships    BusinessMembership[]
   profileSettings         ProfileSettings?
   freelancerSettings      FreelancerSettings?
   refreshTokens           RefreshToken[]
@@ -130,13 +131,11 @@ model User {
   profiles                UserProfile[]
   reviewedProfiles        UserProfile[]            @relation("UserProfileReviewer")
 
-  // Contexto de UX activo ("estoy usando WorkPlace como..."). Puramente
-  // presentacional: NO participa en permisos ni capacidades — esas siguen
-  // siendo la unión de TODOS los UserProfile ACTIVE, no solo este. Null =
-  // sin preferencia explícita; el frontend infiere el default con la misma
-  // prioridad que AccountTypeResolver (BUSINESS > PROFESSIONAL > JOB_SEEKER
-  // > CUSTOMER). UX por defecto; solo las rutas con @RequireProfileContext
-  // lo validan como contexto de autorización. SetNull evita FK colgantes.
+  // Contexto de UX activo ("estoy usando WorkPlace como..."). Se usa como
+  // preferencia por defecto para la interfaz; solo las rutas que declaran
+  // @RequireProfileContext lo validan como contexto de autorización. Las
+  // rutas sin ese decorator conservan su política de permisos general.
+  // Null = sin preferencia explícita; SetNull evita FK colgantes.
   activeProfileId String?
   activeProfile   UserProfile? @relation("ActiveProfile", fields: [activeProfileId], references: [id], onDelete: SetNull)
 
@@ -301,6 +300,7 @@ model Commerce {
   bnplSettings       BnplSettings[]
   bnplTransactions   BnplTransaction[]
   driverInvitations  DriverInvitation[]
+  memberships        BusinessMembership[]
 
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
@@ -1755,6 +1755,19 @@ enum BranchStatus {
   CLOSED
 }
 
+enum BusinessMembershipRole {
+  ADMIN
+  MANAGER
+  STAFF
+  VIEWER
+}
+
+enum BusinessMembershipStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
 model Branch {
   id           String       @id @default(uuid())
   name         String
@@ -1775,6 +1788,27 @@ model Branch {
   @@unique([name, commerceId])
   @@index([commerceId])
   @@map("branches")
+}
+
+// Membresías adicionales del comercio. El propietario canónico sigue siendo
+// Commerce.userId y no necesita una fila aquí. Esta tabla habilita a otros
+// usuarios; no concede acceso hasta que los módulos consulten el resolver
+// de membresías y apliquen el scope de comercio.
+model BusinessMembership {
+  id         String                  @id @default(uuid())
+  commerceId String
+  commerce   Commerce                @relation(fields: [commerceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       BusinessMembershipRole  @default(STAFF)
+  status     BusinessMembershipStatus @default(ACTIVE)
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  @@unique([commerceId, userId])
+  @@index([userId, status])
+  @@index([commerceId, status])
+  @@map("business_memberships")
 }
 
 // ─── Suppliers (proveedores B2B del comercio) ──────────────────────────────────

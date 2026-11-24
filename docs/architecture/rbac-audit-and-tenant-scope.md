@@ -73,14 +73,25 @@ Por estas razones, **no se habilitan permisos por sucursal en esta fase**. Un fi
 
 ## Diseño requerido antes de habilitar RBAC multi-tenant
 
-1. Definir una identidad de miembro de comercio vinculada a `User`, con estado, invitación, revocación y relación explícita con `Commerce`.
-2. Definir asignación a una o varias sucursales; distinguir alcance de comercio completo de alcance limitado a sucursales.
-3. Resolver el contexto de comercio desde una membresía validada en backend, nunca desde un `commerceId` libre enviado por el cliente.
-4. Aplicar el scope en cada consulta y mutación de recursos, verificando que la sucursal pertenece al comercio activo.
-5. Mantener los permisos globales de plataforma separados de las capacidades del miembro del comercio.
-6. Añadir pruebas negativas de aislamiento: usuario de comercio A no puede leer, modificar, exportar ni inferir recursos de comercio B; sucursal A1 no puede acceder a datos de A2 cuando su membresía sea limitada.
-7. Auditar invitaciones, cambios de rol, asignaciones de sucursal, suspensiones y revocaciones.
+1. [x parcial] Identidad `BusinessMembership` vinculada a `User` y `Commerce`, con estado y revocación lógica. Falta el ciclo de invitaciones.
+2. Pendiente: no se implementa scope por sucursal hasta que los recursos operativos soporten branchId de punta a punta.
+3. [x parcial] `BusinessMembershipService.resolve` valida propietario o membresía ACTIVE. Falta conectarlo a guards y controladores.
+4. Pendiente: aplicar el scope en cada consulta y mutación de recursos, verificando que la sucursal pertenece al comercio activo.
+5. Pendiente: mapear roles de membresía a permisos de comercio, separados del RBAC global de plataforma.
+6. Pendiente: pruebas negativas de aislamiento entre comercios y sucursales para lecturas, escrituras y exportaciones.
+7. Pendiente: invitaciones, cambios de rol, asignaciones de sucursal, suspensiones y revocaciones auditables.
 
+## Implementación incremental de BusinessMembership
+
+La rama de fundación añade el modelo de datos y un resolver aislado, pero **todavía no habilita acceso de miembros a endpoints operativos**:
+
+- `Commerce.userId` sigue siendo el propietario canónico e implícito (`OWNER`); no se crea una membresía duplicada para el propietario.
+- `BusinessMembership` representa usuarios adicionales y evita duplicados por comercio/usuario. Los estados `SUSPENDED` y `REVOKED` conservan la relación sin conceder acceso.
+- Roles iniciales: `ADMIN`, `MANAGER`, `STAFF` y `VIEWER`. Esta fase solo almacena el rol; el siguiente paso debe mapear cada rol a permisos concretos, separados del RBAC global.
+- La membresía inicial concede alcance al comercio completo. El alcance por sucursal queda fuera de esta fase porque los recursos operativos aún no tienen `branchId` uniforme.
+- `BusinessMembershipService.resolve(userId, commerceId)` comprueba que el comercio exista y valida propiedad o membresía ACTIVE. No confía en `commerceId` como prueba de autorización.
+
+Hasta completar la integración de guard y migración de los controladores/servicios, los módulos actuales siguen resolviendo el comercio mediante `CommerceResolverService` y el propietario. No se debe invitar miembros ni mostrar estos roles como operativos todavía. La siguiente etapa debe integrar el resolver, aplicar el scope a cada lectura/escritura, y añadir invitaciones de un solo uso con token hasheado, expiración, revocación y auditoría.
 ## Criterio de aceptación de esta fase
 
 - Cada cambio RBAC exitoso identifica al actor, alcance, objetivo, estado anterior y estado posterior.
