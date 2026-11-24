@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Body,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Body, Query, UseGuards } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
@@ -33,12 +26,7 @@ import {
 } from './dto/update-commerce-slug.dto';
 
 @Controller('settings')
-@UseGuards(
-  JwtAuthGuard,
-  ProfileContextGuard,
-  PermissionsGuard,
-  CapabilityGuard
-)
+@UseGuards(JwtAuthGuard, ProfileContextGuard, PermissionsGuard, CapabilityGuard)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
