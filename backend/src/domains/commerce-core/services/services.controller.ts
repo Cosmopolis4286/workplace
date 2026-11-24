@@ -187,7 +187,12 @@ export class ServicesController {
   // slot: 0 = principal, 1-2 = secundarias. Un archivo a la vez porque cada
   // slot se sube/reemplaza de forma independiente desde el formulario.
   @Post(':id/images')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard, ProfileContextGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    PermissionsGuard,
+    ModuleAccessGuard,
+    ProfileContextGuard
+  )
   @RequireModule('services')
   @RequirePermission('services:edit')
   @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
@@ -243,7 +248,12 @@ export class ServicesController {
   // archivo propio — así el resultado nunca depende del hotlinking del sitio
   // de origen ni expone el navegador del usuario a una URL arbitraria.
   @Post(':id/images/from-url')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard, ProfileContextGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    PermissionsGuard,
+    ModuleAccessGuard,
+    ProfileContextGuard
+  )
   @RequireModule('services')
   @RequirePermission('services:edit')
   @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
@@ -261,7 +271,12 @@ export class ServicesController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard, ModuleAccessGuard, ProfileContextGuard)
+  @UseGuards(
+    JwtAuthGuard,
+    PermissionsGuard,
+    ModuleAccessGuard,
+    ProfileContextGuard
+  )
   @RequireModule('services')
   @RequirePermission('services:delete')
   @RequireProfileContext(ProfileType.PROFESSIONAL, ProfileType.BUSINESS)
