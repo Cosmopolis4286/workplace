@@ -26,12 +26,16 @@ export class PermissionsGuard implements CanActivate {
     // No @RequirePermission() → skip this guard
     if (!required) return true;
 
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest();
+    const { user, profileContext } = request;
     const profileTypes = this.reflector.getAllAndOverride<ProfileType[]>(
       PROFILE_CONTEXT_KEY,
       [context.getHandler(), context.getClass()]
     );
     if (!user) return false;
+    if (profileTypes?.length && !profileContext?.id) {
+      throw new ForbiddenException('No se resolvió un perfil compatible');
+    }
 
     // SUPERADMIN siempre tiene acceso
     if (user.role === Role.SUPERADMIN) return true;
@@ -43,7 +47,7 @@ export class PermissionsGuard implements CanActivate {
       user.id,
       user.role,
       required,
-      profileTypes
+      profileContext?.id
     );
     if (!has) {
       throw new ForbiddenException(`No tienes permiso para: ${required}`);
