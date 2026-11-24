@@ -212,7 +212,7 @@ export class UsersService {
       throw e;
     }
 
-    const { password, twoFactorSecret, ...result } = user;
+    const { password, twoFactorSecret, authVersion, ...result } = user;
     return result;
   }
 
@@ -515,7 +515,7 @@ export class UsersService {
       throw e;
     }
 
-    const { password, twoFactorSecret, ...result } = user;
+    const { password, twoFactorSecret, authVersion, ...result } = user;
     await this.invalidateFindByIdCache(id);
     return result;
   }
@@ -605,7 +605,7 @@ export class UsersService {
       return updated;
     });
 
-    const { password, twoFactorSecret, ...result } = user;
+    const { password, twoFactorSecret, authVersion, ...result } = user;
     await this.invalidateFindByIdCache(id);
     return result;
   }
@@ -1287,17 +1287,25 @@ export class UsersService {
     }
 
     const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
-    await this.prisma.user.update({
-      where: { id },
-      data: { password: hashedPassword },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: {
+          password: hashedPassword,
+          authVersion: { increment: 1 },
+        },
+      });
+
+      // Revocar refresh tokens en la misma transacción que incrementa
+      // authVersion, para que el cambio de contraseña sea atómico.
+      await tx.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
     });
 
-    // Revocar todas las sesiones existentes: si un atacante tenía un refresh
-    // token robado, cambiar la contraseña debe cerrarle el acceso (igual que
-    // ya hace resetPassword() vía email en AuthService).
-    await this.prisma.refreshToken.updateMany({
-      where: { userId: id, revokedAt: null },
-      data: { revokedAt: new Date() },
+    await this.redis.del(userFindByIdCacheKey(id)).catch((error) => {
+      this.logger.warn('Could not clear cached user data after password change', error);
     });
 
     this.mail
