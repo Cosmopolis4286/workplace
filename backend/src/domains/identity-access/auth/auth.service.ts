@@ -613,13 +613,16 @@ export class AuthService {
     return tokens;
   }
 
-  async loginWithGoogle(googleUser: {
-    googleId: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    avatar?: string;
-  }, securityContext?: any) {
+  async loginWithGoogle(
+    googleUser: {
+      googleId: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      avatar?: string;
+    },
+    securityContext?: any
+  ) {
     let user: any = await this.usersService.findByEmail(googleUser.email);
     let isNewUser = false;
 
@@ -1003,7 +1006,10 @@ export class AuthService {
     // issued access and refresh JWTs now fail validation, even if Redis is down.
 
     await this.redis.del(userFindByIdCacheKey(record.userId)).catch((error) => {
-      this.logger.warn('Could not clear cached user data after password reset', error);
+      this.logger.warn(
+        'Could not clear cached user data after password reset',
+        error
+      );
     });
 
     this.mail
