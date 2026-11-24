@@ -56,6 +56,35 @@ describe('JWT authentication version', () => {
     ).rejects.toThrow('Refresh token revocado');
   });
 
+  it('rejects an access token when its refresh-token row was revoked', async () => {
+    const usersService = { findById: jest.fn() };
+    const redis = { isTokenBlacklisted: jest.fn().mockResolvedValue(false) };
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          isActive: true,
+          authVersion: 0,
+          refreshTokens: [],
+        }),
+      },
+    };
+    const strategy = new JwtStrategy(
+      config as any,
+      usersService as any,
+      redis as any,
+      prisma as any
+    );
+
+    await expect(
+      strategy.validate({}, {
+        sub: 'user-1',
+        email: 'user@example.com',
+        jti: 'jti-1234567890123456',
+        ver: 0,
+      })
+    ).rejects.toThrow('ya no está activa');
+  });
+
   it('accepts legacy JWTs only while the account remains at version zero', async () => {
     const usersService = {
       findById: jest.fn().mockResolvedValue({ id: 'user-1', isActive: true }),
@@ -66,6 +95,7 @@ describe('JWT authentication version', () => {
         findUnique: jest.fn().mockResolvedValue({
           isActive: true,
           authVersion: 0,
+          refreshTokens: [{ id: 'refresh-1' }],
         }),
       },
     };
