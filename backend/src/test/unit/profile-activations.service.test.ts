@@ -129,7 +129,7 @@ describe('ProfileActivationsService', () => {
             { code: 'P2002', clientVersion: 'test' }
           )
         );
-  
+
         await expect(
           service.create(USER_ID, {
             type: ProfileType.PROFESSIONAL,
@@ -137,7 +137,7 @@ describe('ProfileActivationsService', () => {
           } as any)
         ).rejects.toBeInstanceOf(ConflictException);
       }
-    );;
+    );
 
     it(
       'hace idempotente la creación concurrente del perfil CUSTOMER',
@@ -157,12 +157,12 @@ describe('ProfileActivationsService', () => {
             { code: 'P2002', clientVersion: 'test' }
           )
         );
-  
+
         await expect(service.ensureCustomerProfile(USER_ID)).resolves.toEqual(
           existingCustomer
         );
       }
-    );;
+    );
 
     it('activa CUSTOMER de inmediato, sin quedar PENDING', async () => {
       mockPrismaService.userProfile.findFirst.mockResolvedValue(null);
