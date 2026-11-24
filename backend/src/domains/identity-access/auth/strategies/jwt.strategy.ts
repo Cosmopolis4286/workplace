@@ -34,7 +34,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
   async validate(
     req: any,
-    payload: { sub: string; email: string; jti: string }
+    payload: { sub: string; email: string; jti: string; ver?: number }
   ) {
     const userId = payload?.sub;
     const jti = payload?.jti;
@@ -63,14 +63,26 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       );
     }
 
-    // 2. Validar usuario activo
-    const user = await this.usersService.findById(userId);
-    if (!user || !user.isActive) {
+    // 2. Read security-critical account state directly from the database.
+    // Cached user profiles must never keep a revoked token version alive.
+    const account = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isActive: true, authVersion: true },
+    });
+    if (!account || !account.isActive) {
       throw new UnauthorizedException('Usuario inactivo');
     }
+    if ((payload.ver ?? 0) !== account.authVersion) {
+      throw new UnauthorizedException('Token revocado. Inicia sesión nuevamente.');
+    }
 
-    // 3. Validar sesión activa si hay contexto de seguridad
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new UnauthorizedException('Usuario inactivo');
+
+    // 3. A session is identified by the signed JTI, never by User-Agent.
+    // This prevents two devices with the same browser signature colliding.
     if (req.securityContext) {
+      req.securityContext.sessionId = jti;
       await this.validateActiveSession(userId, req.securityContext);
 
       // 4. Validar User-Agent contra fingerprint almacenado
@@ -84,7 +96,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     userId: string,
     securityContext: any
   ): Promise<void> {
-    const sessionKey = `session:${userId}:${securityContext.deviceFingerprint}`;
+    const sessionKey = `session:${userId}:${securityContext.sessionId}`;
     const sessionData = await this.redis.get(sessionKey);
 
     if (!sessionData) {
