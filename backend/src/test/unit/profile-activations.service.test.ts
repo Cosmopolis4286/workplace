@@ -20,8 +20,6 @@ import { RoleResolverService } from '../../common/account-type/role-resolver.ser
 import { PLANS_FACADE } from '../../domains/money/plans/plans.facade';
 import { CommerceResolverService } from '../../common/commerce-resolver/commerce-resolver.service';
 
-// temporal: activar diagnóstico de Prettier
-
 describe('ProfileActivationsService', () => {
   let service: ProfileActivationsService;
   let mockPrismaService: any;
@@ -124,10 +122,10 @@ describe('ProfileActivationsService', () => {
     it('convierte una colisión concurrente del índice único en ConflictException', async () => {
       mockPrismaService.userProfile.findFirst.mockResolvedValue(null);
       mockPrismaService.userProfile.create.mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError(
-          'Unique constraint failed',
-          { code: 'P2002', clientVersion: 'test' }
-        )
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+        })
       );
 
       await expect(
@@ -149,10 +147,10 @@ describe('ProfileActivationsService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(existingCustomer);
       mockPrismaService.userProfile.create.mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError(
-          'Unique constraint failed',
-          { code: 'P2002', clientVersion: 'test' }
-        )
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+        })
       );
 
       await expect(service.ensureCustomerProfile(USER_ID)).resolves.toEqual(
@@ -401,10 +399,10 @@ describe('ProfileActivationsService', () => {
           status: ProfileStatus.ACTIVE,
         });
       mockPrismaService.userProfile.updateMany.mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError(
-          'Unique constraint failed',
-          { code: 'P2002', clientVersion: 'test' }
-        )
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+        })
       );
 
       await expect(
