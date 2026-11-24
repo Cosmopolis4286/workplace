@@ -76,12 +76,15 @@ describe('JWT authentication version', () => {
     );
 
     await expect(
-      strategy.validate({}, {
-        sub: 'user-1',
-        email: 'user@example.com',
-        jti: 'jti-1234567890123456',
-        ver: 0,
-      })
+      strategy.validate(
+        {},
+        {
+          sub: 'user-1',
+          email: 'user@example.com',
+          jti: 'jti-1234567890123456',
+          ver: 0,
+        }
+      )
     ).rejects.toThrow('ya no está activa');
   });
 
