@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { ProfileType, Role } from '@prisma/client';
+import { PERMISSION_KEY } from '../../common/decorators/require-permission.decorator';
+import { PROFILE_CONTEXT_KEY } from '../../common/decorators/require-profile-context.decorator';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { PermissionsService } from '../../domains/identity-access/permissions/permissions.service';
 
@@ -34,7 +36,7 @@ describe('PermissionsGuard', () => {
   });
 
   it('allows the request when no @RequirePermission metadata is set', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(undefined);
+    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation(() => undefined);
 
     const result = await guard.canActivate(
       makeContext({ id: 'u1', role: Role.PROFESIONAL })
@@ -45,7 +47,7 @@ describe('PermissionsGuard', () => {
   });
 
   it('bypasses SUPERADMIN without calling the service', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('orders:view');
+    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) => key === PERMISSION_KEY ? 'orders:view' : undefined);
 
     const result = await guard.canActivate(
       makeContext({ id: 'u1', role: Role.SUPERADMIN })
@@ -67,7 +69,8 @@ describe('PermissionsGuard', () => {
     expect(permissionsService.hasEffectivePermission).toHaveBeenCalledWith(
       'u1',
       Role.PROFESIONAL,
-      'orders:view'
+      'orders:view',
+      undefined
     );
   });
 
@@ -78,6 +81,26 @@ describe('PermissionsGuard', () => {
     await expect(
       guard.canActivate(makeContext({ id: 'u1', role: Role.PROFESIONAL }))
     ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('limits inherited profile permissions to the declared context', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) => {
+      if (key === PERMISSION_KEY) return 'settings:edit';
+      if (key === PROFILE_CONTEXT_KEY) return [ProfileType.PROFESSIONAL];
+      return undefined;
+    });
+    permissionsService.hasEffectivePermission.mockResolvedValue(true);
+
+    await guard.canActivate(
+      makeContext({ id: 'u1', role: Role.PROFESIONAL })
+    );
+
+    expect(permissionsService.hasEffectivePermission).toHaveBeenCalledWith(
+      'u1',
+      Role.PROFESIONAL,
+      'settings:edit',
+      [ProfileType.PROFESSIONAL]
+    );
   });
 
   it('returns false when there is no user on the request', async () => {
