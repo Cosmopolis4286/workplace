@@ -668,10 +668,9 @@ export class ProfileActivationsService {
         error.code === 'P2002' &&
         REQUIRES_APPROVAL.includes(profile.type)
       ) {
-        const conflicting =
-          await this.prisma.userProfile.findFirst({
-            where: conflictingProfileWhere,
-          });
+        const conflicting = await this.prisma.userProfile.findFirst({
+          where: conflictingProfileWhere,
+        });
         if (conflicting) {
           throw new ConflictException(
             `Ya existe un perfil de ${TYPE_LABEL[conflicting.type]} ${conflicting.status === ProfileStatus.PENDING ? 'en revisión' : 'activo'}. Resuelve esa solicitud antes de activar este perfil.`
