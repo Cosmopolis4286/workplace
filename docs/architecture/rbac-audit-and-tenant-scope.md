@@ -28,6 +28,35 @@ Los eventos se escriben en el JSON `AuditLog.details`; no se guardan contraseña
 
 `AuditService.log()` es actualmente best-effort: captura errores de persistencia para no interrumpir operaciones de negocio. Por tanto, esta fase mejora el detalle y la trazabilidad, pero **no convierte el historial en un registro transaccional o a prueba de manipulación**. Antes de usarlo como evidencia de cumplimiento o como registro financiero/legal, debe implementarse una escritura atómica con el cambio RBAC o un outbox transaccional, además de controles de retención y acceso de solo lectura.
 
+## Autorización contextual por perfil
+
+Los endpoints que representan una operación de un perfil concreto pueden declarar
+`@RequireProfileContext(ProfileType.PROFESSIONAL)` junto con
+`@RequirePermission(...)`.
+
+- `PermissionsGuard` conserva los permisos base de `RolePermission` y los
+  overrides globales de `UserPermission`, pero limita la parte heredada de
+  `ProfilePermission` a los tipos declarados por el endpoint.
+- `ProfileContextGuard` vuelve a leer `User.activeProfileId` desde PostgreSQL
+  y comprueba que apunta a un perfil del propio usuario, de tipo permitido y
+  en estado `ACTIVE`. No acepta IDs de perfil enviados en body, query o headers.
+- Si no se ha elegido contexto y existe exactamente un perfil compatible, se
+  usa ese perfil sin mutar la preferencia persistida. Si hay varios perfiles
+  compatibles o el contexto seleccionado apunta a otro tipo, la operación
+  responde HTTP 409 y exige elegir el contexto correcto.
+- Si no existe ningún perfil compatible, responde HTTP 403.
+
+La primera aplicación está en `settings/freelancer/*`, que ahora exige
+contexto `PROFESSIONAL`. Los endpoints de comercio y los demás dominios se
+migrarán de forma incremental, después de revisar sus reglas y consumidores;
+no se cambia el comportamiento de rutas no marcadas.
+
+Esta protección contextual **no equivale a aislamiento multi-tenant**. No
+autoriza empleados ni varios usuarios sobre un mismo comercio, ni reemplaza
+la futura `BusinessMembership`, ni añade filtros `commerceId/branchId` a
+consultas. Hasta implementar esa capa, el modelo sigue siendo propietario
+1:1 y no debe anunciarse como RBAC multi-comercio.
+
 ## Alcance por comercio y sucursal: decisión de arquitectura
 
 El esquema actual permite afirmar lo siguiente:
@@ -54,5 +83,6 @@ Por estas razones, **no se habilitan permisos por sucursal en esta fase**. Un fi
 - Cada cambio RBAC exitoso identifica al actor, alcance, objetivo, estado anterior y estado posterior.
 - Las operaciones masivas generan un evento con el conjunto completo de cambios.
 - La expiración y el motivo de overrides individuales quedan en el historial.
-- Se mantiene intacta la fuente de verdad y la lógica efectiva de autorización existente.
+- Se mantiene la precedencia existente de RolePermission → ProfilePermission → UserPermission, con el filtro contextual aplicado solo a ProfilePermission cuando el endpoint lo declara.
+- Los endpoints contextuales validan el perfil activo desde PostgreSQL y rechazan perfiles incompatibles.
 - No se presenta el RBAC global actual como si ya ofreciera aislamiento por comercio o sucursal.
