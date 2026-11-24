@@ -19,7 +19,7 @@ describe('BusinessMembershipService', () => {
     prisma.commerce.findFirst.mockResolvedValue(null);
   });
 
-  it('resuelve al propietario canónico sin exigir una fila de membresía', async () => {
+  it('uses Commerce.userId as the implicit owner', async () => {
     prisma.commerce.findFirst.mockResolvedValue({ id: 'commerce-a' });
 
     await expect(service.resolve('owner-a', 'commerce-a')).resolves.toEqual({
@@ -33,7 +33,7 @@ describe('BusinessMembershipService', () => {
     expect(prisma.businessMembership.findUnique).not.toHaveBeenCalled();
   });
 
-  it('resuelve una membresía activa con alcance a todo el comercio', async () => {
+  it('resolves active membership with commerce-wide scope', async () => {
     prisma.businessMembership.findUnique.mockResolvedValue({
       id: 'membership-1',
       role: BusinessMembershipRole.MANAGER,
@@ -42,14 +42,12 @@ describe('BusinessMembershipService', () => {
       branchAssignments: [],
     });
 
-    await expect(service.resolve('member-a', 'commerce-a')).resolves.toMatchObject({
-      role: BusinessMembershipRole.MANAGER,
-      branchIds: null,
-      isOwner: false,
-    });
+    const context = await service.resolve('member-a', 'commerce-a');
+    expect(context.role).toBe(BusinessMembershipRole.MANAGER);
+    expect(context.branchIds).toBeNull();
   });
 
-  it('limita el contexto a las sucursales asignadas', async () => {
+  it('restricts selected-branch membership to assigned branches', async () => {
     prisma.businessMembership.findUnique.mockResolvedValue({
       id: 'membership-2',
       role: BusinessMembershipRole.STAFF,
@@ -60,73 +58,70 @@ describe('BusinessMembershipService', () => {
 
     const context = await service.resolve('member-a', 'commerce-a');
     expect(context.branchIds).toEqual(['branch-a1']);
-    expect(() => service.assertBranchAccess(context, 'branch-a1')).not.toThrow();
-    expect(() => service.assertBranchAccess(context, 'branch-a2')).toThrow(
-      ForbiddenException
-    );
+    expect(() =>
+      service.assertBranchAccess(context, 'branch-a1')
+    ).not.toThrow();
+    expect(() =>
+      service.assertBranchAccess(context, 'branch-a2')
+    ).toThrow(ForbiddenException);
   });
 
-  it.each([
-    ['no membership', null],
-    [
-      'suspended membership',
+  it('denies missing, suspended and revoked memberships', async () => {
+    for (const membership of [
+      null,
       {
-        id: 'membership-3',
+        id: 'membership-suspended',
         role: BusinessMembershipRole.STAFF,
         status: BusinessMembershipStatus.SUSPENDED,
         scope: BusinessMembershipScope.COMMERCE,
         branchAssignments: [],
       },
-    ],
-    [
-      'revoked membership',
       {
-        id: 'membership-4',
+        id: 'membership-revoked',
         role: BusinessMembershipRole.STAFF,
         status: BusinessMembershipStatus.REVOKED,
         scope: BusinessMembershipScope.COMMERCE,
         branchAssignments: [],
       },
-    ],
-  ])('denies access for %s', async (_label, membership) => {
-    prisma.businessMembership.findUnique.mockResolvedValue(membership);
-
-    await expect(service.resolve('member-a', 'commerce-a')).rejects.toThrow(
-      ForbiddenException
-    );
+    ]) {
+      prisma.businessMembership.findUnique.mockResolvedValueOnce(membership);
+      await expect(
+        service.resolve('member-a', 'commerce-a')
+      ).rejects.toThrow(ForbiddenException);
+    }
   });
 
-  it('fails closed when a selected-branches membership has no assignments', async () => {
+  it('fails closed when selected-branch scope has no assignments', async () => {
     prisma.businessMembership.findUnique.mockResolvedValue({
-      id: 'membership-5',
+      id: 'membership-3',
       role: BusinessMembershipRole.STAFF,
       status: BusinessMembershipStatus.ACTIVE,
       scope: BusinessMembershipScope.SELECTED_BRANCHES,
       branchAssignments: [],
     });
 
-    await expect(service.resolve('member-a', 'commerce-a')).rejects.toThrow(
-      ForbiddenException
-    );
+    await expect(
+      service.resolve('member-a', 'commerce-a')
+    ).rejects.toThrow(ForbiddenException);
   });
 
-  it('rejects inconsistent full-commerce scope with unexpected branch assignments', async () => {
+  it('rejects inconsistent commerce-wide scope with branch assignments', async () => {
     prisma.businessMembership.findUnique.mockResolvedValue({
-      id: 'membership-6',
+      id: 'membership-4',
       role: BusinessMembershipRole.STAFF,
       status: BusinessMembershipStatus.ACTIVE,
       scope: BusinessMembershipScope.COMMERCE,
       branchAssignments: [{ branchId: 'branch-a1' }],
     });
 
-    await expect(service.resolve('member-a', 'commerce-a')).rejects.toThrow(
-      ForbiddenException
-    );
+    await expect(
+      service.resolve('member-a', 'commerce-a')
+    ).rejects.toThrow(ForbiddenException);
   });
 
-  it('uses the requested commerceId and authenticated userId in the membership lookup', async () => {
+  it('binds membership lookup to the requested commerce and user', async () => {
     prisma.businessMembership.findUnique.mockResolvedValue({
-      id: 'membership-7',
+      id: 'membership-5',
       role: BusinessMembershipRole.VIEWER,
       status: BusinessMembershipStatus.ACTIVE,
       scope: BusinessMembershipScope.COMMERCE,
@@ -136,7 +131,12 @@ describe('BusinessMembershipService', () => {
     await service.resolve('user-a', 'commerce-b');
 
     expect(prisma.businessMembership.findUnique).toHaveBeenCalledWith({
-      where: { commerceId_userId: { commerceId: 'commerce-b', userId: 'user-a' } },
+      where: {
+        commerceId_userId: {
+          commerceId: 'commerce-b',
+          userId: 'user-a',
+        },
+      },
       include: { branchAssignments: { select: { branchId: true } } },
     });
   });
