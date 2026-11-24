@@ -420,7 +420,7 @@ describe('ProfileActivationsService', () => {
         ).rejects.toBeInstanceOf(ConflictException);
         expect(mockCommerceResolver.ensureForUser).not.toHaveBeenCalled();
       }
-    );;
+    );
 
     it('bloquea la activación si el KYC del solicitante no está APPROVED', async () => {
       mockPrismaService.userProfile.findUnique.mockResolvedValue(
