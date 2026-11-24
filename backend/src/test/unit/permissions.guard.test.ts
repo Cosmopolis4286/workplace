@@ -39,110 +39,84 @@ describe('PermissionsGuard', () => {
     reflector = module.get<Reflector>(Reflector);
   });
 
-  it(
-    'allows the request when no @RequirePermission metadata is set',
-    async () => {
-      jest
-        .spyOn(reflector, 'getAllAndOverride')
-        .mockImplementation(() => undefined);
+  it('allows the request when no @RequirePermission metadata is set', async () => {
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation(() => undefined);
 
-      const result = await guard.canActivate(
-        makeContext({ id: 'u1', role: Role.PROFESIONAL })
+    const result = await guard.canActivate(
+      makeContext({ id: 'u1', role: Role.PROFESIONAL })
+    );
+
+    expect(result).toBe(true);
+    expect(permissionsService.hasEffectivePermission).not.toHaveBeenCalled();
+  });
+
+  it('bypasses SUPERADMIN without calling the service after context resolution', async () => {
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: string) =>
+        key === PERMISSION_KEY ? 'orders:view' : undefined
       );
 
-      expect(result).toBe(true);
-      expect(
-        permissionsService.hasEffectivePermission
-      ).not.toHaveBeenCalled();
-    }
-  );
+    const result = await guard.canActivate(
+      makeContext({ id: 'u1', role: Role.SUPERADMIN })
+    );
 
-  it(
-    'bypasses SUPERADMIN without calling the service after context resolution',
-    async () => {
-      jest
-        .spyOn(reflector, 'getAllAndOverride')
-        .mockImplementation((key: string) =>
-          key === PERMISSION_KEY ? 'orders:view' : undefined
-        );
+    expect(result).toBe(true);
+    expect(permissionsService.hasEffectivePermission).not.toHaveBeenCalled();
+  });
 
-      const result = await guard.canActivate(
-        makeContext({ id: 'u1', role: Role.SUPERADMIN })
+  it('calls hasEffectivePermission with the exact resolved profile ID', async () => {
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: string) => {
+        if (key === PERMISSION_KEY) return 'settings:edit';
+        if (key === PROFILE_CONTEXT_KEY) return [ProfileType.PROFESSIONAL];
+        return undefined;
+      });
+    permissionsService.hasEffectivePermission.mockResolvedValue(true);
+
+    const result = await guard.canActivate(
+      makeContext({ id: 'u1', role: Role.PROFESIONAL }, { id: 'profile-1' })
+    );
+
+    expect(result).toBe(true);
+    expect(permissionsService.hasEffectivePermission).toHaveBeenCalledWith(
+      'u1',
+      Role.PROFESIONAL,
+      'settings:edit',
+      'profile-1'
+    );
+  });
+
+  it('fails closed when a contextual permission has no resolved profile', async () => {
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: string) => {
+        if (key === PERMISSION_KEY) return 'settings:edit';
+        if (key === PROFILE_CONTEXT_KEY) return [ProfileType.PROFESSIONAL];
+        return undefined;
+      });
+
+    await expect(
+      guard.canActivate(makeContext({ id: 'u1', role: Role.PROFESIONAL }))
+    ).rejects.toThrow(ForbiddenException);
+    expect(permissionsService.hasEffectivePermission).not.toHaveBeenCalled();
+  });
+
+  it('throws ForbiddenException when the effective permission is denied', async () => {
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: string) =>
+        key === PERMISSION_KEY ? 'orders:view' : undefined
       );
+    permissionsService.hasEffectivePermission.mockResolvedValue(false);
 
-      expect(result).toBe(true);
-      expect(
-        permissionsService.hasEffectivePermission
-      ).not.toHaveBeenCalled();
-    }
-  );
-
-  it(
-    'calls hasEffectivePermission with the exact resolved profile ID',
-    async () => {
-      jest
-        .spyOn(reflector, 'getAllAndOverride')
-        .mockImplementation((key: string) => {
-          if (key === PERMISSION_KEY) return 'settings:edit';
-          if (key === PROFILE_CONTEXT_KEY)
-            return [ProfileType.PROFESSIONAL];
-          return undefined;
-        });
-      permissionsService.hasEffectivePermission.mockResolvedValue(true);
-
-      const result = await guard.canActivate(
-        makeContext(
-          { id: 'u1', role: Role.PROFESIONAL },
-          { id: 'profile-1' }
-        )
-      );
-
-      expect(result).toBe(true);
-      expect(permissionsService.hasEffectivePermission).toHaveBeenCalledWith(
-        'u1',
-        Role.PROFESIONAL,
-        'settings:edit',
-        'profile-1'
-      );
-    }
-  );
-
-  it(
-    'fails closed when a contextual permission has no resolved profile',
-    async () => {
-      jest
-        .spyOn(reflector, 'getAllAndOverride')
-        .mockImplementation((key: string) => {
-          if (key === PERMISSION_KEY) return 'settings:edit';
-          if (key === PROFILE_CONTEXT_KEY)
-            return [ProfileType.PROFESSIONAL];
-          return undefined;
-        });
-
-      await expect(
-        guard.canActivate(makeContext({ id: 'u1', role: Role.PROFESIONAL }))
-      ).rejects.toThrow(ForbiddenException);
-      expect(
-        permissionsService.hasEffectivePermission
-      ).not.toHaveBeenCalled();
-    }
-  );
-
-  it(
-    'throws ForbiddenException when the effective permission is denied',
-    async () => {
-      jest
-        .spyOn(reflector, 'getAllAndOverride')
-        .mockImplementation((key: string) =>
-          key === PERMISSION_KEY ? 'orders:view' : undefined
-        );
-      permissionsService.hasEffectivePermission.mockResolvedValue(false);
-
-      await expect(
-        guard.canActivate(makeContext({ id: 'u1', role: Role.PROFESIONAL }))
-      ).rejects.toThrow(ForbiddenException);
-    }
-  );
+    await expect(
+      guard.canActivate(makeContext({ id: 'u1', role: Role.PROFESIONAL }))
+    ).rejects.toThrow(ForbiddenException);
+  });
 
   it('returns false when there is no user on the request', async () => {
     jest
