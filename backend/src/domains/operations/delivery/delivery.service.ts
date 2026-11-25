@@ -306,11 +306,12 @@ export class DeliveryService {
 
   async inviteDriver(userId: string, dto: InviteDriverDto) {
     const commerceId = await this.getCommerceId(userId);
+    const normalizedEmail = dto.email.trim().toLowerCase();
 
     const existingPending = await this.prisma.driverInvitation.findFirst({
       where: {
         commerceId,
-        email: dto.email,
+        email: normalizedEmail,
         status: DriverInvitationStatus.PENDING,
       },
     });
@@ -329,7 +330,7 @@ export class DeliveryService {
       data: {
         token: uuidv4(),
         commerceId,
-        email: dto.email,
+        email: normalizedEmail,
         phone: dto.phone,
         name: dto.name,
         expiresAt: new Date(Date.now() + DRIVER_INVITATION_TTL_MS),
@@ -338,7 +339,7 @@ export class DeliveryService {
 
     this.mail
       .sendDriverInvitation(
-        dto.email,
+        normalizedEmail,
         commerce?.name ?? 'Un comercio',
         invitation.token
       )
@@ -459,6 +460,10 @@ export class DeliveryService {
           commerceId: invitation.commerceId,
           userId: acceptingUserId,
         },
+      });
+      await tx.driverInvitation.update({
+        where: { id: invitation.id },
+        data: { driverId: driver.id },
       });
       return {
         expired: false as const,
