@@ -256,6 +256,10 @@ describe('DeliveryService — driver invitations & assignability', () => {
       const result = await service.acceptInvitation('token-1', 'user-2');
 
       expect(result).toEqual(createdDriver);
+      expect(mockPrismaService.driverInvitation.update).toHaveBeenCalledWith({
+        where: { id: 'invite-1' },
+        data: { driverId: createdDriver.id },
+      });
       expect(
         mockNotificationsService.notifyDriverInvitationAccepted
       ).toHaveBeenCalledWith('commerce-1', createdDriver.name);
