@@ -317,9 +317,7 @@ describe('DeliveryService — driver invitations & assignability', () => {
       expect(mockPrismaService.driver.create).not.toHaveBeenCalled();
     });
 
-    it(
-      'rejects when the accepting account email is not verified',
-      async () => {
+    it('rejects an unverified invitation email', async () => {
       mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
         baseInvitation()
       );
@@ -340,9 +338,7 @@ describe('DeliveryService — driver invitations & assignability', () => {
       expect(mockPrismaService.driver.create).not.toHaveBeenCalled();
     });
 
-    it(
-      'rejects when the invitation claim update affects no rows',
-      async () => {
+    it('rejects a failed conditional invitation claim', async () => {
       mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
         baseInvitation()
       );
@@ -364,9 +360,7 @@ describe('DeliveryService — driver invitations & assignability', () => {
       expect(mockPrismaService.driver.create).not.toHaveBeenCalled();
     });
 
-    it(
-      'rejects when the accepting user is already linked to a driver profile',
-      async () => {
+    it('rejects an already-linked driver account', async () => {
       mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
         baseInvitation()
       );
