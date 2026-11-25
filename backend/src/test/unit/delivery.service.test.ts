@@ -98,6 +98,7 @@ describe('DeliveryService — driver invitations & assignability', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
       delivery: {
         findUnique: jest.fn(),
@@ -106,7 +107,11 @@ describe('DeliveryService — driver invitations & assignability', () => {
       user: {
         findUnique: jest.fn(),
       },
-      $transaction: jest.fn(),
+      $transaction: jest.fn(async (operation: any) =>
+        typeof operation === 'function'
+          ? operation(mockPrismaService)
+          : Promise.all(operation)
+      ),
     };
 
     mockNotificationsService = {
@@ -234,21 +239,27 @@ describe('DeliveryService — driver invitations & assignability', () => {
       mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
         baseInvitation()
       );
+      mockPrismaService.driverInvitation.updateMany.mockResolvedValue({
+        count: 1,
+      });
       mockPrismaService.driver.findUnique.mockResolvedValue(null); // no existing profile for this user
       mockPrismaService.user.findUnique.mockResolvedValue({
         firstName: 'Juan',
         lastName: 'Pérez',
         phone: '+58123',
+        email: 'driver@example.com',
+        emailVerified: true,
       });
       const createdDriver = baseDriver({ userId: 'user-2' });
-      mockPrismaService.$transaction.mockResolvedValue([
-        createdDriver,
-        baseInvitation({ status: 'ACCEPTED' }),
-      ]);
+      mockPrismaService.driver.create.mockResolvedValue(createdDriver);
 
       const result = await service.acceptInvitation('token-1', 'user-2');
 
       expect(result).toEqual(createdDriver);
+      expect(mockPrismaService.driverInvitation.update).toHaveBeenCalledWith({
+        where: { id: 'invite-1' },
+        data: { driverId: createdDriver.id },
+      });
       expect(
         mockNotificationsService.notifyDriverInvitationAccepted
       ).toHaveBeenCalledWith('commerce-1', createdDriver.name);
@@ -266,21 +277,100 @@ describe('DeliveryService — driver invitations & assignability', () => {
       mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
         baseInvitation({ expiresAt: new Date(Date.now() - 1000) })
       );
-      mockPrismaService.driverInvitation.update.mockResolvedValue(undefined);
+      mockPrismaService.driverInvitation.updateMany.mockResolvedValue({
+        count: 1,
+      });
 
       await expect(
         service.acceptInvitation('token-1', 'user-2')
       ).rejects.toThrow(BadRequestException);
-      expect(mockPrismaService.driverInvitation.update).toHaveBeenCalledWith({
-        where: { id: 'invite-1' },
+      expect(
+        mockPrismaService.driverInvitation.updateMany
+      ).toHaveBeenCalledWith({
+        where: {
+          id: 'invite-1',
+          status: 'PENDING',
+          expiresAt: { lte: expect.any(Date) },
+        },
         data: { status: 'EXPIRED' },
       });
     });
 
-    it('rejects when the accepting user is already linked to a driver profile', async () => {
+    it('rejects when the verified account email does not match the invitation', async () => {
       mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
         baseInvitation()
       );
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        firstName: 'Intruso',
+        lastName: 'Example',
+        phone: null,
+        email: 'attacker@example.com',
+        emailVerified: true,
+      });
+
+      await expect(
+        service.acceptInvitation('token-1', 'user-2')
+      ).rejects.toThrow(ForbiddenException);
+      expect(
+        mockPrismaService.driverInvitation.updateMany
+      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.driver.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unverified invitation email', async () => {
+      mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
+        baseInvitation()
+      );
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        firstName: 'Juan',
+        lastName: 'Pérez',
+        phone: '+58123',
+        email: 'driver@example.com',
+        emailVerified: false,
+      });
+
+      await expect(
+        service.acceptInvitation('token-1', 'user-2')
+      ).rejects.toThrow(ForbiddenException);
+      expect(
+        mockPrismaService.driverInvitation.updateMany
+      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.driver.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a failed conditional invitation claim', async () => {
+      mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
+        baseInvitation()
+      );
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        firstName: 'Juan',
+        lastName: 'Pérez',
+        phone: '+58123',
+        email: 'driver@example.com',
+        emailVerified: true,
+      });
+      mockPrismaService.driver.findUnique.mockResolvedValue(null);
+      mockPrismaService.driverInvitation.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(
+        service.acceptInvitation('token-1', 'user-2')
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.driver.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an already-linked driver account', async () => {
+      mockPrismaService.driverInvitation.findUnique.mockResolvedValue(
+        baseInvitation()
+      );
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        firstName: 'Juan',
+        lastName: 'Pérez',
+        phone: '+58123',
+        email: 'driver@example.com',
+        emailVerified: true,
+      });
       mockPrismaService.driver.findUnique.mockResolvedValue(
         baseDriver({ userId: 'user-2' })
       );

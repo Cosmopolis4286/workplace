@@ -306,11 +306,12 @@ export class DeliveryService {
 
   async inviteDriver(userId: string, dto: InviteDriverDto) {
     const commerceId = await this.getCommerceId(userId);
+    const normalizedEmail = dto.email.trim().toLowerCase();
 
     const existingPending = await this.prisma.driverInvitation.findFirst({
       where: {
         commerceId,
-        email: dto.email,
+        email: { equals: normalizedEmail, mode: 'insensitive' },
         status: DriverInvitationStatus.PENDING,
       },
     });
@@ -329,7 +330,7 @@ export class DeliveryService {
       data: {
         token: uuidv4(),
         commerceId,
-        email: dto.email,
+        email: normalizedEmail,
         phone: dto.phone,
         name: dto.name,
         expiresAt: new Date(Date.now() + DRIVER_INVITATION_TTL_MS),
@@ -338,7 +339,7 @@ export class DeliveryService {
 
     this.mail
       .sendDriverInvitation(
-        dto.email,
+        normalizedEmail,
         commerce?.name ?? 'Un comercio',
         invitation.token
       )
@@ -370,65 +371,119 @@ export class DeliveryService {
   // la invitación con el token. Se crea el Driver vinculado a su userId —
   // sin periodo de gracia, porque nace ya con cuenta propia.
   async acceptInvitation(token: string, acceptingUserId: string) {
-    const invitation = await this.prisma.driverInvitation.findUnique({
-      where: { token },
-    });
-    if (!invitation)
-      throw new NotFoundException(this.i18n.t('delivery.invitation.not_found'));
-    if (invitation.status !== DriverInvitationStatus.PENDING) {
-      throw new BadRequestException(
-        this.i18n.t('delivery.invitation.no_longer_available')
-      );
-    }
-    if (invitation.expiresAt < new Date()) {
-      await this.prisma.driverInvitation.update({
-        where: { id: invitation.id },
-        data: { status: DriverInvitationStatus.EXPIRED },
+    const now = new Date();
+
+    // Claim the invitation and create the Driver in one transaction. The
+    // conditional update is the single-use gate: concurrent requests may
+    // both read PENDING, but only one can transition PENDING -> ACCEPTED.
+    const result = await this.prisma.$transaction(async (tx) => {
+      const invitation = await tx.driverInvitation.findUnique({
+        where: { token },
       });
-      throw new BadRequestException(this.i18n.t('delivery.invitation.expired'));
-    }
+      if (!invitation) {
+        throw new NotFoundException(
+          this.i18n.t('delivery.invitation.not_found')
+        );
+      }
+      if (invitation.status !== DriverInvitationStatus.PENDING) {
+        throw new BadRequestException(
+          this.i18n.t('delivery.invitation.no_longer_available')
+        );
+      }
+      if (invitation.expiresAt <= now) {
+        await tx.driverInvitation.updateMany({
+          where: {
+            id: invitation.id,
+            status: DriverInvitationStatus.PENDING,
+            expiresAt: { lte: now },
+          },
+          data: { status: DriverInvitationStatus.EXPIRED },
+        });
+        return { expired: true as const };
+      }
 
-    const existingDriverProfile = await this.prisma.driver.findUnique({
-      where: { userId: acceptingUserId },
-    });
-    if (existingDriverProfile) {
-      throw new BadRequestException(
-        this.i18n.t('delivery.invitation.already_linked')
-      );
-    }
+      const user = await tx.user.findUnique({
+        where: { id: acceptingUserId },
+        select: {
+          firstName: true,
+          lastName: true,
+          phone: true,
+          email: true,
+          emailVerified: true,
+        },
+      });
+      if (!user) {
+        throw new NotFoundException(
+          this.i18n.t('delivery.invitation.user_not_found')
+        );
+      }
+      if (
+        !user.emailVerified ||
+        user.email.trim().toLowerCase() !==
+          invitation.email.trim().toLowerCase()
+      ) {
+        throw new ForbiddenException(
+          'La invitación solo puede aceptarse desde una cuenta con el correo invitado verificado'
+        );
+      }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: acceptingUserId },
-      select: { firstName: true, lastName: true, phone: true },
-    });
-    if (!user)
-      throw new NotFoundException(
-        this.i18n.t('delivery.invitation.user_not_found')
-      );
+      const existingDriverProfile = await tx.driver.findUnique({
+        where: { userId: acceptingUserId },
+      });
+      if (existingDriverProfile) {
+        throw new BadRequestException(
+          this.i18n.t('delivery.invitation.already_linked')
+        );
+      }
 
-    const [driver] = await this.prisma.$transaction([
-      this.prisma.driver.create({
+      const claimedAt = new Date();
+      const claimed = await tx.driverInvitation.updateMany({
+        where: {
+          id: invitation.id,
+          status: DriverInvitationStatus.PENDING,
+          expiresAt: { gt: claimedAt },
+        },
+        data: {
+          status: DriverInvitationStatus.ACCEPTED,
+          acceptedAt: claimedAt,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException(
+          this.i18n.t('delivery.invitation.no_longer_available')
+        );
+      }
+
+      const driver = await tx.driver.create({
         data: {
           name: invitation.name || `${user.firstName} ${user.lastName}`.trim(),
           phone: invitation.phone || user.phone || undefined,
           commerceId: invitation.commerceId,
           userId: acceptingUserId,
         },
-      }),
-      this.prisma.driverInvitation.update({
+      });
+      await tx.driverInvitation.update({
         where: { id: invitation.id },
-        data: {
-          status: DriverInvitationStatus.ACCEPTED,
-          acceptedAt: new Date(),
-        },
-      }),
-    ]);
+        data: { driverId: driver.id },
+      });
+      return {
+        expired: false as const,
+        driver,
+        commerceId: invitation.commerceId,
+      };
+    });
+
+    if (result.expired) {
+      throw new BadRequestException(
+        this.i18n.t('delivery.invitation.expired')
+      );
+    }
 
     this.notifications
-      .notifyDriverInvitationAccepted(invitation.commerceId, driver.name)
+      .notifyDriverInvitationAccepted(result.commerceId, result.driver.name)
       .catch(() => null);
 
-    return driver;
+    return result.driver;
   }
 
   async updateDriver(userId: string, driverId: string, dto: UpdateDriverDto) {
