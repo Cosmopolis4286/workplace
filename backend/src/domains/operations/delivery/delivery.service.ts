@@ -460,11 +460,17 @@ export class DeliveryService {
           userId: acceptingUserId,
         },
       });
-      return { expired: false as const, driver, commerceId: invitation.commerceId };
+      return {
+        expired: false as const,
+        driver,
+        commerceId: invitation.commerceId,
+      };
     });
 
     if (result.expired) {
-      throw new BadRequestException(this.i18n.t('delivery.invitation.expired'));
+      throw new BadRequestException(
+        this.i18n.t('delivery.invitation.expired')
+      );
     }
 
     this.notifications
