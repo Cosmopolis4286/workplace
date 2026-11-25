@@ -311,7 +311,7 @@ export class DeliveryService {
     const existingPending = await this.prisma.driverInvitation.findFirst({
       where: {
         commerceId,
-        email: normalizedEmail,
+        email: { equals: normalizedEmail, mode: 'insensitive' },
         status: DriverInvitationStatus.PENDING,
       },
     });
