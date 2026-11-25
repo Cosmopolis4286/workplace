@@ -436,15 +436,16 @@ export class DeliveryService {
         );
       }
 
+      const claimedAt = new Date();
       const claimed = await tx.driverInvitation.updateMany({
         where: {
           id: invitation.id,
           status: DriverInvitationStatus.PENDING,
-          expiresAt: { gt: now },
+          expiresAt: { gt: claimedAt },
         },
         data: {
           status: DriverInvitationStatus.ACCEPTED,
-          acceptedAt: now,
+          acceptedAt: claimedAt,
         },
       });
       if (claimed.count !== 1) {
