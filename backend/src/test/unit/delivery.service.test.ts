@@ -107,7 +107,11 @@ describe('DeliveryService — driver invitations & assignability', () => {
       user: {
         findUnique: jest.fn(),
       },
-      $transaction: jest.fn(async (operation: any) => typeof operation === 'function' ? operation(mockPrismaService) : Promise.all(operation)),
+      $transaction: jest.fn(async (operation: any) =>
+        typeof operation === 'function'
+          ? operation(mockPrismaService)
+          : Promise.all(operation)
+      ),
     };
 
     mockNotificationsService = {
