@@ -276,7 +276,9 @@ describe('DeliveryService — driver invitations & assignability', () => {
       await expect(
         service.acceptInvitation('token-1', 'user-2')
       ).rejects.toThrow(BadRequestException);
-      expect(mockPrismaService.driverInvitation.updateMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.driverInvitation.updateMany
+      ).toHaveBeenCalledWith({
         where: {
           id: 'invite-1',
           status: 'PENDING',
@@ -301,7 +303,9 @@ describe('DeliveryService — driver invitations & assignability', () => {
       await expect(
         service.acceptInvitation('token-1', 'user-2')
       ).rejects.toThrow(ForbiddenException);
-      expect(mockPrismaService.driverInvitation.updateMany).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.driverInvitation.updateMany
+      ).not.toHaveBeenCalled();
       expect(mockPrismaService.driver.create).not.toHaveBeenCalled();
     });
 
